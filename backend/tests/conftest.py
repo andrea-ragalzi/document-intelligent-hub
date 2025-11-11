@@ -17,7 +17,8 @@ def mock_openai():
     Mock OpenAI API calls for all tests.
     """
     with patch("app.services.rag_service.ChatOpenAI") as mock_chat, \
-         patch("app.db.chroma_client.OpenAIEmbeddings") as mock_embeddings:
+         patch("app.db.chroma_client.OpenAIEmbeddings") as mock_embeddings, \
+         patch("app.services.rag_service.OpenAI") as mock_openai_client:
         
         # Mock ChatOpenAI
         mock_llm = Mock()
@@ -30,9 +31,17 @@ def mock_openai():
         mock_embed.embed_query.return_value = [0.1] * 1536
         mock_embeddings.return_value = mock_embed
         
+        # Mock OpenAI client (for direct API calls)
+        mock_client = Mock()
+        mock_completion = Mock()
+        mock_completion.choices = [Mock(message=Mock(content="translated query"))]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_openai_client.return_value = mock_client
+        
         yield {
             "chat": mock_chat,
-            "embeddings": mock_embeddings
+            "embeddings": mock_embeddings,
+            "openai_client": mock_openai_client
         }
 
 
