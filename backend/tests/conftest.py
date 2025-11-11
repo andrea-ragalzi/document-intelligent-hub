@@ -17,7 +17,7 @@ def mock_openai():
     Mock OpenAI API calls for all tests.
     """
     with patch("app.services.rag_service.ChatOpenAI") as mock_chat, \
-         patch("app.services.rag_service.OpenAIEmbeddings") as mock_embeddings:
+         patch("app.db.chroma_client.OpenAIEmbeddings") as mock_embeddings:
         
         # Mock ChatOpenAI
         mock_llm = Mock()
