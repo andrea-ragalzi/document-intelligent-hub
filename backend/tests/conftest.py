@@ -16,32 +16,35 @@ def mock_openai():
     """
     Mock OpenAI API calls for all tests.
     """
-    with patch("app.services.rag_service.ChatOpenAI") as mock_chat, \
-         patch("app.db.chroma_client.OpenAIEmbeddings") as mock_embeddings, \
-         patch("app.services.rag_service.OpenAI") as mock_openai_client:
+    # Mock at the lowest level - the actual API call methods
+    with patch("langchain_openai.ChatOpenAI.invoke") as mock_llm_invoke, \
+         patch("langchain_openai.OpenAIEmbeddings.embed_documents") as mock_embed_docs, \
+         patch("langchain_openai.OpenAIEmbeddings.embed_query") as mock_embed_query, \
+         patch("openai.resources.chat.completions.Completions.create") as mock_openai_create:
         
-        # Mock ChatOpenAI
-        mock_llm = Mock()
-        mock_llm.invoke.return_value.content = "This is a mocked answer based on the document content."
-        mock_chat.return_value = mock_llm
+        # Mock LangChain ChatOpenAI.invoke
+        mock_response = Mock()
+        mock_response.content = "This is a mocked answer based on the document content."
+        mock_llm_invoke.return_value = mock_response
         
-        # Mock OpenAIEmbeddings
-        mock_embed = Mock()
-        mock_embed.embed_documents.return_value = [[0.1] * 1536]
-        mock_embed.embed_query.return_value = [0.1] * 1536
-        mock_embeddings.return_value = mock_embed
+        # Mock OpenAIEmbeddings methods
+        mock_embed_docs.return_value = [[0.1] * 1536]
+        mock_embed_query.return_value = [0.1] * 1536
         
-        # Mock OpenAI client (for direct API calls)
-        mock_client = Mock()
+        # Mock OpenAI client completions.create
         mock_completion = Mock()
-        mock_completion.choices = [Mock(message=Mock(content="translated query"))]
-        mock_client.chat.completions.create.return_value = mock_completion
-        mock_openai_client.return_value = mock_client
+        mock_choice = Mock()
+        mock_message = Mock()
+        mock_message.content = "translated query"
+        mock_choice.message = mock_message
+        mock_completion.choices = [mock_choice]
+        mock_openai_create.return_value = mock_completion
         
         yield {
-            "chat": mock_chat,
-            "embeddings": mock_embeddings,
-            "openai_client": mock_openai_client
+            "llm_invoke": mock_llm_invoke,
+            "embed_docs": mock_embed_docs,
+            "embed_query": mock_embed_query,
+            "openai_create": mock_openai_create
         }
 
 
