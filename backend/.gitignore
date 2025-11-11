@@ -1,0 +1,16 @@
+# Ambienti virtuali Poetry/venv
+.venv
+
+# Variabili d'ambiente (Non commettere le chiavi!)
+.env
+
+# Database e cache locali (ChromaDB)
+chroma_db/
+
+# File specifici di Python
+__pycache__/
+*.pyc
+
+# Log e cache di sistema
+*.log
+.DS_Store

@@ -1,0 +1,60 @@
+{
+  // Python Testing Configuration (Backend)
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.testing.autoTestDiscoverOnSaveEnabled": true,
+  "python.testing.cwd": "${workspaceFolder}/backend",
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": false,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "python.analysis.extraPaths": ["${workspaceFolder}/backend"],
+  "python.envFile": "${workspaceFolder}/backend/.env",
+
+  // Vitest Configuration (Frontend)
+  "vitest.enable": true,
+  "vitest.commandLine": "npm test --",
+  "vitest.rootConfig": "${workspaceFolder}/frontend/vitest.config.ts",
+  "vitest.workspaceConfig": "${workspaceFolder}/frontend/vitest.config.ts",
+  "vitest.coverage.enabled": true,
+  "vitest.coverage.provider": "v8",
+  "vitest.coverage.reportsDirectory": "${workspaceFolder}/frontend/coverage",
+
+  // Test Explorer
+  "testExplorer.useNativeTesting": true,
+
+  // TypeScript/JavaScript
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  // Coverage Gutters Configuration
+  "coverage-gutters.coverageFileNames": [
+    "lcov.info",
+    "cov.xml",
+    "coverage.xml",
+    "jacoco.xml",
+    "coverage.lcov"
+  ],
+  "coverage-gutters.coverageBaseDir": "**",
+  "coverage-gutters.showLineCoverage": true,
+  "coverage-gutters.showRulerCoverage": true,
+  "coverage-gutters.showGutterCoverage": true,
+  "coverage-gutters.highlightdark": "rgba(0, 128, 0, 0.3)",
+  "coverage-gutters.noHighlightDark": "rgba(255, 0, 0, 0.3)",
+  "coverage-gutters.partialHighlightDark": "rgba(255, 255, 0, 0.3)",
+  "coverage-gutters.manualCoverageFilePaths": [
+    "${workspaceFolder}/backend/coverage.lcov",
+    "${workspaceFolder}/frontend/coverage/lcov.info"
+  ]
+}

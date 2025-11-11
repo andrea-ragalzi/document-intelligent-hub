@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # Backend FastAPI Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: document-hub-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # OpenAI API Key (required)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Application settings
+      - APP_NAME=Document Intelligent Hub
+      - PROJECT_NAME=Document Intelligent Hub Backend
+      - VERSION=1.0.0
+      # RAG Configuration
+      - CHROMA_DB_PATH=/app/chroma_db
+      - EMBEDDING_MODEL=text-embedding-ada-002
+      - LLM_MODEL=gpt-3.5-turbo
+      # Python settings
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    volumes:
+      # Persist ChromaDB data
+      - chroma_data:/app/chroma_db
+      # Mount uploads directory (if needed)
+      - ./backend/uploads:/app/uploads
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/', timeout=2)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Frontend Next.js Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: document-hub-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # API URL - points to backend service
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:8000/rag
+      - NODE_ENV=production
+      - PORT=3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Named volumes for data persistence
+volumes:
+  chroma_data:
+    driver: local
+
+# Network for inter-service communication
+networks:
+  app-network:
+    driver: bridge
