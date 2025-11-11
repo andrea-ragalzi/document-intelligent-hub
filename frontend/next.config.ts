@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone', // For Docker deployment
+  output: "standalone", // For Docker deployment
   experimental: {
     // Optimize for production
   },
