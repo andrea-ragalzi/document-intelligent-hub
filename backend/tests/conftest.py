@@ -2,11 +2,38 @@
 Pytest configuration and fixtures for backend tests.
 """
 
+import os
+import tempfile
+from unittest.mock import Mock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 from main import app
-import os
-import tempfile
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_openai():
+    """
+    Mock OpenAI API calls for all tests.
+    """
+    with patch("app.services.rag_service.ChatOpenAI") as mock_chat, \
+         patch("app.services.rag_service.OpenAIEmbeddings") as mock_embeddings:
+        
+        # Mock ChatOpenAI
+        mock_llm = Mock()
+        mock_llm.invoke.return_value.content = "This is a mocked answer based on the document content."
+        mock_chat.return_value = mock_llm
+        
+        # Mock OpenAIEmbeddings
+        mock_embed = Mock()
+        mock_embed.embed_documents.return_value = [[0.1] * 1536]
+        mock_embed.embed_query.return_value = [0.1] * 1536
+        mock_embeddings.return_value = mock_embed
+        
+        yield {
+            "chat": mock_chat,
+            "embeddings": mock_embeddings
+        }
 
 
 @pytest.fixture(scope="module")
