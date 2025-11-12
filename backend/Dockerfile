@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy dependency files and minimal app structure for editable install
+COPY pyproject.toml README.md ./
+COPY app/__init__.py app/__init__.py
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
