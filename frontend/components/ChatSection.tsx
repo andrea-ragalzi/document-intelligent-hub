@@ -33,16 +33,16 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
       <header className="p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 rounded-t-2xl flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center">
           <MessageSquare size={20} className="mr-2 text-blue-600" />
-          Assistente Chat RAG
+          RAG Chat Assistant
         </h2>
         <button
           onClick={onNewConversation}
           disabled={chatHistory.length === 0}
-          title="Nuova conversazione"
+          title="New conversation"
           className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2 text-sm font-medium"
         >
           <PlusCircle size={16} />
-          Nuova
+          New
         </button>
       </header>
       <div className="flex-grow p-6 overflow-y-auto h-[70vh] min-h-[400px] bg-gray-50 dark:bg-gray-900/50">
@@ -50,10 +50,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
           <div className="text-center p-12 text-gray-400">
             <MessageSquare size={64} className="mx-auto mb-4 text-blue-200" />
             <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
-              Pronto per la ricerca.
+              Ready to search.
             </p>
             <p className="text-sm dark:text-gray-400">
-              Indicizza un file e fai la tua prima domanda.
+              Index a file and ask your first question.
             </p>
           </div>
         ) : (
@@ -73,7 +73,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             disabled={isQuerying || !userId}
-            placeholder="Digita la tua domanda qui..."
+            placeholder="Type your question here..."
             className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-inner disabled:bg-gray-100 transition text-sm
               bg-white dark:bg-gray-900 dark:border-gray-600 dark:text-white disabled:dark:bg-gray-700"
           />

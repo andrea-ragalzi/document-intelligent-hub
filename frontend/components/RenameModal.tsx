@@ -23,12 +23,12 @@ export const RenameModal: React.FC<RenameModalProps> = ({
     setError("");
 
     if (!newName.trim()) {
-      setError("Inserisci un nome valido.");
+      setError("Enter a valid name.");
       return;
     }
 
     if (newName.trim() === currentName) {
-      setError("Il nome è uguale a quello attuale.");
+      setError("Name is the same as current.");
       return;
     }
 
@@ -40,7 +40,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
       onClose();
       setNewName("");
     } else {
-      setError("Errore durante la rinomina.");
+      setError("Error renaming conversation.");
     }
   };
 
@@ -60,8 +60,8 @@ export const RenameModal: React.FC<RenameModalProps> = ({
       >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <Edit size={20} className="mr-2 text-blue-600" /> Rinomina
-            Conversazione
+            <Edit size={20} className="mr-2 text-blue-600" /> Rename
+            Conversation
           </h3>
           <button
             type="button"
@@ -73,7 +73,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
         </div>
 
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Nome attuale: <span className="font-semibold">{currentName}</span>
+          Current name: <span className="font-semibold">{currentName}</span>
         </p>
 
         {error && (
@@ -90,7 +90,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="Nuovo nome della conversazione"
+          placeholder="New conversation name"
           className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-inner dark:bg-gray-900 dark:border-gray-600 dark:text-white text-sm"
           required
           autoFocus
@@ -101,11 +101,11 @@ export const RenameModal: React.FC<RenameModalProps> = ({
           className="mt-4 w-full flex justify-center items-center py-3 px-4 text-sm font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200 shadow-md"
         >
           {isSubmitting ? (
-            <>Salvando...</>
+            <>Saving...</>
           ) : (
             <>
               <Edit size={18} className="mr-2" />
-              Rinomina
+              Rename
             </>
           )}
         </button>

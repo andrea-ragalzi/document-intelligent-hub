@@ -1,8 +1,8 @@
 /**
- * TanStack Query hooks per gestire le conversazioni con Firestore
+ * TanStack Query hooks to manage conversations with Firestore
  *
- * Questo file sostituisce useConversations.ts con una gestione
- * più robusta dello stato del server tramite TanStack Query.
+ * This file replaces useConversations.ts with more robust
+ * server state management through TanStack Query.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,7 +15,7 @@ import {
   updateConversationHistoryInFirestore,
 } from "@/lib/conversationsService";
 
-// Query keys per TanStack Query
+// Query keys for TanStack Query
 export const conversationKeys = {
   all: ["conversations"] as const,
   byUser: (userId: string) => ["conversations", userId] as const,
@@ -23,12 +23,12 @@ export const conversationKeys = {
 };
 
 /**
- * Hook per caricare tutte le conversazioni di un utente
+ * Hook to load all conversations for a user
  *
  * Features:
- * - Auto-refetch quando la query diventa stale
- * - Cache automatica
- * - Loading e error states gestiti
+ * - Auto-refetch when query becomes stale
+ * - Automatic caching
+ * - Managed loading and error states
  */
 export function useConversationsQuery(userId: string | null) {
   return useQuery({
@@ -37,18 +37,18 @@ export function useConversationsQuery(userId: string | null) {
       if (!userId) throw new Error("User ID required");
       return loadConversationsFromFirestore(userId);
     },
-    enabled: !!userId, // Esegui solo se userId è presente
-    staleTime: 30 * 1000, // 30 secondi
+    enabled: !!userId, // Only execute if userId is present
+    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
 /**
- * Mutation per creare una nuova conversazione
+ * Mutation to create a new conversation
  *
  * Features:
- * - Optimistic update (aggiunge subito alla cache)
- * - Rollback automatico in caso di errore
- * - Invalida e refetch dopo successo
+ * - Optimistic update (adds to cache immediately)
+ * - Automatic rollback on error
+ * - Invalidates and refetches after success
  */
 export function useCreateConversation(userId: string | null) {
   const queryClient = useQueryClient();
@@ -77,7 +77,7 @@ export function useCreateConversation(userId: string | null) {
         SavedConversation[]
       >(conversationKeys.byUser(userId || ""));
 
-      // Optimistic update: aggiungi conversazione temporanea
+      // Optimistic update: add temporary conversation
       queryClient.setQueryData<SavedConversation[]>(
         conversationKeys.byUser(userId || ""),
         (old) => {
@@ -85,7 +85,7 @@ export function useCreateConversation(userId: string | null) {
             id: "temp-" + Date.now(),
             userId: userId || "",
             name: newConversation.name,
-            timestamp: new Date().toLocaleString("it-IT"),
+            timestamp: new Date().toLocaleString("en-US"),
             history: newConversation.history,
           };
           return [tempConv, ...(old || [])];
@@ -95,7 +95,7 @@ export function useCreateConversation(userId: string | null) {
       return { previousConversations };
     },
 
-    // Rollback in caso di errore
+    // Rollback on error
     onError: (err, newConversation, context) => {
       console.error("❌ Error creating conversation:", err);
       if (context?.previousConversations) {
@@ -106,7 +106,7 @@ export function useCreateConversation(userId: string | null) {
       }
     },
 
-    // Refetch dopo successo
+    // Refetch after success
     onSuccess: (data) => {
       console.log("✅ Conversation created:", data.id);
       queryClient.invalidateQueries({
@@ -117,7 +117,7 @@ export function useCreateConversation(userId: string | null) {
 }
 
 /**
- * Mutation per aggiornare il nome di una conversazione
+ * Mutation to update conversation name
  */
 export function useUpdateConversationName(userId: string | null) {
   const queryClient = useQueryClient();
@@ -167,7 +167,7 @@ export function useUpdateConversationName(userId: string | null) {
 }
 
 /**
- * Mutation per aggiornare la history di una conversazione (auto-save)
+ * Mutation to update conversation history (auto-save)
  */
 export function useUpdateConversationHistory(userId: string | null) {
   const queryClient = useQueryClient();
@@ -209,7 +209,7 @@ export function useUpdateConversationHistory(userId: string | null) {
     // Non fare refetch per auto-save (troppo costoso)
     onSuccess: (_, variables) => {
       console.log("✅ Conversation history updated:", variables.id);
-      // Invalida ma non refetch automaticamente
+      // Invalidate but don't refetch automatically
       queryClient.invalidateQueries({
         queryKey: conversationKeys.byUser(userId || ""),
         refetchType: "none",
@@ -219,7 +219,7 @@ export function useUpdateConversationHistory(userId: string | null) {
 }
 
 /**
- * Mutation per eliminare una conversazione
+ * Mutation to delete a conversation
  */
 export function useDeleteConversation(userId: string | null) {
   const queryClient = useQueryClient();

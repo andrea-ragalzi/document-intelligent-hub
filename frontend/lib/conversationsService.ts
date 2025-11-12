@@ -1,6 +1,6 @@
 /**
  * Firestore Conversations Service
- * Gestisce il salvataggio e il caricamento delle conversazioni su Firebase Firestore
+ * Manages saving and loading conversations to/from Firebase Firestore
  */
 
 import {
@@ -12,7 +12,7 @@ import {
   doc,
   query,
   where,
-  // orderBy, // Commentato temporaneamente fino a quando non creiamo l'indice
+  // orderBy, // Temporarily commented until we create the index
   Timestamp,
   serverTimestamp,
 } from "firebase/firestore";
@@ -22,7 +22,7 @@ import type { SavedConversation, ChatMessage } from "./types";
 const CONVERSATIONS_COLLECTION = "conversations";
 
 /**
- * Salva una nuova conversazione su Firestore
+ * Save a new conversation to Firestore
  */
 export async function saveConversationToFirestore(
   userId: string,
@@ -63,7 +63,7 @@ export async function saveConversationToFirestore(
         id: docRef.id,
         userId,
         name,
-        timestamp: new Date().toLocaleString("it-IT"),
+        timestamp: new Date().toLocaleString("en-US"),
         history,
       };
     } catch (addError: unknown) {
@@ -83,7 +83,7 @@ export async function saveConversationToFirestore(
 }
 
 /**
- * Carica tutte le conversazioni di un utente da Firestore
+ * Load all conversations for a user from Firestore
  */
 export async function loadConversationsFromFirestore(
   userId: string
@@ -91,12 +91,12 @@ export async function loadConversationsFromFirestore(
   console.log("📥 Loading conversations from Firestore for user:", userId);
 
   try {
-    // Query semplificata senza orderBy per evitare l'indice
-    // TODO: Aggiungere orderBy quando l'indice sarà creato
+    // Simplified query without orderBy to avoid index requirement
+    // TODO: Add orderBy when index is created
     const q = query(
       collection(db, CONVERSATIONS_COLLECTION),
       where("userId", "==", userId)
-      // orderBy("createdAt", "desc") // Commentato temporaneamente
+      // orderBy("createdAt", "desc") // Temporarily commented
     );
 
     console.log("  Executing query...");
@@ -110,15 +110,15 @@ export async function loadConversationsFromFirestore(
         userId: data.userId,
         name: data.name,
         timestamp: data.createdAt
-          ? (data.createdAt as Timestamp).toDate().toLocaleString("it-IT")
-          : new Date().toLocaleString("it-IT"),
+          ? (data.createdAt as Timestamp).toDate().toLocaleString("en-US")
+          : new Date().toLocaleString("en-US"),
         history: data.history,
       });
     });
 
-    // Ordina manualmente in memoria per ora
+    // Sort manually in memory for now
     conversations.sort((a, b) => {
-      // Ordina per timestamp decrescente (più recenti prima)
+      // Sort by timestamp descending (most recent first)
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
 
@@ -131,7 +131,7 @@ export async function loadConversationsFromFirestore(
 }
 
 /**
- * Elimina una conversazione da Firestore
+ * Delete a conversation from Firestore
  */
 export async function deleteConversationFromFirestore(
   conversationId: string
@@ -145,7 +145,7 @@ export async function deleteConversationFromFirestore(
 }
 
 /**
- * Aggiorna il nome di una conversazione su Firestore
+ * Update the name of a conversation in Firestore
  */
 export async function updateConversationNameInFirestore(
   conversationId: string,
@@ -169,7 +169,7 @@ export async function updateConversationNameInFirestore(
 }
 
 /**
- * Aggiorna il contenuto (history) di una conversazione su Firestore
+ * Update the content (history) of a conversation in Firestore
  */
 export async function updateConversationHistoryInFirestore(
   conversationId: string,
@@ -193,8 +193,8 @@ export async function updateConversationHistoryInFirestore(
 }
 
 /**
- * Sincronizza le conversazioni da localStorage a Firestore
- * Utile per migrare dati esistenti
+ * Sync conversations from localStorage to Firestore
+ * Useful for migrating existing data
  */
 export async function migrateLocalStorageToFirestore(
   userId: string,

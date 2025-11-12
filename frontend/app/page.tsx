@@ -74,50 +74,50 @@ export default function Page() {
   const isSavingRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Genera un nome automatico per la conversazione
+  // Generate automatic name for the conversation
   const generateConversationName = (): string => {
     if (chatHistory.length > 0) {
       const firstUserMessage = chatHistory.find((msg) => msg.type === "user");
       if (firstUserMessage) {
-        // Prendi le prime 50 caratteri del primo messaggio
+        // Take first 50 characters of the first message
         const preview = firstUserMessage.text.substring(0, 50);
         return preview.length < firstUserMessage.text.length
           ? `${preview}...`
           : preview;
       }
     }
-    // Fallback: usa data e ora
-    return `Conversazione del ${new Date().toLocaleString("it-IT")}`;
+    // Fallback: use date and time
+    return `Conversation from ${new Date().toLocaleString("en-US")}`;
   };
 
-  // Auto-scroll quando cambia la chat
+  // Auto-scroll when chat changes
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
 
-  // Salvataggio automatico della conversazione
+  // Automatic conversation save
   useEffect(() => {
-    // Salva SOLO quando l'assistente finisce di rispondere
-    // cioè quando isLoading passa da true a false
+    // Save ONLY when assistant finishes responding
+    // i.e. when isLoading changes from true to false
     if (isLoading) {
-      // Assistente sta ancora scrivendo, non salvare
+      // Assistant is still writing, don't save
       return;
     }
 
-    // Non salvare se:
-    // - Non c'è userId
-    // - La chat è vuota
-    // - Stiamo già salvando
+    // Don't save if:
+    // - No userId
+    // - Chat is empty
+    // - Already saving
     if (!userId || chatHistory.length === 0 || isSavingRef.current) {
       return;
     }
 
-    // Salva solo se c'è almeno una coppia domanda-risposta completa
+    // Only save if there's at least one complete question-answer pair
     if (chatHistory.length < 2) {
       return;
     }
 
-    // Salva solo se ci sono nuovi messaggi
+    // Only save if there are new messages
     if (chatHistory.length <= lastSavedMessageCount) {
       console.log("⏭️ Skipping save - no new messages");
       console.log(
@@ -139,7 +139,7 @@ export default function Page() {
 
       try {
         if (currentConversationId) {
-          // Aggiorna conversazione esistente
+          // Update existing conversation
           await updateConversationHistory.mutateAsync({
             id: currentConversationId,
             history: chatHistory.map((msg) => ({
@@ -151,7 +151,7 @@ export default function Page() {
           console.log("✅ Conversation updated, updating counter");
           updateSavedMessageCount(chatHistory.length);
         } else {
-          // Crea nuova conversazione
+          // Create new conversation
           const autoName = generateConversationName();
           console.log("📝 Creating new conversation:", autoName);
           await createConversation.mutateAsync({
@@ -165,7 +165,7 @@ export default function Page() {
           console.log(
             "✅ New conversation created, waiting for state update..."
           );
-          // L'ID verrà impostato dal secondo useEffect
+          // The ID will be set by the second useEffect
         }
       } catch (error) {
         console.error("❌ Auto-save failed:", error);
@@ -175,7 +175,7 @@ export default function Page() {
       }
     };
 
-    // Debounce di 500ms per evitare salvataggi multipli
+    // 500ms debounce to avoid multiple saves
     const timeoutId = setTimeout(() => {
       autoSave();
     }, 500);
@@ -195,18 +195,18 @@ export default function Page() {
     updateSavedMessageCount,
   ]);
 
-  // Intercetta quando viene creata una nuova conversazione e imposta l'ID
+  // Intercept when a new conversation is created and set the ID
   useEffect(() => {
-    // Se non abbiamo un ID conversazione, ma abbiamo delle conversazioni salvate,
-    // e l'ultima conversazione ha lo stesso numero di messaggi della chat corrente,
-    // significa che è quella che abbiamo appena creato
+    // If we don't have a conversation ID, but we have saved conversations,
+    // and the last conversation has the same number of messages as the current chat,
+    // it means that's the one we just created
     if (
       !currentConversationId &&
       savedConversations.length > 0 &&
       chatHistory.length >= 2
     ) {
       const newestConv = savedConversations[0];
-      // Verifica che la conversazione più recente abbia lo stesso numero di messaggi
+      // Verify that the most recent conversation has the same number of messages
       if (newestConv.history.length === chatHistory.length) {
         console.log("🆔 Setting conversation ID:", newestConv.id);
         setCurrentConversation(newestConv.id);
@@ -227,28 +227,28 @@ export default function Page() {
     console.log("📂 Loading conversation:", conv.name);
     console.log("  Messages:", conv.history.length);
 
-    // Converti da ChatMessage a Message (formato Vercel AI)
+    // Convert from ChatMessage to Message (Vercel AI format)
     const convertedMessages: Message[] = conv.history.map((msg, index) => ({
       id: `loaded-${conv.id}-${index}`,
       role: msg.type === "user" ? "user" : "assistant",
       content: msg.text,
     }));
 
-    // Usa setMessages per caricare i messaggi nella chat
+    // Use setMessages to load messages into chat
     setMessages(convertedMessages);
 
-    // Imposta questa come conversazione corrente
+    // Set this as current conversation
     setCurrentConversation(conv.id);
     updateSavedMessageCount(conv.history.length);
 
     setStatusAlert({
-      message: `Conversazione "${conv.name}" caricata (${conv.history.length} messaggi).`,
+      message: `Conversation "${conv.name}" loaded (${conv.history.length} messages).`,
       type: "success",
     });
   };
 
   const handleDelete = async (id: string, name: string) => {
-    // Apri il modal di conferma
+    // Open confirmation modal
     openDeleteModal(id, name);
   };
 
@@ -256,33 +256,33 @@ export default function Page() {
     if (!conversationToDelete) return;
 
     const { id, name } = conversationToDelete;
-    console.log("🗑️ Eliminazione confermata, procedendo...");
+    console.log("🗑️ Deletion confirmed, proceeding...");
 
     try {
       await deleteConversation.mutateAsync(id);
 
-      // Se stiamo eliminando la conversazione corrente, reset
+      // If we're deleting the current conversation, reset
       if (id === currentConversationId) {
         resetConversation();
       }
 
       setStatusAlert({
-        message: `Conversazione "${name}" eliminata.`,
+        message: `Conversation "${name}" deleted.`,
         type: "success",
       });
     } catch {
       setStatusAlert({
-        message: `Errore durante l'eliminazione di "${name}".`,
+        message: `Error deleting "${name}".`,
         type: "error",
       });
     }
 
-    // Chiudi il modal
+    // Close modal
     closeDeleteModal();
   };
 
   const cancelDelete = () => {
-    console.log("❌ Eliminazione annullata dall'utente");
+    console.log("❌ Deletion cancelled by user");
     closeDeleteModal();
   };
 
@@ -301,14 +301,14 @@ export default function Page() {
       });
 
       setStatusAlert({
-        message: `Conversazione rinominata in "${newName}".`,
+        message: `Conversation renamed to "${newName}".`,
         type: "success",
       });
       closeRenameModal();
       return true;
     } catch {
       setStatusAlert({
-        message: `Errore durante la rinomina.`,
+        message: `Error renaming conversation.`,
         type: "error",
       });
       return false;
@@ -320,7 +320,7 @@ export default function Page() {
     setMessages([]);
     resetConversation();
     setStatusAlert({
-      message: "Nuova conversazione iniziata.",
+      message: "New conversation started.",
       type: "info",
     });
   };
@@ -331,13 +331,13 @@ export default function Page() {
       handleSubmit(e);
     } else {
       setStatusAlert({
-        message: "Impossibile inviare: ID Utente non disponibile.",
+        message: "Cannot send: User ID not available.",
         type: "error",
       });
     }
   };
 
-  // Wrapper per handleInputChange per compatibilità con ChatSection
+  // Wrapper for handleInputChange for compatibility with ChatSection
   const handleQueryChange = (value: string) => {
     handleInputChange({
       target: { value },
@@ -349,7 +349,7 @@ export default function Page() {
       handleUpload(e, userId);
     } else {
       setStatusAlert({
-        message: "Impossibile caricare: ID Utente non disponibile.",
+        message: "Cannot upload: User ID not available.",
         type: "error",
       });
     }
@@ -358,7 +358,7 @@ export default function Page() {
   if (!isAuthReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-        <Loader className="animate-spin mr-2" size={24} /> Caricamento...
+        <Loader className="animate-spin mr-2" size={24} /> Loading...
       </div>
     );
   }
@@ -386,10 +386,10 @@ export default function Page() {
 
         <ConfirmModal
           isOpen={confirmDeleteOpen}
-          title="Elimina Conversazione"
-          message={`Sei sicuro di voler eliminare la conversazione "${conversationToDelete?.name}"?\n\nQuesta azione non può essere annullata.`}
-          confirmText="Elimina"
-          cancelText="Annulla"
+          title="Delete Conversation"
+          message={`Are you sure you want to delete the conversation "${conversationToDelete?.name}"?\n\nThis action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
           variant="danger"
           onConfirm={confirmDelete}
           onCancel={cancelDelete}

@@ -32,7 +32,7 @@ export const SaveModal: React.FC<SaveModalProps> = ({
       >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <Save size={20} className="mr-2 text-blue-600" /> Salva Chat
+            <Save size={20} className="mr-2 text-blue-600" /> Save Chat
           </h3>
           <button
             type="button"
@@ -43,7 +43,7 @@ export const SaveModal: React.FC<SaveModalProps> = ({
           </button>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Assegna un nome per salvare la conversazione.
+          Assign a name to save the conversation.
         </p>
 
         {errorMessage && (
@@ -62,7 +62,7 @@ export const SaveModal: React.FC<SaveModalProps> = ({
           type="text"
           value={conversationName}
           onChange={(e) => setConversationName(e.target.value)}
-          placeholder="Nome della conversazione (es. Report Q3)"
+          placeholder="Conversation name (e.g. Q3 Report)"
           className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-inner dark:bg-gray-900 dark:border-gray-600 dark:text-white text-sm"
           required
         />
@@ -71,7 +71,7 @@ export const SaveModal: React.FC<SaveModalProps> = ({
           className="mt-4 w-full flex justify-center items-center py-3 px-4 text-sm font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition duration-200 shadow-md"
         >
           <Save size={18} className="mr-2" />
-          Salva
+          Save
         </button>
       </form>
     </div>

@@ -17,13 +17,13 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   return (
     <section className="pt-4">
       <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center border-b border-gray-100 dark:border-gray-700 pb-2">
-        <Archive size={16} className="mr-2 text-blue-600" /> 2. Conversazioni
-        Salvate
+        <Archive size={16} className="mr-2 text-blue-600" /> 2. Saved
+        Conversations
       </h2>
       <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
         {conversations.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-            Nessuna conversazione salvata.
+            No saved conversations.
           </p>
         ) : (
           conversations.map((conv) => (
@@ -42,21 +42,21 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               <div className="flex space-x-1 ml-4 flex-shrink-0">
                 <button
                   onClick={() => onLoad(conv)}
-                  title="Carica conversazione"
+                  title="Load conversation"
                   className="p-1.5 rounded-full text-blue-600 hover:bg-blue-100 dark:hover:bg-gray-600 transition"
                 >
                   <BookOpen size={16} />
                 </button>
                 <button
                   onClick={() => onRename(conv.id, conv.name)}
-                  title="Rinomina conversazione"
+                  title="Rename conversation"
                   className="p-1.5 rounded-full text-green-600 hover:bg-green-100 dark:hover:bg-gray-600 transition"
                 >
                   <Edit size={16} />
                 </button>
                 <button
                   onClick={() => onDelete(conv.id, conv.name)}
-                  title="Elimina conversazione"
+                  title="Delete conversation"
                   className="p-1.5 rounded-full text-red-600 hover:bg-red-100 dark:hover:bg-gray-600 transition"
                 >
                   <Trash2 size={16} />

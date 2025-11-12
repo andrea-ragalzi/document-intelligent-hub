@@ -39,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           Document RAG
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 flex items-center">
-          ID Utente (Tenant):
+          User ID (Tenant):
           <span
             className={`font-mono font-medium ml-2 px-2 py-0.5 rounded-md text-xs ${
               userId
@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : "bg-yellow-100 text-yellow-700"
             }`}
           >
-            {userId ? userId : "Non disponibile"}
+            {userId ? userId : "Not available"}
           </span>
         </p>
       </div>
