@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect, FormEvent } from "react";
+import { useRef, useEffect, FormEvent } from "react";
 import { Sun, Moon, Loader } from "lucide-react";
 import type { Message } from "ai/react";
-import type { AlertState, SavedConversation } from "@/lib/types";
+import type { SavedConversation } from "@/lib/types";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserId } from "@/hooks/useUserId";
-import { useConversations } from "@/hooks/useConversations";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
 import { useChatAI } from "@/hooks/useChatAI";
 import { Sidebar } from "@/components/Sidebar";
@@ -15,6 +14,16 @@ import { RenameModal } from "@/components/RenameModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import UserProfile from "@/components/UserProfile";
+
+// Zustand store e TanStack Query
+import { useUIStore } from "@/stores/uiStore";
+import {
+  useConversationsQuery,
+  useCreateConversation,
+  useUpdateConversationName,
+  useUpdateConversationHistory,
+  useDeleteConversation,
+} from "@/hooks/queries/useConversationsQuery";
 
 export default function Page() {
   const { theme, toggleTheme } = useTheme();
@@ -30,31 +39,39 @@ export default function Page() {
     isLoading,
     setMessages,
   } = useChatAI({ userId: userId || "" });
+
+  // Zustand UI Store - sostituisce tutti gli useState
   const {
-    savedConversations,
-    saveConversation,
-    deleteConversation,
-    updateConversationName,
-    updateConversationHistory,
-  } = useConversations({ currentChatHistory: chatHistory, userId });
+    statusAlert,
+    setStatusAlert,
+    renameModalOpen,
+    confirmDeleteOpen,
+    conversationToRename,
+    conversationToDelete,
+    currentConversationId,
+    lastSavedMessageCount,
+    isSaving: _isSaving,
+    openRenameModal,
+    closeRenameModal,
+    openDeleteModal,
+    closeDeleteModal,
+    setCurrentConversation,
+    updateSavedMessageCount,
+    startSaving,
+    finishSaving,
+    resetConversation,
+  } = useUIStore();
 
-  const [statusAlert, setStatusAlert] = useState<AlertState | null>(null);
-  const [renameModalOpen, setRenameModalOpen] = useState(false);
-  const [conversationToRename, setConversationToRename] = useState<{
-    id: string;
-    currentName: string;
-  } | null>(null);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [conversationToDelete, setConversationToDelete] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [currentConversationId, setCurrentConversationId] = useState<
-    string | null
-  >(null);
-  const [lastSavedMessageCount, setLastSavedMessageCount] = useState(0);
+  // TanStack Query - gestisce le conversazioni con Firestore
+  const { data: savedConversations = [], isLoading: _isLoadingConversations } =
+    useConversationsQuery(userId);
+
+  const createConversation = useCreateConversation(userId);
+  const updateConversationName = useUpdateConversationName(userId);
+  const updateConversationHistory = useUpdateConversationHistory(userId);
+  const deleteConversation = useDeleteConversation(userId);
+
   const isSavingRef = useRef(false);
-
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Genera un nome automatico per la conversazione
@@ -114,6 +131,7 @@ export default function Page() {
 
     const autoSave = async () => {
       isSavingRef.current = true;
+      startSaving();
       console.log("💾 Auto-saving conversation...");
       console.log("  Messages:", chatHistory.length);
       console.log("  Current ID:", currentConversationId);
@@ -122,34 +140,38 @@ export default function Page() {
       try {
         if (currentConversationId) {
           // Aggiorna conversazione esistente
-          const success = await updateConversationHistory(
-            currentConversationId,
-            chatHistory
-          );
-          if (success) {
-            console.log("✅ Conversation updated, updating counter");
-            setLastSavedMessageCount(chatHistory.length);
-          } else {
-            console.log("❌ Update failed");
-          }
+          await updateConversationHistory.mutateAsync({
+            id: currentConversationId,
+            history: chatHistory.map((msg) => ({
+              type: msg.type as "user" | "assistant",
+              text: msg.text,
+              sources: msg.sources || [],
+            })),
+          });
+          console.log("✅ Conversation updated, updating counter");
+          updateSavedMessageCount(chatHistory.length);
         } else {
-          // Crea nuova conversazione solo se non esiste già
+          // Crea nuova conversazione
           const autoName = generateConversationName();
           console.log("📝 Creating new conversation:", autoName);
-          const success = await saveConversation(autoName);
-          if (success) {
-            console.log(
-              "✅ New conversation created, waiting for state update..."
-            );
-            // Non impostiamo lastSavedMessageCount qui, lo farà il secondo useEffect
-          } else {
-            console.log("❌ Save failed");
-          }
+          await createConversation.mutateAsync({
+            name: autoName,
+            history: chatHistory.map((msg) => ({
+              type: msg.type as "user" | "assistant",
+              text: msg.text,
+              sources: msg.sources || [],
+            })),
+          });
+          console.log(
+            "✅ New conversation created, waiting for state update..."
+          );
+          // L'ID verrà impostato dal secondo useEffect
         }
       } catch (error) {
         console.error("❌ Auto-save failed:", error);
       } finally {
         isSavingRef.current = false;
+        finishSaving();
       }
     };
 
@@ -166,8 +188,11 @@ export default function Page() {
     currentConversationId,
     lastSavedMessageCount,
     updateConversationHistory,
-    saveConversation,
+    createConversation,
     generateConversationName,
+    startSaving,
+    finishSaving,
+    updateSavedMessageCount,
   ]);
 
   // Intercetta quando viene creata una nuova conversazione e imposta l'ID
@@ -184,11 +209,17 @@ export default function Page() {
       // Verifica che la conversazione più recente abbia lo stesso numero di messaggi
       if (newestConv.history.length === chatHistory.length) {
         console.log("🆔 Setting conversation ID:", newestConv.id);
-        setCurrentConversationId(newestConv.id);
-        setLastSavedMessageCount(chatHistory.length);
+        setCurrentConversation(newestConv.id);
+        updateSavedMessageCount(chatHistory.length);
       }
     }
-  }, [savedConversations, currentConversationId, chatHistory.length]);
+  }, [
+    savedConversations,
+    currentConversationId,
+    chatHistory.length,
+    setCurrentConversation,
+    updateSavedMessageCount,
+  ]);
 
   const ThemeIcon = theme === "light" ? Moon : Sun;
 
@@ -207,8 +238,8 @@ export default function Page() {
     setMessages(convertedMessages);
 
     // Imposta questa come conversazione corrente
-    setCurrentConversationId(conv.id);
-    setLastSavedMessageCount(conv.history.length);
+    setCurrentConversation(conv.id);
+    updateSavedMessageCount(conv.history.length);
 
     setStatusAlert({
       message: `Conversazione "${conv.name}" caricata (${conv.history.length} messaggi).`,
@@ -218,8 +249,7 @@ export default function Page() {
 
   const handleDelete = async (id: string, name: string) => {
     // Apri il modal di conferma
-    setConversationToDelete({ id, name });
-    setConfirmDeleteOpen(true);
+    openDeleteModal(id, name);
   };
 
   const confirmDelete = async () => {
@@ -228,18 +258,19 @@ export default function Page() {
     const { id, name } = conversationToDelete;
     console.log("🗑️ Eliminazione confermata, procedendo...");
 
-    const success = await deleteConversation(id);
-    if (success) {
+    try {
+      await deleteConversation.mutateAsync(id);
+
       // Se stiamo eliminando la conversazione corrente, reset
       if (id === currentConversationId) {
-        setCurrentConversationId(null);
-        setLastSavedMessageCount(0);
+        resetConversation();
       }
+
       setStatusAlert({
         message: `Conversazione "${name}" eliminata.`,
         type: "success",
       });
-    } else {
+    } catch {
       setStatusAlert({
         message: `Errore durante l'eliminazione di "${name}".`,
         type: "error",
@@ -247,52 +278,47 @@ export default function Page() {
     }
 
     // Chiudi il modal
-    setConfirmDeleteOpen(false);
-    setConversationToDelete(null);
+    closeDeleteModal();
   };
 
   const cancelDelete = () => {
     console.log("❌ Eliminazione annullata dall'utente");
-    setConfirmDeleteOpen(false);
-    setConversationToDelete(null);
+    closeDeleteModal();
   };
 
   const handleRename = (id: string, currentName: string) => {
     console.log("✏️ Opening rename modal for:", id, currentName);
-    setConversationToRename({ id, currentName });
-    setRenameModalOpen(true);
+    openRenameModal(id, currentName);
   };
 
   const handleRenameSubmit = async (newName: string): Promise<boolean> => {
     if (!conversationToRename) return false;
 
-    const success = await updateConversationName(
-      conversationToRename.id,
-      newName
-    );
+    try {
+      await updateConversationName.mutateAsync({
+        id: conversationToRename.id,
+        newName,
+      });
 
-    if (success) {
       setStatusAlert({
         message: `Conversazione rinominata in "${newName}".`,
         type: "success",
       });
-      setRenameModalOpen(false);
-      setConversationToRename(null);
-    } else {
+      closeRenameModal();
+      return true;
+    } catch {
       setStatusAlert({
         message: `Errore durante la rinomina.`,
         type: "error",
       });
+      return false;
     }
-
-    return success;
   };
 
   const handleNewConversation = () => {
     console.log("🆕 Starting new conversation");
     setMessages([]);
-    setCurrentConversationId(null);
-    setLastSavedMessageCount(0);
+    resetConversation();
     setStatusAlert({
       message: "Nuova conversazione iniziata.",
       type: "info",
@@ -354,10 +380,7 @@ export default function Page() {
         <RenameModal
           isOpen={renameModalOpen}
           currentName={conversationToRename?.currentName || ""}
-          onClose={() => {
-            setRenameModalOpen(false);
-            setConversationToRename(null);
-          }}
+          onClose={closeRenameModal}
           onRename={handleRenameSubmit}
         />
 
