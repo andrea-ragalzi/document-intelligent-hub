@@ -1,0 +1,215 @@
+/**
+ * Firestore Conversations Service
+ * Gestisce il salvataggio e il caricamento delle conversazioni su Firebase Firestore
+ */
+
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  updateDoc,
+  doc,
+  query,
+  where,
+  // orderBy, // Commentato temporaneamente fino a quando non creiamo l'indice
+  Timestamp,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "./firebase";
+import type { SavedConversation, ChatMessage } from "./types";
+
+const CONVERSATIONS_COLLECTION = "conversations";
+
+/**
+ * Salva una nuova conversazione su Firestore
+ */
+export async function saveConversationToFirestore(
+  userId: string,
+  name: string,
+  history: ChatMessage[]
+): Promise<SavedConversation> {
+  console.log("🔥 saveConversationToFirestore called");
+  console.log("  userId:", userId);
+  console.log("  name:", name);
+  console.log("  history length:", history.length);
+
+  try {
+    const conversationData = {
+      userId,
+      name,
+      history,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    console.log("📤 Adding document to Firestore...");
+    console.log("  Collection:", CONVERSATIONS_COLLECTION);
+    console.log("  Database:", db);
+    console.log("  ConversationData:", {
+      userId,
+      name,
+      historyLength: history.length,
+    });
+
+    try {
+      const collectionRef = collection(db, CONVERSATIONS_COLLECTION);
+      console.log("  Collection reference:", collectionRef);
+
+      const docRef = await addDoc(collectionRef, conversationData);
+      console.log("✅ Document added with ID:", docRef.id);
+
+      return {
+        id: docRef.id,
+        userId,
+        name,
+        timestamp: new Date().toLocaleString("it-IT"),
+        history,
+      };
+    } catch (addError: unknown) {
+      console.error("❌ Firestore addDoc error:", addError);
+      if (addError instanceof Error) {
+        console.error("❌ Error message:", addError.message);
+        console.error("❌ Error stack:", addError.stack);
+      }
+      const errorObj = addError as { code?: string };
+      console.error("❌ Error code:", errorObj?.code);
+      throw addError;
+    }
+  } catch (error) {
+    console.error("❌ Error saving conversation to Firestore:", error);
+    throw new Error("Failed to save conversation");
+  }
+}
+
+/**
+ * Carica tutte le conversazioni di un utente da Firestore
+ */
+export async function loadConversationsFromFirestore(
+  userId: string
+): Promise<SavedConversation[]> {
+  console.log("📥 Loading conversations from Firestore for user:", userId);
+
+  try {
+    // Query semplificata senza orderBy per evitare l'indice
+    // TODO: Aggiungere orderBy quando l'indice sarà creato
+    const q = query(
+      collection(db, CONVERSATIONS_COLLECTION),
+      where("userId", "==", userId)
+      // orderBy("createdAt", "desc") // Commentato temporaneamente
+    );
+
+    console.log("  Executing query...");
+    const querySnapshot = await getDocs(q);
+    const conversations: SavedConversation[] = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      conversations.push({
+        id: doc.id,
+        userId: data.userId,
+        name: data.name,
+        timestamp: data.createdAt
+          ? (data.createdAt as Timestamp).toDate().toLocaleString("it-IT")
+          : new Date().toLocaleString("it-IT"),
+        history: data.history,
+      });
+    });
+
+    // Ordina manualmente in memoria per ora
+    conversations.sort((a, b) => {
+      // Ordina per timestamp decrescente (più recenti prima)
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+
+    console.log("✅ Loaded", conversations.length, "conversations");
+    return conversations;
+  } catch (error) {
+    console.error("❌ Error loading conversations from Firestore:", error);
+    throw new Error("Failed to load conversations");
+  }
+}
+
+/**
+ * Elimina una conversazione da Firestore
+ */
+export async function deleteConversationFromFirestore(
+  conversationId: string
+): Promise<void> {
+  try {
+    await deleteDoc(doc(db, CONVERSATIONS_COLLECTION, conversationId));
+  } catch (error) {
+    console.error("Error deleting conversation from Firestore:", error);
+    throw new Error("Failed to delete conversation");
+  }
+}
+
+/**
+ * Aggiorna il nome di una conversazione su Firestore
+ */
+export async function updateConversationNameInFirestore(
+  conversationId: string,
+  newName: string
+): Promise<void> {
+  console.log("✏️ Updating conversation name in Firestore");
+  console.log("  ID:", conversationId);
+  console.log("  New name:", newName);
+
+  try {
+    const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
+    await updateDoc(conversationRef, {
+      name: newName,
+      updatedAt: serverTimestamp(),
+    });
+    console.log("✅ Conversation name updated successfully");
+  } catch (error) {
+    console.error("❌ Error updating conversation name:", error);
+    throw new Error("Failed to update conversation name");
+  }
+}
+
+/**
+ * Aggiorna il contenuto (history) di una conversazione su Firestore
+ */
+export async function updateConversationHistoryInFirestore(
+  conversationId: string,
+  history: ChatMessage[]
+): Promise<void> {
+  console.log("📝 Updating conversation history in Firestore");
+  console.log("  ID:", conversationId);
+  console.log("  Messages:", history.length);
+
+  try {
+    const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
+    await updateDoc(conversationRef, {
+      history,
+      updatedAt: serverTimestamp(),
+    });
+    console.log("✅ Conversation history updated successfully");
+  } catch (error) {
+    console.error("❌ Error updating conversation history:", error);
+    throw new Error("Failed to update conversation history");
+  }
+}
+
+/**
+ * Sincronizza le conversazioni da localStorage a Firestore
+ * Utile per migrare dati esistenti
+ */
+export async function migrateLocalStorageToFirestore(
+  userId: string,
+  localConversations: SavedConversation[]
+): Promise<void> {
+  try {
+    const promises = localConversations.map((conv) =>
+      saveConversationToFirestore(userId, conv.name, conv.history)
+    );
+    await Promise.all(promises);
+    console.log(
+      `Successfully migrated ${localConversations.length} conversations to Firestore`
+    );
+  } catch (error) {
+    console.error("Error migrating conversations to Firestore:", error);
+    throw new Error("Failed to migrate conversations");
+  }
+}

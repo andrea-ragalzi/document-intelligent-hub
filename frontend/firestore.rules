@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Conversazioni: solo il proprietario può accedere
+    match /conversations/{conversationId} {
+      // Permetti lettura solo al proprietario
+      allow read: if request.auth != null 
+                  && request.auth.uid == resource.data.userId;
+      
+      // Permetti scrittura (update) solo al proprietario
+      allow update, delete: if request.auth != null 
+                            && request.auth.uid == resource.data.userId;
+      
+      // Permetti creazione solo se l'userId corrisponde all'utente autenticato
+      allow create: if request.auth != null 
+                    && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Nega accesso a tutte le altre collezioni per sicurezza
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

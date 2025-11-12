@@ -1,23 +1,16 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useAuth } from "@/contexts/AuthContext";
 
+/**
+ * Hook per ottenere l'ID utente corrente da Firebase Auth
+ * Ritorna il UID dell'utente autenticato o null se non autenticato
+ */
 export const useUserId = () => {
-    const [userId, setUserId] = useState<string | null>(null);
-    const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
+  const { user, loading } = useAuth();
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        // Genera o recupera un ID utente da localStorage
-        let storedUserId = localStorage.getItem('ragUserId');
-        if (!storedUserId) {
-            storedUserId = 'user_' + Math.random().toString(36).substring(2, 15);
-            localStorage.setItem('ragUserId', storedUserId);
-        }
-        setUserId(storedUserId);
-        setIsAuthReady(true);
-    }, []);
-
-    return { userId, isAuthReady };
+  return {
+    userId: user?.uid || null,
+    isAuthReady: !loading,
+  };
 };
