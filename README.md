@@ -8,309 +8,196 @@ Full-Stack AI-powered RAG (Retrieval-Augmented Generation) application providing
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://www.docker.com/)
 
-## ✨ Features
-
-- 🔐 **Multi-Tenant Architecture**: Secure data isolation per user
-- 📄 **PDF Document Processing**: Upload and index PDF documents
-- 🤖 **AI-Powered Q&A**: Get intelligent answers from your documents using GPT
-- 💬 **Chat History**: Contextual conversations with memory
-- 🎨 **Modern UI**: Responsive Next.js frontend with dark mode
-- 🚀 **Streaming Responses**: Real-time AI response streaming with Vercel AI SDK
-- 🔍 **Semantic Search**: ChromaDB vector store for accurate retrieval
-- 🧪 **Fully Tested**: Comprehensive test suite with pytest
-- 🐳 **Docker Ready**: One-command deployment
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Frontend (Next.js)                    │
-│  • React 19 + TypeScript                                    │
-│  • Tailwind CSS + Dark Mode                                 │
-│  • Vercel AI SDK for Streaming                              │
-└────────────────┬────────────────────────────────────────────┘
-                 │ REST API
-┌────────────────▼────────────────────────────────────────────┐
-│                      Backend (FastAPI)                       │
-│  • Python 3.12                                               │
-│  • LangChain + OpenAI                                        │
-│  • Multi-tenant RAG Pipeline                                 │
-└────────────────┬────────────────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────────────────┐
-│                    ChromaDB (Vector Store)                   │
-│  • Persistent storage                                        │
-│  • Metadata filtering per user                               │
-│  • Embedding-based retrieval                                 │
-└──────────────────────────────────────────────────────────────┘
-```
+---
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (Recommended)
+### Docker (Recommended)
 
 ```bash
-# 1. Clone repository
-git clone <repo-url>
+# Clone and setup
+git clone https://github.com/andrea-ragalzi/document-intelligent-hub.git
 cd document-intelligent-hub
 
-# 2. Configure environment
+# Configure environment
 cp .env.example .env
 # Edit .env and add your OPENAI_API_KEY
 
-# 3. Start services
+# Start services
 docker-compose up -d --build
-
-# 4. Access the application
-# Frontend: http://localhost:3000
-# Backend:  http://localhost:8000
-# API Docs: http://localhost:8000/docs
 ```
 
-**📖 Full Docker guide**: See [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md)
+**Access:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
-### Option 2: Local Development
-
-#### Backend Setup
+### Local Development
 
 ```bash
+# Backend
 cd backend
-
-# Create virtual environment
-python3.12 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies
+python -m venv venv && source venv/bin/activate
 pip install -e .
-
-# Create .env file
-cp .env.example .env
-# Add your OPENAI_API_KEY
-
-# Run server
 uvicorn main:app --reload
 
-# API available at http://127.0.0.1:8000
-```
-
-#### Frontend Setup
-
-```bash
+# Frontend (new terminal)
 cd frontend
-
-# Install dependencies
-npm install
-
-# Create .env.local
-echo "NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/rag" > .env.local
-
-# Run development server
-npm run dev
-
-# App available at http://localhost:3000
+npm install && npm run dev
 ```
 
-## 📚 API Endpoints
+---
 
-### Upload Document
-```bash
-POST /rag/upload/
-Content-Type: multipart/form-data
+## ✨ Key Features
 
-# Parameters:
-- file: PDF document (required)
-- user_id: Unique user identifier (required)
+- 🔐 **Multi-Tenant Architecture** - Secure data isolation per user
+- 📄 **PDF Processing** - Upload and index PDF documents
+- 🤖 **AI-Powered Q&A** - GPT-based intelligent answers from your documents
+- 💬 **Chat History** - Contextual conversations with memory
+- 🎨 **Modern UI** - Responsive Next.js with dark mode support
+- 🚀 **Streaming Responses** - Real-time AI response streaming
+- 🔍 **Semantic Search** - ChromaDB vector store for accurate retrieval
+- 🐳 **Docker Ready** - One-command deployment
 
-# Response:
-{
-  "message": "Document 'example.pdf' indexed successfully.",
-  "status": "success",
-  "chunks_indexed": 42
-}
+---
+
+## 📚 Documentation
+
+**📖 [View Complete Documentation on Wiki](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki)**
+
+### Quick Links
+
+- **Getting Started**
+  - [Installation Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Installation-Guide)
+  - [Quick Start Tutorial](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Quick-Start)
+  - [Configuration Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Configuration)
+
+- **Architecture**
+  - [Project Structure](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Project-Structure)
+  - [Backend Architecture](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Backend-Architecture)
+  - [Frontend Architecture](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Frontend-Architecture)
+  - [State Management](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/State-Management)
+
+- **Features**
+  - [RAG Chat System](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/RAG-Chat-System)
+  - [Document Upload](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Document-Upload)
+  - [Conversation Management](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Conversation-Management)
+
+- **Development**
+  - [Development Workflow](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Development-Workflow)
+  - [Testing Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Testing-Guide)
+  - [Contributing Guidelines](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Contributing-Guidelines)
+
+- **Deployment**
+  - [Docker Deployment](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Docker-Deployment)
+  - [Production Deployment](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Production-Deployment)
+
+- **Reference**
+  - [API Endpoints](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/API-Endpoints)
+  - [Environment Variables](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Environment-Variables)
+  - [Common Issues](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Common-Issues)
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Frontend (Next.js 16)                      │
+│  • React 19 + TypeScript                                    │
+│  • Zustand + TanStack Query (State Management)              │
+│  • Tailwind CSS + Dark Mode                                 │
+│  • Vercel AI SDK for Streaming                              │
+│  • Firebase (Auth + Firestore)                              │
+└────────────────┬────────────────────────────────────────────┘
+                 │ REST API
+┌────────────────▼────────────────────────────────────────────┐
+│                  Backend (FastAPI + Python)                  │
+│  • LangChain + OpenAI GPT                                    │
+│  • Multi-tenant RAG Pipeline                                 │
+│  • PDF Processing                                            │
+└────────────────┬────────────────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────────────────┐
+│                ChromaDB (Vector Database)                    │
+│  • Persistent storage                                        │
+│  • Metadata filtering per user                               │
+│  • Embedding-based semantic search                           │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### Query Document
-```bash
-POST /rag/query/
-Content-Type: application/json
-
-# Body:
-{
-  "query": "What is machine learning?",
-  "user_id": "user-123",
-  "chat_history": [
-    {"type": "user", "text": "Previous question"},
-    {"type": "assistant", "text": "Previous answer"}
-  ]
-}
-
-# Response:
-{
-  "answer": "Machine learning is...",
-  "source_documents": ["chunk_id_1", "chunk_id_2"]
-}
-```
-
-### Interactive API Docs
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-
-## 🧪 Testing
-
-### Backend Tests
-
-```bash
-cd backend
-
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=app --cov-report=html
-
-# Run specific test file
-pytest tests/test_rag_endpoints.py -v
-
-# Run in Docker
-docker-compose exec backend pytest
-```
-
-**Test Coverage:**
-- ✅ Health check endpoint
-- ✅ Document upload (valid/invalid files)
-- ✅ Query with/without chat history
-- ✅ Multi-tenant isolation
-- ✅ Error handling
-- ✅ End-to-end workflows
+---
 
 ## 🛠️ Tech Stack
 
 ### Backend
-- **FastAPI**: Modern Python web framework
-- **LangChain**: LLM orchestration framework
-- **OpenAI**: GPT models for generation
-- **ChromaDB**: Vector database for embeddings
-- **PyPDF**: PDF text extraction
-- **Pydantic**: Data validation
+- **FastAPI** - Modern Python web framework
+- **LangChain** - LLM orchestration
+- **OpenAI** - GPT models for generation
+- **ChromaDB** - Vector database
+- **PyPDF** - PDF text extraction
 
 ### Frontend
-- **Next.js 16**: React framework with App Router
-- **TypeScript**: Type-safe JavaScript
-- **Tailwind CSS**: Utility-first styling
-- **Vercel AI SDK**: Streaming chat responses
-- **Lucide React**: Icon library
-- **localStorage**: Client-side persistence
+- **Next.js 16** - React framework with App Router & Turbopack
+- **TypeScript** - Type-safe JavaScript
+- **Zustand** - Lightweight state management
+- **TanStack Query** - Server state management with caching
+- **Tailwind CSS** - Utility-first styling
+- **Vercel AI SDK** - Streaming chat responses
+- **Firebase** - Authentication & Firestore database
 
 ### DevOps
-- **Docker**: Containerization
-- **Docker Compose**: Multi-container orchestration
-- **pytest**: Python testing framework
-- **GitHub Actions**: CI/CD (optional)
+- **Docker** - Containerization
+- **Docker Compose** - Multi-container orchestration
+- **pytest** - Python testing
+- **Vitest** - Frontend testing
 
-## 📁 Project Structure
+---
 
-```
-document-intelligent-hub/
-├── backend/
-│   ├── app/
-│   │   ├── core/
-│   │   │   └── config.py          # Configuration settings
-│   │   ├── db/
-│   │   │   └── chroma_client.py   # ChromaDB client
-│   │   ├── routers/
-│   │   │   └── rag_router.py      # API endpoints
-│   │   ├── schemas/
-│   │   │   └── rag.py             # Pydantic models
-│   │   └── services/
-│   │       ├── rag_service.py     # RAG business logic
-│   │       └── language_service.py # Translation/detection
-│   ├── tests/
-│   │   ├── conftest.py            # Test fixtures
-│   │   └── test_rag_endpoints.py  # Endpoint tests
-│   ├── main.py                     # FastAPI app
-│   ├── pyproject.toml              # Python dependencies
-│   ├── Dockerfile                  # Backend container
-│   └── .dockerignore
-├── frontend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   └── chat/
-│   │   │       └── route.ts       # API route proxy
-│   │   ├── layout.tsx             # Root layout
-│   │   └── page.tsx               # Main page
-│   ├── components/
-│   │   ├── ChatSection.tsx
-│   │   ├── Sidebar.tsx
-│   │   └── ...                    # UI components
-│   ├── hooks/
-│   │   ├── useChatAI.ts           # Vercel AI SDK hook
-│   │   ├── useTheme.ts
-│   │   └── ...                    # Custom hooks
-│   ├── lib/
-│   │   ├── types.ts               # TypeScript types
-│   │   └── constants.ts
-│   ├── Dockerfile                  # Frontend container
-│   ├── package.json
-│   └── next.config.ts
-├── docker-compose.yml              # Container orchestration
-├── .env.example                    # Environment template
-├── DOCKER_DEPLOY.md                # Deployment guide
-└── README.md                       # This file
+## 🧪 Testing
+
+```bash
+# Backend tests
+cd backend
+pytest --cov=app --cov-report=html
+
+# Frontend tests
+cd frontend
+npm run test
+
+# Run all tests with coverage
+./run-coverage.sh
 ```
 
-## 🔧 Configuration
+---
 
-### Environment Variables
+## 📖 API Documentation
 
-#### Required
-```env
-OPENAI_API_KEY=sk-your-key-here
+Interactive API documentation available when running:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+### Main Endpoints
+
+**Upload Document**
+```bash
+POST /rag/upload/
+Content-Type: multipart/form-data
+Body: { file: PDF, user_id: string }
 ```
 
-#### Optional (with defaults)
-```env
-# Backend
-CHROMA_DB_PATH=chroma_db
-EMBEDDING_MODEL=text-embedding-ada-002
-LLM_MODEL=gpt-3.5-turbo
-APP_NAME=Document Intelligent Hub
-
-# Frontend
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/rag
+**Query Document**
+```bash
+POST /rag/query/
+Content-Type: application/json
+Body: { query: string, user_id: string, chat_history: array }
 ```
 
-## 🔒 Security Features
-
-- ✅ Multi-tenant data isolation via metadata filtering
-- ✅ CORS configuration for frontend/backend communication
-- ✅ Non-root user in Docker containers
-- ✅ Input validation with Pydantic
-- ✅ File type validation (PDF only)
-- ✅ Environment variable management
-- ✅ Health checks for containers
-
-## 🚧 Roadmap
-
-- [ ] Implement true SSE streaming from FastAPI
-- [ ] Add user authentication (JWT)
-- [ ] Support multiple file formats (DOCX, TXT, etc.)
-- [ ] Implement conversation persistence with database
-- [ ] Add document management UI
-- [ ] Deploy to cloud platforms (Railway, Vercel, AWS)
-- [ ] Add rate limiting
-- [ ] Implement caching layer
-- [ ] Add monitoring and logging (Sentry, LogRocket)
-- [ ] Create admin dashboard
-
-## 📖 Documentation
-
-- [Docker Deployment Guide](DOCKER_DEPLOY.md)
-- [Vercel AI SDK Integration](frontend/VERCEL_AI_INTEGRATION.md)
-- [API Documentation](http://localhost:8000/docs) (when running)
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
+Contributions are welcome! Please see our [Contributing Guidelines](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Contributing-Guidelines) for details.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -318,9 +205,13 @@ Contributions are welcome! Please follow these steps:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
 
 ## 👤 Author
 
@@ -328,13 +219,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Email: andrea.ragalzi.code@gmail.com
 - GitHub: [@andrea-ragalzi](https://github.com/andrea-ragalzi)
 
+---
+
 ## 🙏 Acknowledgments
 
-- [FastAPI](https://fastapi.tiangolo.com/) for the amazing Python framework
-- [LangChain](https://www.langchain.com/) for LLM orchestration
-- [Vercel](https://vercel.com/) for Next.js and AI SDK
-- [ChromaDB](https://www.trychroma.com/) for vector storage
-- [OpenAI](https://openai.com/) for GPT models
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
+- [Next.js](https://nextjs.org/) - The React Framework
+- [LangChain](https://www.langchain.com/) - LLM application framework
+- [ChromaDB](https://www.trychroma.com/) - Open-source embedding database
+- [OpenAI](https://openai.com/) - GPT models and embeddings
+- [Vercel AI SDK](https://sdk.vercel.ai/) - AI streaming toolkit
+- [TanStack Query](https://tanstack.com/query) - Powerful data synchronization
+- [Zustand](https://github.com/pmndrs/zustand) - Lightweight state management
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [Firebase](https://firebase.google.com/) - Authentication and Firestore
+- [TypeScript](https://www.typescriptlang.org/) - JavaScript with syntax for types
+- [Docker](https://www.docker.com/) - Containerization platform
 
 ---
 
