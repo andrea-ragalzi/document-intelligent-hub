@@ -13,6 +13,8 @@ export interface SavedConversation {
   name: string;
   timestamp: string;
   history: ChatMessage[];
+  summary?: string; // Optional: LLM-generated summary for long-term memory
+  messageCount?: number; // Optional: Track when to trigger summarization
 }
 
 export interface AlertState {

@@ -16,7 +16,7 @@ import {
   Timestamp,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
 import type { SavedConversation, ChatMessage } from "./types";
 
 const CONVERSATIONS_COLLECTION = "conversations";
@@ -35,6 +35,20 @@ export async function saveConversationToFirestore(
   console.log("  history length:", history.length);
 
   try {
+    // Verify authentication
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.error("❌ No authenticated user found");
+      throw new Error("User must be authenticated to save conversations");
+    }
+    if (currentUser.uid !== userId) {
+      console.error("❌ UserId mismatch!");
+      console.error("  Provided userId:", userId);
+      console.error("  Authenticated user:", currentUser.uid);
+      throw new Error("UserId does not match authenticated user");
+    }
+    console.log("✅ Authenticated user verified:", currentUser.uid);
+
     const conversationData = {
       userId,
       name,
@@ -179,7 +193,21 @@ export async function updateConversationHistoryInFirestore(
   console.log("  ID:", conversationId);
   console.log("  Messages:", history.length);
 
+  // Don't try to update temporary conversations
+  if (conversationId.startsWith("temp-")) {
+    console.log("⏭️ Skipping update for temporary conversation");
+    return;
+  }
+
   try {
+    // Check authentication status
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.error("❌ No authenticated user found");
+      throw new Error("User must be authenticated to update conversations");
+    }
+    console.log("✅ Authenticated user:", currentUser.uid);
+
     const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
     await updateDoc(conversationRef, {
       history,

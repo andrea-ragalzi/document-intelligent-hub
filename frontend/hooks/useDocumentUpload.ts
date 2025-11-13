@@ -12,11 +12,13 @@ interface UseUploadResult {
   uploadAlert: AlertState;
   handleFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
   handleUpload: (e: FormEvent, currentUserId: string) => Promise<void>;
+  documentsUploaded: number; // Track number of successful uploads
 }
 
 export const useDocumentUpload = (): UseUploadResult => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [documentsUploaded, setDocumentsUploaded] = useState<number>(0);
   const [uploadAlert, setUploadAlert] = useState<AlertState>({
     message: "Enter a User ID and upload a PDF.",
     type: "info",
@@ -79,6 +81,11 @@ export const useDocumentUpload = (): UseUploadResult => {
             type: "success",
           });
           setFile(null);
+          setDocumentsUploaded((prev) => prev + 1); // Increment upload counter
+
+          // Trigger document status refresh
+          window.dispatchEvent(new Event("refreshDocumentStatus"));
+
           const fileInput = document.getElementById(
             "pdf-upload"
           ) as HTMLInputElement;
@@ -109,5 +116,6 @@ export const useDocumentUpload = (): UseUploadResult => {
     uploadAlert,
     handleFileChange,
     handleUpload,
+    documentsUploaded,
   };
 };

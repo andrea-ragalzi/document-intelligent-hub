@@ -41,10 +41,23 @@ export const useRAGChat = (): UseChatResult => {
       setIsQuerying(true);
 
       try {
+        // Prepare conversation history: last 7 exchanges (14 messages max)
+        const conversationHistory = chatHistory
+          .slice(-14) // Last 14 messages = 7 user + 7 assistant exchanges
+          .filter((msg) => !msg.isThinking) // Exclude thinking placeholders
+          .map((msg) => ({
+            role: msg.type === "user" ? "user" : "assistant",
+            content: msg.text,
+          }));
+
         const response = await fetch(`${API_BASE_URL}/query/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: userQuery, user_id: currentUserId }),
+          body: JSON.stringify({
+            query: userQuery,
+            user_id: currentUserId,
+            conversation_history: conversationHistory,
+          }),
         });
 
         const data = await response.json();

@@ -17,6 +17,8 @@ interface ChatSectionProps {
   onQueryChange: (value: string) => void;
   onQuerySubmit: (e: FormEvent) => void;
   onNewConversation: () => void;
+  hasDocuments: boolean;
+  isCheckingDocuments: boolean;
 }
 export const ChatSection: React.FC<ChatSectionProps> = ({
   chatHistory,
@@ -27,7 +29,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   onQueryChange,
   onQuerySubmit,
   onNewConversation,
+  hasDocuments,
+  isCheckingDocuments,
 }) => {
+  const isChatDisabled = !hasDocuments && !isCheckingDocuments;
   return (
     <div className="lg:w-2/3 flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-xl transition-colors duration-500">
       <header className="p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 rounded-t-2xl flex justify-between items-center">
@@ -49,12 +54,32 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
         {chatHistory.length === 0 ? (
           <div className="text-center p-12 text-gray-400">
             <MessageSquare size={64} className="mx-auto mb-4 text-blue-200" />
-            <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
-              Ready to search.
-            </p>
-            <p className="text-sm dark:text-gray-400">
-              Index a file and ask your first question.
-            </p>
+            {isChatDisabled ? (
+              <>
+                <p className="font-bold text-lg text-yellow-600 dark:text-yellow-400">
+                  ⚠️ No Documents Uploaded
+                </p>
+                <p className="text-sm dark:text-gray-400 mt-2">
+                  Please upload at least one PDF document before starting a
+                  conversation.
+                </p>
+              </>
+            ) : isCheckingDocuments ? (
+              <>
+                <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
+                  Checking documents...
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
+                  Ready to search.
+                </p>
+                <p className="text-sm dark:text-gray-400">
+                  Ask your first question about the uploaded documents.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           chatHistory.map((msg, index) => (
@@ -72,16 +97,20 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
             type="text"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            disabled={isQuerying || !userId}
-            placeholder="Type your question here..."
+            disabled={isQuerying || !userId || isChatDisabled}
+            placeholder={
+              isChatDisabled
+                ? "Upload a document first..."
+                : "Type your question here..."
+            }
             className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-inner disabled:bg-gray-100 transition text-sm
               bg-white dark:bg-gray-900 dark:border-gray-600 dark:text-white disabled:dark:bg-gray-700"
           />
           <button
             type="submit"
-            disabled={isQuerying || !query.trim() || !userId}
+            disabled={isQuerying || !query.trim() || !userId || isChatDisabled}
             className={`flex items-center justify-center p-3 rounded-lg shadow-md transition duration-200 ${
-              isQuerying || !query.trim() || !userId
+              isQuerying || !query.trim() || !userId || isChatDisabled
                 ? "bg-gray-300 text-gray-600 cursor-not-allowed dark:bg-gray-600 dark:text-gray-300"
                 : "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg"
             }`}

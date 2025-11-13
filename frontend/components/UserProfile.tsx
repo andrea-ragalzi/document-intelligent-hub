@@ -19,6 +19,8 @@ export default function UserProfile() {
 
   if (!user) return null;
 
+  const displayName = user.email || user.displayName || "User";
+
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-2">
@@ -32,11 +34,11 @@ export default function UserProfile() {
           />
         ) : (
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
-            {user.email?.[0].toUpperCase()}
+            {user.email?.[0].toUpperCase() || "?"}
           </div>
         )}
         <span className="text-sm text-gray-700 dark:text-gray-300">
-          {user.email}
+          {displayName}
         </span>
       </div>
       <button

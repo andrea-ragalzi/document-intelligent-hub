@@ -56,7 +56,9 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                   "Drag or click here to select a file (PDF only)"
                 )}
               </p>
-              <p className="text-xs text-gray-400 mt-1">Max 1MB for demo.</p>
+              <p className="text-xs text-gray-400 mt-1">
+                PDF format only. Processing time depends on document size.
+              </p>
             </div>
           </div>
 

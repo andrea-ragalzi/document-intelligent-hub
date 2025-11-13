@@ -50,14 +50,17 @@ npm install && npm run dev
 
 ## ✨ Key Features
 
-- 🔐 **Multi-Tenant Architecture** - Secure data isolation per user
-- 📄 **PDF Processing** - Upload and index PDF documents
+- 🔐 **Multi-Tenant Architecture** - Secure data isolation per user with Firebase authentication
+- 📄 **PDF Processing** - Upload and index PDF documents with hierarchical structure awareness
 - 🤖 **AI-Powered Q&A** - GPT-based intelligent answers from your documents
-- 💬 **Chat History** - Contextual conversations with memory
-- 🎨 **Modern UI** - Responsive Next.js with dark mode support
-- 🚀 **Streaming Responses** - Real-time AI response streaming
-- 🔍 **Semantic Search** - ChromaDB vector store for accurate retrieval
-- 🐳 **Docker Ready** - One-command deployment
+- 🧠 **Conversation Memory** - Hybrid short-term + long-term memory for context-aware dialogues
+- 💬 **Smart Chat History** - Last 7 exchanges automatically included for coherent conversations
+- 📝 **Auto-Summarization** - LLM-generated summaries every 20 messages for long-term context
+- 🎨 **Modern UI** - Responsive Next.js with dark mode and beautiful landing page
+- 🚀 **Real-time Responses** - Streaming AI responses with Vercel AI SDK
+- 🔍 **Semantic Search** - ChromaDB vector store with multi-query retrieval
+- 🌍 **Multi-Language Support** - Automatic translation for queries and responses
+- 🐳 **Docker Ready** - One-command deployment with docker-compose
 
 ---
 
