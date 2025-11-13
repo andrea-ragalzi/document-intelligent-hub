@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useEffect, FormEvent } from "react";
-import { Sun, Moon, Loader } from "lucide-react";
+import { useRef, useEffect, FormEvent, useState } from "react";
+import { Loader } from "lucide-react";
 import type { Message } from "ai/react";
 import type { SavedConversation } from "@/lib/types";
 import { useTheme } from "@/hooks/useTheme";
@@ -10,11 +10,12 @@ import { useDocumentUpload } from "@/hooks/useDocumentUpload";
 import { useDocumentStatus } from "@/hooks/useDocumentStatus";
 import { useChatAI } from "@/hooks/useChatAI";
 import { Sidebar } from "@/components/Sidebar";
+import { RightSidebar } from "@/components/RightSidebar";
+import { TopBar } from "@/components/TopBar";
 import { ChatSection } from "@/components/ChatSection";
 import { RenameModal } from "@/components/RenameModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import UserProfile from "@/components/UserProfile";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -29,6 +30,9 @@ import {
 export default function Page() {
   const { theme, toggleTheme } = useTheme();
   const { userId, isAuthReady } = useUserId();
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+
   const { file, handleFileChange, handleUpload, isUploading, uploadAlert } =
     useDocumentUpload();
 
@@ -210,8 +214,6 @@ export default function Page() {
     setCurrentConversation,
   ]);
 
-  const ThemeIcon = theme === "light" ? Moon : Sun;
-
   const handleLoad = (conv: SavedConversation) => {
     console.log("📂 Loading conversation:", conv.name);
     console.log("  Messages:", conv.history.length);
@@ -358,17 +360,14 @@ export default function Page() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-sans p-4 sm:p-6 lg:p-10 flex justify-center transition-colors duration-500">
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-          <UserProfile />
-          <button
-            onClick={toggleTheme}
-            aria-label="Toggle dark mode"
-            className="p-2 rounded-full bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-300"
-          >
-            <ThemeIcon size={20} />
-          </button>
-        </div>
+      <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900 font-sans transition-colors duration-500">
+        {/* Top Bar */}
+        <TopBar
+          onOpenLeftSidebar={() => setLeftSidebarOpen(true)}
+          onOpenRightSidebar={() => setRightSidebarOpen(true)}
+          onNewConversation={handleNewConversation}
+          hasConversation={chatHistory.length > 0}
+        />
 
         <RenameModal
           isOpen={renameModalOpen}
@@ -388,7 +387,9 @@ export default function Page() {
           onCancel={cancelDelete}
         />
 
-        <div className="w-full max-w-7xl flex flex-col lg:flex-row gap-6">
+        {/* Main content area - grows to fill remaining space */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar - Documents & Conversations */}
           <Sidebar
             userId={userId}
             file={file}
@@ -396,6 +397,8 @@ export default function Page() {
             uploadAlert={uploadAlert}
             statusAlert={statusAlert}
             savedConversations={savedConversations}
+            mobileOpen={leftSidebarOpen}
+            onCloseMobile={() => setLeftSidebarOpen(false)}
             onFileChange={handleFileChange}
             onUpload={submitUpload}
             onLoadConversation={handleLoad}
@@ -403,17 +406,28 @@ export default function Page() {
             onRenameConversation={handleRename}
           />
 
-          <ChatSection
-            chatHistory={chatHistory}
-            query={input}
-            isQuerying={isLoading}
+          {/* Chat area - takes remaining space */}
+          <div className="flex-1 flex flex-col p-2 sm:p-4 lg:p-6 overflow-hidden">
+            <ChatSection
+              chatHistory={chatHistory}
+              query={input}
+              isQuerying={isLoading}
+              userId={userId}
+              chatEndRef={chatEndRef}
+              onQueryChange={handleQueryChange}
+              onQuerySubmit={submitQuery}
+              hasDocuments={hasDocuments}
+              isCheckingDocuments={isChecking}
+            />
+          </div>
+
+          {/* Right Sidebar - User Profile & Settings */}
+          <RightSidebar
             userId={userId}
-            chatEndRef={chatEndRef}
-            onQueryChange={handleQueryChange}
-            onQuerySubmit={submitQuery}
-            onNewConversation={handleNewConversation}
-            hasDocuments={hasDocuments}
-            isCheckingDocuments={isChecking}
+            theme={theme}
+            mobileOpen={rightSidebarOpen}
+            onCloseMobile={() => setRightSidebarOpen(false)}
+            onToggleTheme={toggleTheme}
           />
         </div>
       </div>
