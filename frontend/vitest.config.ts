@@ -10,6 +10,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./test/setup.ts"],
     exclude: ["node_modules", ".next", "dist", "out", "public"],
+    // Limita i worker per evitare crash
+    maxWorkers: 1,
 
     // --- CONFIGURAZIONE COVERAGE (SOLUZIONE AL PROBLEMA 0%) ---
     coverage: {

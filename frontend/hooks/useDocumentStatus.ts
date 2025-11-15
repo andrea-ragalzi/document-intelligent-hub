@@ -37,6 +37,8 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
       }
 
       setIsChecking(true);
+      console.log("🔍 Checking documents for user:", userId);
+
       try {
         // Check if there are indexed documents for this user
         const response = await fetch(
@@ -45,14 +47,19 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
 
         if (response.ok) {
           const data = await response.json();
+          console.log("📊 Document check result:", data);
           setHasDocuments(data.has_documents || false);
           setDocumentCount(data.document_count || 0);
         } else {
+          console.warn(
+            "⚠️ Document check failed with status:",
+            response.status
+          );
           setHasDocuments(false);
           setDocumentCount(0);
         }
       } catch (error) {
-        console.error("Error checking document status:", error);
+        console.error("❌ Error checking document status:", error);
         setHasDocuments(false);
         setDocumentCount(0);
       } finally {

@@ -2,6 +2,7 @@ import { FormEvent, ChangeEvent } from "react";
 import { Upload, Loader } from "lucide-react";
 import type { AlertState } from "@/lib/types";
 import { AlertMessage } from "./AlertMessage";
+import { UploadProgress } from "./UploadProgress";
 
 interface UploadSectionProps {
   file: File | null;
@@ -11,6 +12,13 @@ interface UploadSectionProps {
   statusAlert: AlertState | null;
   onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onUpload: (e: FormEvent) => void;
+  // Progress tracking
+  uploadProgress?: number;
+  uploadStatus?: "uploading" | "processing" | "complete" | "error";
+  uploadMessage?: string;
+  estimatedTime?: string;
+  chunksProcessed?: number;
+  totalChunks?: number;
 }
 
 export const UploadSection: React.FC<UploadSectionProps> = ({
@@ -21,6 +29,12 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
   statusAlert,
   onFileChange,
   onUpload,
+  uploadProgress = 0,
+  uploadStatus = "uploading",
+  uploadMessage,
+  estimatedTime,
+  chunksProcessed,
+  totalChunks,
 }) => {
   return (
     <>
@@ -83,6 +97,17 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
               </>
             )}
           </button>
+
+          {/* Upload Progress Bar */}
+          <UploadProgress
+            isUploading={isUploading}
+            progress={uploadProgress}
+            status={uploadStatus}
+            message={uploadMessage}
+            estimatedTime={estimatedTime}
+            chunksProcessed={chunksProcessed}
+            totalChunks={totalChunks}
+          />
         </form>
       </section>
 

@@ -17,8 +17,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   return (
     <section className="pt-4">
       <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center border-b border-gray-100 dark:border-gray-700 pb-2">
-        <Archive size={16} className="mr-2 text-blue-600" /> 2. Saved
-        Conversations
+        <Archive size={16} className="mr-2 text-blue-600" /> Saved Conversations
       </h2>
       <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
         {conversations.length === 0 ? (

@@ -6,8 +6,26 @@
 /* Aggiungi qui eventuali stili globali personalizzati */
 /* Ad esempio, per la scrollbar della chat */
 .dark ::-webkit-scrollbar-thumb {
-  background-color: #4b5563; /* gray-600 */
+  background-color: #4b5563;
+  /* gray-600 */
 }
+
 .dark ::-webkit-scrollbar-thumb:hover {
-  background-color: #6b7280; /* gray-500 */
+  background-color: #6b7280;
+  /* gray-500 */
+}
+
+/* Upload progress shimmer animation */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
 }

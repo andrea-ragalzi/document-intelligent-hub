@@ -62,6 +62,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   const displayName = user?.email || user?.displayName || "User";
   const ThemeIcon = theme === "light" ? Moon : Sun;
 
+  // Debug: Log userId to help troubleshoot document visibility issues
+  useEffect(() => {
+    if (userId) {
+      console.log("🔑 Current User ID:", userId);
+      console.log("📧 User Email:", user?.email);
+      console.log("👤 User UID:", user?.uid);
+    }
+  }, [userId, user]);
+
   // Desktop collapsed view
   if (collapsed && !mobileOpen) {
     return (
@@ -161,13 +170,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             </div>
 
             {/* Tenant ID */}
-            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Tenant ID
-              </p>
-              <p className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
-                {userId || "Not available"}
-              </p>
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-2">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  User ID (Tenant)
+                </p>
+                <p className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
+                  {userId || "Not available"}
+                </p>
+              </div>
             </div>
 
             {/* Logout Button */}

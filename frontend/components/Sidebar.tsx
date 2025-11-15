@@ -1,6 +1,6 @@
 import { FileText, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useState, useEffect } from "react";
-import { UploadSection } from "./UploadSection";
+import { DocumentManager } from "./DocumentManager";
 import { ConversationList } from "./ConversationList";
 import type { SavedConversation, AlertState } from "@/lib/types";
 import { FormEvent, ChangeEvent } from "react";
@@ -145,7 +145,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Content */}
         <div className="overflow-y-auto h-[calc(100vh-180px)] lg:h-auto space-y-4 sm:space-y-6">
-          <UploadSection
+          {/* Document Manager - Upload & List */}
+          <DocumentManager
             file={file}
             isUploading={isUploading}
             userId={userId}
@@ -155,6 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onUpload={onUpload}
           />
 
+          {/* Conversations */}
           <ConversationList
             conversations={savedConversations}
             onLoad={(conv) => {

@@ -2,7 +2,6 @@
 
 from langdetect import detect
 from translate import Translator
-from typing import Optional
 
 # TARGET LANGUAGE for RAG retrieval and indexing (forcing consistency)
 RETRIEVAL_TARGET_LANGUAGE = "English"
@@ -70,6 +69,32 @@ class LanguageService:
                 f"Translation failed (Type: {type(e).__name__}). Returning English answer."
             )
             return answer  # Restituisce la risposta inglese originale come fallback
+    
+    def get_language_name(self, language_code: str) -> str:
+        """
+        Get the full language name from a language code.
+        
+        Args:
+            language_code: ISO language code (e.g., 'IT', 'EN')
+            
+        Returns:
+            Full language name (e.g., 'Italian', 'English')
+        """
+        language_names = {
+            "EN": "English",
+            "IT": "Italian",
+            "FR": "French",
+            "DE": "German",
+            "ES": "Spanish",
+            "PT": "Portuguese",
+            "NL": "Dutch",
+            "PL": "Polish",
+            "RU": "Russian",
+            "ZH": "Chinese",
+            "JA": "Japanese",
+            "KO": "Korean",
+        }
+        return language_names.get(language_code.upper(), "Unknown")
 
 
 language_service = LanguageService()

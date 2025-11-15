@@ -14,6 +14,47 @@ CATEGORIES = Literal[
     "TECHNICAL_SPECIFICATION", # Query about device/system specs, data sheets, or code
 ]
 
+# --- ChromaDB Metadata Schemas ---
+
+class ChunkMetadata(BaseModel):
+    """
+    Pydantic schema for ChromaDB chunk metadata.
+    Enforces structure and validation for document chunk metadata.
+    """
+    # Multi-tenancy (CRITICAL for data isolation)
+    source: str = Field(..., description="User ID (tenant identifier) - CRITICAL for multi-tenancy isolation")
+    
+    # Document identification
+    original_filename: str = Field(..., description="Original filename of the uploaded document")
+    original_language_code: str = Field(..., description="Document language code (e.g., 'EN', 'IT', 'FR')")
+    
+    # Chunk positioning
+    chunk_index: Optional[int] = Field(None, description="Index of this chunk within the document")
+    chapter_title: Optional[str] = Field(None, description="Chapter or section title for hierarchical context")
+    element_type: Optional[str] = Field(None, description="Type of document element (e.g., 'NarrativeText', 'Title', 'Header')")
+    
+    # Temporal tracking
+    uploaded_at: Optional[int] = Field(None, description="Upload timestamp in milliseconds (for sorting)")
+    
+    class Config:
+        """Pydantic config for strict validation"""
+        extra = "forbid"  # Reject any extra fields not defined in schema
+
+class DocumentMetadata(BaseModel):
+    """
+    Pydantic schema for document-level metadata (aggregated view).
+    Used when listing documents or retrieving document information.
+    """
+    filename: str = Field(..., description="Document filename")
+    chunks_count: int = Field(..., description="Number of chunks in this document")
+    language: str = Field(..., description="Document language code")
+    uploaded_at: Optional[str] = Field(None, description="Upload timestamp")
+    user_id: str = Field(..., description="User ID (owner of the document)")
+    
+    class Config:
+        extra = "allow"  # Allow extra fields for flexibility
+
+
 # --- RAG Schemas ---
 
 class UploadRequest(BaseModel):
@@ -90,3 +131,24 @@ class SummarizeRequest(BaseModel):
 class SummarizeResponse(BaseModel):
     """Schema for the conversation summary response."""
     summary: str = Field(..., description="The generated conversation summary.")
+
+# --- Document Management Schemas ---
+
+class DocumentInfo(BaseModel):
+    """Schema for document information."""
+    filename: str = Field(..., description="The name of the document file.")
+    chunks_count: int = Field(..., description="Number of chunks/pieces this document was split into.")
+    language: Optional[str] = Field(None, description="Detected or specified language of the document.")
+    uploaded_at: Optional[str] = Field(None, description="Upload timestamp if available.")
+
+class DocumentListResponse(BaseModel):
+    """Schema for listing user documents."""
+    documents: List[DocumentInfo] = Field(..., description="List of user's indexed documents.")
+    total_count: int = Field(..., description="Total number of documents.")
+    user_id: str = Field(..., description="The user ID these documents belong to.")
+
+class DocumentDeleteResponse(BaseModel):
+    """Schema for document deletion response."""
+    message: str = Field(..., description="Success message.")
+    filename: str = Field(..., description="Name of the deleted document.")
+    chunks_deleted: int = Field(..., description="Number of chunks deleted from the vector store.")

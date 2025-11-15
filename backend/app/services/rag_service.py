@@ -1,10 +1,9 @@
-# backend/app/services/rag_service.py
-
 """
 RAG Service Module - Main Orchestrator
 
 Coordinates document indexing, retrieval, and answer generation.
 Delegates specialized tasks to dedicated service modules for better maintainability.
+Uses Repository Pattern for data access abstraction.
 """
 
 import os
@@ -12,12 +11,15 @@ from typing import List, Optional, Tuple
 
 # Core imports
 from app.core.config import settings
-from app.db.chroma_client import (
-    COLLECTION_NAME,
-    get_chroma_client,
-    get_embedding_function,
+from app.core.logging import logger
+from app.repositories.dependencies import get_vector_store_repository
+from app.repositories.vector_store_repository import VectorStoreRepository
+from app.schemas.rag_schema import (
+    CATEGORIES,
+    ConversationMessage,
+    DocumentInfo,
+    QueryClassification,
 )
-from app.schemas.rag import CATEGORIES, ConversationMessage, QueryClassification
 from app.schemas.use_cases import UseCaseType
 
 # Specialized service imports
@@ -29,9 +31,8 @@ from app.services.translation_service import translation_service
 from app.services.use_case_detection_service import use_case_detection_service
 
 # FastAPI and document processing
-from fastapi import UploadFile
+from fastapi import Depends, UploadFile
 from langchain_community.document_loaders import UnstructuredPDFLoader
-from langchain_community.vectorstores import Chroma
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.documents import Document
 from langchain_core.output_parsers import JsonOutputParser
@@ -86,48 +87,61 @@ RAG_PROMPT_TEMPLATE = (
 
 class RAGService:
     """
-    Main RAG Service - Orchestrator
+    Main RAG Service - Orchestrator (Refactored with Repository Pattern)
     
     Coordinates document indexing, retrieval, and answer generation.
     Delegates specialized tasks to dedicated service modules.
+    
+    Architecture Pattern: Dependency Injection + Repository Pattern
+    - Receives VectorStoreRepository via constructor (data access abstraction)
+    - Microservices-ready: easy to replace with remote services
+    - Testable: dependencies can be mocked
     """
     
-    def __init__(self):
-        """Initialize the RAG service with all required components."""
-        # Initialize core components
-        self.embedding_function = get_embedding_function()
-        self.chroma_client = get_chroma_client()
+    def __init__(self, repository: VectorStoreRepository):
+        """
+        Initialize the RAG service with injected dependencies.
+        
+        Args:
+            repository: Vector store repository for data access (injected via DI)
+        
+        Design Note:
+            The repository is injected by the dependency injection system,
+            not created here. This allows for:
+            - Better testing (mock injection)
+            - Microservices migration (remote data access)
+            - Separation of business logic from data access
+        """
+        # Store injected repository
+        self.repository: VectorStoreRepository = repository
 
         # Initialize language service for answer translation
-        self.language_service = LanguageService(target_lang=RETRIEVAL_TARGET_LANGUAGE)
+        self.language_service: LanguageService = LanguageService(
+            target_lang=RETRIEVAL_TARGET_LANGUAGE
+        )
 
-        # Extract API key securely
-        self.api_key_value = (
+        # Extract API key securely from settings
+        self.api_key_value: str = (
             settings.OPENAI_API_KEY.get_secret_value()
             if isinstance(settings.OPENAI_API_KEY, SecretStr)
             else str(settings.OPENAI_API_KEY)
         )
 
         # LLM for final answer generation (low temperature for factual accuracy)
-        self.llm = ChatOpenAI(
+        self.llm: ChatOpenAI = ChatOpenAI(
             model=settings.LLM_MODEL,
-            temperature=0.0,
+            temperature=0.0,  # Deterministic, factual responses
             api_key=SecretStr(self.api_key_value),
         )
 
-        # LLM for query classification (higher temperature)
-        self.query_gen_llm = ChatOpenAI(
+        # LLM for query classification and summarization (higher temperature for creativity)
+        self.query_gen_llm: ChatOpenAI = ChatOpenAI(
             model=settings.LLM_MODEL,
-            temperature=0.7,
+            temperature=0.7,  # More creative for classification/summarization
             api_key=SecretStr(self.api_key_value),
         )
-
-        # Initialize Chroma Vector Store
-        self.vector_store = Chroma(
-            client=self.chroma_client,
-            collection_name=COLLECTION_NAME,
-            embedding_function=self.embedding_function,
-        )
+        
+        logger.debug("✅ RAGService initialized with dependency injection")
 
     def _classify_query(self, query: str) -> str:
         """
@@ -153,14 +167,23 @@ class RAGService:
 
             result = chain.invoke({"query": query})
 
-            if isinstance(result, dict) and "category_tag" in result:
-                return result["category_tag"].upper()
+            # Handle both 'category_tag' (correct) and 'category' (LLM mistake)
+            if isinstance(result, dict):
+                if "category_tag" in result:
+                    return result["category_tag"].upper()
+                elif "category" in result:
+                    # Fallback: LLM used wrong key name
+                    logger.warning(f"⚠️ LLM returned 'category' instead of 'category_tag': {result}")
+                    return result["category"].upper()
+                else:
+                    logger.error(f"❌ Classification parsing failed - missing both keys. Result: {result}")
+                    return "GENERAL_SEARCH"
             else:
-                print(f"Classification parsing failed. Result: {result}")
+                logger.error(f"❌ Classification parsing failed - not a dict. Result: {result}")
                 return "GENERAL_SEARCH"
 
         except Exception as e:
-            print(f"Error classifying query: {e}")
+            logger.error(f"❌ Error classifying query: {e}")
             return "GENERAL_SEARCH"
     
     async def index_document(
@@ -210,6 +233,11 @@ class RAGService:
             # 4. Prepare chunks with hierarchical tracking
             final_chunks: List[Document] = []
             current_chapter = "Document Start"
+            
+            # --- CRITICAL: Add uploaded_at timestamp to metadata ---
+            import time
+            uploaded_at = int(time.time() * 1000) # Milliseconds timestamp
+            # --------------------------------------------------------
 
             for chunk in chunks:
                 # Track hierarchical structure from document elements
@@ -227,32 +255,58 @@ class RAGService:
                         chunk.page_content
                     )
                     doc_language = detected_lang_code.upper()
-                    print(f"DEBUG: Auto-detected document language: {doc_language}")
+                    logger.debug(f" Auto-detected document language: {doc_language}")
                 elif doc_language is None:
                     doc_language = "EN"  # Default fallback
 
-                # Add structural and language metadata to every chunk
+                # Add structural, language, and user metadata to every chunk
                 chunk.metadata["chapter_title"] = current_chapter
                 chunk.metadata["source"] = user_id
                 chunk.metadata["original_filename"] = file.filename
                 chunk.metadata["original_language_code"] = doc_language  # Use document language
+                chunk.metadata["uploaded_at"] = uploaded_at # CRITICAL for sorting in DocumentInfo
 
                 final_chunks.append(chunk)
 
-            # 5. Index the chunks (in their original language)
+            # 5. Index the chunks (in their original language) - OPTIMIZED WITH BATCH UPSERT
             if final_chunks:
-                for i in range(0, len(final_chunks), EMBEDDING_DOC_BATCH_SIZE):
-                    batch = final_chunks[i : i + EMBEDDING_DOC_BATCH_SIZE]
-                    self.vector_store.add_documents(batch)
+                import time
+                
+                start_time = time.time()
+                
+                # CRITICAL OPTIMIZATION 1: Reduce batch size for faster per-batch processing
+                # Smaller batches = more frequent feedback, better memory management
+                OPTIMIZED_BATCH_SIZE = 500  # Reduced from 2000 for better throughput
+                total_batches = (len(final_chunks) + OPTIMIZED_BATCH_SIZE - 1) // OPTIMIZED_BATCH_SIZE
+                
+                logger.info(f"📊 Starting OPTIMIZED embedding generation for {len(final_chunks)} chunks in {total_batches} batches")
+                
+                # CRITICAL OPTIMIZATION 2: Batch upsert instead of individual adds
+                # Process in smaller batches for better progress visibility
+                for batch_idx, i in enumerate(range(0, len(final_chunks), OPTIMIZED_BATCH_SIZE), 1):
+                    batch = final_chunks[i : i + OPTIMIZED_BATCH_SIZE]
+                    batch_start = time.time()
+                    
+                    # Single upsert operation for entire batch (atomic write) via repository
+                    self.repository.add_documents(batch)
+                    
+                    batch_time = time.time() - batch_start
                     total_chunks_indexed += len(batch)
+                    throughput = len(batch) / batch_time if batch_time > 0 else 0
+                    
+                    logger.info(f"⚡ Batch {batch_idx}/{total_batches}: {len(batch)} chunks in {batch_time:.2f}s ({throughput:.1f} chunks/s)")
+                
+                elapsed = time.time() - start_time
+                overall_throughput = len(final_chunks) / elapsed if elapsed > 0 else 0
+                logger.info(f"🚀 OPTIMIZED: Processed {len(final_chunks)} chunks in {elapsed:.2f}s ({overall_throughput:.1f} chunks/s overall)")
 
             # Ensure doc_language is not None before returning
             final_doc_language = doc_language if doc_language else "EN"
-            print(f"DEBUG: Indexed {total_chunks_indexed} chunks in language: {final_doc_language}")
+            logger.info(f"✅ Indexed {total_chunks_indexed} chunks in language: {final_doc_language}")
             return total_chunks_indexed, final_doc_language
         except Exception as e:
             # Print the error for debugging and re-raise it or handle as preferred.
-            print(f"Indexing error (service level): {e}")
+            logger.error(f"Indexing error (service level): {e}")
             raise e
         finally:
             # 6. Clean up the temporary file
@@ -284,7 +338,7 @@ class RAGService:
 
         # 1. Detect the original query language code (for final answer translation)
         query_language_code = self.language_service.detect_language(query).upper()
-        print(f"DEBUG: Query Language Code: {query_language_code}")
+        logger.debug(f" Query Language Code: {query_language_code}")
 
         # 2. Assume document language is EN by default for first pass
         # We'll do a quick translation if query is not in English
@@ -294,15 +348,13 @@ class RAGService:
         query_for_sample = query
         if query_language_code != "EN":
             query_for_sample = translation_service.translate_query_to_language(query, "EN")
-            print(f"DEBUG: Translated query for sampling: {query_for_sample}")
+            logger.debug(f" Translated query for sampling: {query_for_sample}")
         
         # 3. Initial retrieval to determine actual document language from chunks
-        temp_retriever = self.vector_store.as_retriever(
-            search_kwargs={"filter": {"source": user_id}, "k": 5}
-        )
-        sample_docs = temp_retriever.invoke(query_for_sample)  # Use translated query
+        retriever_temp = self.repository.get_retriever(user_id=user_id, k=5)
+        sample_docs = retriever_temp.invoke(query_for_sample)  # Use translated query
         
-        print(f"DEBUG: Sample retrieval returned {len(sample_docs)} documents")
+        logger.debug(f" Sample retrieval returned {len(sample_docs)} documents")
         
         # Extract document language from retrieved chunks' metadata
         if sample_docs:
@@ -314,38 +366,36 @@ class RAGService:
             
             if lang_counts:
                 document_language = max(lang_counts, key=lambda k: lang_counts[k])
-                print(f"DEBUG: Language distribution in sample: {lang_counts}")
-                print(f"DEBUG: Detected document language from retrieval: {document_language}")
+                logger.debug(f" Language distribution in sample: {lang_counts}")
+                logger.debug(f" Detected document language from retrieval: {document_language}")
         else:
-            print("DEBUG: WARNING - No documents found in sample retrieval!")
+            logger.debug(" WARNING - No documents found in sample retrieval!")
         
         # 4. Translate the user query to the DOCUMENT LANGUAGE for accurate retrieval
         if query_language_code == document_language:
             translated_query_for_retrieval = query
-            print("DEBUG: Query already in document language, no translation needed")
+            logger.debug(" Query already in document language, no translation needed")
         else:
             translated_query_for_retrieval = translation_service.translate_query_to_language(
                 query, document_language
             )
-            print(f"DEBUG: Translated Query for Retrieval ({document_language}): {translated_query_for_retrieval}")
+            logger.debug(f" Translated Query for Retrieval ({document_language}): {translated_query_for_retrieval}")
 
         # 4. Classify the query (using the original query)
         query_tag = self._classify_query(query)
-        print(f"DEBUG: Query Classified as: {query_tag}")
+        logger.debug(f" Query Classified as: {query_tag}")
 
         # 5. Generate Alternative Queries based on the translated query
         alternative_queries = query_expansion_service.generate_alternative_queries(
             translated_query_for_retrieval
         )
-        print(f"DEBUG: Generated {len(alternative_queries)} alternative queries")
+        logger.debug(f" Generated {len(alternative_queries)} alternative queries")
 
         # List of all queries to execute: Translated Query + Alternative Queries
         all_queries = [translated_query_for_retrieval] + alternative_queries
 
         # 5. Setup Retrieval with larger pool (k=30 for better coverage of scattered information)
-        retriever = self.vector_store.as_retriever(
-            search_kwargs={"filter": {"source": user_id}, "k": 30}
-        )
+        retriever = self.repository.get_retriever(user_id=user_id, k=30)
 
         # 6. Execute retrieval for all queries and collect results (Fase 1: Ricerca Parallela)
         all_retrieved_docs = []
@@ -353,7 +403,7 @@ class RAGService:
 
         for q in all_queries:
             docs = retriever.invoke(q)
-            print(f"DEBUG: Query '{q[:50]}...' retrieved {len(docs)} documents")
+            logger.debug(f" Query '{q[:50]}...' retrieved {len(docs)} documents")
 
             for doc in docs:
                 # Simple check to uniquely identify documents by content and metadata
@@ -364,7 +414,7 @@ class RAGService:
                     all_retrieved_docs.append(doc)
                     doc_ids.add(doc_id)
 
-        print(f"DEBUG: Retrieved {len(all_retrieved_docs)} unique documents from parallel search")
+        logger.debug(f" Retrieved {len(all_retrieved_docs)} unique documents from parallel search")
 
         # 7. Apply lightweight reranking and select optimal context
         # Use more chunks (15) for list-type queries to capture scattered information
@@ -381,8 +431,7 @@ class RAGService:
             fallback_answer = (
                 "I cannot answer this question based on the documents provided."
             )
-            print(
-                f"DEBUG: Retrieval failed for user_id='{user_id}'. Fallback answer sent."
+            logger.info(f"DEBUG: Retrieval failed for user_id='{user_id}'. Fallback answer sent."
             )
 
             # The fallback must also be translated back to the user's language
@@ -414,7 +463,7 @@ class RAGService:
             set(doc.metadata.get("original_filename", "N/A") for doc in context_docs)
         )
         
-        print(f"DEBUG: Final context prepared with {len(context_docs)} chunks from {len(source_documents)} documents")
+        logger.debug(f" Final context prepared with {len(context_docs)} chunks from {len(source_documents)} documents")
 
         # 8. Format conversation history if present (last 5-7 exchanges)
         history_text = ""
@@ -426,7 +475,7 @@ class RAGService:
                 role_label = "User" if msg.role == "user" else "Assistant"
                 history_lines.append(f"{role_label}: {msg.content}")
             history_text = "\n".join(history_lines)
-            print(f"DEBUG: Including {len(recent_history)} messages in conversation history")
+            logger.debug(f" Including {len(recent_history)} messages in conversation history")
 
         # 9. Create Final Prompt with Use Case Optimization
         # Auto-detect use case if not explicitly provided
@@ -434,10 +483,10 @@ class RAGService:
             detected_use_case = use_case_detection_service.detect_use_case(query)
             if detected_use_case:
                 use_case = detected_use_case
-                print(f"DEBUG: Auto-detected use case: {use_case}")
+                logger.debug(f" Auto-detected use case: {use_case}")
         
         if use_case:
-            print(f"DEBUG: Using optimized prompt for use case: {use_case}")
+            logger.debug(f" Using optimized prompt for use case: {use_case}")
             
             # Extract quantity from query if present
             quantity = prompt_template_service.extract_quantity_from_query(query)
@@ -472,7 +521,7 @@ class RAGService:
                 retrieved_context=context
             )
             
-            print(f"DEBUG: Generated optimized prompt with constraints - Quantity: {quantity}, Format: {constraints.format_constraint}, Response Language: {query_lang_name}")
+            logger.debug(f" Generated optimized prompt with constraints - Quantity: {quantity}, Format: {constraints.format_constraint}, Response Language: {query_lang_name}")
         else:
             # Fallback to standard prompts without use case optimization
             if history_text:
@@ -491,7 +540,7 @@ class RAGService:
         try:
             english_answer = str(self.llm.invoke(final_prompt).content)
         except Exception as e:
-            print(f"LLM Invocation Error: {e}")
+            logger.error(f"LLM Invocation Error: {e}")
             english_answer = "An error occurred during LLM processing."
 
         # 11. Translate Final Answer back to the user's query language
@@ -505,30 +554,162 @@ class RAGService:
     def get_user_document_count(self, user_id: str) -> int:
         """
         Returns the number of unique documents indexed for a specific user.
+        
+        NOTE: This function is inefficient for large datasets as it samples, 
+        and is superseded by get_user_documents() for accurate counting.
         """
         try:
-            # Get the collection
-            collection = self.chroma_client.get_collection(name=COLLECTION_NAME)
+            # Get sample from repository
+            metadatas, _ = self.repository.get_user_chunks_sample(user_id, sample_size=1000)
 
-            # Query with filter to get documents for this user
-            results = collection.get(where={"source": user_id}, limit=1000)
-
-            if not results or not results.get("metadatas"):
+            if not metadatas:
                 return 0
 
             # Count unique filenames
             unique_files = set()
-            metadatas = results.get("metadatas", [])
-            if metadatas:
-                for metadata in metadatas:
-                    if metadata and "original_filename" in metadata:
-                        unique_files.add(metadata["original_filename"])
+            for metadata in metadatas:
+                if metadata and "original_filename" in metadata:
+                    unique_files.add(metadata["original_filename"])
 
             return len(unique_files)
 
         except Exception as e:
-            print(f"Error getting document count for user {user_id}: {e}")
+            logger.error(f"Error getting document count for user {user_id}: {e}")
             return 0
+
+    def get_user_documents(self, user_id: str) -> List[DocumentInfo]:
+        """
+        Returns a list of all documents indexed for a specific user with metadata.
+        
+        OPTIMIZED: Uses strategic sampling to quickly discover all unique document names 
+        and then uses 'count()' for precise chunk counting.
+        
+        Args:
+            user_id: The user ID to filter documents
+            
+        Returns:
+            List of DocumentInfo objects containing document information
+        """
+        try:
+            logger.info(f"🔍 Getting documents for user: {user_id}")
+            
+            # 1. DISCOVERY: Use sampling to find all unique filenames (fast)
+            unique_filenames: dict = {}  # filename -> metadata dict
+            
+            # Progressive sampling for document discovery
+            sample_sizes = [2000, 10000, 50000] 
+            
+            for sample_size in sample_sizes:
+                metadatas, _ = self.repository.get_user_chunks_sample(user_id, sample_size)
+                
+                if not metadatas:
+                    break
+                    
+                newly_discovered_count = 0
+                prev_unique_count = len(unique_filenames)
+                
+                # Process sample
+                for metadata in metadatas:
+                    if metadata:
+                        filename = metadata.get("original_filename")
+                        
+                        if filename and filename not in unique_filenames:
+                            # Store metadata from first chunk found for this file
+                            unique_filenames[str(filename)] = dict(metadata)
+                            newly_discovered_count += 1
+                
+                logger.info(f"📦 Sample {sample_size}: found {len(unique_filenames)} documents (+{newly_discovered_count} new)")
+
+                # Break conditions
+                if len(metadatas) < sample_size:
+                    logger.info(f"✅ Reached end of data at {len(metadatas)} chunks")
+                    break
+                if newly_discovered_count == 0 and prev_unique_count > 0:
+                    logger.info(f"✅ All documents discovered after {sample_size} chunks")
+                    break
+            
+            # 2. COUNTING: Now count chunks for each document found
+            document_list: List[DocumentInfo] = []
+            for filename, sample_metadata in unique_filenames.items():
+                
+                # Count chunks for this specific file using repository
+                exact_count = self.repository.count_document_chunks(user_id, filename)
+                
+                # Estrai lingua e data dal metadato campione salvato
+                language = str(
+                    sample_metadata.get("original_language_code") or 
+                    sample_metadata.get("language") or 
+                    "unknown"
+                )
+                uploaded_at_ts = sample_metadata.get("uploaded_at")
+                uploaded_at = str(uploaded_at_ts) if uploaded_at_ts else None
+                
+                document_list.append(DocumentInfo(
+                    filename=filename,
+                    chunks_count=exact_count,
+                    language=language,
+                    uploaded_at=uploaded_at,
+                ))
+            
+            logger.info(f"✅ Found {len(document_list)} unique documents with exact chunk counts.")
+            
+            # Opzionale: Ordina i documenti per data di upload (decrescente)
+            document_list.sort(key=lambda doc: doc.uploaded_at or '0', reverse=True)
+            
+            return document_list
+
+        except Exception as e:
+            logger.error(f"❌ Error getting documents for user {user_id}: {e}")
+            return []
+
+    def delete_user_document(self, user_id: str, filename: str) -> int:
+        """
+        Deletes all chunks of a specific document for a user.
+        
+        OPTIMIZED: Uses ChromaDB's native where-based deletion instead of 
+        fetching all IDs first, significantly faster for large documents.
+        
+        Args:
+            user_id: The user ID who owns the document
+            filename: The name of the document to delete
+            
+        Returns:
+            Number of chunks deleted (estimated from pre-check)
+        """
+        try:
+            # Use repository for deletion (optimized where-based deletion)
+            chunks_deleted = self.repository.delete_document(user_id, filename)
+            
+            logger.info(f"✅ Deleted {chunks_deleted} chunks for document {filename} (user: {user_id})")
+            return chunks_deleted
+
+        except Exception as e:
+            logger.error(f"❌ Error deleting document {filename} for user {user_id}: {e}")
+            raise e
+
+    def delete_all_user_documents(self, user_id: str) -> int:
+        """
+        Deletes all documents for a specific user.
+        
+        OPTIMIZED: Uses ChromaDB's native where-based deletion for instant removal.
+        No need for batching - ChromaDB handles large deletions efficiently.
+        
+        Args:
+            user_id: The user ID whose documents should be deleted
+            
+        Returns:
+            Estimated number of chunks deleted
+        """
+        try:
+            # Use repository for deletion (optimized single-operation deletion)
+            chunks_deleted = self.repository.delete_all_user_documents(user_id)
+            
+            logger.info(f"✅ Deleted all documents for user {user_id} (~{chunks_deleted} chunks)")
+            return chunks_deleted
+
+        except Exception as e:
+            logger.error(f"❌ Error deleting all documents for user {user_id}: {e}")
+            raise e
 
     def generate_conversation_summary(self, conversation_history: List[ConversationMessage]) -> str:
         """
@@ -565,16 +746,49 @@ class RAGService:
                 "Summary:"
             )
             
-            # Generate summary using the query generation LLM (higher temperature for natural language)
+            # Generate summary
             summary = str(self.query_gen_llm.invoke(summary_prompt).content)
-            
-            print(f"DEBUG: Generated conversation summary ({len(summary)} chars)")
+            logger.debug(f"Generated conversation summary ({len(summary)} chars)")
             return summary.strip()
             
         except Exception as e:
-            print(f"Error generating conversation summary: {e}")
+            logger.error(f"Error generating conversation summary: {e}")
             return ""
 
 
-# Initialize the service instance (Singleton)
-rag_service = RAGService()
+# --- Dependency Injection Factory ---
+
+def get_rag_service(
+    repository: VectorStoreRepository = Depends(get_vector_store_repository)
+) -> RAGService:
+    """
+    FastAPI dependency function that provides RAGService instances.
+    
+    This factory function creates RAGService instances with proper
+    dependency injection using the Repository Pattern, enabling:
+    - Request-scoped service instances
+    - Data access abstraction via repository
+    - Easy mocking for tests
+    - Microservices-ready architecture
+    
+    CRITICAL: The repository parameter uses Depends() to tell FastAPI
+    how to resolve the nested dependency automatically.
+    
+    Args:
+        repository: Injected VectorStoreRepository from get_vector_store_repository()
+    
+    Returns:
+        RAGService: Configured RAG service instance with repository access
+    
+    Example usage in router:
+        @router.post("/query/")
+        def query(
+            request: QueryRequest,
+            rag_service: RAGService = Depends(get_rag_service)
+        ):
+            answer, sources = rag_service.answer_query(...)
+            ...
+    """
+    return RAGService(repository=repository)
+
+

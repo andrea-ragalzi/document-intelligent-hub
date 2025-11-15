@@ -5,6 +5,10 @@ import type { ChangeEvent, FormEvent } from "react";
 import type { AlertState } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/constants";
 
+interface UseUploadOptions {
+  onSuccess?: () => void;
+}
+
 interface UseUploadResult {
   file: File | null;
   setFile: React.Dispatch<React.SetStateAction<File | null>>;
@@ -15,7 +19,10 @@ interface UseUploadResult {
   documentsUploaded: number; // Track number of successful uploads
 }
 
-export const useDocumentUpload = (): UseUploadResult => {
+export const useDocumentUpload = (
+  options?: UseUploadOptions
+): UseUploadResult => {
+  const { onSuccess } = options || {};
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [documentsUploaded, setDocumentsUploaded] = useState<number>(0);
@@ -48,8 +55,16 @@ export const useDocumentUpload = (): UseUploadResult => {
 
   const handleUpload = useCallback(
     async (e: FormEvent, currentUserId: string) => {
+      console.log("🔵 handleUpload called with:", {
+        file: file?.name,
+        currentUserId,
+      });
       e.preventDefault();
       if (!file || !currentUserId) {
+        console.log("❌ Missing file or userId:", {
+          file: !!file,
+          currentUserId,
+        });
         setUploadAlert({
           message: "Select a PDF file and make sure User ID is available.",
           type: "error",
@@ -67,6 +82,8 @@ export const useDocumentUpload = (): UseUploadResult => {
       formData.append("file", file);
       formData.append("user_id", currentUserId);
 
+      console.log("📤 Sending upload request to:", `${API_BASE_URL}/upload/`);
+
       try {
         const response = await fetch(`${API_BASE_URL}/upload/`, {
           method: "POST",
@@ -76,20 +93,38 @@ export const useDocumentUpload = (): UseUploadResult => {
         const data = await response.json();
 
         if (response.ok) {
+          console.log("✅ Upload successful, emitting events...");
+          console.log("📊 Response data:", data);
+
           setUploadAlert({
             message: `${data.message} Chunks indexed: ${data.chunks_indexed}. You can now chat!`,
             type: "success",
           });
           setFile(null);
+          console.log("📁 File state cleared");
           setDocumentsUploaded((prev) => prev + 1); // Increment upload counter
 
-          // Trigger document status refresh
+          // Trigger document status refresh (for UI state updates)
+          console.log("📡 Dispatching refreshDocumentStatus event");
           window.dispatchEvent(new Event("refreshDocumentStatus"));
 
+          // NOTE: Removed 'documentUploaded' event dispatch to prevent multiple refreshes
+          // DocumentManager now handles refresh based on isUploading state change
+
+          // Call onSuccess callback if provided
+          if (onSuccess) {
+            console.log("✅ Calling onSuccess callback");
+            onSuccess();
+          }
+
+          // Clear file input
           const fileInput = document.getElementById(
             "pdf-upload"
           ) as HTMLInputElement;
-          if (fileInput) fileInput.value = "";
+          if (fileInput) {
+            fileInput.value = "";
+            console.log("🔄 File input cleared");
+          }
         } else {
           setUploadAlert({
             message: `Upload error: ${data.detail || "Unknown error"}`,
@@ -106,7 +141,7 @@ export const useDocumentUpload = (): UseUploadResult => {
         setIsUploading(false);
       }
     },
-    [file]
+    [file, onSuccess]
   );
 
   return {
