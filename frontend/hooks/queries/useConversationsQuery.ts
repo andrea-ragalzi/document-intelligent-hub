@@ -206,13 +206,12 @@ export function useUpdateConversationHistory(userId: string | null) {
       }
     },
 
-    // Non fare refetch per auto-save (troppo costoso)
+    // Refetch per mostrare la conversazione aggiornata nella lista
     onSuccess: (_, variables) => {
       console.log("✅ Conversation history updated:", variables.id);
-      // Invalidate but don't refetch automatically
+      // Invalidate and refetch to update the sidebar list
       queryClient.invalidateQueries({
         queryKey: conversationKeys.byUser(userId || ""),
-        refetchType: "none",
       });
     },
   });
