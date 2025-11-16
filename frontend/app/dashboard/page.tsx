@@ -16,7 +16,6 @@ import { TopBar } from "@/components/TopBar";
 import { ChatSection } from "@/components/ChatSection";
 import { UploadModal } from "@/components/UploadModal";
 import { RenameModal } from "@/components/RenameModal";
-import { ConfirmModal } from "@/components/ConfirmModal";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Zustand store e TanStack Query
@@ -61,16 +60,12 @@ export default function Page() {
     statusAlert,
     setStatusAlert,
     renameModalOpen,
-    confirmDeleteOpen,
     conversationToRename,
-    conversationToDelete,
     currentConversationId,
     lastSavedMessageCount,
     isSaving: _isSaving,
     openRenameModal,
     closeRenameModal,
-    openDeleteModal,
-    closeDeleteModal,
     setCurrentConversation,
     updateSavedMessageCount,
     startSaving,
@@ -256,15 +251,7 @@ export default function Page() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    // Open confirmation modal
-    openDeleteModal(id, name);
-  };
-
-  const confirmDelete = async () => {
-    if (!conversationToDelete) return;
-
-    const { id, name } = conversationToDelete;
-    console.log("🗑️ Deletion confirmed, proceeding...");
+    console.log("🗑️ Deleting conversation:", id, name);
 
     // If we're deleting the current conversation, clear chat BEFORE deleting
     const isDeletingCurrentConversation = id === currentConversationId;
@@ -288,14 +275,6 @@ export default function Page() {
         type: "error",
       });
     }
-
-    // Close modal
-    closeDeleteModal();
-  };
-
-  const cancelDelete = () => {
-    console.log("❌ Deletion cancelled by user");
-    closeDeleteModal();
   };
 
   const handleRename = (id: string, currentName: string) => {
@@ -383,8 +362,14 @@ export default function Page() {
       <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900 font-sans transition-colors duration-500">
         {/* Top Bar */}
         <TopBar
-          onOpenLeftSidebar={() => setLeftSidebarOpen(true)}
-          onOpenRightSidebar={() => setRightSidebarOpen(true)}
+          onOpenLeftSidebar={() => {
+            setLeftSidebarOpen(true);
+            setRightSidebarOpen(false);
+          }}
+          onOpenRightSidebar={() => {
+            setRightSidebarOpen(true);
+            setLeftSidebarOpen(false);
+          }}
           onNewConversation={handleNewConversation}
           hasConversation={chatHistory.length > 0}
         />
@@ -396,25 +381,15 @@ export default function Page() {
           onRename={handleRenameSubmit}
         />
 
-        <ConfirmModal
-          isOpen={confirmDeleteOpen}
-          title="Delete Conversation"
-          message={`Are you sure you want to delete the conversation "${conversationToDelete?.name}"?\n\nThis action cannot be undone.`}
-          confirmText="Delete"
-          cancelText="Cancel"
-          variant="danger"
-          onConfirm={confirmDelete}
-          onCancel={cancelDelete}
-        />
-
         {/* Main content area - grows to fill remaining space */}
         <div className="flex flex-1 overflow-hidden">
           {/* Left Sidebar - Documents & Conversations */}
           <Sidebar
             userId={userId}
             savedConversations={savedConversations}
-            mobileOpen={leftSidebarOpen}
-            onCloseMobile={() => setLeftSidebarOpen(false)}
+            isOpen={leftSidebarOpen}
+            onClose={() => setLeftSidebarOpen(false)}
+            onNewConversation={handleNewConversation}
             onLoadConversation={handleLoad}
             onDeleteConversation={handleDelete}
             onRenameConversation={handleRename}
@@ -440,8 +415,8 @@ export default function Page() {
           <RightSidebar
             userId={userId}
             theme={theme}
-            mobileOpen={rightSidebarOpen}
-            onCloseMobile={() => setRightSidebarOpen(false)}
+            isOpen={rightSidebarOpen}
+            onClose={() => setRightSidebarOpen(false)}
             onToggleTheme={toggleTheme}
             documents={documents}
             isLoadingDocuments={isLoadingDocuments}
