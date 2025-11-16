@@ -45,7 +45,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onRefreshDocuments,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<"account" | "documents">("account");
+  const [activeTab, setActiveTab] = useState<"account" | "documents">(
+    "account"
+  );
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -152,7 +154,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               Settings
             </h2>
             <button
-              onClick={() => (mobileOpen ? onCloseMobile() : setCollapsed(true))}
+              onClick={() =>
+                mobileOpen ? onCloseMobile() : setCollapsed(true)
+              }
               className="p-2 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
               aria-label={mobileOpen ? "Close" : "Collapse"}
             >
@@ -249,7 +253,10 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 <div className="space-y-4">
                   <div className="text-center p-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                     <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                      <User size={32} className="text-gray-600 dark:text-gray-400" />
+                      <User
+                        size={32}
+                        className="text-gray-600 dark:text-gray-400"
+                      />
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       Not logged in
@@ -310,9 +317,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 </div>
 
                 {/* Status Alert */}
-                {statusAlert && (
-                  <AlertMessage alert={statusAlert} />
-                )}
+                {statusAlert && <AlertMessage alert={statusAlert} />}
 
                 {/* Document List */}
                 <DocumentList

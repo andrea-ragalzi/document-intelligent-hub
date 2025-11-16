@@ -36,11 +36,11 @@ export default function Page() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  const { 
-    file, 
-    handleFileChange, 
-    handleUpload, 
-    isUploading, 
+  const {
+    file,
+    handleFileChange,
+    handleUpload,
+    isUploading,
     uploadAlert,
     resetAlert,
   } = useDocumentUpload();

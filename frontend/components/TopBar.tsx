@@ -15,7 +15,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   onNewConversation,
   hasConversation,
 }) => {
-
   return (
     <div className="flex-shrink-0 w-full z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
       <div className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3">

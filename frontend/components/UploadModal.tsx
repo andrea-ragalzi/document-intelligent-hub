@@ -99,7 +99,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                <Upload size={24} className="text-blue-600 dark:text-blue-400" />
+                <Upload
+                  size={24}
+                  className="text-blue-600 dark:text-blue-400"
+                />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">

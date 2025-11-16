@@ -312,7 +312,9 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
                             {doc.language && doc.language !== "unknown" && (
                               <>
                                 <span>•</span>
-                                <span className="uppercase">{doc.language}</span>
+                                <span className="uppercase">
+                                  {doc.language}
+                                </span>
                               </>
                             )}
                             {doc.uploaded_at && (
