@@ -98,13 +98,14 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               Select all
             </span>
           </button>
-          <button
-            onClick={handleDeleteSelected}
-            disabled={selectedConvs.length === 0}
-            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded disabled:opacity-50 transition"
-          >
-            Delete selected ({selectedConvs.length})
-          </button>
+          {selectedConvs.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition"
+            >
+              Delete selected ({selectedConvs.length})
+            </button>
+          )}
         </div>
       )}
       <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
