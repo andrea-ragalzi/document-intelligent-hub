@@ -30,7 +30,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   const isChatDisabled = !hasDocuments && !isCheckingDocuments;
   return (
     <div className="w-full h-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-xl transition-colors duration-500">
-      <div className="flex-1 p-3 sm:p-6 overflow-y-auto bg-gray-50 dark:bg-gray-900/50">
+      <div className="flex-1 p-3 sm:p-6 pt-6 sm:pt-8 overflow-y-auto bg-gray-50 dark:bg-gray-900/50">
         {chatHistory.length === 0 ? (
           <div className="text-center p-6 sm:p-12 text-gray-400">
             <MessageSquare
