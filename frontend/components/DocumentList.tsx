@@ -1,157 +1,242 @@
 "use client";
 
-import { FileText, Trash2, Loader, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import {
+  FileText,
+  Trash2,
+  Loader,
+  AlertCircle,
+  Square,
+  CheckSquare,
+} from "lucide-react";
+import React, { useState } from "react";
 
 export interface Document {
   filename: string;
   chunks_count: number;
   language?: string;
-  uploaded_at?: string;
 }
 
 interface DocumentListProps {
   documents: Document[];
-  isLoading: boolean;
-  onDeleteDocument: (filename: string) => void;
-  onRefresh: () => void;
+  deletingDoc: string | null;
+  onDelete: (filename: string) => void;
 }
 
-export const DocumentList: React.FC<DocumentListProps> = ({
+const DocumentList: React.FC<DocumentListProps> = ({
   documents,
-  isLoading,
-  onDeleteDocument,
-  onRefresh,
+  deletingDoc,
+  onDelete,
 }) => {
-  const [deletingDoc, setDeletingDoc] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(
-    null
-  );
+  const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
 
-  const handleDelete = async (filename: string) => {
-    setDeletingDoc(filename);
-    try {
-      await onDeleteDocument(filename);
-      setShowDeleteConfirm(null);
-      onRefresh();
-    } catch (error) {
-      console.error("Error deleting document:", error);
-    } finally {
-      setDeletingDoc(null);
+  const handleSelect = (filename: string) => {
+    setSelectedDocs((prev) =>
+      prev.includes(filename)
+        ? prev.filter((f) => f !== filename)
+        : [...prev, filename]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedDocs.length === documents.length) {
+      setSelectedDocs([]);
+    } else {
+      setSelectedDocs(documents.map((d) => d.filename));
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader className="animate-spin text-blue-600" size={24} />
-        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-          Loading documents...
-        </span>
-      </div>
-    );
-  }
+  const handleDeleteSelected = () => {
+    if (selectedDocs.length === 0) return;
+    setDeleteMultipleModalOpen(true);
+  };
 
-  if (documents.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <FileText
-          size={40}
-          className="mx-auto mb-3 text-gray-300 dark:text-gray-600"
-        />
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          No documents uploaded yet
-        </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-          Upload a PDF to get started
-        </p>
-      </div>
-    );
-  }
+  const confirmDeleteSelected = () => {
+    // Delete all selected documents
+    selectedDocs.forEach((filename) => {
+      onDelete(filename);
+    });
+    // Reset selection
+    setSelectedDocs([]);
+    setDeleteMultipleModalOpen(false);
+  };
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [deleteMultipleModalOpen, setDeleteMultipleModalOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Document | null>(null);
+
+  const openDeleteModal = (doc: Document) => {
+    setPendingDelete(doc);
+    setModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setModalOpen(false);
+    setPendingDelete(null);
+  };
+
+  const handleDelete = (filename: string) => {
+    onDelete(filename);
+    closeDeleteModal();
+  };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-          Indexed Documents ({documents.length})
-        </h3>
+    <>
+      <div className="flex items-center justify-between gap-2 mb-3 px-1">
+        <button
+          onClick={handleSelectAll}
+          className="flex items-center gap-2 hover:opacity-70 transition"
+        >
+          {selectedDocs.length === documents.length && documents.length > 0 ? (
+            <CheckSquare size={16} className="text-blue-600" />
+          ) : (
+            <Square size={16} className="text-gray-400" />
+          )}
+          <span className="text-xs text-gray-700 dark:text-gray-200 select-none">
+            Select all
+          </span>
+        </button>
+        <button
+          onClick={handleDeleteSelected}
+          disabled={selectedDocs.length === 0}
+          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded disabled:opacity-50 transition"
+        >
+          Delete selected ({selectedDocs.length})
+        </button>
       </div>
-
-      <div className="space-y-2 max-h-64 overflow-y-auto">
-        {documents.map((doc) => (
-          <div
-            key={doc.filename}
-            className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-all"
-          >
-            {/* Delete Confirmation Overlay */}
-            {showDeleteConfirm === doc.filename && (
-              <div className="absolute inset-0 bg-white/95 dark:bg-gray-800/95 rounded-lg flex items-center justify-center z-10 backdrop-blur-sm">
-                <div className="text-center px-4">
-                  <AlertCircle
-                    size={20}
-                    className="mx-auto mb-2 text-red-600"
-                  />
-                  <p className="text-xs font-semibold text-gray-800 dark:text-white mb-3">
-                    Delete this document?
+      <div className="space-y-2">
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {documents.map((doc) => (
+            <div
+              key={doc.filename}
+              className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center">
+                  <FileText size={16} className="text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
+                    {doc.filename}
                   </p>
-                  <div className="flex gap-2 justify-center">
-                    <button
-                      onClick={() => handleDelete(doc.filename)}
-                      disabled={deletingDoc === doc.filename}
-                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition disabled:opacity-50"
-                    >
-                      {deletingDoc === doc.filename ? (
-                        <Loader className="animate-spin" size={12} />
-                      ) : (
-                        "Delete"
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setShowDeleteConfirm(null)}
-                      className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-medium rounded transition"
-                    >
-                      Cancel
-                    </button>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {doc.chunks_count} chunks
+                    </span>
+                    {doc.language && doc.language !== "unknown" && (
+                      <>
+                        <span className="text-xs text-gray-400">•</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                          {doc.language}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Document Info */}
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center">
-                <FileText size={16} className="text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
-                  {doc.filename}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {doc.chunks_count} chunks
-                  </span>
-                  {doc.language && doc.language !== "unknown" && (
-                    <>
-                      <span className="text-xs text-gray-400">•</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 uppercase">
-                        {doc.language}
-                      </span>
-                    </>
+                <button
+                  onClick={() => handleSelect(doc.filename)}
+                  className="flex-shrink-0 p-1 hover:opacity-70 transition"
+                  title="Seleziona documento"
+                >
+                  {selectedDocs.includes(doc.filename) ? (
+                    <CheckSquare size={16} className="text-blue-600" />
+                  ) : (
+                    <Square size={16} className="text-gray-400" />
                   )}
-                </div>
+                </button>
+                <button
+                  onClick={() => openDeleteModal(doc)}
+                  disabled={deletingDoc === doc.filename}
+                  className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition disabled:opacity-50"
+                  title="Delete document"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
-              <button
-                onClick={() => setShowDeleteConfirm(doc.filename)}
-                disabled={deletingDoc === doc.filename}
-                className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition opacity-0 group-hover:opacity-100 disabled:opacity-50"
-                title="Delete document"
-              >
-                <Trash2 size={14} />
-              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Delete Confirmation Modal */}
+      {modalOpen && pendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-xs mx-2">
+            <div className="flex flex-col items-center text-center">
+              <AlertCircle size={32} className="mb-2 text-red-600" />
+              <p className="text-base font-semibold text-gray-800 dark:text-white mb-2">
+                Delete document?
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 break-all">
+                {pendingDelete.filename}
+              </p>
+              <div className="flex gap-2 w-full justify-center">
+                <button
+                  onClick={() => handleDelete(pendingDelete.filename)}
+                  disabled={deletingDoc === pendingDelete.filename}
+                  className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition disabled:opacity-50"
+                >
+                  {deletingDoc === pendingDelete.filename ? (
+                    <Loader className="animate-spin" size={14} />
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
+                <button
+                  onClick={closeDeleteModal}
+                  disabled={deletingDoc === pendingDelete.filename}
+                  className="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-medium rounded transition"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
+        </div>
+      )}
+      {/* Delete Multiple Confirmation Modal */}
+      {deleteMultipleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-2">
+            <div className="flex flex-col items-center text-center">
+              <AlertCircle size={32} className="mb-3 text-red-600" />
+              <p className="text-base font-semibold text-gray-800 dark:text-white mb-2">
+                Delete {selectedDocs.length} document
+                {selectedDocs.length > 1 ? "s" : ""}?
+              </p>
+              <div className="w-full max-h-48 overflow-y-auto mb-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+                <ul className="text-left">
+                  {selectedDocs.map((filename) => (
+                    <li
+                      key={filename}
+                      className="text-xs text-gray-700 dark:text-gray-300 break-all py-1.5 border-b border-gray-200 dark:border-gray-700 last:border-0"
+                    >
+                      • {filename}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-2 w-full justify-center">
+                <button
+                  onClick={confirmDeleteSelected}
+                  className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setDeleteMultipleModalOpen(false)}
+                  className="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-medium rounded transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
+
+export default DocumentList;
