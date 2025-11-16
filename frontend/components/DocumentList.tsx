@@ -95,13 +95,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
             Select all
           </span>
         </button>
-        <button
-          onClick={handleDeleteSelected}
-          disabled={selectedDocs.length === 0}
-          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded disabled:opacity-50 transition"
-        >
-          Delete selected ({selectedDocs.length})
-        </button>
+        {selectedDocs.length > 0 && (
+          <button
+            onClick={handleDeleteSelected}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition"
+          >
+            Delete selected ({selectedDocs.length})
+          </button>
+        )}
       </div>
       <div className="space-y-2">
         <div className="space-y-2 max-h-64 overflow-y-auto">
