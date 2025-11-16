@@ -1,21 +1,13 @@
-import { FileText, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, MessageSquare } from "lucide-react";
 import { useState, useEffect } from "react";
-import { DocumentManager } from "./DocumentManager";
 import { ConversationList } from "./ConversationList";
-import type { SavedConversation, AlertState } from "@/lib/types";
-import { FormEvent, ChangeEvent } from "react";
+import type { SavedConversation } from "@/lib/types";
 
 interface SidebarProps {
   userId: string | null;
-  file: File | null;
-  isUploading: boolean;
-  uploadAlert: AlertState;
-  statusAlert: AlertState | null;
   savedConversations: SavedConversation[];
   mobileOpen: boolean;
   onCloseMobile: () => void;
-  onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
-  onUpload: (e: FormEvent) => void;
   onLoadConversation: (conv: SavedConversation) => void;
   onDeleteConversation: (id: string, name: string) => void;
   onRenameConversation: (id: string, currentName: string) => void;
@@ -23,15 +15,9 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   userId,
-  file,
-  isUploading,
-  uploadAlert,
-  statusAlert,
   savedConversations,
   mobileOpen,
   onCloseMobile,
-  onFileChange,
-  onUpload,
   onLoadConversation,
   onDeleteConversation,
   onRenameConversation,
@@ -70,7 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <ChevronRight size={20} />
         </button>
         <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-          <FileText size={20} />
+          <MessageSquare size={20} />
         </div>
       </div>
     );
@@ -103,11 +89,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white mb-2 flex items-center">
-              <FileText
+              <MessageSquare
                 className="mr-2 sm:mr-3 text-blue-600 flex-shrink-0"
                 size={24}
               />
-              <span className="truncate">Document RAG</span>
+              <span className="truncate">Conversations</span>
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-0">
               <span className="whitespace-nowrap">User ID:</span>
@@ -145,17 +131,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Content */}
         <div className="overflow-y-auto h-[calc(100vh-180px)] lg:h-auto space-y-4 sm:space-y-6">
-          {/* Document Manager - Upload & List */}
-          <DocumentManager
-            file={file}
-            isUploading={isUploading}
-            userId={userId}
-            uploadAlert={uploadAlert}
-            statusAlert={statusAlert}
-            onFileChange={onFileChange}
-            onUpload={onUpload}
-          />
-
           {/* Conversations */}
           <ConversationList
             conversations={savedConversations}

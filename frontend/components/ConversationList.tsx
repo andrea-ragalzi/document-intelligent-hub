@@ -1,5 +1,5 @@
 import type { SavedConversation } from "@/lib/types";
-import { BookOpen, Trash2, Archive, Edit } from "lucide-react";
+import { Trash2, Archive, Edit } from "lucide-react";
 
 interface ConversationListProps {
   conversations: SavedConversation[];
@@ -28,10 +28,11 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           conversations.map((conv) => (
             <div
               key={conv.id}
-              className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150"
+              onClick={() => onLoad(conv)}
+              className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150 cursor-pointer group"
             >
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-gray-800 dark:text-white truncate">
+                <p className="font-semibold text-sm text-gray-800 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {conv.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -40,21 +41,20 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               </div>
               <div className="flex space-x-1 ml-4 flex-shrink-0">
                 <button
-                  onClick={() => onLoad(conv)}
-                  title="Load conversation"
-                  className="p-1.5 rounded-full text-blue-600 hover:bg-blue-100 dark:hover:bg-gray-600 transition"
-                >
-                  <BookOpen size={16} />
-                </button>
-                <button
-                  onClick={() => onRename(conv.id, conv.name)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRename(conv.id, conv.name);
+                  }}
                   title="Rename conversation"
                   className="p-1.5 rounded-full text-green-600 hover:bg-green-100 dark:hover:bg-gray-600 transition"
                 >
                   <Edit size={16} />
                 </button>
                 <button
-                  onClick={() => onDelete(conv.id, conv.name)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(conv.id, conv.name);
+                  }}
                   title="Delete conversation"
                   className="p-1.5 rounded-full text-red-600 hover:bg-red-100 dark:hover:bg-gray-600 transition"
                 >

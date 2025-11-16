@@ -8,11 +8,13 @@ import { useTheme } from "@/hooks/useTheme";
 import { useUserId } from "@/hooks/useUserId";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
 import { useDocumentStatus } from "@/hooks/useDocumentStatus";
+import { useDocuments } from "@/hooks/useDocuments";
 import { useChatAI } from "@/hooks/useChatAI";
 import { Sidebar } from "@/components/Sidebar";
 import { RightSidebar } from "@/components/RightSidebar";
 import { TopBar } from "@/components/TopBar";
 import { ChatSection } from "@/components/ChatSection";
+import { UploadModal } from "@/components/UploadModal";
 import { RenameModal } from "@/components/RenameModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -32,9 +34,24 @@ export default function Page() {
   const { userId, isAuthReady } = useUserId();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  const { file, handleFileChange, handleUpload, isUploading, uploadAlert } =
-    useDocumentUpload();
+  const { 
+    file, 
+    handleFileChange, 
+    handleUpload, 
+    isUploading, 
+    uploadAlert,
+    resetAlert,
+  } = useDocumentUpload();
+
+  // Document management
+  const {
+    documents,
+    isLoading: isLoadingDocuments,
+    refreshDocuments,
+    deleteDocument,
+  } = useDocuments(userId);
 
   // Check if user has uploaded documents
   const { hasDocuments, isChecking } = useDocumentStatus(userId);
@@ -339,9 +356,12 @@ export default function Page() {
     } as React.ChangeEvent<HTMLInputElement>);
   };
 
-  const submitUpload = (e: FormEvent) => {
+  const submitUpload = async (e: FormEvent) => {
     if (userId) {
-      handleUpload(e, userId);
+      await handleUpload(e, userId);
+      // Refresh documents list and close modal on success
+      await refreshDocuments();
+      setUploadModalOpen(false);
     } else {
       setStatusAlert({
         message: "Cannot upload: User ID not available.",
@@ -392,15 +412,9 @@ export default function Page() {
           {/* Left Sidebar - Documents & Conversations */}
           <Sidebar
             userId={userId}
-            file={file}
-            isUploading={isUploading}
-            uploadAlert={uploadAlert}
-            statusAlert={statusAlert}
             savedConversations={savedConversations}
             mobileOpen={leftSidebarOpen}
             onCloseMobile={() => setLeftSidebarOpen(false)}
-            onFileChange={handleFileChange}
-            onUpload={submitUpload}
             onLoadConversation={handleLoad}
             onDeleteConversation={handleDelete}
             onRenameConversation={handleRename}
@@ -418,6 +432,7 @@ export default function Page() {
               onQuerySubmit={submitQuery}
               hasDocuments={hasDocuments}
               isCheckingDocuments={isChecking}
+              onOpenUploadModal={() => setUploadModalOpen(true)}
             />
           </div>
 
@@ -428,8 +443,27 @@ export default function Page() {
             mobileOpen={rightSidebarOpen}
             onCloseMobile={() => setRightSidebarOpen(false)}
             onToggleTheme={toggleTheme}
+            documents={documents}
+            isLoadingDocuments={isLoadingDocuments}
+            statusAlert={statusAlert}
+            onDeleteDocument={deleteDocument}
+            onRefreshDocuments={refreshDocuments}
           />
         </div>
+
+        {/* Upload Modal */}
+        <UploadModal
+          isOpen={uploadModalOpen}
+          onClose={() => {
+            setUploadModalOpen(false);
+            resetAlert();
+          }}
+          file={file}
+          isUploading={isUploading}
+          uploadAlert={uploadAlert}
+          onFileChange={handleFileChange}
+          onUpload={submitUpload}
+        />
       </div>
     </ProtectedRoute>
   );

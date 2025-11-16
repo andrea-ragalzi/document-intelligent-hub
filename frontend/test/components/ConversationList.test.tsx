@@ -64,7 +64,7 @@ describe("ConversationList", () => {
     expect(screen.getByText("2025-01-02 14:30:00")).toBeInTheDocument();
   });
 
-  it("should call onLoad when load button is clicked", () => {
+  it("should call onLoad when conversation card is clicked", () => {
     render(
       <ConversationList
         conversations={mockConversations}
@@ -74,14 +74,16 @@ describe("ConversationList", () => {
       />
     );
 
-    const loadButtons = screen.getAllByTitle("Load conversation");
-    fireEvent.click(loadButtons[0]);
+    const firstConversationCard = screen
+      .getByText("First Conversation")
+      .closest("div");
+    fireEvent.click(firstConversationCard!);
 
     expect(mockOnLoad).toHaveBeenCalledWith(mockConversations[0]);
     expect(mockOnLoad).toHaveBeenCalledTimes(1);
   });
 
-  it("should call onDelete when delete button is clicked", () => {
+  it("should call onDelete when delete button is clicked without triggering card click", () => {
     render(
       <ConversationList
         conversations={mockConversations}
@@ -96,9 +98,10 @@ describe("ConversationList", () => {
 
     expect(mockOnDelete).toHaveBeenCalledWith("conv-1", "First Conversation");
     expect(mockOnDelete).toHaveBeenCalledTimes(1);
+    expect(mockOnLoad).not.toHaveBeenCalled(); // Should not trigger card click
   });
 
-  it("should call onRename when rename button is clicked", () => {
+  it("should call onRename when rename button is clicked without triggering card click", () => {
     render(
       <ConversationList
         conversations={mockConversations}
@@ -113,6 +116,7 @@ describe("ConversationList", () => {
 
     expect(mockOnRename).toHaveBeenCalledWith("conv-2", "Second Conversation");
     expect(mockOnRename).toHaveBeenCalledTimes(1);
+    expect(mockOnLoad).not.toHaveBeenCalled(); // Should not trigger card click
   });
 
   it("should render all action buttons for each conversation", () => {
@@ -125,11 +129,9 @@ describe("ConversationList", () => {
       />
     );
 
-    const loadButtons = screen.getAllByTitle("Load conversation");
     const renameButtons = screen.getAllByTitle("Rename conversation");
     const deleteButtons = screen.getAllByTitle("Delete conversation");
 
-    expect(loadButtons).toHaveLength(2);
     expect(renameButtons).toHaveLength(2);
     expect(deleteButtons).toHaveLength(2);
   });
@@ -206,7 +208,7 @@ describe("ConversationList", () => {
     expect(names[1]).toHaveTextContent("Second Conversation");
   });
 
-  it("should apply hover styles to conversation items", () => {
+  it("should apply hover styles and cursor pointer to conversation items", () => {
     const { container } = render(
       <ConversationList
         conversations={mockConversations}
@@ -216,8 +218,10 @@ describe("ConversationList", () => {
       />
     );
 
-    const conversationItems = container.querySelectorAll('[class*="hover:"]');
-    expect(conversationItems.length).toBeGreaterThan(0);
+    const conversationCards = container.querySelectorAll(
+      '[class*="cursor-pointer"]'
+    );
+    expect(conversationCards.length).toBe(2); // One for each conversation
   });
 
   it("should handle empty conversation history", () => {

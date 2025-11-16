@@ -16,6 +16,7 @@ interface UseUploadResult {
   uploadAlert: AlertState;
   handleFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
   handleUpload: (e: FormEvent, currentUserId: string) => Promise<void>;
+  resetAlert: () => void;
   documentsUploaded: number; // Track number of successful uploads
 }
 
@@ -144,6 +145,13 @@ export const useDocumentUpload = (
     [file, onSuccess]
   );
 
+  const resetAlert = useCallback(() => {
+    setUploadAlert({
+      message: "Enter a User ID and upload a PDF.",
+      type: "info",
+    });
+  }, []);
+
   return {
     file,
     setFile,
@@ -151,6 +159,7 @@ export const useDocumentUpload = (
     uploadAlert,
     handleFileChange,
     handleUpload,
+    resetAlert,
     documentsUploaded,
   };
 };

@@ -8,6 +8,7 @@ interface UploadProgressProps {
   estimatedTime?: string;
   chunksProcessed?: number;
   totalChunks?: number;
+  currentPhase?: "upload" | "embedding";
 }
 
 export const UploadProgress: React.FC<UploadProgressProps> = ({

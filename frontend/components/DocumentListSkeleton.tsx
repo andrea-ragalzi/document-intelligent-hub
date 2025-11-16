@@ -2,10 +2,14 @@
  * Skeleton loader for document list
  * Shows placeholder cards while documents are loading
  */
-export const DocumentListSkeleton: React.FC = () => {
+interface DocumentListSkeletonProps {
+  count?: number;
+}
+
+export const DocumentListSkeleton: React.FC<DocumentListSkeletonProps> = ({ count = 3 }) => {
   return (
     <div className="space-y-2 max-h-72 overflow-y-hidden">
-      {[1, 2, 3].map((i) => (
+      {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
           className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3 animate-pulse"

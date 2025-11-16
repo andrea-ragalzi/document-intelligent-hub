@@ -1,8 +1,6 @@
 "use client";
 
-import { Menu, User, PlusCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import Image from "next/image";
+import { Menu, Settings, PlusCircle } from "lucide-react";
 
 interface TopBarProps {
   onOpenLeftSidebar: () => void;
@@ -17,7 +15,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   onNewConversation,
   hasConversation,
 }) => {
-  const { user } = useAuth();
 
   return (
     <div className="flex-shrink-0 w-full z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
@@ -47,31 +44,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         </div>
 
-        {/* Right: Profile Button */}
+        {/* Right: Settings Button */}
         <button
           onClick={onOpenRightSidebar}
-          className="lg:hidden p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-          aria-label="Open profile"
+          className="lg:hidden p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+          aria-label="Open settings"
+          title="Settings"
         >
-          {user ? (
-            user.photoURL ? (
-              <Image
-                src={user.photoURL}
-                alt="Profile"
-                width={28}
-                height={28}
-                className="rounded-full"
-              />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium">
-                {user.email?.[0].toUpperCase() || "?"}
-              </div>
-            )
-          ) : (
-            <div className="w-7 h-7 rounded-full bg-gray-400 flex items-center justify-center text-white">
-              <User size={16} />
-            </div>
-          )}
+          <Settings size={20} className="text-gray-700 dark:text-gray-300" />
         </button>
       </div>
     </div>
