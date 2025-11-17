@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, User, PlusCircle } from "lucide-react";
+import { Menu, User } from "lucide-react";
 
 interface TopBarProps {
   onOpenLeftSidebar: () => void;
@@ -11,9 +11,7 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({
   onOpenLeftSidebar,
-  onOpenRightSidebar,
-  onNewConversation,
-  hasConversation,
+  onOpenRightSidebar
 }) => {
   return (
     <div className="w-full bg-white dark:bg-gray-900 border-b-2 border-gray-200 dark:border-gray-700 shadow-sm transition-colors duration-200 ease-in-out font-[Inter]">
@@ -31,20 +29,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Spacer per desktop quando menu è nascosto */}
         <div className="hidden lg:block w-10"></div>
 
-        {/* Center: Title and New Chat Button */}
+        {/* Center: Title */}
         <div className="flex-1 flex items-center justify-center gap-3">
           <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">
             Document Intelligent Hub
           </h1>
-          <button
-            onClick={onNewConversation}
-            disabled={!hasConversation}
-            title="Nuova conversazione"
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out text-sm font-semibold"
-          >
-            <PlusCircle size={16} />
-            New Chat
-          </button>
         </div>
 
         {/* Right: User Profile Icon - Solo mobile (nascosto su xl+) */}
