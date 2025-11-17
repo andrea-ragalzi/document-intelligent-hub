@@ -19,11 +19,7 @@
   // Vitest Configuration (Frontend)
   "vitest.enable": true,
   "vitest.commandLine": "npm test --",
-  "vitest.rootConfig": "${workspaceFolder}/frontend/vitest.config.ts",
   "vitest.workspaceConfig": "${workspaceFolder}/frontend/vitest.config.ts",
-  "vitest.coverage.enabled": true,
-  "vitest.coverage.provider": "v8",
-  "vitest.coverage.reportsDirectory": "${workspaceFolder}/frontend/coverage",
 
   // Test Explorer
   "testExplorer.useNativeTesting": true,
@@ -56,5 +52,8 @@
   "coverage-gutters.manualCoverageFilePaths": [
     "${workspaceFolder}/backend/coverage.lcov",
     "${workspaceFolder}/frontend/coverage/lcov.info"
-  ]
+  ],
+
+  // GitHub Copilot - Detailed instructions in .github/copilot-instructions.md
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true
 }
