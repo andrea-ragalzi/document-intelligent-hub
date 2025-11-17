@@ -27,7 +27,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           <Menu size={20} />
         </button>
-        
+
         {/* Spacer per desktop quando menu è nascosto */}
         <div className="hidden lg:block w-10"></div>
 
@@ -56,7 +56,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           <User size={20} />
         </button>
-        
+
         {/* Spacer per desktop quando menu è nascosto */}
         <div className="hidden xl:block w-10"></div>
       </div>
