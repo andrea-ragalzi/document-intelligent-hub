@@ -97,7 +97,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         `}
       >
         {activeView === "documents" && (
-          <div className="flex items-center justify-between p-4 border-b-2 border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-4 border-b-2 border-gray-200 dark:border-gray-700 gap-2">
             <button
               onClick={() => setActiveView("menu")}
               className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out h-10 w-10 justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -110,6 +110,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             <h2 className="flex-1 text-center text-xl font-bold text-gray-900 dark:text-gray-100">
               Documents
             </h2>
+            
             <button
               onClick={onClose}
               className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out"
