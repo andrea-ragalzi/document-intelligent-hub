@@ -173,11 +173,18 @@ export function useUpdateConversationHistory(userId: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, history }: { id: string; history: ChatMessage[] }) =>
-      updateConversationHistoryInFirestore(id, history),
+    mutationFn: ({
+      id,
+      history,
+      metadata,
+    }: {
+      id: string;
+      history: ChatMessage[];
+      metadata?: { isPinned?: boolean };
+    }) => updateConversationHistoryInFirestore(id, history, metadata),
 
     // Optimistic update
-    onMutate: async ({ id, history }) => {
+    onMutate: async ({ id, history, metadata }) => {
       await queryClient.cancelQueries({
         queryKey: conversationKeys.byUser(userId || ""),
       });
@@ -189,8 +196,17 @@ export function useUpdateConversationHistory(userId: string | null) {
       queryClient.setQueryData<SavedConversation[]>(
         conversationKeys.byUser(userId || ""),
         (old) =>
-          old?.map((conv) => (conv.id === id ? { ...conv, history } : conv)) ||
-          []
+          old?.map((conv) =>
+            conv.id === id
+              ? {
+                  ...conv,
+                  history,
+                  ...(metadata?.isPinned !== undefined && {
+                    isPinned: metadata.isPinned,
+                  }),
+                }
+              : conv
+          ) || []
       );
 
       return { previousConversations };
