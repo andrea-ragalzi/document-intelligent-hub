@@ -87,7 +87,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           className="flex items-center gap-2 hover:opacity-70 transition"
         >
           {selectedDocs.length === documents.length && documents.length > 0 ? (
-            <CheckSquare size={16} className="text-blue-600" />
+            <CheckSquare size={16} className="text-indigo-600" />
           ) : (
             <Square size={16} className="text-gray-400" />
           )}
@@ -112,8 +112,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
               className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-all"
             >
               <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center">
-                  <FileText size={16} className="text-blue-600" />
+                <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 dark:bg-indigo-900/30 rounded flex items-center justify-center">
+                  <FileText size={16} className="text-indigo-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
@@ -139,7 +139,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                   title="Seleziona documento"
                 >
                   {selectedDocs.includes(doc.filename) ? (
-                    <CheckSquare size={16} className="text-blue-600" />
+                    <CheckSquare size={16} className="text-indigo-600" />
                   ) : (
                     <Square size={16} className="text-gray-400" />
                   )}

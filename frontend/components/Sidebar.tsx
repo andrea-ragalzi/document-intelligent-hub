@@ -55,43 +55,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Overlay */}
+      {/* Overlay - Solo su mobile quando isOpen */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 lg:hidden"
           onClick={onClose}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Permanente su desktop (lg+), overlay su mobile */}
       <div
         className={`
-          fixed top-0 left-0 h-full w-64
+          h-full w-72
           bg-white dark:bg-gray-800 
-          shadow-2xl z-50
-          transform transition-transform duration-300 ease-in-out
+          shadow-lg
+          transform transition-all duration-200 ease-in-out
           flex flex-col
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          border-r-2 border-gray-200 dark:border-gray-700
+          font-[Inter]
+          
+          lg:relative lg:translate-x-0 lg:z-0
+          
+          fixed top-0 left-0 z-50
+          ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        {/* Search Input */}
-        <div className="p-4">
+        {/* Search Input - Flat Design */}
+        <div className="p-4 border-b-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={16} className="text-gray-400 dark:text-gray-500" />
+              <Search size={18} className="text-gray-400 dark:text-gray-500" />
             </div>
             <input
               type="text"
               placeholder="Search conversations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 text-sm bg-gray-100 dark:bg-gray-700 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
+              className="w-full pl-10 pr-3 py-3 text-base bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
             />
           </div>
         </div>
 
-        {/* New Chat Button */}
-        <div className="px-4 pb-4">
+        {/* New Chat Button - Flat Primary */}
+        <div className="p-4 bg-gray-50 dark:bg-gray-900 border-b-2 border-gray-200 dark:border-gray-700">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -100,15 +106,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onNewConversation();
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg transition-all duration-200 ease-in-out font-semibold text-base shadow-md hover:shadow-lg"
           >
-            <PlusCircle size={18} />
-            <span className="text-sm">New Chat</span>
+            <PlusCircle size={20} />
+            <span>New Chat</span>
           </button>
         </div>
 
-        {/* Conversations List - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {/* Conversations List - Scrollable with strong contrast */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 bg-white dark:bg-gray-800">
           <ConversationList
             conversations={filteredConversations}
             onLoad={(conv) => {

@@ -78,36 +78,43 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 
   return (
     <>
+      {/* Overlay - Solo su mobile quando isOpen */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 xl:hidden"
           onClick={onClose}
         />
       )}
+      
+      {/* Sidebar - Permanente su desktop (xl+), overlay su mobile */}
       <div
-        className={`fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`h-full w-96 bg-gray-50 dark:bg-gray-900 shadow-xl transform transition-all duration-200 ease-in-out flex flex-col border-l-2 border-gray-200 dark:border-gray-700 font-[Inter]
+          
+          xl:relative xl:translate-x-0 xl:z-0
+          
+          fixed top-0 right-0 z-50
+          ${isOpen ? "translate-x-0" : "translate-x-full xl:translate-x-0"}
+        `}
       >
         {activeView === "documents" && (
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-4 border-b-2 border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setActiveView("menu")}
-              className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
+              className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out h-10 w-10 justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <ChevronLeft
-                size={22}
+                size={20}
                 className="text-gray-500 dark:text-gray-400"
               />
             </button>
-            <h2 className="flex-1 text-center text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="flex-1 text-center text-xl font-bold text-gray-900 dark:text-gray-100">
               Documents
             </h2>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out"
             >
-              <X size={22} className="text-gray-500 dark:text-gray-400" />
+              <X size={20} className="text-gray-500 dark:text-gray-400" />
             </button>
           </div>
         )}
@@ -128,7 +135,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                   {displayName}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -137,12 +144,12 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out"
               >
-                <X size={22} className="text-gray-500 dark:text-gray-400" />
+                <X size={20} className="text-gray-500 dark:text-gray-400" />
               </button>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                 User ID
               </p>
@@ -157,36 +164,36 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             <div className="p-4 space-y-2">
               <button
                 onClick={() => setActiveView("documents")}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition text-left"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out text-left"
               >
                 <div className="flex items-center gap-3">
                   <FileText
                     size={20}
                     className="text-gray-600 dark:text-gray-400"
                   />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  <span className="text-base font-medium text-gray-900 dark:text-gray-100">
                     Gestione Documenti
                   </span>
                 </div>
                 <ChevronRight
-                  size={22}
+                  size={20}
                   className="text-gray-500 dark:text-gray-400"
                 />
               </button>
               <button
                 onClick={onToggleTheme}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition text-left"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out text-left"
               >
                 <div className="flex items-center gap-3">
                   <ThemeIcon
                     size={20}
                     className="text-gray-600 dark:text-gray-400"
                   />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  <span className="text-base font-medium text-gray-900 dark:text-gray-100">
                     Tema
                   </span>
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                <span className="text-sm text-gray-500 dark:text-gray-400 capitalize">
                   {theme}
                 </span>
               </button>
@@ -205,7 +212,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-medium"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 ease-in-out font-semibold text-base shadow-md hover:shadow-lg"
           >
             <LogOut size={18} />
             Logout

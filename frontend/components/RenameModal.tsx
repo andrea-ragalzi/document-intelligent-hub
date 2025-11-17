@@ -53,31 +53,31 @@ export const RenameModal: React.FC<RenameModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-50 dark:bg-opacity-70 z-[60] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-[60] flex items-center justify-center p-4 font-[Inter]">
       <form
         onSubmit={handleSubmit}
-        className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-2xl"
+        className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-sm shadow-xl border border-gray-200 dark:border-gray-700"
       >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <Edit size={20} className="mr-2 text-blue-600" /> Rename
+            <Edit size={20} className="mr-2 text-indigo-600" /> Rename
             Conversation
           </h3>
           <button
             type="button"
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <p className="text-base text-gray-600 dark:text-gray-400 mb-4">
           Current name: <span className="font-semibold">{currentName}</span>
         </p>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start">
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg flex items-start">
             <AlertCircle
               size={18}
               className="text-red-600 dark:text-red-400 mr-2 flex-shrink-0 mt-0.5"
@@ -91,14 +91,14 @@ export const RenameModal: React.FC<RenameModalProps> = ({
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="New conversation name"
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-inner dark:bg-gray-900 dark:border-gray-600 dark:text-white text-sm"
+          className="w-full p-3 text-base border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
           required
           autoFocus
         />
         <button
           type="submit"
           disabled={isSubmitting}
-          className="mt-4 w-full flex justify-center items-center py-3 px-4 text-sm font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200 shadow-md"
+          className="mt-4 w-full flex justify-center items-center py-3 px-4 text-base font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-md"
         >
           {isSubmitting ? (
             <>Saving...</>

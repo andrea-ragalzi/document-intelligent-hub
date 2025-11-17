@@ -79,9 +79,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   };
 
   return (
-    <section className="pt-4">
+    <section className="pt-4 font-[Inter]">
       <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center border-b border-gray-100 dark:border-gray-700 pb-2">
-        <Archive size={16} className="mr-2 text-blue-600" /> Saved Conversations
+        <Archive size={16} className="mr-2 text-indigo-600" /> Saved
+        Conversations
       </h2>
       {conversations.length > 0 && (
         <div className="flex items-center justify-between gap-2 mb-3 px-1">
@@ -90,7 +91,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             className="flex items-center gap-2 hover:opacity-70 transition"
           >
             {selectedConvs.length === conversations.length ? (
-              <CheckSquare size={16} className="text-blue-600" />
+              <CheckSquare size={16} className="text-indigo-600" />
             ) : (
               <Square size={16} className="text-gray-400" />
             )}
@@ -108,26 +109,24 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           )}
         </div>
       )}
-      <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+      <div className="space-y-1">
         {conversations.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+          <p className="text-base text-gray-500 dark:text-gray-400 italic px-2 py-4">
             No saved conversations.
           </p>
         ) : (
           conversations.map((conv) => (
             <div
               key={conv.id}
-              className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-all"
+              className="group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg p-3 hover:bg-indigo-50 dark:hover:bg-gray-600 hover:border-indigo-300 dark:hover:border-indigo-600 transform hover:scale-[1.01] hover:shadow-sm transition-all duration-200 ease-in-out cursor-pointer"
+              onClick={() => onLoad(conv)}
             >
-              <div className="flex items-center gap-3">
-                <div
-                  onClick={() => onLoad(conv)}
-                  className="flex-1 min-w-0 cursor-pointer"
-                >
-                  <p className="font-semibold text-sm text-gray-800 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-base text-gray-900 dark:text-gray-100 truncate group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors duration-200">
                     {conv.name}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {conv.timestamp}
                   </p>
                 </div>
@@ -136,13 +135,16 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     e.stopPropagation();
                     handleSelect(conv.id);
                   }}
-                  className="flex-shrink-0 p-1 hover:opacity-70 transition"
+                  className="flex-shrink-0 h-8 w-8 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-500 rounded transition-all duration-200 ease-in-out"
                   title="Select conversation"
                 >
                   {selectedConvs.includes(conv.id) ? (
-                    <CheckSquare size={16} className="text-blue-600" />
+                    <CheckSquare
+                      size={18}
+                      className="text-indigo-600 dark:text-indigo-400"
+                    />
                   ) : (
-                    <Square size={16} className="text-gray-400" />
+                    <Square size={18} className="text-gray-400" />
                   )}
                 </button>
                 <button
@@ -151,9 +153,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     onRename(conv.id, conv.name);
                   }}
                   title="Rename conversation"
-                  className="flex-shrink-0 p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition"
+                  className="flex-shrink-0 h-8 w-8 flex items-center justify-center text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-all duration-200 ease-in-out"
                 >
-                  <Edit size={16} />
+                  <Edit size={18} />
                 </button>
                 <button
                   onClick={(e) => {
@@ -161,9 +163,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     openDeleteModal(conv);
                   }}
                   title="Delete conversation"
-                  className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition"
+                  className="flex-shrink-0 h-8 w-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all duration-200 ease-in-out"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={18} />
                 </button>
               </div>
             </div>
