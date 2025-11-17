@@ -90,11 +90,13 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   const [pendingDelete, setPendingDelete] = useState<SavedConversation | null>(
     null
   );
-  
+
   // Mobile Action Sheet state
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
-  const [actionSheetTarget, setActionSheetTarget] = useState<string | null>(null);
-  
+  const [actionSheetTarget, setActionSheetTarget] = useState<string | null>(
+    null
+  );
+
   // Desktop kebab menu state
   const [openKebabId, setOpenKebabId] = useState<string | null>(null);
   const kebabRef = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -103,7 +105,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(
     null
   );
-  
+
   // Auto-enable selection mode when items are selected
   const isSelectionMode = selectedConvs.length > 0;
   const _longPressTarget = useState<string | null>(null)[0]; // Prefix unused var
@@ -406,25 +408,30 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           </div>
         </div>
       )}
-      
+
       {/* Mobile Action Sheet */}
       <MobileActionSheet
         isOpen={actionSheetOpen}
         onClose={() => setActionSheetOpen(false)}
         title={
           actionSheetTarget
-            ? conversations.find((c) => c.id === actionSheetTarget)?.name || "Conversazione"
+            ? conversations.find((c) => c.id === actionSheetTarget)?.name ||
+              "Conversazione"
             : "Conversazione"
         }
         options={[
           {
             icon: <Pin size={20} />,
-            label: actionSheetTarget && conversations.find((c) => c.id === actionSheetTarget)?.isPinned
-              ? "Sgancia"
-              : "Fissa",
+            label:
+              actionSheetTarget &&
+              conversations.find((c) => c.id === actionSheetTarget)?.isPinned
+                ? "Sgancia"
+                : "Fissa",
             onClick: () => {
               if (actionSheetTarget) {
-                const conv = conversations.find((c) => c.id === actionSheetTarget);
+                const conv = conversations.find(
+                  (c) => c.id === actionSheetTarget
+                );
                 if (conv) {
                   onPin(conv.id, !conv.isPinned);
                 }
@@ -437,7 +444,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             label: "Rinomina",
             onClick: () => {
               if (actionSheetTarget) {
-                const conv = conversations.find((c) => c.id === actionSheetTarget);
+                const conv = conversations.find(
+                  (c) => c.id === actionSheetTarget
+                );
                 if (conv) {
                   onRename(conv.id, conv.name);
                 }
@@ -450,7 +459,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             label: "Elimina",
             onClick: () => {
               if (actionSheetTarget) {
-                const conv = conversations.find((c) => c.id === actionSheetTarget);
+                const conv = conversations.find(
+                  (c) => c.id === actionSheetTarget
+                );
                 if (conv) {
                   onDelete(conv.id, conv.name);
                 }
