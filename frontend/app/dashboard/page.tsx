@@ -383,17 +383,35 @@ export default function Page() {
 
         {/* Main content area - grows to fill remaining space */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar - Documents & Conversations */}
-          <Sidebar
-            userId={userId}
-            savedConversations={savedConversations}
-            isOpen={leftSidebarOpen}
-            onClose={() => setLeftSidebarOpen(false)}
-            onNewConversation={handleNewConversation}
-            onLoadConversation={handleLoad}
-            onDeleteConversation={handleDelete}
-            onRenameConversation={handleRename}
-          />
+          {/* Left Sidebar - Always visible on desktop (lg+), toggle on mobile */}
+          <div className="hidden lg:block">
+            <Sidebar
+              userId={userId}
+              savedConversations={savedConversations}
+              isOpen={true}
+              onClose={() => {}}
+              onNewConversation={handleNewConversation}
+              onLoadConversation={handleLoad}
+              onDeleteConversation={handleDelete}
+              onRenameConversation={handleRename}
+            />
+          </div>
+
+          {/* Mobile Left Sidebar - Overlay mode */}
+          {leftSidebarOpen && (
+            <div className="lg:hidden">
+              <Sidebar
+                userId={userId}
+                savedConversations={savedConversations}
+                isOpen={leftSidebarOpen}
+                onClose={() => setLeftSidebarOpen(false)}
+                onNewConversation={handleNewConversation}
+                onLoadConversation={handleLoad}
+                onDeleteConversation={handleDelete}
+                onRenameConversation={handleRename}
+              />
+            </div>
+          )}
 
           {/* Chat area - takes remaining space */}
           <div className="flex-1 flex flex-col p-2 sm:p-4 lg:p-6 overflow-hidden">
@@ -411,19 +429,39 @@ export default function Page() {
             />
           </div>
 
-          {/* Right Sidebar - User Profile & Settings */}
-          <RightSidebar
-            userId={userId}
-            theme={theme}
-            isOpen={rightSidebarOpen}
-            onClose={() => setRightSidebarOpen(false)}
-            onToggleTheme={toggleTheme}
-            documents={documents}
-            isLoadingDocuments={isLoadingDocuments}
-            statusAlert={statusAlert}
-            onDeleteDocument={deleteDocument}
-            onRefreshDocuments={refreshDocuments}
-          />
+          {/* Right Sidebar - Always visible on desktop (xl+), toggle on mobile */}
+          <div className="hidden xl:block">
+            <RightSidebar
+              userId={userId}
+              theme={theme}
+              isOpen={true}
+              onClose={() => {}}
+              onToggleTheme={toggleTheme}
+              documents={documents}
+              isLoadingDocuments={isLoadingDocuments}
+              statusAlert={statusAlert}
+              onDeleteDocument={deleteDocument}
+              onRefreshDocuments={refreshDocuments}
+            />
+          </div>
+
+          {/* Mobile Right Sidebar - Overlay mode */}
+          {rightSidebarOpen && (
+            <div className="xl:hidden">
+              <RightSidebar
+                userId={userId}
+                theme={theme}
+                isOpen={rightSidebarOpen}
+                onClose={() => setRightSidebarOpen(false)}
+                onToggleTheme={toggleTheme}
+                documents={documents}
+                isLoadingDocuments={isLoadingDocuments}
+                statusAlert={statusAlert}
+                onDeleteDocument={deleteDocument}
+                onRefreshDocuments={refreshDocuments}
+              />
+            </div>
+          )}
         </div>
 
         {/* Upload Modal */}
