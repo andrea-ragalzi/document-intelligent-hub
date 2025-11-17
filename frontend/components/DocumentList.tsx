@@ -32,10 +32,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
   onDelete,
 }) => {
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
-  
+
   // Modalità selezione automatica quando ci sono elementi selezionati
   const isSelectionMode = selectedDocs.length > 0;
-  
+
   // Stato per gestire il menu kebab aperto
   const [openKebabId, setOpenKebabId] = useState<string | null>(null);
   const kebabRef = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -156,7 +156,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           </div>
         </div>
       )}
-      
+
       <div className="space-y-2">
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {sortedDocuments.length === 0 ? (
@@ -249,9 +249,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setOpenKebabId(
-                              isKebabOpen ? null : doc.filename
-                            );
+                            setOpenKebabId(isKebabOpen ? null : doc.filename);
                           }}
                           className="h-7 w-7 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-all duration-200 ease-in-out opacity-0 group-hover:opacity-100 hidden md:flex"
                           title="Opzioni"
