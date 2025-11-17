@@ -203,6 +203,52 @@ const { handleQuerySubmit, chatHistory } = useRAGChat();
 
 **Never mix:** Don't store server data in Zustand or UI flags in TanStack Query.
 
+## UX Patterns (Frontend Lists)
+
+### Automatic Selection Mode
+
+Lists (ConversationList, DocumentList) use **automatic selection mode** - no manual "Manage Mode" button:
+
+- **Normal State:** Click/tap loads item
+- **Selection State:** Automatically activates when any item is selected
+- **Bulk Action Bar:** Appears conditionally when `selectedItems.length > 0`
+
+### Context Menus (Single Item Actions)
+
+- **Desktop:** Kebab icon (hidden, visible on hover) → Dropdown menu with calculated position
+- **Mobile:** Long-press (500ms) → Bottom sheet action menu (slides from bottom)
+- **Implementation:** Uses React Portal (`createPortal`) to render at `document.body` level (solves z-index issues)
+
+```tsx
+// Key pattern: Execute action FIRST, then close menu
+onClick={(e) => {
+  e.stopPropagation();
+  onAction(item.id);          // ← Execute first
+  setOpenMenuId(null);         // ← Close after
+}}
+```
+
+### Mobile Gestures
+
+- **Long-press detection:** 500ms timeout triggers menu open
+- **Drag-to-dismiss:** Mobile menu can be dragged down >100px to close
+- **Touch events:** Only on drag handle (top bar), not menu content - prevents interference with button clicks
+
+### List Ordering
+
+Conversations are sorted with priority:
+
+1. **Pinned items first** (isPinned: true)
+2. **Then by timestamp** (most recent first)
+
+```tsx
+const sorted = [...items].sort((a, b) => {
+  if (a.isPinned && !b.isPinned) return -1;
+  if (!a.isPinned && b.isPinned) return 1;
+  return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+});
+```
+
 ## API Conventions
 
 ### Request/Response Patterns
@@ -239,6 +285,89 @@ NEXT_PUBLIC_FIREBASE_API_KEY=...  # Firebase config
 ```
 
 **Note:** Embeddings use local HuggingFace model (`all-MiniLM-L6-v2`) - no API key needed, fast, free, private.
+
+## Coding Standards & Conventions
+
+**General Principles:**
+
+- All code, comments, and documentation must be in **English**
+- Prioritize clean, readable, maintainable code
+- Keep comments essential and non-verbose
+
+### Python (Backend)
+
+**1. Code Style:**
+
+- Strictly adhere to **PEP 8** standard (line length, naming conventions, indentation)
+- Use **Type Hinting** for all functions, classes, and variables (MyPy compatibility)
+- Prefer `async def` and `await` for I/O-bound operations
+
+**2. FastAPI Patterns:**
+
+- Use Pydantic models for data validation and serialization
+- Use dependency injection with `Depends()` for shared logic
+- Define schemas in `schemas/` directory
+- Keep routers thin - business logic belongs in `services/`
+
+**3. Example:**
+
+```python
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+class QueryRequest(BaseModel):
+    user_id: str
+    query: str
+    conversation_history: Optional[list] = None
+
+async def query_documents(request: QueryRequest) -> dict:
+    """Process RAG query with proper typing and async."""
+    # Implementation
+    pass
+```
+
+### TypeScript (Frontend)
+
+**1. Modern Features:**
+
+- Use **arrow functions** (`=>`) for all function expressions
+- Leverage destructuring and spread/rest operators
+- Use `const` by default, `let` only when reassignment needed
+
+**2. Type Safety:**
+
+- Fully leverage TypeScript: `interface`, `type`, generics
+- Define types in `lib/types.ts` and import consistently
+- Avoid `any` - use `unknown` or proper types
+
+**3. React/Next.js:**
+
+- Use functional components with Hooks (no class components)
+- Follow Next.js App Router conventions
+- Server Components by default, Client Components when needed (`'use client'`)
+
+**4. Example:**
+
+```typescript
+interface ConversationProps {
+  conversations: SavedConversation[];
+  onLoad: (conv: SavedConversation) => void;
+}
+
+export const ConversationList: React.FC<ConversationProps> = ({
+  conversations,
+  onLoad,
+}) => {
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const handleSelect = (id: string) => {
+    setSelected(prev => [...prev, id]);
+  };
+
+  return (/* JSX */);
+};
+```
 
 ## Common Patterns & Conventions
 
