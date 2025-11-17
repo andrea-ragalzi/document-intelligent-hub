@@ -74,11 +74,24 @@ export async function saveConversationToFirestore(
       const docRef = await addDoc(collectionRef, conversationData);
       console.log("✅ Document added with ID:", docRef.id);
 
+      // Format timestamp without comma
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const formattedTime = now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const timestamp = `${formattedDate} ${formattedTime}`;
+
       return {
         id: docRef.id,
         userId,
         name,
-        timestamp: new Date().toLocaleString("en-US"),
+        timestamp,
         history,
         isPinned: false, // Initialize isPinned for return value
       };
@@ -123,13 +136,27 @@ export async function loadConversationsFromFirestore(
       const data = doc.data();
       const isPinned = data.isPinned || false;
       console.log(`  📄 Loading conversation ${doc.id}: isPinned=${isPinned}`);
+
+      // Format timestamp without comma
+      const date = data.createdAt
+        ? (data.createdAt as Timestamp).toDate()
+        : new Date();
+      const formattedDate = date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const formattedTime = date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const timestamp = `${formattedDate} ${formattedTime}`;
+
       conversations.push({
         id: doc.id,
         userId: data.userId,
         name: data.name,
-        timestamp: data.createdAt
-          ? (data.createdAt as Timestamp).toDate().toLocaleString("en-US")
-          : new Date().toLocaleString("en-US"),
+        timestamp,
         history: data.history,
         isPinned, // Include isPinned field
       });
