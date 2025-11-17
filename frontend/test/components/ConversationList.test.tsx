@@ -39,7 +39,6 @@ describe("ConversationList", () => {
   it("should render empty state when no conversations", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={[]}
         onLoad={mockOnLoad}
@@ -54,7 +53,6 @@ describe("ConversationList", () => {
   it("should render list of conversations", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
@@ -72,7 +70,6 @@ describe("ConversationList", () => {
   it("should call onLoad when conversation card is clicked", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
@@ -90,10 +87,9 @@ describe("ConversationList", () => {
     expect(mockOnLoad).toHaveBeenCalledTimes(1);
   });
 
-  it("should call onDelete when delete button is clicked without triggering card click", () => {
+  it("should call onDelete when delete action is taken from the menu", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
@@ -102,18 +98,23 @@ describe("ConversationList", () => {
       />
     );
 
-    const deleteButtons = screen.getAllByTitle("Delete conversation");
-    fireEvent.click(deleteButtons[0]);
+    const kebabButtons = screen.getAllByTitle("Options");
+    fireEvent.click(kebabButtons[1]);
+
+    const deleteAction = screen.getByRole("button", { name: /^delete$/i });
+    fireEvent.click(deleteAction);
+
+    const confirmDelete = screen.getByRole("button", { name: /^delete$/i });
+    fireEvent.click(confirmDelete);
 
     expect(mockOnDelete).toHaveBeenCalledWith("conv-1", "First Conversation");
     expect(mockOnDelete).toHaveBeenCalledTimes(1);
     expect(mockOnLoad).not.toHaveBeenCalled(); // Should not trigger card click
   });
 
-  it("should call onRename when rename button is clicked without triggering card click", () => {
+  it("should keep the menu open when interacting with its actions", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
@@ -122,8 +123,33 @@ describe("ConversationList", () => {
       />
     );
 
-    const renameButtons = screen.getAllByTitle("Rename conversation");
-    fireEvent.click(renameButtons[1]);
+    const kebabButtons = screen.getAllByTitle("Options");
+    fireEvent.click(kebabButtons[0]);
+
+    const deleteAction = screen.getByRole("button", { name: /^delete$/i });
+    fireEvent.mouseDown(deleteAction);
+
+    expect(
+      screen.getByRole("button", { name: /^delete$/i })
+    ).toBeInTheDocument();
+  });
+
+  it("should call onRename when rename action is taken from the menu", () => {
+    render(
+      <ConversationList
+        onPin={mockOnPin}
+        conversations={mockConversations}
+        onLoad={mockOnLoad}
+        onDelete={mockOnDelete}
+        onRename={mockOnRename}
+      />
+    );
+
+    const kebabButtons = screen.getAllByTitle("Options");
+    fireEvent.click(kebabButtons[0]);
+
+    const renameAction = screen.getByRole("button", { name: /rename/i });
+    fireEvent.click(renameAction);
 
     expect(mockOnRename).toHaveBeenCalledWith("conv-2", "Second Conversation");
     expect(mockOnRename).toHaveBeenCalledTimes(1);
@@ -133,7 +159,6 @@ describe("ConversationList", () => {
   it("should render all action buttons for each conversation", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
@@ -142,11 +167,12 @@ describe("ConversationList", () => {
       />
     );
 
-    const renameButtons = screen.getAllByTitle("Rename conversation");
-    const deleteButtons = screen.getAllByTitle("Delete conversation");
+    const kebabButtons = screen.getAllByTitle("Options");
+    fireEvent.click(kebabButtons[0]);
 
-    expect(renameButtons).toHaveLength(2);
-    expect(deleteButtons).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /pin/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rename/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
   });
 
   it("should truncate long conversation names", () => {
@@ -162,7 +188,6 @@ describe("ConversationList", () => {
 
     const { container } = render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={longNameConversations}
         onLoad={mockOnLoad}
@@ -181,7 +206,6 @@ describe("ConversationList", () => {
   it("should display section header", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
@@ -190,13 +214,12 @@ describe("ConversationList", () => {
       />
     );
 
-    expect(screen.getByText(/saved conversations/i)).toBeInTheDocument();
+    expect(screen.getByText(/conversations/i)).toBeInTheDocument();
   });
 
   it("should handle single conversation", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={[mockConversations[0]]}
         onLoad={mockOnLoad}
@@ -212,7 +235,6 @@ describe("ConversationList", () => {
   it("should render conversations in correct order", () => {
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
@@ -225,14 +247,13 @@ describe("ConversationList", () => {
       .getAllByText(/conversation/i)
       .filter((el) => el.className.includes("font-semibold"));
 
-    expect(names[0]).toHaveTextContent("First Conversation");
-    expect(names[1]).toHaveTextContent("Second Conversation");
+    expect(names[0]).toHaveTextContent("Second Conversation");
+    expect(names[1]).toHaveTextContent("First Conversation");
   });
 
   it("should apply hover styles and cursor pointer to conversation items", () => {
     const { container } = render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
@@ -260,7 +281,6 @@ describe("ConversationList", () => {
 
     render(
       <ConversationList
-        isManageMode={false}
         onPin={mockOnPin}
         conversations={emptyHistoryConv}
         onLoad={mockOnLoad}
