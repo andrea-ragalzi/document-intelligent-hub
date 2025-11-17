@@ -55,6 +55,7 @@ export async function saveConversationToFirestore(
       history,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      isPinned: false, // Initialize isPinned to false for new conversations
     };
 
     console.log("📤 Adding document to Firestore...");
@@ -79,6 +80,7 @@ export async function saveConversationToFirestore(
         name,
         timestamp: new Date().toLocaleString("en-US"),
         history,
+        isPinned: false, // Initialize isPinned for return value
       };
     } catch (addError: unknown) {
       console.error("❌ Firestore addDoc error:", addError);
@@ -119,6 +121,8 @@ export async function loadConversationsFromFirestore(
 
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      const isPinned = data.isPinned || false;
+      console.log(`  📄 Loading conversation ${doc.id}: isPinned=${isPinned}`);
       conversations.push({
         id: doc.id,
         userId: data.userId,
@@ -127,6 +131,7 @@ export async function loadConversationsFromFirestore(
           ? (data.createdAt as Timestamp).toDate().toLocaleString("en-US")
           : new Date().toLocaleString("en-US"),
         history: data.history,
+        isPinned, // Include isPinned field
       });
     });
 
@@ -187,11 +192,13 @@ export async function updateConversationNameInFirestore(
  */
 export async function updateConversationHistoryInFirestore(
   conversationId: string,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  metadata?: { isPinned?: boolean }
 ): Promise<void> {
   console.log("📝 Updating conversation history in Firestore");
   console.log("  ID:", conversationId);
   console.log("  Messages:", history.length);
+  if (metadata) console.log("  Metadata:", metadata);
 
   // Don't try to update temporary conversations
   if (conversationId.startsWith("temp-")) {
@@ -209,10 +216,23 @@ export async function updateConversationHistoryInFirestore(
     console.log("✅ Authenticated user:", currentUser.uid);
 
     const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
-    await updateDoc(conversationRef, {
+    const updateData: {
+      history: ChatMessage[];
+      updatedAt: ReturnType<typeof serverTimestamp>;
+      isPinned?: boolean;
+    } = {
       history,
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    // Add metadata fields if provided
+    if (metadata?.isPinned !== undefined) {
+      updateData.isPinned = metadata.isPinned;
+      console.log("  📌 Setting isPinned to:", metadata.isPinned);
+    }
+
+    console.log("  Final updateData:", updateData);
+    await updateDoc(conversationRef, updateData);
     console.log("✅ Conversation history updated successfully");
   } catch (error) {
     console.error("❌ Error updating conversation history:", error);
