@@ -15,6 +15,7 @@ export interface SavedConversation {
   history: ChatMessage[];
   summary?: string; // Optional: LLM-generated summary for long-term memory
   messageCount?: number; // Optional: Track when to trigger summarization
+  isPinned?: boolean; // Optional: Pin conversation to top
 }
 
 export interface AlertState {
