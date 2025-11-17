@@ -294,7 +294,10 @@ export default function Page() {
 
       console.log("  Current isPinned state:", conversation.isPinned);
       console.log("  New isPinned state:", isPinned);
-      console.log("  Conversation history length:", conversation.history.length);
+      console.log(
+        "  Conversation history length:",
+        conversation.history.length
+      );
 
       // Update Firestore con il nuovo stato isPinned
       await updateConversationHistory.mutateAsync({
