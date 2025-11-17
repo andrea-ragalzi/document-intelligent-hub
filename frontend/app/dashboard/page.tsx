@@ -282,6 +282,46 @@ export default function Page() {
     openRenameModal(id, currentName);
   };
 
+  const handlePinConversation = async (id: string, isPinned: boolean) => {
+    console.log(`📌 ${isPinned ? "Pinning" : "Unpinning"} conversation:`, id);
+
+    try {
+      // Trova la conversazione da aggiornare
+      const conversation = savedConversations.find((conv) => conv.id === id);
+      if (!conversation) {
+        throw new Error("Conversation not found");
+      }
+
+      console.log("  Current isPinned state:", conversation.isPinned);
+      console.log("  New isPinned state:", isPinned);
+      console.log("  Conversation history length:", conversation.history.length);
+
+      // Update Firestore con il nuovo stato isPinned
+      await updateConversationHistory.mutateAsync({
+        id,
+        history: conversation.history,
+        metadata: {
+          isPinned,
+        },
+      });
+
+      console.log("✅ Pin state updated successfully in Firestore");
+
+      setStatusAlert({
+        message: isPinned
+          ? "Conversation pinned to top."
+          : "Conversation unpinned.",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("❌ Error pinning conversation:", error);
+      setStatusAlert({
+        message: "Error updating conversation.",
+        type: "error",
+      });
+    }
+  };
+
   const handleRenameSubmit = async (newName: string): Promise<boolean> => {
     if (!conversationToRename) return false;
 
@@ -388,12 +428,14 @@ export default function Page() {
             <Sidebar
               userId={userId}
               savedConversations={savedConversations}
+              currentConversationId={currentConversationId}
               isOpen={true}
               onClose={() => {}}
               onNewConversation={handleNewConversation}
               onLoadConversation={handleLoad}
               onDeleteConversation={handleDelete}
               onRenameConversation={handleRename}
+              onPinConversation={handlePinConversation}
             />
           </div>
 
@@ -403,12 +445,14 @@ export default function Page() {
               <Sidebar
                 userId={userId}
                 savedConversations={savedConversations}
+                currentConversationId={currentConversationId}
                 isOpen={leftSidebarOpen}
                 onClose={() => setLeftSidebarOpen(false)}
                 onNewConversation={handleNewConversation}
                 onLoadConversation={handleLoad}
                 onDeleteConversation={handleDelete}
                 onRenameConversation={handleRename}
+                onPinConversation={handlePinConversation}
               />
             </div>
           )}
