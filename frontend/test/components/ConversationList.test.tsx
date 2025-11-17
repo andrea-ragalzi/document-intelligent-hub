@@ -7,6 +7,7 @@ describe("ConversationList", () => {
   const mockOnLoad = vi.fn();
   const mockOnDelete = vi.fn();
   const mockOnRename = vi.fn();
+  const mockOnPin = vi.fn();
 
   const mockConversations: SavedConversation[] = [
     {
@@ -38,6 +39,8 @@ describe("ConversationList", () => {
   it("should render empty state when no conversations", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={[]}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -51,6 +54,8 @@ describe("ConversationList", () => {
   it("should render list of conversations", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -67,6 +72,8 @@ describe("ConversationList", () => {
   it("should call onLoad when conversation card is clicked", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -86,6 +93,8 @@ describe("ConversationList", () => {
   it("should call onDelete when delete button is clicked without triggering card click", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -104,6 +113,8 @@ describe("ConversationList", () => {
   it("should call onRename when rename button is clicked without triggering card click", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -122,6 +133,8 @@ describe("ConversationList", () => {
   it("should render all action buttons for each conversation", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -149,6 +162,8 @@ describe("ConversationList", () => {
 
     const { container } = render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={longNameConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -166,6 +181,8 @@ describe("ConversationList", () => {
   it("should display section header", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -179,6 +196,8 @@ describe("ConversationList", () => {
   it("should handle single conversation", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={[mockConversations[0]]}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -193,6 +212,8 @@ describe("ConversationList", () => {
   it("should render conversations in correct order", () => {
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -211,6 +232,8 @@ describe("ConversationList", () => {
   it("should apply hover styles and cursor pointer to conversation items", () => {
     const { container } = render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={mockConversations}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
@@ -237,6 +260,8 @@ describe("ConversationList", () => {
 
     render(
       <ConversationList
+        isManageMode={false}
+        onPin={mockOnPin}
         conversations={emptyHistoryConv}
         onLoad={mockOnLoad}
         onDelete={mockOnDelete}
