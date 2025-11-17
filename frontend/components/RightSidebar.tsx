@@ -85,7 +85,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
           onClick={onClose}
         />
       )}
-      
+
       {/* Sidebar - Permanente su desktop (xl+), overlay su mobile */}
       <div
         className={`h-full w-96 bg-gray-50 dark:bg-gray-900 shadow-xl transform transition-all duration-200 ease-in-out flex flex-col border-l-2 border-gray-200 dark:border-gray-700 font-[Inter]
