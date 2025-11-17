@@ -6,22 +6,26 @@ import type { SavedConversation } from "@/lib/types";
 interface SidebarProps {
   userId: string | null;
   savedConversations: SavedConversation[];
+  currentConversationId?: string | null;
   isOpen: boolean;
   onClose: () => void;
   onNewConversation: () => void;
   onLoadConversation: (conv: SavedConversation) => void;
   onDeleteConversation: (id: string, name: string) => void;
   onRenameConversation: (id: string, currentName: string) => void;
+  onPinConversation: (id: string, isPinned: boolean) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   savedConversations,
+  currentConversationId,
   isOpen,
   onClose,
   onNewConversation,
   onLoadConversation,
   onDeleteConversation,
   onRenameConversation,
+  onPinConversation,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -97,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* New Chat Button - Flat Primary */}
-        <div className="p-4 bg-gray-50 dark:bg-gray-900 border-b-2 border-gray-200 dark:border-gray-700">
+        <div className="p-4 bg-gray-50 dark:bg-gray-900 border-b-2 border-gray-200 dark:border-gray-700 flex gap-2">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -106,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onNewConversation();
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg transition-all duration-200 ease-in-out font-semibold text-base shadow-md hover:shadow-lg"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg transition-all duration-200 ease-in-out font-semibold text-base shadow-md hover:shadow-lg"
           >
             <PlusCircle size={20} />
             <span>New Chat</span>
@@ -117,12 +121,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex-1 overflow-y-auto px-3 py-4 bg-white dark:bg-gray-800">
           <ConversationList
             conversations={filteredConversations}
+            currentConversationId={currentConversationId}
             onLoad={(conv) => {
               onLoadConversation(conv);
               onClose();
             }}
             onDelete={onDeleteConversation}
             onRename={onRenameConversation}
+            onPin={onPinConversation}
           />
         </div>
       </div>
