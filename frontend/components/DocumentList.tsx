@@ -6,24 +6,21 @@ import {
   Loader,
   AlertCircle,
   MoreVertical,
-  Pin,
   CheckCircle,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export interface Document {
   filename: string;
   chunks_count: number;
   language?: string;
-  isPinned?: boolean;
 }
 
 interface DocumentListProps {
   documents: Document[];
   deletingDoc: string | null;
   onDelete: (filename: string) => void;
-  onRename?: (filename: string, currentName: string) => void;
-  onPin?: (filename: string, isPinned: boolean) => void;
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
@@ -33,38 +30,64 @@ const DocumentList: React.FC<DocumentListProps> = ({
 }) => {
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
 
-  // Modalità selezione automatica quando ci sono elementi selezionati
+  // Automatic selection mode when items are selected
   const isSelectionMode = selectedDocs.length > 0;
 
-  // Stato per gestire il menu kebab aperto
+  // Desktop kebab menu state
   const [openKebabId, setOpenKebabId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
   const kebabRef = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // State per long-press su mobile
+  // Mobile gestures: long-press and drag
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(
     null
   );
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartY = useRef(0);
 
-  // Chiudi menu kebab quando si clicca fuori
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (openKebabId && kebabRef.current[openKebabId]) {
-        const kebabElement = kebabRef.current[openKebabId];
-        if (kebabElement && !kebabElement.contains(event.target as Node)) {
-          setOpenKebabId(null);
-        }
+  const closeContextMenu = () => {
+    setOpenKebabId(null);
+    setMenuPosition(null);
+    setDragY(0);
+    setIsDragging(false);
+    menuRef.current = null;
+  };
+
+  const runActionAndCloseMenu = (action: () => void | Promise<void>) => {
+    try {
+      const result = action();
+      if (result instanceof Promise) {
+        result.catch((error) =>
+          console.error("Document menu action failed:", error)
+        );
       }
-    };
+    } finally {
+      closeContextMenu();
+    }
+  };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openKebabId]);
+  // Touch handlers for mobile gestures
+  const handleTouchStart = (e: React.TouchEvent, filename: string) => {
+    if (isSelectionMode) return;
 
-  // Long press handlers per mobile
-  const handleTouchStart = (filename: string) => {
+    const target = e.currentTarget;
     const timer = setTimeout(() => {
+      if (!target) {
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + window.scrollY + 8,
+        right: window.innerWidth - rect.right + window.scrollX,
+      });
       setOpenKebabId(filename);
-    }, 500); // 500ms per attivare long press
+    }, 500);
+
     setLongPressTimer(timer);
   };
 
@@ -74,6 +97,53 @@ const DocumentList: React.FC<DocumentListProps> = ({
       setLongPressTimer(null);
     }
   };
+
+  const handleDragStart = (e: React.TouchEvent) => {
+    setIsDragging(true);
+    dragStartY.current = e.touches[0].clientY;
+  };
+
+  const handleDragMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+
+    const deltaY = e.touches[0].clientY - dragStartY.current;
+    if (deltaY > 0) {
+      setDragY(deltaY);
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (dragY > 100) {
+      closeContextMenu();
+    } else {
+      setIsDragging(false);
+      setDragY(0);
+    }
+  };
+
+  // Close kebab menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!openKebabId) {
+        return;
+      }
+
+      const kebabElement = kebabRef.current[openKebabId];
+      const menuElement = menuRef.current;
+      const targetNode = event.target as Node;
+
+      const clickedInsideTrigger =
+        kebabElement && kebabElement.contains(targetNode);
+      const clickedInsideMenu = menuElement && menuElement.contains(targetNode);
+
+      if (!clickedInsideTrigger && !clickedInsideMenu) {
+        closeContextMenu();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openKebabId]);
 
   const handleSelect = (filename: string) => {
     setSelectedDocs((prev) =>
@@ -106,12 +176,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
     setDeleteMultipleModalOpen(false);
   };
 
-  // Sort documents: pinned first, then by name
-  const sortedDocuments = [...documents].sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1;
-    if (!a.isPinned && b.isPinned) return 1;
-    return a.filename.localeCompare(b.filename);
-  });
+  // Sort documents by name (alphabetically)
+  const sortedDocuments = [...documents].sort((a, b) =>
+    a.filename.localeCompare(b.filename)
+  );
 
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteMultipleModalOpen, setDeleteMultipleModalOpen] = useState(false);
@@ -134,7 +202,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   return (
     <>
-      {/* Bulk Action Bar - Appare automaticamente quando ci sono selezioni */}
+      {/* Bulk Action Bar - Automatically appears when there are selections */}
       {isSelectionMode && (
         <div className="sticky top-0 z-10 bg-indigo-100 dark:bg-indigo-900/50 border-2 border-indigo-300 dark:border-indigo-600 rounded-lg mb-3 p-3 shadow-md">
           <div className="flex items-center justify-between gap-2">
@@ -143,15 +211,15 @@ const DocumentList: React.FC<DocumentListProps> = ({
               className="text-sm text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-indigo-100 transition font-semibold"
             >
               {selectedDocs.length === documents.length && documents.length > 0
-                ? "Deseleziona tutto"
-                : "Seleziona tutto"}
+                ? "Deselect All"
+                : "Select All"}
             </button>
             <button
               onClick={handleDeleteSelected}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2"
             >
               <Trash2 size={16} />
-              <span>Elimina ({selectedDocs.length})</span>
+              <span>Delete ({selectedDocs.length})</span>
             </button>
           </div>
         </div>
@@ -181,44 +249,36 @@ const DocumentList: React.FC<DocumentListProps> = ({
                       handleSelect(doc.filename);
                     }
                   }}
-                  onTouchStart={() =>
-                    !isSelectionMode && handleTouchStart(doc.filename)
-                  }
+                  onTouchStart={(e) => handleTouchStart(e, doc.filename)}
                   onTouchEnd={handleTouchEnd}
                   onContextMenu={(e) => {
                     if (!isSelectionMode) {
                       e.preventDefault();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setMenuPosition({
+                        top: rect.bottom + window.scrollY + 8,
+                        right: window.innerWidth - rect.right + window.scrollX,
+                      });
                       setOpenKebabId(doc.filename);
                     }
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    {/* Indicatore visivo di selezione - Solo elementi selezionati */}
+                    {/* Selection indicator - Only for selected items */}
                     {isSelected && (
                       <div className="flex-shrink-0 h-6 w-6 flex items-center justify-center rounded-full bg-indigo-600 dark:bg-indigo-500">
                         <CheckCircle size={16} className="text-white" />
                       </div>
                     )}
 
-                    {/* Indicatore Pin - Solo documenti fissati */}
-                    {!isSelected && doc.isPinned && (
-                      <div className="flex-shrink-0 h-6 w-6 flex items-center justify-center">
-                        <Pin
-                          size={14}
-                          className="text-indigo-600 dark:text-indigo-400"
-                          fill="currentColor"
-                        />
-                      </div>
-                    )}
-
-                    {/* Icona documento */}
-                    {!isSelected && !doc.isPinned && (
+                    {/* Document icon - Always visible when not selected */}
+                    {!isSelected && (
                       <div className="flex-shrink-0 w-6 h-6 bg-indigo-100 dark:bg-indigo-900/30 rounded flex items-center justify-center">
                         <FileText size={14} className="text-indigo-600" />
                       </div>
                     )}
 
-                    {/* Contenuto documento */}
+                    {/* Document content */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                         {doc.filename}
@@ -238,44 +298,38 @@ const DocumentList: React.FC<DocumentListProps> = ({
                       </div>
                     </div>
 
-                    {/* Menu Kebab - Solo desktop, nascosto su mobile */}
+                    {/* Unified container: Kebab menu (hover on desktop) */}
                     {!isSelectionMode && (
                       <div
-                        className="relative flex-shrink-0"
+                        className="relative flex-shrink-0 h-7 w-7"
                         ref={(el) => {
                           kebabRef.current[doc.filename] = el;
                         }}
                       >
+                        {/* Kebab menu - Visible on mobile tap, visible on hover on desktop */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setOpenKebabId(isKebabOpen ? null : doc.filename);
+                            if (isKebabOpen) {
+                              closeContextMenu();
+                            } else {
+                              const rect =
+                                e.currentTarget.getBoundingClientRect();
+                              setMenuPosition({
+                                top: rect.bottom + window.scrollY + 4,
+                                right:
+                                  window.innerWidth -
+                                  rect.right +
+                                  window.scrollX,
+                              });
+                              setOpenKebabId(doc.filename);
+                            }
                           }}
-                          className="h-7 w-7 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-all duration-200 ease-in-out opacity-0 group-hover:opacity-100 hidden md:flex"
-                          title="Opzioni"
+                          className="absolute inset-0 items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-all duration-200 ease-in-out opacity-0 group-hover:opacity-100 hidden md:flex"
+                          title="Options"
                         >
                           <MoreVertical size={16} />
                         </button>
-
-                        {/* Dropdown Menu - Solo Elimina per documenti */}
-                        {isKebabOpen && (
-                          <div
-                            className="absolute right-0 top-8 z-50 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border-2 border-gray-200 dark:border-gray-600 py-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenKebabId(null);
-                                openDeleteModal(doc);
-                              }}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors duration-200"
-                            >
-                              <Trash2 size={16} className="text-red-600" />
-                              <span className="font-medium">Elimina</span>
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -285,6 +339,79 @@ const DocumentList: React.FC<DocumentListProps> = ({
           )}
         </div>
       </div>
+
+      {/* Dropdown Menu - Rendered at root level to avoid z-index issues */}
+      {openKebabId &&
+        menuPosition &&
+        createPortal(
+          <>
+            {/* Backdrop for mobile */}
+            <div
+              className="fixed inset-0 bg-black/90 z-[100] md:hidden"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeContextMenu();
+              }}
+            />
+            {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}
+            <div
+              className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-gradient-to-b from-slate-900 to-black rounded-t-3xl md:rounded-lg shadow-2xl border-0 z-[110] transition-transform overflow-hidden"
+              ref={(node) => {
+                menuRef.current = node;
+              }}
+              style={{
+                bottom: window.innerWidth < 768 ? `${-dragY}px` : undefined,
+                height: window.innerWidth < 768 ? "35vh" : undefined,
+                top:
+                  window.innerWidth >= 768
+                    ? `${menuPosition.top}px`
+                    : undefined,
+                right:
+                  window.innerWidth >= 768
+                    ? `${menuPosition.right}px`
+                    : undefined,
+                width: window.innerWidth >= 768 ? "12rem" : undefined,
+              }}
+            >
+              {/* Drag handle for mobile */}
+              <div
+                className="md:hidden flex justify-center pt-4 pb-2 cursor-grab active:cursor-grabbing"
+                onTouchStart={handleDragStart}
+                onTouchMove={handleDragMove}
+                onTouchEnd={handleDragEnd}
+              >
+                <div className="w-10 h-1 bg-white/60 rounded-full" />
+              </div>
+
+              {(() => {
+                const doc = documents.find((d) => d.filename === openKebabId);
+                if (!doc) return null;
+
+                return (
+                  <div className="flex flex-col gap-1 pt-3 pb-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        runActionAndCloseMenu(() => openDeleteModal(doc));
+                      }}
+                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200"
+                    >
+                      <Trash2 size={18} className="text-white/80" />
+                      <span className="font-semibold tracking-wide">
+                        Delete
+                      </span>
+                    </button>
+
+                    {/* Safe area padding for iOS */}
+                    <div className="md:hidden h-4" />
+                  </div>
+                );
+              })()}
+            </div>
+          </>,
+          document.body
+        )}
+
       {/* Delete Confirmation Modal */}
       {modalOpen && pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
