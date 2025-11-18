@@ -34,6 +34,7 @@ export default function Page() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [selectedUseCaseId, setSelectedUseCaseId] = useState<string>("AUTO");
 
   const {
     file,
@@ -82,6 +83,7 @@ export default function Page() {
     setMessages,
   } = useChatAI({
     userId: userId || "",
+    selectedUseCaseId,
   });
 
   // TanStack Query - gestisce le conversazioni con Firestore
@@ -473,6 +475,8 @@ export default function Page() {
               hasDocuments={hasDocuments}
               isCheckingDocuments={isChecking}
               onOpenUploadModal={() => setUploadModalOpen(true)}
+              selectedUseCaseId={selectedUseCaseId}
+              onSelectUseCase={setSelectedUseCaseId}
             />
           </div>
 
