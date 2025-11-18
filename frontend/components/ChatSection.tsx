@@ -1,7 +1,14 @@
-import { FormEvent } from "react";
-import { MessageSquare, CornerDownLeft, Loader, Plus } from "lucide-react";
+import { FormEvent, useState, useRef, useEffect } from "react";
+import {
+  MessageSquare,
+  CornerDownLeft,
+  Loader,
+  Paperclip,
+  Target,
+} from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import { ChatMessageDisplay } from "./ChatMessageDisplay";
+import { UseCaseSelector } from "./UseCaseSelector";
 
 interface ChatSectionProps {
   chatHistory: ChatMessage[];
@@ -14,6 +21,8 @@ interface ChatSectionProps {
   hasDocuments: boolean;
   isCheckingDocuments: boolean;
   onOpenUploadModal: () => void;
+  selectedUseCaseId: string;
+  onSelectUseCase: (id: string) => void;
 }
 export const ChatSection: React.FC<ChatSectionProps> = ({
   chatHistory,
@@ -26,11 +35,22 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   hasDocuments,
   isCheckingDocuments,
   onOpenUploadModal,
+  selectedUseCaseId,
+  onSelectUseCase,
 }) => {
+  const [isUseCaseSelectorOpen, setIsUseCaseSelectorOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isChatDisabled = !hasDocuments && !isCheckingDocuments;
+
+  // Reset textarea height when query is cleared
+  useEffect(() => {
+    if (query === "" && textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  }, [query]);
   return (
     <div className="w-full h-full flex flex-col bg-white dark:bg-gray-900 transition-colors duration-200 ease-in-out font-[Inter] relative">
-      <div className="flex-1 p-4 sm:p-6 pb-32 overflow-y-auto">
+      <div className="flex-1 p-4 sm:p-6 pb-40 overflow-y-auto">
         <div className="max-w-4xl mx-auto">
           {chatHistory.length === 0 ? (
             <div className="text-center p-8 sm:p-16 text-gray-400">
@@ -86,53 +106,103 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
         </div>
       </div>
 
-      {/* Input Fluttuante con Ombra Indaco Premium */}
+      {/* Gemini-Style Input Bar - Two-Row Layout */}
       <form
         onSubmit={onQuerySubmit}
-        className="fixed bottom-0 left-0 right-0 lg:left-72 xl:right-96 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t-2 border-gray-200 dark:border-gray-700 shadow-2xl shadow-indigo-500/30 py-4 sm:py-6 px-4 transition-all duration-200 ease-in-out"
+        className="fixed bottom-0 left-0 right-0 lg:left-72 xl:right-96 bg-gray-900 py-4 px-4 transition-all duration-200 ease-in-out"
       >
-        <div className="max-w-3xl mx-auto flex items-center gap-2 sm:gap-3">
-          {/* Upload Button - Premium Shadow */}
-          <button
-            type="button"
-            onClick={onOpenUploadModal}
-            disabled={!userId}
-            className="flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 transition-all duration-200 ease-in-out"
-            title="Upload document"
-          >
-            <Plus size={18} className="sm:size-5" />
-          </button>
+        <div className="max-w-4xl mx-auto">
+          {/* Single Pill Container with Two Sections */}
+          <div className="bg-gray-800 rounded-3xl shadow-lg px-4 py-3">
+            {/* Top Section - Input Field */}
+            <div className="mb-4">
+              <textarea
+                ref={textareaRef}
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                disabled={isQuerying || !userId || isChatDisabled}
+                placeholder={
+                  isChatDisabled ? "Upload document first..." : "Message..."
+                }
+                rows={1}
+                className="w-full px-2 py-2 text-base bg-transparent focus:outline-none disabled:cursor-not-allowed transition-all duration-200 text-white placeholder-gray-500 resize-none overflow-hidden"
+                style={{
+                  minHeight: "2.5rem",
+                  maxHeight: "12rem",
+                }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = "auto";
+                  target.style.height = `${Math.min(target.scrollHeight, 192)}px`;
+                }}
+              />
+            </div>
 
-          {/* Query Input - Enterprise Focus Ring */}
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            disabled={isQuerying || !userId || isChatDisabled}
-            placeholder={
-              isChatDisabled ? "Upload document first..." : "Ask a question..."
-            }
-            className="flex-grow px-3 py-2.5 sm:px-4 sm:py-3 text-sm sm:text-base border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 dark:disabled:bg-gray-800 transition-all duration-200 ease-in-out bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 font-medium"
-          />
+            {/* Bottom Section - Action Buttons */}
+            <div className="flex items-center justify-between">
+              {/* Left Actions */}
+              <div className="flex items-center gap-1">
+                {/* Upload/Attach Button */}
+                <button
+                  type="button"
+                  onClick={onOpenUploadModal}
+                  disabled={!userId}
+                  className="flex items-center justify-center h-9 w-9 rounded-full text-gray-400 hover:text-gray-200 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 transition-all duration-200"
+                  title="Upload document"
+                >
+                  <Paperclip size={18} />
+                </button>
 
-          {/* Submit Button - Premium Shadow */}
-          <button
-            type="submit"
-            disabled={isQuerying || !query.trim() || !userId || isChatDisabled}
-            className={`flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 ease-in-out flex-shrink-0 ${
-              isQuerying || !query.trim() || !userId || isChatDisabled
-                ? "bg-gray-300 text-gray-600 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400"
-                : "bg-indigo-600 text-white hover:bg-indigo-700"
-            }`}
-          >
-            {isQuerying ? (
-              <Loader size={18} className="animate-spin sm:size-5" />
-            ) : (
-              <CornerDownLeft size={18} className="sm:size-5" />
-            )}
-          </button>
+                {/* Use Case Selector Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsUseCaseSelectorOpen(true)}
+                  disabled={!userId}
+                  className={`flex items-center justify-center h-9 w-9 rounded-full disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 transition-all duration-200 ${
+                    selectedUseCaseId === "AUTO"
+                      ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                      : "text-emerald-400 hover:text-emerald-300 hover:bg-gray-700"
+                  }`}
+                  title={
+                    selectedUseCaseId === "AUTO"
+                      ? "Select Use Case"
+                      : `Use Case: ${selectedUseCaseId}`
+                  }
+                >
+                  <Target size={18} />
+                </button>
+              </div>
+
+              {/* Right Action - Send Button */}
+              <button
+                type="submit"
+                disabled={
+                  isQuerying || !query.trim() || !userId || isChatDisabled
+                }
+                className={`flex items-center justify-center h-9 w-9 rounded-full transition-all duration-200 flex-shrink-0 ${
+                  isQuerying || !query.trim() || !userId || isChatDisabled
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                    : "bg-indigo-600 text-white hover:bg-indigo-500"
+                }`}
+              >
+                {isQuerying ? (
+                  <Loader size={18} className="animate-spin" />
+                ) : (
+                  <CornerDownLeft size={18} />
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </form>
+
+      {/* Use Case Selector Modal */}
+      <UseCaseSelector
+        isOpen={isUseCaseSelectorOpen}
+        selectedUseCaseId={selectedUseCaseId}
+        onSelectUseCase={onSelectUseCase}
+        onClose={() => setIsUseCaseSelectorOpen(false)}
+      />
     </div>
   );
 };
