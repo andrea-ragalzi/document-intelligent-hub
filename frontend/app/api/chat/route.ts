@@ -10,7 +10,7 @@ interface Message {
 
 export async function POST(req: Request) {
   try {
-    const { messages, userId } = await req.json();
+    const { messages, userId, use_case } = await req.json();
 
     if (!userId) {
       return new Response("User ID is required", { status: 400 });
@@ -30,17 +30,25 @@ export async function POST(req: Request) {
       text: msg.content,
     }));
 
+    // Prepare request body
+    const requestBody: Record<string, unknown> = {
+      query: userQuery,
+      user_id: userId,
+      chat_history: chatHistory,
+    };
+
+    // Add use_case if provided
+    if (use_case) {
+      requestBody.use_case = use_case;
+    }
+
     // Call the FastAPI backend
     const response = await fetch(`${API_BASE_URL}/query/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        query: userQuery,
-        user_id: userId,
-        chat_history: chatHistory,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
