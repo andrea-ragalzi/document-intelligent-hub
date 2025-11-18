@@ -4,9 +4,10 @@ import { ChatMessage } from "@/lib/types";
 
 interface UseChatAIProps {
   userId: string;
+  selectedUseCaseId?: string;
 }
 
-export function useChatAI({ userId }: UseChatAIProps) {
+export function useChatAI({ userId, selectedUseCaseId }: UseChatAIProps) {
   const {
     messages,
     input,
@@ -19,6 +20,7 @@ export function useChatAI({ userId }: UseChatAIProps) {
     api: "/api/chat",
     body: {
       userId,
+      use_case: selectedUseCaseId === "AUTO" ? undefined : selectedUseCaseId,
     },
     onError: (error: Error) => {
       console.error("Chat error:", error);
