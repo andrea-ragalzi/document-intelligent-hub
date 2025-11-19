@@ -1,6 +1,7 @@
 # backend/app/core/config.py
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     # Specifica che le variabili devono essere caricate dal file .env 
     # e le rende disponibili nell'ambiente (Docker, Railway)
@@ -16,8 +17,10 @@ class Settings(BaseSettings):
     # Impostazioni RAG (valori di default che possono essere sovrascritti)
     CHROMA_DB_PATH: str = "chroma_db"
     EMBEDDING_MODEL: str = "text-embedding-ada-002"
-    LLM_MODEL: str = "gpt-3.5-turbo"
-
+    LLM_MODEL: str = "gpt-3.5-turbo"  # Can be overridden via .env
 
 # Istanza globale dei settings accessibile da tutta l'applicazione
-settings = Settings()
+settings = Settings() # type: ignore
+
+# Log del modello caricato per conferma immediata all'avvio
+print(f"🤖 [CONFIG] Loaded LLM Model: {settings.LLM_MODEL}")
