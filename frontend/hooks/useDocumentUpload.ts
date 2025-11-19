@@ -17,7 +17,9 @@ interface UseUploadResult {
   handleFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
   handleUpload: (e: FormEvent, currentUserId: string) => Promise<void>;
   resetAlert: () => void;
-  documentsUploaded: number; // Track number of successful uploads
+  documentsUploaded: number;
+  selectedLanguage: string;
+  setSelectedLanguage: (lang: string) => void;
 }
 
 export const useDocumentUpload = (
@@ -27,6 +29,7 @@ export const useDocumentUpload = (
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [documentsUploaded, setDocumentsUploaded] = useState<number>(0);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
   const [uploadAlert, setUploadAlert] = useState<AlertState>({
     message: "Enter a User ID and upload a PDF.",
     type: "info",
@@ -44,7 +47,7 @@ export const useDocumentUpload = (
       } else {
         setFile(selectedFile);
         setUploadAlert({
-          message: selectedFile.name + " ready for indexing.",
+          message: `${selectedFile.name} ready for indexing.`,
           type: "info",
         });
       }
@@ -83,7 +86,11 @@ export const useDocumentUpload = (
       formData.append("file", file);
       formData.append("user_id", currentUserId);
 
+      // Send selected language
+      formData.append("document_language", selectedLanguage.toUpperCase());
+
       console.log("📤 Sending upload request to:", `${API_BASE_URL}/upload/`);
+      console.log("🌍 Selected language:", selectedLanguage.toUpperCase());
 
       try {
         const response = await fetch(`${API_BASE_URL}/upload/`, {
@@ -142,7 +149,7 @@ export const useDocumentUpload = (
         setIsUploading(false);
       }
     },
-    [file, onSuccess]
+    [file, onSuccess, selectedLanguage]
   );
 
   const resetAlert = useCallback(() => {
@@ -161,5 +168,7 @@ export const useDocumentUpload = (
     handleUpload,
     resetAlert,
     documentsUploaded,
+    selectedLanguage,
+    setSelectedLanguage,
   };
 };
