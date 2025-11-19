@@ -5,28 +5,22 @@ This service generates structured, modular prompts following best practices
 to overcome issues like "Constraint Neglect" and ensure adherence to
 quantity, format, and quality requirements.
 
-The 4-section prompt structure:
-    I. PERSONALITY AND OBJECTIVE - Sets role and primary task
-    II. SPECIFIC USER REQUEST - Dynamic content from user
-    III. CONSTRAINTS AND REQUIREMENTS - Critical rules to enforce
-    IV. ADDITIONAL CONTEXT - Optional supplementary information
+The prompt structure enforces RAG context usage and includes:
+    - System-level RAG enforcement rules
+    - User request
+    - Retrieved context block
+    - Final question
 """
 
-from app.schemas.use_cases import (
-    PromptConstraints,
-    UseCaseDefinition,
-    UseCaseType,
-    get_output_format_description,
-    get_use_case_definition,
-)
+from app.schemas.use_cases import PromptConstraints
 
 
 class PromptTemplateService:
     """
-    Service for generating optimized, constraint-aware prompts for different use cases.
+    Service for generating optimized, constraint-aware prompts.
 
-    This service implements the modular prompt strategy with hierarchical structure
-    and critical constraint repetition to ensure LLM adherence to requirements.
+    This service implements structured prompts with RAG context enforcement
+    to ensure LLM adherence to document-based information.
     """
 
     def __init__(self):
@@ -35,111 +29,124 @@ class PromptTemplateService:
 
     def build_modular_prompt(
         self,
-        use_case: UseCaseType,
         user_request: str,
-        constraints: PromptConstraints,
+        constraints: PromptConstraints | None = None,
         additional_context: str | None = None,
         retrieved_context: str | None = None,
     ) -> str:
         """
-        Build a complete modular prompt following the 4-section structure.
+        Build a complete modular prompt with RAG context enforcement.
 
         Args:
-            use_case: The type of use case (CU1-CU6)
             user_request: The specific user request/question
-            constraints: Prompt constraints (quantity, format, data type)
+            constraints: Optional prompt constraints (quantity, format, data type)
             additional_context: Optional additional context or instructions
             retrieved_context: Optional RAG-retrieved context from documents
 
         Returns:
             Complete structured prompt ready for LLM consumption
         """
-        use_case_def = get_use_case_definition(use_case)
+        # System-level enforcement header
+        system_header = self._build_context_enforcement_header()
 
-        # Section I: Personality and Objective
-        section_i = self._build_personality_section(use_case_def)
+        # Build constraints section if provided
+        constraints_section = ""
+        if constraints:
+            constraints_section = self._build_constraints_section(constraints)
 
-        # Section II: Specific User Request
-        section_ii = self._build_request_section(user_request, retrieved_context)
+        # Additional context section (if provided)
+        context_section = ""
+        if additional_context:
+            context_section = self._build_context_section(additional_context)
 
-        # Section III: Constraints and Requirements
-        section_iii = self._build_constraints_section(constraints, use_case_def)
-
-        # Section IV: Additional Context (if provided)
-        section_iv = (
-            self._build_context_section(additional_context)
-            if additional_context
-            else ""
-        )
+        # RAG context block
+        rag_context_block = self._build_rag_context_block(retrieved_context)
+        
+        # Final question block
+        final_question_block = self._build_new_question_block(user_request)
 
         # Combine all sections
-        prompt_parts = [section_i, section_ii, section_iii]
-        if section_iv:
-            prompt_parts.append(section_iv)
+        prompt_parts = [system_header]
+        
+        if constraints_section:
+            prompt_parts.append(constraints_section)
+            
+        if context_section:
+            prompt_parts.append(context_section)
+            
+        prompt_parts.append(rag_context_block)
+        prompt_parts.append(final_question_block)
 
         return "\n\n".join(prompt_parts)
 
-    def _build_personality_section(self, use_case_def: UseCaseDefinition) -> str:
-        """
-        Build Section I: Personality and Objective.
+    def get_query_rewriter_prompt(self, query: str) -> str:
+        """Return the ultra-concise (TOON) prompt for the query rewriter agent."""
+        return (
+            "TOON|QUERY-REWRITER v6\n"
+            "TASK: emit EXACTLY 4 recall-max search clauses.\n"
+            "FORMAT: JSON array of four strings. Nothing else.\n"
+            "PLAYBOOK:\n"
+            "1. Split intents; one focus per clause.\n"
+            "2. Expand nouns into Entità Operative Chiave, synonyms, protocol IDs, telemetry tags.\n"
+            "3. Compress tokens: drop filler, keep domain nouns/verbs, prefer hyphenated n-grams.\n"
+            "4. Mirror query language; if multilingual, pair key terms in both tongues.\n"
+            "5. Ban duplicates, commentary, numbering, markdown.\n"
+            f"USER QUERY: {query}\n"
+            "RETURN:"
+        )
 
-        Args:
-            use_case_def: The use case definition
+    def _build_context_enforcement_header(self) -> str:
+        """Build the mandatory system header enforcing RAG context usage."""
+        core_rule = "RULE 1: ONLY use the information provided in the [RAG Context] section below to answer the user's question."
 
-        Returns:
-            Formatted personality section
-        """
-        return f"""**I. PERSONALITY AND OBJECTIVE**
+        reminder_one = "REMINDER A: RULE 1 IS ABSOLUTE. ONLY use the information provided in the [RAG Context] section below."
+        reminder_two = "REMINDER B: You are FORBIDDEN to use any knowledge outside the [RAG Context] section mentioned below."
+        rule_two = (
+            "RULE 2: If the [RAG Context] does not contain relevant information, you MUST state explicitly: "
+            "'I don't have enough information to answer this question based on the provided documents.' DO NOT attempt to answer with general knowledge."
+        )
+        rule_three = "RULE 3 (Constraint Repetition): RULE 1 is NON-NEGOTIABLE. Repeat after me — ONLY use the information provided in the [RAG Context] section below. ONLY that context. ONLY that context."
 
-Act as a {use_case_def.role_persona}, meticulous and professional.
+        return """**SYSTEM RAG CONTEXT ENFORCEMENT HEADER**
 
-Your PRIMARY task is to execute the user's request while *RIGOROUSLY* respecting ALL constraints regarding format and quantity.
+{core_rule}
+{reminder_one}
+{reminder_two}
+{rule_two}
+{rule_three}""".format(
+            core_rule=core_rule,
+            reminder_one=reminder_one,
+            reminder_two=reminder_two,
+            rule_two=rule_two,
+            rule_three=rule_three,
+        )
 
-CRITICAL RULE: Do NOT deviate from the exact number of elements requested. Do NOT provide approximate or generic categories when specific items are requested."""
+    def _build_rag_context_block(self, retrieved_context: str | None) -> str:
+        """Create the dedicated [RAG Context] block placed before the question."""
+        context_content = (
+            retrieved_context.strip()
+            if retrieved_context and retrieved_context.strip()
+            else "NESSUNA INFORMAZIONE DISPONIBILE NEL CONTESTO RECUPERATO."
+        )
+        return f"""[RAG Context]
+{context_content}"""
 
-    def _build_request_section(
-        self, user_request: str, retrieved_context: str | None = None
-    ) -> str:
-        """
-        Build Section II: Specific User Request.
-
-        Args:
-            user_request: The user's specific question or request
-            retrieved_context: Optional context retrieved from RAG
-
-        Returns:
-            Formatted request section
-        """
-        section = f"""**II. SPECIFIC USER REQUEST**
-
+    def _build_new_question_block(self, user_request: str) -> str:
+        """Attach the final user question immediately after the context block."""
+        return f"""[New Question]
 {user_request}"""
 
-        if retrieved_context:
-            section += f"""
-
-**RETRIEVED CONTEXT FROM DOCUMENTS:**
-{retrieved_context}
-
-IMPORTANT: Base your answer EXCLUSIVELY on the retrieved context above. Extract specific information, names, dates, and details directly from this context."""
-
-        return section
-
-    def _build_constraints_section(
-        self, constraints: PromptConstraints, use_case_def: UseCaseDefinition
-    ) -> str:
+    def _build_constraints_section(self, constraints: PromptConstraints) -> str:
         """
-        Build Section III: Constraints and Requirements.
+        Build constraints and requirements section.
 
         Args:
             constraints: The prompt constraints to enforce
-            use_case_def: The use case definition
 
         Returns:
             Formatted constraints section with critical rules
         """
-        output_format_desc = get_output_format_description(use_case_def.optimal_output)
-
-        section = """**III. CONSTRAINTS AND REQUIREMENTS**
+        section = """**CONSTRAINTS AND REQUIREMENTS**
 
 THESE CONSTRAINTS MUST BE RESPECTED BEFORE EVERYTHING ELSE.
 """
@@ -161,12 +168,12 @@ THESE CONSTRAINTS MUST BE RESPECTED BEFORE EVERYTHING ELSE.
    - Each item must match this specification exactly."""
             constraint_number += 1
 
-        # Format constraint (always required)
-        section += f"""
+        # Format constraint (if specified)
+        if constraints.format_constraint:
+            section += f"""
 {constraint_number}. **FORMAT CONSTRAINT (PRIORITY):** {constraints.format_constraint}
-   - Expected format: {output_format_desc}
    - Follow this format structure precisely."""
-        constraint_number += 1
+            constraint_number += 1
 
         # Additional constraints
         if constraints.additional_constraints:
@@ -180,7 +187,7 @@ THESE CONSTRAINTS MUST BE RESPECTED BEFORE EVERYTHING ELSE.
 
     def _build_context_section(self, additional_context: str) -> str:
         """
-        Build Section IV: Additional Context (optional).
+        Build additional context section.
 
         Args:
             additional_context: Additional context or instructions
@@ -188,32 +195,29 @@ THESE CONSTRAINTS MUST BE RESPECTED BEFORE EVERYTHING ELSE.
         Returns:
             Formatted context section
         """
-        return f"""**IV. ADDITIONAL CONTEXT**
+        return f"""**ADDITIONAL CONTEXT**
 
 {additional_context}"""
 
-    def create_constraints_for_use_case(
+    def create_constraints(
         self,
-        use_case: UseCaseType,
         quantity: int | None = None,
+        data_type: str | None = None,
         custom_format: str | None = None,
         additional: list[str] | None = None,
     ) -> PromptConstraints:
         """
-        Create appropriate constraints for a specific use case.
+        Create prompt constraints.
 
         Args:
-            use_case: The use case type
             quantity: Optional exact quantity requirement
-            custom_format: Optional custom format override
+            data_type: Optional data type description
+            custom_format: Optional custom format specification
             additional: Optional additional constraints
 
         Returns:
-            PromptConstraints object configured for the use case
+            PromptConstraints object
         """
-        use_case_def = get_use_case_definition(use_case)
-        output_format_desc = get_output_format_description(use_case_def.optimal_output)
-
         # Build quantity constraint if specified
         quantity_constraint = None
         if quantity is not None:
@@ -221,27 +225,14 @@ THESE CONSTRAINTS MUST BE RESPECTED BEFORE EVERYTHING ELSE.
                 f"The response MUST contain EXACTLY {quantity} items/elements."
             )
 
-        # Build data type constraint based on use case
-        data_type_constraints = {
-            UseCaseType.PROFESSIONAL_CONTENT: "Each section MUST be a complete paragraph with proper structure.",
-            UseCaseType.CODE_DEVELOPMENT: "Each code block MUST be complete, commented, and executable.",
-            UseCaseType.DATA_ANALYSIS: "Each point MUST be a specific insight or data extraction.",
-            UseCaseType.CREATIVE_BRAINSTORMING: "Each element MUST be a unique, creative idea.",
-            UseCaseType.STRUCTURED_PLANNING: "Each section MUST be a clear step or hierarchical component.",
-            UseCaseType.BUSINESS_STRATEGY: "Each section MUST follow the required business analysis framework.",
-        }
-
-        data_type_constraint = data_type_constraints.get(use_case)
-
-        # Format constraint
-        format_constraint = (
-            custom_format or f"Output MUST be formatted as: {output_format_desc}"
-        )
+        # Format constraint - default if not provided
+        if custom_format is None:
+            custom_format = "Provide a clear and well-structured response."
 
         return PromptConstraints(
             quantity_constraint=quantity_constraint,
-            data_type_constraint=data_type_constraint,
-            format_constraint=format_constraint,
+            data_type_constraint=data_type,
+            format_constraint=custom_format,
             additional_constraints=additional or [],
         )
 
