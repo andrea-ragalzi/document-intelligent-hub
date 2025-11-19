@@ -15,6 +15,8 @@ class UseCaseType(str, Enum):
     """
     Enumeration of the 6 common use cases for the hub.
     """
+
+    GENERIC = "GENERIC"             # Generic use case for fallback
     PROFESSIONAL_CONTENT = "CU1"  # Professional content generation
     CODE_DEVELOPMENT = "CU2"       # Code development and debugging
     DATA_ANALYSIS = "CU3"          # Data analysis and document synthesis
@@ -51,6 +53,16 @@ class UseCaseDefinition(BaseModel):
     
 # Dictionary mapping use case types to their full definitions
 USE_CASE_DEFINITIONS: Dict[UseCaseType, UseCaseDefinition] = {
+    UseCaseType.GENERIC: UseCaseDefinition(
+        code=UseCaseType.GENERIC,
+        name="Generic Query",
+        description="General question-answer interaction without specific use case requirements",
+        typical_activity="Answering general questions based on document context",
+        optimal_output=OutputFormat.MARKDOWN_TEXT,
+        role_persona="Knowledgeable Assistant and Information Provider",
+        constraint_priority="CLARITY: Clear, accurate response based on provided context"
+    ),
+    
     UseCaseType.PROFESSIONAL_CONTENT: UseCaseDefinition(
         code=UseCaseType.PROFESSIONAL_CONTENT,
         name="Professional Content Generation",
