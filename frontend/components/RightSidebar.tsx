@@ -15,8 +15,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import DocumentList from "./DocumentList";
 import type { Document } from "./DocumentList";
-import { AlertMessage } from "./AlertMessage";
-import type { AlertState } from "@/lib/types";
 
 interface RightSidebarProps {
   userId: string | null;
@@ -26,7 +24,6 @@ interface RightSidebarProps {
   onToggleTheme: () => void;
   documents: Document[];
   isLoadingDocuments?: boolean;
-  statusAlert: AlertState | null;
   onDeleteDocument: (filename: string) => void;
   onRefreshDocuments?: () => Promise<void>;
 }
@@ -38,7 +35,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onClose,
   onToggleTheme,
   documents,
-  statusAlert,
   onDeleteDocument,
 }) => {
   const [activeView, setActiveView] = useState<"menu" | "documents">("menu");
@@ -200,8 +196,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               </button>
             </div>
           ) : (
-            <div className="p-4 space-y-4">
-              {statusAlert && <AlertMessage alert={statusAlert} />}
+            <div className="p-4 flex-1 flex flex-col overflow-hidden">
               <DocumentList
                 documents={documents}
                 deletingDoc={null}
@@ -210,15 +205,19 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             </div>
           )}
         </div>
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 ease-in-out font-semibold text-base shadow-md hover:shadow-lg"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
-        </div>
+
+        {/* Logout button - only visible in menu view */}
+        {activeView === "menu" && (
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 ease-in-out font-semibold text-base shadow-md hover:shadow-lg"
+            >
+              <LogOut size={18} />
+              Logout
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
