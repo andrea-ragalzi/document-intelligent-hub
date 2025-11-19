@@ -34,16 +34,25 @@ export default function Page() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const [selectedUseCaseId, setSelectedUseCaseId] = useState<string>("AUTO");
+  const [selectedOutputLanguage, setSelectedOutputLanguage] =
+    useState<string>("en");
 
   const {
     file,
-    handleFileChange,
-    handleUpload,
     isUploading,
     uploadAlert,
+    handleFileChange,
+    handleUpload,
     resetAlert,
-  } = useDocumentUpload();
+    documentsUploaded: _documentsUploaded,
+    selectedLanguage,
+    setSelectedLanguage,
+  } = useDocumentUpload({
+    onSuccess: () => {
+      setUploadModalOpen(false);
+      resetAlert();
+    },
+  });
 
   // Document management
   const {
@@ -58,7 +67,7 @@ export default function Page() {
 
   // Zustand UI Store - sostituisce tutti gli useState
   const {
-    statusAlert,
+    statusAlert: _statusAlert,
     setStatusAlert,
     renameModalOpen,
     conversationToRename,
@@ -83,7 +92,7 @@ export default function Page() {
     setMessages,
   } = useChatAI({
     userId: userId || "",
-    selectedUseCaseId,
+    selectedOutputLanguage,
   });
 
   // TanStack Query - gestisce le conversazioni con Firestore
@@ -475,8 +484,8 @@ export default function Page() {
               hasDocuments={hasDocuments}
               isCheckingDocuments={isChecking}
               onOpenUploadModal={() => setUploadModalOpen(true)}
-              selectedUseCaseId={selectedUseCaseId}
-              onSelectUseCase={setSelectedUseCaseId}
+              selectedOutputLanguage={selectedOutputLanguage}
+              onSelectOutputLanguage={setSelectedOutputLanguage}
             />
           </div>
 
@@ -490,7 +499,6 @@ export default function Page() {
               onToggleTheme={toggleTheme}
               documents={documents}
               isLoadingDocuments={isLoadingDocuments}
-              statusAlert={statusAlert}
               onDeleteDocument={deleteDocument}
               onRefreshDocuments={refreshDocuments}
             />
@@ -507,7 +515,6 @@ export default function Page() {
                 onToggleTheme={toggleTheme}
                 documents={documents}
                 isLoadingDocuments={isLoadingDocuments}
-                statusAlert={statusAlert}
                 onDeleteDocument={deleteDocument}
                 onRefreshDocuments={refreshDocuments}
               />
@@ -527,6 +534,8 @@ export default function Page() {
           uploadAlert={uploadAlert}
           onFileChange={handleFileChange}
           onUpload={submitUpload}
+          selectedLanguage={selectedLanguage}
+          onLanguageChange={setSelectedLanguage}
         />
       </div>
     </ProtectedRoute>
