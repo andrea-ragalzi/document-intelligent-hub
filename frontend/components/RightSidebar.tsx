@@ -106,10 +106,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             <h2 className="flex-1 text-center text-xl font-bold text-gray-900 dark:text-gray-100">
               Documents
             </h2>
-
             <button
               onClick={onClose}
-              className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out"
+              className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out xl:hidden"
             >
               <X size={20} className="text-gray-500 dark:text-gray-400" />
             </button>
@@ -141,7 +140,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out"
+                className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out xl:hidden"
               >
                 <X size={20} className="text-gray-500 dark:text-gray-400" />
               </button>
