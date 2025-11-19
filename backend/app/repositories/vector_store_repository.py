@@ -112,16 +112,19 @@ class VectorStoreRepository:
     def get_user_chunks_sample(
         self,
         user_id: str,
-        sample_size: int = 1000
+        sample_size: int = 10000
     ) -> Tuple[List, List[str]]:
         """
         Get a sample of document chunks for a user.
         
         Used for discovering unique documents without loading all data.
         
+        CRITICAL: Increased default sample_size to 10000 to ensure all documents
+        are discovered even when users have multiple large PDFs.
+        
         Args:
             user_id: The user ID
-            sample_size: Number of chunks to sample
+            sample_size: Number of chunks to sample (default: 10000)
         
         Returns:
             Tuple of (metadatas, ids)
