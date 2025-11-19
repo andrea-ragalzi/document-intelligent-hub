@@ -225,8 +225,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
         </div>
       )}
 
-      <div className="space-y-2">
-        <div className="space-y-2 max-h-64 overflow-y-auto">
+      <div className="space-y-2 flex-1 flex flex-col overflow-hidden">
+        <div className="space-y-2 flex-1 overflow-y-auto">
           {sortedDocuments.length === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
               No documents uploaded yet
