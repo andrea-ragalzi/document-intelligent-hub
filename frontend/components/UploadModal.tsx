@@ -4,6 +4,7 @@ import { X, Upload, FileText } from "lucide-react";
 import { FormEvent, ChangeEvent, useState, DragEvent } from "react";
 import { UploadProgress } from "./UploadProgress";
 import { AlertMessage } from "./AlertMessage";
+import { LanguageSelector } from "./LanguageSelector";
 import type { AlertState } from "@/lib/types";
 
 interface UploadProgressState {
@@ -25,6 +26,8 @@ interface UploadModalProps {
   onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onUpload: (e: FormEvent) => void;
   uploadProgress?: UploadProgressState;
+  selectedLanguage: string;
+  onLanguageChange: (lang: string) => void;
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({
@@ -36,6 +39,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onFileChange,
   onUpload,
   uploadProgress,
+  selectedLanguage,
+  onLanguageChange,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -201,6 +206,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Language Selector */}
+            <LanguageSelector
+              selectedLanguage={selectedLanguage}
+              onLanguageChange={onLanguageChange}
+              disabled={isUploading}
+            />
 
             {/* Upload Progress */}
             {isUploading && uploadProgress && (
