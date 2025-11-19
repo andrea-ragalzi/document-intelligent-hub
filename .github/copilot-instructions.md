@@ -19,7 +19,7 @@ backend/
     core/         # Config, logging (structured logging with loguru)
     db/           # ChromaDB client (HuggingFace embeddings - all-MiniLM-L6-v2)
     routers/      # FastAPI endpoints (rag_router.py)
-    schemas/      # Pydantic models (rag.py, use_cases.py)
+    schemas/      # Pydantic models (rag.py)
     services/     # Business logic (see Service Layer Architecture below)
   tests/          # pytest with fixtures, mocked OpenAI calls
   main.py         # FastAPI app entry point with CORS & logging middleware
@@ -39,14 +39,32 @@ frontend/
 The backend uses a **modular service architecture** where `rag_service.py` orchestrates specialized services:
 
 - **`rag_service.py`** - Main orchestrator for document indexing, retrieval, and answer generation
-- **`use_case_detection_service.py`** - Auto-detects query intent (CU1-CU6) using pattern matching
-- **`prompt_template_service.py`** - Generates optimized prompts based on use case (4-section modular structure)
 - **`language_service.py`** - Detects document/query language (supports 20+ languages)
 - **`translation_service.py`** - Translates queries/responses for multilingual support
 - **`query_expansion_service.py`** - Generates alternative query phrasings for better retrieval
 - **`reranking_service.py`** - Uses Cohere to rerank retrieved documents by relevance
+- **`query_parser_service.py`** - Extracts file filters (include/exclude) from natural language, corrects grammar, removes filler words using gpt-4o-mini (~$0.00007 per query)
 
 **Key Pattern:** Each service is self-contained with its own LLM instance and configuration. The RAG service imports and delegates to specialized services rather than handling everything inline.
+
+## Query Parsing & Optimization
+
+**Automatic File Filtering:** Extracts include/exclude instructions from natural language queries:
+
+- `"search only in Budget.pdf"` → include: [`Budget.pdf`]
+- `"exclude Report.pdf and Data.pdf"` → exclude: [`Report.pdf`, `Data.pdf`]
+- Works in **any language** (IT, EN, ES, FR, DE, etc.)
+
+**Query Optimization:** OpenAI gpt-4o-mini automatically:
+
+- Removes file references from query text
+- Corrects grammar/spelling (`"qual'è"` → `"Qual è"`)
+- Removes filler words (`tipo`, `praticamente`, `basically`, `like`)
+- Cleans redundant phrases for better retrieval
+
+**Flow:** Query → Parser (extract filters + optimize) → RAG Service (translate if needed) → ChromaDB (filter by include/exclude) → LLM
+
+**Cost:** ~$0.00007 per query (7 cents per 1000 queries)
 
 ## Multi-Tenancy & Data Isolation
 
@@ -68,30 +86,6 @@ retriever = vectorstore.as_retriever(
 ```
 
 **CRITICAL:** Never modify or remove `user_id` filtering logic - it's the security boundary.
-
-## Use Case Optimization System (CU1-CU6)
-
-The system automatically detects query intent and applies optimized prompts to overcome LLM limitations like "constraint neglect":
-
-**6 Use Cases:**
-
-- **CU1:** Professional content generation (reports, emails)
-- **CU2:** Code development/debugging (generates executable code)
-- **CU3:** Data analysis/summarization (structured outputs)
-- **CU4:** Creative brainstorming (lists with exact quantities - e.g., "10 people")
-- **CU5:** Structured planning (roadmaps, outlines)
-- **CU6:** Strategic business documents (SWOT, PESTEL)
-
-**Auto-Detection Flow:**
-
-1. User query → `use_case_detection_service.py` analyzes patterns/keywords
-2. Detected use case → `prompt_template_service.py` generates 4-section prompt
-3. Prompt structure: PERSONALITY → SPECIFIC REQUEST → CONSTRAINTS → ADDITIONAL CONTEXT
-4. Constraints repeated 3+ times for emphasis (e.g., "EXACTLY 10 items - NON-NEGOTIABLE")
-
-**Example:** Query "list of 10 people" → Auto-detects CU4 → Enforces exact count → Returns 10 specific names (not generic categories).
-
-See `USE_CASE_GUIDE.md` for full documentation.
 
 ## Conversation Memory System
 
@@ -118,7 +112,7 @@ See `USE_CASE_GUIDE.md` for full documentation.
 - **Fixtures:** `conftest.py` mocks OpenAI LLM calls (NOT embeddings - they're local/free)
 - **Run:** `pytest -v` or `make test-backend`
 - **Coverage:** `pytest --cov=app --cov-report=html` (target: 80%+)
-- **Key tests:** `test_use_case_detection.py`, `test_rag_endpoints.py`, `test_document_crud.py`
+- **Key tests:** `test_rag_endpoints.py`, `test_document_crud.py`, `test_vector_store_repository.py`
 
 ### Frontend (Vitest)
 
@@ -262,10 +256,10 @@ const sorted = [...items].sort((a, b) => {
 
 ```
 POST /rag/upload/        # Upload PDF (multipart/form-data)
-POST /rag/query/         # Query with optional conversation_history & use_case
+POST /rag/query/         # Query with optional conversation_history
 POST /rag/summarize/     # Generate conversation summary
-GET  /rag/documents/     # List user's documents (filtered by user_id)
-DELETE /rag/documents/{filename}  # Delete document by filename
+GET  /rag/documents/list # List user's documents (filtered by user_id)
+DELETE /rag/documents/delete # Delete document by filename
 ```
 
 ## Configuration
@@ -420,6 +414,5 @@ export const ConversationList: React.FC<ConversationProps> = ({
 
 - Full docs: GitHub Wiki (link in README.md)
 - Conversation memory: `CONVERSATION_MEMORY.md`
-- Use case system: `USE_CASE_GUIDE.md`
 - Testing checklist: `TESTING_CHECKLIST.md`
 - Makefile: `make help` for all available commands
