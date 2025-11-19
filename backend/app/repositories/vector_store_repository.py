@@ -14,7 +14,7 @@ Architecture Pattern: Repository Pattern
 - Testable: can be mocked without real database
 """
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from chromadb import Collection
 from langchain_community.vectorstores import Chroma
@@ -192,19 +192,56 @@ class VectorStoreRepository:
             logger.error(f"❌ Similarity search failed: {e}")
             return []
     
-    def get_retriever(self, user_id: str, k: int = 10):
+    def get_retriever(
+        self, 
+        user_id: str, 
+        k: int = 10, 
+        include_files: Optional[List[str]] = None, 
+        exclude_files: Optional[List[str]] = None
+    ):
         """
-        Get a LangChain retriever configured for a specific user.
+        Get a LangChain retriever configured for a specific user with optional file filtering.
         
         Args:
             user_id: The user ID (for multi-tenancy filtering)
             k: Number of results to return
+            include_files: Optional list of filenames to restrict search to (if provided, ONLY these files)
+            exclude_files: Optional list of filenames to exclude from search
         
         Returns:
-            LangChain retriever instance
+            LangChain retriever instance with appropriate metadata filters
+        
+        Note:
+            - If include_files provided: search ONLY in those files
+            - If exclude_files provided: search in all files EXCEPT those
+            - If both provided: include takes precedence (exclude is ignored)
         """
+        # Build metadata filter
+        filter_conditions = {"source": user_id}
+        
+        if include_files:
+            # Restrict to specific files only
+            filter_conditions = {
+                "$and": [
+                    {"source": user_id},
+                    {"original_filename": {"$in": include_files}}
+                ]
+            }
+            logger.debug(f"🔍 Retriever filter: INCLUDE files {include_files}")
+        elif exclude_files:
+            # Exclude specific files
+            filter_conditions = {
+                "$and": [
+                    {"source": user_id},
+                    {"original_filename": {"$nin": exclude_files}}
+                ]
+            }
+            logger.debug(f"🔍 Retriever filter: EXCLUDE files {exclude_files}")
+        else:
+            logger.debug(f"🔍 Retriever filter: ALL files for user {user_id}")
+        
         return self.vector_store.as_retriever(
-            search_kwargs={"filter": {"source": user_id}, "k": k}
+            search_kwargs={"filter": filter_conditions, "k": k}
         )
     
     # --- DELETE Operations ---
