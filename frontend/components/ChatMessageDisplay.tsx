@@ -5,16 +5,24 @@ interface ChatMessageDisplayProps {
   msg: ChatMessage;
 }
 
+// Utility function to clean [DOCUMENT X] markers from text
+const cleanDocumentMarkers = (text: string): string => {
+  return text.replace(/\s*\[DOCUMENT\s+\d+\]/gi, "");
+};
+
 export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({
   msg,
 }) => {
   const isUser = msg.type === "user";
 
+  // Clean up the message text to remove [DOCUMENT X] markers
+  const cleanedText = cleanDocumentMarkers(msg.text);
+
   return (
     <div
       className={`flex ${
         isUser ? "justify-end" : "justify-start"
-      } mb-3 sm:mb-4 px-1 sm:px-2`}
+      } mb-10 sm:mb-4 md:mb-10 px-1 sm:px-2`}
     >
       {!isUser && (
         <div className="flex-shrink-0 mr-2 sm:mr-3">
@@ -51,11 +59,11 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({
           {msg.isThinking ? (
             <div className="flex items-center text-xs sm:text-sm text-blue-500 dark:text-blue-300">
               <Loader size={14} className="animate-spin mr-2 sm:size-4" />
-              <span className="italic">{msg.text}</span>
+              <span className="italic">{cleanedText}</span>
             </div>
           ) : (
             <p className="whitespace-pre-wrap text-xs sm:text-sm leading-relaxed">
-              {msg.text}
+              {cleanedText}
             </p>
           )}
 
