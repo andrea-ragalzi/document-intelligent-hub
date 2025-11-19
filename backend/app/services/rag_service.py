@@ -850,11 +850,15 @@ OUTPUT (complete standalone question):"""
         from app.schemas.rag_schema import DocumentInfo
         
         try:
-            # Get sample of user chunks to discover unique documents
-            metadatas, _ = self.repository.get_user_chunks_sample(user_id, sample_size=1000)
+            # Get larger sample to ensure all documents are discovered
+            # Using 10000 as default sample size (increased from 1000)
+            metadatas, _ = self.repository.get_user_chunks_sample(user_id, sample_size=100000)
             
             if not metadatas:
+                logger.info(f"📂 No documents found for user {user_id}")
                 return []
+            
+            logger.debug(f"📊 Processing {len(metadatas)} metadata entries to discover unique documents")
             
             # Group chunks by filename
             documents_map = {}
@@ -882,7 +886,8 @@ OUTPUT (complete standalone question):"""
                 for doc in documents_map.values()
             ]
             
-            logger.debug(f"📚 Found {len(documents)} documents for user {user_id}")
+            logger.info(f"📚 Found {len(documents)} unique documents for user {user_id}")
+            logger.debug(f"   Documents: {[d.filename for d in documents]}")
             return documents
             
         except Exception as e:
