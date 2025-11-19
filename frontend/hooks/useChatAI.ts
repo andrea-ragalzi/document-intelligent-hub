@@ -4,10 +4,15 @@ import { ChatMessage } from "@/lib/types";
 
 interface UseChatAIProps {
   userId: string;
-  selectedUseCaseId?: string;
+  selectedOutputLanguage?: string;
 }
 
-export function useChatAI({ userId, selectedUseCaseId }: UseChatAIProps) {
+export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
+  // Log output language selection
+  console.log(
+    `🌍 [useChatAI] Output language: ${selectedOutputLanguage || "auto"}`
+  );
+
   const {
     messages,
     input,
@@ -20,7 +25,7 @@ export function useChatAI({ userId, selectedUseCaseId }: UseChatAIProps) {
     api: "/api/chat",
     body: {
       userId,
-      use_case: selectedUseCaseId === "AUTO" ? undefined : selectedUseCaseId,
+      output_language: selectedOutputLanguage?.toUpperCase(),
     },
     onError: (error: Error) => {
       console.error("Chat error:", error);
