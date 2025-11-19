@@ -1,8 +1,7 @@
 # backend/app/schemas/rag.py
 from typing import List, Literal, Optional
 
-from app.schemas.use_cases import UseCaseType
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, root_validator
 
 # --- RAG CATEGORIES ---
 # These are the possible categories for the user query, used for specialized retrieval logic.
@@ -99,6 +98,13 @@ class QueryClassification(BaseModel):
         description="The classified category tag of the user's query."
     )
 
+    @root_validator(pre=True)
+    def ensure_category_alias(cls, values):
+        """Accept either 'category_tag' or its common alias 'category'."""
+        if "category_tag" not in values and "category" in values:
+            values["category_tag"] = values.pop("category")
+        return values
+
 class QueryRequest(BaseModel):
     """Schema for the incoming RAG query request."""
     query: str = Field(..., description="The user's natural language question.")
@@ -107,12 +113,11 @@ class QueryRequest(BaseModel):
         default=[],
         description="Recent conversation history for context (last 5-7 exchanges). Empty list if no history."
     )
-    use_case: Optional[UseCaseType] = Field(
+    output_language: Optional[str] = Field(
         None,
         description=(
-            "Optional: Use case type for optimized prompt generation (CU1-CU6). "
-            "CU1=Professional Content, CU2=Code Development, CU3=Data Analysis, "
-            "CU4=Creative Brainstorming, CU5=Structured Planning, CU6=Business Strategy"
+            "Optional: ISO language code for response (IT, EN, FR, DE, ES, etc.). "
+            "If not provided, response will be in the same language as the query."
         )
     )
 
@@ -152,3 +157,42 @@ class DocumentDeleteResponse(BaseModel):
     message: str = Field(..., description="Success message.")
     filename: str = Field(..., description="Name of the deleted document.")
     chunks_deleted: int = Field(..., description="Number of chunks deleted from the vector store.")
+
+class DetectLanguageResponse(BaseModel):
+    """Schema for language detection preview response."""
+    detected_language: str = Field(..., description="The detected language code (IT, EN, FR, etc.)")
+    confidence: float = Field(..., description="Confidence score (0.0 to 1.0)")
+    filename: str = Field(..., description="Name of the analyzed file")
+
+class LanguageInfo(BaseModel):
+    """Schema for supported language information."""
+    code: str = Field(..., description="ISO 639-1 language code (e.g., 'EN', 'IT', 'ES')")
+    english_name: str = Field(..., description="Language name in English (e.g., 'English', 'Italian')")
+    native_name: str = Field(..., description="Language name in native script (e.g., 'Italiano', 'Español')")
+    flag: str = Field(..., description="Flag emoji representing the language (e.g., '🇬🇧', '🇮🇹')")
+    sources_label: str = Field(..., description="Translation of 'Sources' in this language (e.g., 'Fonti', 'Fuentes')")
+
+class LanguagesListResponse(BaseModel):
+    """Schema for listing all supported languages."""
+    languages: List[LanguageInfo] = Field(..., description="List of all supported languages with metadata")
+    total_count: int = Field(..., description="Total number of supported languages")
+
+# --- Query Parser Schemas ---
+
+class FileFilterRequest(BaseModel):
+    """Schema for file filter extraction request."""
+    query: str = Field(..., description="The user's query potentially containing file references")
+    available_files: List[str] = Field(..., description="List of available document filenames for validation")
+
+class FileFilterResponse(BaseModel):
+    """Schema for extracted file filters from query."""
+    include_files: List[str] = Field(
+        default=[],
+        description="List of filenames to include in search (empty = include all)"
+    )
+    exclude_files: List[str] = Field(
+        default=[],
+        description="List of filenames to exclude from search"
+    )
+    original_query: str = Field(..., description="The original query before filter extraction")
+    cleaned_query: str = Field(..., description="Query with file references removed for better semantic search")
