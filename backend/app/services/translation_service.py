@@ -130,6 +130,43 @@ class TranslationService:
         except Exception as e:
             print(f"ERROR translating query to {target_language}: {e}. Using original query.")
             return query
+
+    def translate_answer_back(self, answer: str, target_language: str) -> str:
+        """
+        Translate the generated answer back into the user's preferred language.
+
+        Args:
+            answer: Text in the answer generation language (usually English)
+            target_language: The desired language code for the response
+
+        Returns:
+            The translated answer text.
+        """
+        prompt_language = self.LANGUAGE_NAMES.get(target_language.upper(), "English")
+        prompt = (
+            f"Translate the following assistant answer into {prompt_language}. "
+            f"Preserve formatting and lists, but do not change proper nouns. Answer: '{answer}'"
+        )
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert translator preserving tone and formatting."
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.0,
+            )
+            content = response.choices[0].message.content
+            translated = content.strip() if content else answer
+            print(f"DEBUG [TranslationService]: Translated answer to {target_language}: {translated[:50]}...")
+            return translated
+        except Exception as e:
+            print(f"ERROR translating answer to {target_language}: {e}. Using original answer.")
+            return answer
     
     def get_language_name(self, language_code: str) -> str:
         """
