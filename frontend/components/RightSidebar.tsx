@@ -246,7 +246,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   Account Management
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Permanently delete your account and all associated data. This action cannot be undone.
+                  Permanently delete your account and all associated data. This
+                  action cannot be undone.
                 </p>
                 <button
                   onClick={onDeleteAccount}
