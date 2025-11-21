@@ -1,7 +1,7 @@
 "use client";
 
 import { X, Upload, FileText } from "lucide-react";
-import { FormEvent, ChangeEvent, useState, DragEvent } from "react";
+import { FormEvent, ChangeEvent, useState, DragEvent, useEffect } from "react";
 import { UploadProgress } from "./UploadProgress";
 import { AlertMessage } from "./AlertMessage";
 import { LanguageSelector } from "./LanguageSelector";
@@ -43,6 +43,17 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onLanguageChange,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+
+  // Prevent closing with ESC key during upload
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen && !isUploading) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen, isUploading, onClose]);
 
   if (!isOpen) return null;
 
@@ -90,8 +101,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/50 z-50 transition-opacity duration-300"
-        onClick={onClose}
+        className={`fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${
+          isUploading ? "cursor-not-allowed" : "cursor-pointer"
+        }`}
+        onClick={isUploading ? undefined : onClose}
       />
 
       {/* Modal */}
