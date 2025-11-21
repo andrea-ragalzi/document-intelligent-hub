@@ -1,5 +1,11 @@
 import { FormEvent, useState, useRef, useEffect } from "react";
-import { MessageSquare, CornerDownLeft, Loader, Paperclip } from "lucide-react";
+import {
+  MessageSquare,
+  CornerDownLeft,
+  Loader,
+  Paperclip,
+  AlertTriangle,
+} from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import { ChatMessageDisplay } from "./ChatMessageDisplay";
 import { OutputLanguageSelector } from "./OutputLanguageSelector";
@@ -58,151 +64,196 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 
   // Handle form submission with textarea reset
   const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!query.trim() || isQuerying || !userId || isChatDisabled) return;
+
     onQuerySubmit(e);
     // Reset textarea height immediately after submission
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = "44px"; // Reset to initial height
     }
   };
+
+  // Auto-resize textarea with dynamic height calculation (Gemini-style)
+  const handleTextareaInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+
+    // Reset height to auto to get proper scrollHeight
+    target.style.height = "44px";
+
+    // Calculate new height (max ~6 lines = 144px)
+    const newHeight = Math.min(target.scrollHeight, 144);
+    target.style.height = `${newHeight}px`;
+  };
+
+  // Handler for onChange event that extracts the value
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onQueryChange(e.target.value);
+    handleTextareaInput(e);
+  };
+
   return (
-    <div className="w-full h-full flex flex-col bg-white dark:bg-gray-900 transition-colors duration-200 ease-in-out font-[Inter] relative">
+    <div className="w-full h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 ease-in-out font-[Inter] relative pb-0">
+      {/* Scrollable Chat Area: Altezza calcolata per lasciare spazio all'input bar */}
       <div
-        className="p-4 sm:p-6 pb-4 overflow-y-auto"
-        style={{ height: "calc(100vh - 180px)" }}
+        className="p-4 sm:p-6 overflow-y-auto w-full flex-grow pb-0"
+        // Adjust height to allow for the sticky input bar (approx 100px height for the bar)
+        style={{ height: "calc(100vh - 100px)" }}
       >
         <div className="max-w-4xl mx-auto">
           {chatHistory.length === 0 ? (
             <div className="text-center p-8 sm:p-16 text-gray-400">
               <MessageSquare
                 size={48}
-                className="sm:size-16 mx-auto mb-4 text-indigo-200 dark:text-indigo-800"
+                className="sm:size-16 mx-auto mb-4 text-indigo-300 dark:text-indigo-700"
               />
               {isChatDisabled ? (
-                <>
-                  <p className="font-bold text-lg text-yellow-600 dark:text-yellow-400">
-                    ⚠️ No Documents Uploaded
+                <div className="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-xl border border-yellow-200 dark:border-yellow-700">
+                  <p className="font-bold text-lg text-yellow-700 dark:text-yellow-400 flex items-center justify-center">
+                    <AlertTriangle size={20} className="mr-2" />
+                    Nessun Documento Caricato
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    Please upload at least one PDF document before starting a
-                    conversation.
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                    Si prega di caricare almeno un documento PDF prima di
+                    iniziare la conversazione.
                   </p>
-                </>
+                </div>
               ) : isCheckingDocuments ? (
                 <>
                   <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
-                    Checking documents...
+                    Controllo dei documenti in corso...
                   </p>
+                  <Loader
+                    size={24}
+                    className="animate-spin mx-auto mt-4 text-indigo-500"
+                  />
                 </>
               ) : (
                 <>
-                  <p className="font-bold text-lg text-gray-900 dark:text-gray-100 font-medium">
-                    Ready to search.
+                  <p className="font-bold text-xl text-gray-900 dark:text-gray-100">
+                    Pronto a chattare.
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Ask your first question about the uploaded documents.
+                  <p className="text-md text-gray-500 dark:text-gray-400 mt-2">
+                    Invia la tua prima domanda sui documenti caricati.
                   </p>
                 </>
               )}
             </div>
-          ) : isQuerying ? (
+          ) : (
+            // Display history and optional skeleton loader
             <>
               {chatHistory.map((msg, index) => (
                 <ChatMessageDisplay key={index} msg={msg} />
               ))}
-              {/* Skeleton Loader - Animate Pulse with Gradient */}
-              <div className="mt-4 space-y-3 animate-pulse">
-                <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-lg w-3/4"></div>
-                <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-lg w-full"></div>
-                <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-lg w-5/6"></div>
-              </div>
+              {isQuerying && (
+                <div className="flex justify-start mb-6 px-1 sm:px-2">
+                  <div className="flex-shrink-0 mr-2 w-8 h-8"></div>
+                  <div className="max-w-[85%] sm:max-w-[80%] flex flex-col">
+                    <div className="text-xs font-medium mb-1 text-indigo-600 dark:text-indigo-400 pl-2">
+                      Assistente
+                    </div>
+                    <div className="p-3 sm:p-4 rounded-xl shadow-md bg-white dark:bg-gray-800 rounded-tl-sm border border-gray-100 dark:border-gray-700">
+                      {/* Skeleton Loader - Animate Pulse with Gradient */}
+                      <div className="mt-1 space-y-2 animate-pulse">
+                        <div className="h-3 bg-indigo-200 dark:bg-indigo-700/50 rounded-lg w-3/4"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-full"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-5/6"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
-          ) : (
-            chatHistory.map((msg, index) => (
-              <ChatMessageDisplay key={index} msg={msg} />
-            ))
           )}
           <div ref={chatEndRef} />
         </div>
       </div>
 
-      {/* Gemini-Style Input Bar - Two-Row Layout */}
+      {/* Gemini-style Input Bar - Sticky bottom with elegant spacing */}
       <form
         onSubmit={handleSubmit}
-        className="fixed bottom-0 left-0 right-0 lg:left-72 xl:right-96 bg-gray-900 py-4 px-4 transition-all duration-200 ease-in-out"
+        className="sticky bottom-0 left-0 right-0 bg-transparent sm:bg-gradient-to-t sm:from-gray-50 sm:via-gray-50 sm:to-transparent sm:dark:from-gray-900 sm:dark:via-gray-900 sm:dark:to-transparent pt-0 pb-0 -mx-4 md:mx-0 md:pt-4 md:pb-3 md:px-4 transition-all duration-200 ease-in-out z-10"
       >
-        <div className="max-w-4xl mx-auto">
-          {/* Single Pill Container with Two Sections */}
-          <div className="bg-gray-800 rounded-3xl shadow-lg px-4 py-3">
-            {/* Top Section - Input Field */}
-            <div className="mb-4">
+        <div className="max-w-4xl md:mx-auto">
+          {/* Gemini-inspired Input Container */}
+          <div
+            className="relative bg-white dark:bg-gray-800 
+            rounded-3xl md:rounded-[32px] 
+            shadow-md md:shadow-lg 
+            border border-gray-200 dark:border-gray-700 
+            hover:shadow-xl transition-shadow duration-300 
+            overflow-hidden"
+          >
+            {/* Textarea Area - Top Section */}
+            <div className="px-4 sm:px-6 pt-4 pb-2">
               <textarea
                 ref={textareaRef}
                 value={query}
-                onChange={(e) => onQueryChange(e.target.value)}
+                onChange={handleTextareaChange}
                 disabled={isQuerying || !userId || isChatDisabled}
                 placeholder={
-                  isChatDisabled ? "Upload document first..." : "Message..."
+                  isChatDisabled
+                    ? "Upload a document first..."
+                    : "Ask me anything..."
                 }
                 rows={1}
-                className="w-full px-2 py-2 text-base bg-transparent focus:outline-none disabled:cursor-not-allowed transition-all duration-200 text-white placeholder-gray-500 resize-none overflow-hidden"
+                className="w-full py-1 px-1 text-base bg-transparent focus:outline-none disabled:cursor-not-allowed transition-all duration-200 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none overflow-y-auto leading-6"
                 style={{
-                  minHeight: "2.5rem",
-                  maxHeight: "8rem",
+                  minHeight: "44px",
+                  maxHeight: "144px",
+                  height: "44px",
                 }}
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = "auto";
-                  target.style.height = `${Math.min(
-                    target.scrollHeight,
-                    128
-                  )}px`;
-                }}
+                aria-label="Message input"
               />
             </div>
 
-            {/* Bottom Section - Action Buttons */}
-            <div className="flex items-center justify-between">
-              {/* Left Actions */}
+            {/* Action Buttons - Bottom Section */}
+            <div className="flex items-center justify-between px-4 pb-4 sm:pb-4">
+              {/* Left Action Buttons */}
               <div className="flex items-center gap-1">
-                {/* Upload/Attach Button */}
+                {/* Upload Button */}
                 <button
                   type="button"
                   onClick={onOpenUploadModal}
                   disabled={!userId}
-                  className="flex items-center justify-center h-9 w-9 rounded-full text-gray-400 hover:text-gray-200 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 transition-all duration-200"
+                  className="flex items-center justify-center h-10 w-10 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   title="Upload document"
+                  aria-label="Upload document"
                 >
-                  <Paperclip size={18} />
+                  <Paperclip size={20} />
                 </button>
 
-                {/* Output Language Selector Button */}
+                {/* Language Selector Button */}
                 <button
                   type="button"
                   onClick={() => setIsLanguageSelectorOpen(true)}
                   disabled={!userId}
-                  className="flex items-center justify-center h-9 px-3 rounded-full text-gray-400 hover:text-gray-200 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 transition-all duration-200 text-base"
+                  className="flex items-center justify-center h-10 px-3 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-lg"
                   title={`Response Language: ${selectedOutputLanguage.toUpperCase()}`}
+                  aria-label="Select output language"
                 >
                   {languageFlag}
                 </button>
               </div>
 
-              {/* Right Action - Send Button */}
+              {/* Submit Button - Right Side */}
               <button
                 type="submit"
                 disabled={
                   isQuerying || !query.trim() || !userId || isChatDisabled
                 }
-                className={`flex items-center justify-center h-9 w-9 rounded-full transition-all duration-200 flex-shrink-0 ${
+                className={`flex items-center justify-center h-10 w-10 rounded-full transition-all duration-200 ${
                   isQuerying || !query.trim() || !userId || isChatDisabled
-                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                    : "bg-indigo-600 text-white hover:bg-indigo-500"
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    : "bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 shadow-md hover:shadow-lg"
                 }`}
+                title="Send message"
+                aria-label="Send message"
               >
                 {isQuerying ? (
-                  <Loader size={18} className="animate-spin" />
+                  <Loader size={20} className="animate-spin" />
                 ) : (
-                  <CornerDownLeft size={18} />
+                  <CornerDownLeft size={20} />
                 )}
               </button>
             </div>

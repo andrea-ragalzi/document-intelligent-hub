@@ -472,7 +472,7 @@ export default function Page() {
           )}
 
           {/* Chat area - takes remaining space */}
-          <div className="flex-1 flex flex-col p-2 sm:p-4 lg:p-6 overflow-hidden">
+          <div className="flex-1 flex flex-col p-0 sm:p-4 lg:p-6 overflow-hidden">
             <ChatSection
               chatHistory={chatHistory}
               query={input}
