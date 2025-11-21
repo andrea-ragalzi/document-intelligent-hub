@@ -172,7 +172,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 <X size={20} className="text-gray-500 dark:text-gray-400" />
               </button>
             </div>
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mb-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                 User ID
               </p>
@@ -180,6 +180,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 {userId || "Non disponibile"}
               </p>
             </div>
+
+            {/* Logout button - Gemini style */}
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
           </div>
         )}
         <div className="flex-1 overflow-y-auto">
@@ -267,19 +276,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             </div>
           )}
         </div>
-
-        {/* Logout button - only visible in menu view */}
-        {activeView === "menu" && (
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 ease-in-out font-semibold text-base shadow-md hover:shadow-lg"
-            >
-              <LogOut size={18} />
-              Logout
-            </button>
-          </div>
-        )}
       </div>
     </>
   );
