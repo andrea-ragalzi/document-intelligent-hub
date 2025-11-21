@@ -1,5 +1,9 @@
 name: CI/CD Pipeline
 
+# To disable CI/CD: Set CI_ENABLED to 'false' (line 4)
+env:
+  CI_ENABLED: "false"
+
 on:
   push:
     branches: [main, develop]
@@ -7,10 +11,23 @@ on:
     branches: [main]
 
 jobs:
+  # Check if CI is enabled
+  check-ci:
+    name: Check CI Status
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - name: Check if CI is enabled
+        id: check
+        run: echo "enabled=${{ env.CI_ENABLED }}" >> $GITHUB_OUTPUT
+
   # Backend Tests
   test-backend:
     name: Test Backend
     runs-on: ubuntu-latest
+    needs: check-ci
+    if: ${{ needs.check-ci.outputs.enabled == 'true' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +80,8 @@ jobs:
   test-frontend:
     name: Test Frontend Build
     runs-on: ubuntu-latest
+    needs: check-ci
+    if: ${{ needs.check-ci.outputs.enabled == 'true' }}
 
     steps:
       - uses: actions/checkout@v4
