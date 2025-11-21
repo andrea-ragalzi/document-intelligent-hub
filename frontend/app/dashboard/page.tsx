@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
 import type { Message } from "ai/react";
 import type { SavedConversation } from "@/lib/types";
@@ -16,7 +17,9 @@ import { TopBar } from "@/components/TopBar";
 import { ChatSection } from "@/components/ChatSection";
 import { UploadModal } from "@/components/UploadModal";
 import { RenameModal } from "@/components/RenameModal";
+import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -29,11 +32,14 @@ import {
 } from "@/hooks/queries/useConversationsQuery";
 
 export default function Page() {
+  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { userId, isAuthReady } = useUserId();
+  const { user, logout } = useAuth();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
   const [selectedOutputLanguage, setSelectedOutputLanguage] =
     useState<string>("en");
 
@@ -403,6 +409,45 @@ export default function Page() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user || !userId) return;
+
+    try {
+      // Delete all user data from Firestore (conversations and documents)
+      const db = (await import("firebase/firestore")).getFirestore();
+      const {
+        collection,
+        query: firestoreQuery,
+        where,
+        getDocs,
+        deleteDoc,
+      } = await import("firebase/firestore");
+
+      // Delete all conversations
+      const conversationsRef = collection(db, "conversations");
+      const conversationsSnapshot = await getDocs(
+        firestoreQuery(conversationsRef, where("userId", "==", userId))
+      );
+
+      const deletePromises = conversationsSnapshot.docs.map((doc) =>
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(deletePromises);
+
+      // Delete user account from Firebase Auth
+      await user.delete();
+
+      // Redirect to login
+      router.push("/login");
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      setStatusAlert({
+        message: "Error deleting account. Please try again.",
+        type: "error",
+      });
+    }
+  };
+
   if (!isAuthReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
@@ -501,6 +546,7 @@ export default function Page() {
               isLoadingDocuments={isLoadingDocuments}
               onDeleteDocument={deleteDocument}
               onRefreshDocuments={refreshDocuments}
+              onDeleteAccount={() => setDeleteAccountModalOpen(true)}
             />
           </div>
 
@@ -517,6 +563,7 @@ export default function Page() {
                 isLoadingDocuments={isLoadingDocuments}
                 onDeleteDocument={deleteDocument}
                 onRefreshDocuments={refreshDocuments}
+                onDeleteAccount={() => setDeleteAccountModalOpen(true)}
               />
             </div>
           )}
@@ -536,6 +583,14 @@ export default function Page() {
           onUpload={submitUpload}
           selectedLanguage={selectedLanguage}
           onLanguageChange={setSelectedLanguage}
+        />
+
+        {/* Delete Account Modal */}
+        <DeleteAccountModal
+          isOpen={deleteAccountModalOpen}
+          onClose={() => setDeleteAccountModalOpen(false)}
+          onConfirm={handleDeleteAccount}
+          userEmail={user?.email || ""}
         />
       </div>
     </ProtectedRoute>
