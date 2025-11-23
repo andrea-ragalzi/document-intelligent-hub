@@ -15,6 +15,7 @@ interface UIStore {
   renameModalOpen: boolean;
   confirmDeleteOpen: boolean;
   bugReportModalOpen: boolean;
+  feedbackModalOpen: boolean;
   conversationToRename: { id: string; currentName: string } | null;
   conversationToDelete: { id: string; name: string } | null;
 
@@ -42,6 +43,10 @@ interface UIStore {
   openBugReportModal: () => void;
   closeBugReportModal: () => void;
 
+  // Actions - Feedback Modal
+  openFeedbackModal: () => void;
+  closeFeedbackModal: () => void;
+
   // Actions - Conversation tracking
   setCurrentConversation: (id: string | null) => void;
   updateSavedMessageCount: (count: number) => void;
@@ -59,6 +64,7 @@ export const useUIStore = create<UIStore>()(
       renameModalOpen: false,
       confirmDeleteOpen: false,
       bugReportModalOpen: false,
+      feedbackModalOpen: false,
       conversationToRename: null,
       conversationToDelete: null,
       currentConversationId: null,
@@ -96,6 +102,10 @@ export const useUIStore = create<UIStore>()(
       // Bug report modal actions
       openBugReportModal: () => set({ bugReportModalOpen: true }),
       closeBugReportModal: () => set({ bugReportModalOpen: false }),
+
+      // Feedback modal actions
+      openFeedbackModal: () => set({ feedbackModalOpen: true }),
+      closeFeedbackModal: () => set({ feedbackModalOpen: false }),
 
       // Conversation tracking actions
       setCurrentConversation: (id) => set({ currentConversationId: id }),

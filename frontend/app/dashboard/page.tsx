@@ -19,6 +19,7 @@ import { UploadModal } from "@/components/UploadModal";
 import { RenameModal } from "@/components/RenameModal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { BugReportModal } from "@/components/BugReportModal";
+import { FeedbackModal } from "@/components/FeedbackModal";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -82,10 +83,13 @@ export default function Page() {
     lastSavedMessageCount,
     isSaving: _isSaving,
     bugReportModalOpen,
+    feedbackModalOpen,
     openRenameModal,
     closeRenameModal,
     openBugReportModal,
     closeBugReportModal,
+    openFeedbackModal,
+    closeFeedbackModal,
     setCurrentConversation,
     updateSavedMessageCount,
     startSaving,
@@ -552,6 +556,7 @@ export default function Page() {
               onRefreshDocuments={refreshDocuments}
               onDeleteAccount={() => setDeleteAccountModalOpen(true)}
               onOpenBugReport={openBugReportModal}
+              onOpenFeedback={openFeedbackModal}
             />
           </div>
 
@@ -570,6 +575,7 @@ export default function Page() {
                 onRefreshDocuments={refreshDocuments}
                 onDeleteAccount={() => setDeleteAccountModalOpen(true)}
                 onOpenBugReport={openBugReportModal}
+                onOpenFeedback={openFeedbackModal}
               />
             </div>
           )}
@@ -603,6 +609,14 @@ export default function Page() {
         <BugReportModal
           isOpen={bugReportModalOpen}
           onClose={closeBugReportModal}
+          conversationId={currentConversationId}
+          userId={userId}
+        />
+
+        {/* Feedback Modal */}
+        <FeedbackModal
+          isOpen={feedbackModalOpen}
+          onClose={closeFeedbackModal}
           conversationId={currentConversationId}
           userId={userId}
         />

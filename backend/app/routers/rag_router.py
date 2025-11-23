@@ -16,6 +16,7 @@ from app.schemas.rag_schema import (
     DocumentDeleteResponse,
     DocumentInfo,
     DocumentListResponse,
+    FeedbackRequest,
     LanguageInfo,
     LanguagesListResponse,
     QueryRequest,
@@ -509,6 +510,94 @@ async def report_bug(
         "email_sent": email_sent,
         "attachment_included": attachment_filename is not None,
     }
+
+
+@router.post("/feedback/", status_code=status.HTTP_201_CREATED)
+async def submit_feedback(
+    feedback: FeedbackRequest,
+):
+    """
+    ⭐ User Feedback Endpoint
+    
+    Collects user feedback with star rating (0.5-5.0) and optional message.
+    Sends email notification to support team and logs to file.
+    Helps track user satisfaction and identify areas for improvement.
+    
+    Args:
+        feedback: Feedback data with rating, optional message, and context
+    
+    Returns:
+        Success message with feedback ID and email status
+    
+    Features:
+        - Star rating from 0.5 to 5.0 (half-star increments)
+        - Optional feedback message
+        - Sends formatted email with star visualization
+        - Logs to logs/feedback.log with structured JSON
+        - Includes conversation context for targeted improvements
+    
+    Setup:
+        - Requires SENDGRID_API_KEY in .env
+        - Configure SENDGRID_FROM_EMAIL and SUPPORT_EMAIL
+    """
+    import json
+    from datetime import datetime
+    from pathlib import Path
+
+    from app.core.logging import logger
+    from app.services.email_service import get_email_service
+    
+    # Ensure logs directory exists
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Structured log entry
+    log_entry = {
+        "timestamp": feedback.timestamp,
+        "user_id": feedback.user_id,
+        "conversation_id": feedback.conversation_id,
+        "rating": feedback.rating,
+        "message": feedback.message,
+        "user_agent": feedback.user_agent,
+        "server_timestamp": datetime.utcnow().isoformat(),
+    }
+    
+    # Write to dedicated feedback log
+    feedback_log_path = logs_dir / "feedback.log"
+    with open(feedback_log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+    
+    # Send email notification via SendGrid
+    email_service = get_email_service()
+    email_sent = email_service.send_feedback(
+        user_id=feedback.user_id,
+        rating=feedback.rating,
+        message=feedback.message,
+        conversation_id=feedback.conversation_id,
+        timestamp=feedback.timestamp,
+        user_agent=feedback.user_agent,
+    )
+    
+    # Determine sentiment emoji for logging
+    if feedback.rating >= 4.0:
+        sentiment_emoji = "😊"
+    elif feedback.rating >= 3.0:
+        sentiment_emoji = "😐"
+    else:
+        sentiment_emoji = "😞"
+    
+    # Log to main logs with emoji for visibility
+    logger.bind(FEEDBACK=True).info(
+        f"{sentiment_emoji} Feedback from {feedback.user_id} | Rating: {feedback.rating}/5.0 | Conv: {feedback.conversation_id or 'N/A'} | Email: {'✅' if email_sent else '❌'} | {feedback.message[:100] if feedback.message else 'No message'}"
+    )
+    
+    return {
+        "message": "Feedback received successfully",
+        "feedback_id": f"{feedback.user_id}_{datetime.utcnow().timestamp()}",
+        "status": "logged",
+        "email_sent": email_sent,
+    }
+
 
 
 

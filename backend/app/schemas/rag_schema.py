@@ -68,6 +68,22 @@ class BugReportRequest(BaseModel):
         extra = "allow"  # Allow extra fields for flexibility
 
 
+class FeedbackRequest(BaseModel):
+    """
+    Schema for user feedback with star rating.
+    Collects user satisfaction and optional comments.
+    """
+    user_id: str = Field(..., description="User ID who is providing feedback")
+    conversation_id: Optional[str] = Field(None, description="ID of the conversation being rated")
+    rating: int = Field(..., ge=1, le=5, description="Star rating from 1 to 5")
+    message: Optional[str] = Field(None, description="Optional feedback message")
+    timestamp: str = Field(..., description="ISO timestamp when feedback was submitted")
+    user_agent: Optional[str] = Field(None, description="Browser user agent for context")
+    
+    class Config:
+        extra = "allow"
+
+
 # --- RAG Schemas ---
 
 class UploadRequest(BaseModel):

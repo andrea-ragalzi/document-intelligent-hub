@@ -227,6 +227,173 @@ Action Required: Review this bug report and investigate the issue.
             logger.error(f"❌ Failed to send bug report email: {str(e)} | Type: {type(e).__name__}")
             return False
 
+    def send_feedback(
+        self,
+        user_id: str,
+        rating: int,
+        message: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+        timestamp: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> bool:
+        """
+        Send user feedback email to support team with star rating.
+        
+        Args:
+            user_id: User who provided feedback
+            rating: Star rating from 1 to 5
+            message: Optional feedback message
+            conversation_id: Optional conversation ID for context
+            timestamp: Optional timestamp of the feedback
+            user_agent: Optional browser user agent
+        
+        Returns:
+            True if email sent successfully, False otherwise
+        """
+        if not self.client:
+            logger.warning("📧 SendGrid not configured. Feedback not sent via email.")
+            return False
+        
+        try:
+            # Generate star rating visual (⭐⭐⭐⭐⭐ or ⭐⭐⭐☆☆)
+            star_visual = "⭐" * rating + "☆" * (5 - rating)
+            
+            # Determine feedback sentiment
+            if rating >= 4.0:
+                sentiment = "Positive"
+                sentiment_color = "#16a34a"  # Green
+                emoji = "😊"
+            elif rating >= 3.0:
+                sentiment = "Neutral"
+                sentiment_color = "#eab308"  # Yellow
+                emoji = "😐"
+            else:
+                sentiment = "Negative"
+                sentiment_color = "#dc2626"  # Red
+                emoji = "😞"
+            
+            # Construct email subject
+            subject = f"{emoji} User Feedback: {rating}/5 stars"
+            if conversation_id:
+                subject += f" - Conv: {conversation_id[:8]}..."
+            
+            # Construct HTML email body
+            html_content = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background-color: {sentiment_color}; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }}
+                    .rating {{ font-size: 32px; margin: 10px 0; }}
+                    .content {{ background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }}
+                    .feedback-message {{ background-color: white; padding: 15px; border-left: 4px solid {sentiment_color}; margin: 15px 0; }}
+                    .details {{ background-color: #f3f4f6; padding: 15px; border-radius: 4px; margin: 15px 0; }}
+                    .details-table {{ width: 100%; border-collapse: collapse; }}
+                    .details-table td {{ padding: 8px; border-bottom: 1px solid #d1d5db; }}
+                    .details-table td:first-child {{ font-weight: bold; width: 40%; }}
+                    code {{ background-color: #e5e7eb; padding: 2px 6px; border-radius: 3px; font-family: monospace; }}
+                    .sentiment-badge {{ display: inline-block; padding: 5px 15px; border-radius: 20px; background-color: {sentiment_color}; color: white; font-weight: bold; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1 style="margin: 0;">{emoji} User Feedback</h1>
+                        <div class="rating">{star_visual}</div>
+                        <h2 style="margin: 10px 0 0 0;">{rating} / 5</h2>
+                        <span class="sentiment-badge">{sentiment}</span>
+                    </div>
+                    <div class="content">
+                        {f'<h2>Feedback Message</h2><div class="feedback-message">{message.replace(chr(10), "<br>")}</div>' if message else '<p style="text-align: center; color: #6b7280; font-style: italic;">No message provided</p>'}
+                        
+                        <h3>User Details</h3>
+                        <div class="details">
+                            <table class="details-table">
+                                <tr>
+                                    <td>User ID</td>
+                                    <td><code>{user_id}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Conversation ID</td>
+                                    <td><code>{conversation_id or 'N/A'}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Rating</td>
+                                    <td><strong>{rating} / 5.0</strong> ({sentiment})</td>
+                                </tr>
+                                <tr>
+                                    <td>Timestamp</td>
+                                    <td>{timestamp or 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td>User Agent</td>
+                                    <td style="font-size: 12px;">{user_agent or 'N/A'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <p style="margin-top: 20px; padding: 15px; background-color: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                            <strong>📊 Action:</strong> Review this feedback to improve user experience and system performance.
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Plain text fallback
+            message_text = f"\n\nMessage: {message}" if message else "\n\n(No message provided)"
+            plain_text = f"""
+User Feedback
+
+Rating: {rating} / 5 ({sentiment})
+Stars: {star_visual}
+{message_text}
+
+---
+User Details:
+- User ID: {user_id}
+- Conversation ID: {conversation_id or 'N/A'}
+- Timestamp: {timestamp or 'N/A'}
+- User Agent: {user_agent or 'N/A'}
+
+---
+Action: Review this feedback to improve user experience and system performance.
+            """
+            
+            # Create SendGrid message
+            email_message = Mail(
+                from_email=Email(self.from_email),
+                to_emails=To(self.support_email),
+                subject=subject,
+                plain_text_content=Content("text/plain", plain_text),
+                html_content=Content("text/html", html_content),
+            )
+            
+            # Send email
+            response = self.client.send(email_message)
+            
+            if response.status_code in [200, 201, 202]:
+                logger.bind(EMAIL=True).info(
+                    f"✅ Feedback email sent | To: {self.support_email} | Rating: {rating}/5 | Conv: {conversation_id or 'N/A'}"
+                )
+                return True
+            else:
+                error_body = response.body.decode('utf-8') if response.body else 'No body'
+                logger.error(
+                    f"❌ SendGrid error | Status: {response.status_code} | Body: {error_body}"
+                )
+                if response.status_code == 403:
+                    logger.warning(
+                        "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
+                    )
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to send feedback email: {str(e)} | Type: {type(e).__name__}")
+            return False
+
 
 # Singleton instance
 _email_service: Optional[EmailService] = None

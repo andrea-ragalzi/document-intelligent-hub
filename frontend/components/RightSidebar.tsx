@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   Settings,
   Bug,
+  Star,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +31,7 @@ interface RightSidebarProps {
   onRefreshDocuments?: () => Promise<void>;
   onDeleteAccount: () => void;
   onOpenBugReport: () => void;
+  onOpenFeedback: () => void;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -42,6 +44,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onDeleteDocument,
   onDeleteAccount,
   onOpenBugReport,
+  onOpenFeedback,
 }) => {
   const [activeView, setActiveView] = useState<
     "menu" | "documents" | "settings"
@@ -261,6 +264,23 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   <Bug size={20} className="text-red-600 dark:text-red-400" />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Report Bug
+                  </span>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  onOpenFeedback();
+                  onClose();
+                }}
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+              >
+                <div className="flex items-center gap-3">
+                  <Star
+                    size={20}
+                    className="text-yellow-600 dark:text-yellow-400"
+                  />
+                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
+                    Give Feedback
                   </span>
                 </div>
               </button>
