@@ -99,7 +99,7 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
     <>
       {/* Backdrop - same style as conversations/documents */}
       <div
-        className="fixed inset-0 bg-black/90 z-[100]"
+        className="fixed inset-0 bg-black/90 dark:bg-indigo-950/95 z-[100]"
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -114,7 +114,6 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
             maxHeight: "calc(100vh - 5rem)",
             transform: `translateY(${dragY}px)`,
           }}
-          
           onClick={(e) => e.stopPropagation()}
         >
           {/* Drag Handle */}

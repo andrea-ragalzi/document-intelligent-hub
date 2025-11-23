@@ -20,8 +20,8 @@ const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
   <div
     className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
       isUser
-        ? "bg-indigo-600 dark:bg-indigo-500" // Utente: colore primario
-        : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300" // Assistente: colore secondario/neutro
+        ? "bg-indigo-500" // Utente: colore primario
+        : "bg-indigo-300 dark:bg-indigo-700 text-indigo-900 dark:text-indigo-50" // Assistente: colore secondario/neutro
     } ${isUser ? "ml-2" : "mr-2"}`}
   >
     {isUser ? <UserIcon size={16} /> : <MessageSquare size={16} />}
@@ -49,8 +49,8 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({
         <div
           className={`text-xs font-medium mb-1 ${
             isUser
-              ? "text-gray-500 dark:text-gray-400 text-right pr-2"
-              : "text-indigo-600 dark:text-indigo-400 pl-2"
+              ? "text-indigo-700 dark:text-indigo-200 text-right pr-2"
+              : "text-indigo-700 dark:text-indigo-200 pl-2"
           }`}
         >
           {isUser ? "Tu" : "Assistente"}
@@ -60,8 +60,8 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({
         <div
           className={`p-3 sm:p-4 rounded-xl shadow-md transition duration-300 break-words overflow-wrap-anywhere ${
             isUser
-              ? "ml-auto bg-indigo-600 text-white rounded-br-sm" // Utente: colore primario, angolo inferiore-destro piccolo
-              : "bg-white text-gray-800 rounded-tl-sm border border-gray-100 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700" // Assistente: colore chiaro, angolo superiore-sinistro piccolo
+              ? "ml-auto bg-indigo-500 text-white rounded-br-sm" // Utente: colore primario, angolo inferiore-destro piccolo
+              : "bg-white text-indigo-900 rounded-tl-sm border-2 border-indigo-100 dark:bg-indigo-950 dark:text-indigo-50 dark:border-indigo-800" // Assistente: colore chiaro, angolo superiore-sinistro piccolo
           }`}
         >
           {msg.isThinking ? (
@@ -77,12 +77,12 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({
 
           {/* Source/Citations Section (Solo per l'Assistente e quando non sta pensando) */}
           {!isUser && msg.sources.length > 0 && !msg.isThinking && (
-            <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 flex items-center mb-1">
+            <div className="mt-3 pt-2 border-t border-indigo-300 dark:border-indigo-700">
+              <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-200 flex items-center mb-1">
                 <LinkIcon size={12} className="mr-1.5" />
                 Fonti trovate ({msg.sources.length}):
               </span>
-              <ul className="list-disc list-inside text-xs text-gray-600 dark:text-gray-300 space-y-0.5 max-h-24 overflow-y-auto pr-2">
+              <ul className="list-disc list-inside text-xs text-indigo-900 dark:text-indigo-50 space-y-0.5 max-h-24 overflow-y-auto pr-2">
                 {msg.sources.map((source, i) => (
                   <li
                     key={i}

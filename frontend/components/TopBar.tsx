@@ -11,15 +11,15 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({
   onOpenLeftSidebar,
-  onOpenRightSidebar
+  onOpenRightSidebar,
 }) => {
   return (
-    <div className="w-full bg-white dark:bg-gray-900 border-b-2 border-gray-200 dark:border-gray-700 shadow-sm transition-colors duration-200 ease-in-out font-[Inter]">
+    <div className="w-full bg-indigo-50 dark:bg-indigo-950 border-b-2 border-indigo-100 dark:border-indigo-800 shadow-sm transition-colors duration-200 ease-in-out font-[Inter]">
       <div className="flex items-center justify-between px-4 py-3">
         {/* Left: Hamburger Menu - Solo mobile (nascosto su lg+) */}
         <button
           onClick={onOpenLeftSidebar}
-          className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out text-gray-700 dark:text-gray-300 lg:hidden"
+          className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-indigo-900 dark:text-indigo-50 lg:hidden focus:outline-none focus:ring-3 focus:ring-focus"
           aria-label="Toggle navigation"
           title="Conversazioni"
         >
@@ -31,7 +31,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Center: Title */}
         <div className="flex-1 flex items-center justify-center gap-3">
-          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-xl font-bold text-indigo-900 dark:text-indigo-50">
             Document Intelligent Hub
           </h1>
         </div>
@@ -39,7 +39,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Right: User Profile Icon - Solo mobile (nascosto su xl+) */}
         <button
           onClick={onOpenRightSidebar}
-          className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out text-gray-700 dark:text-gray-300 xl:hidden"
+          className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-indigo-900 dark:text-indigo-50 xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
           aria-label="Toggle settings"
           title="Impostazioni"
         >

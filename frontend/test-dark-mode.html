@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Dark Mode Indigo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              indigo: {
+                50: "#EEF2FF",
+                100: "#E0E7FF",
+                200: "#C7D2FE",
+                300: "#A5B4FC",
+                400: "#818CF8",
+                500: "#6366F1",
+                600: "#4F46E5",
+                700: "#4338CA",
+                800: "#3730A3",
+                900: "#312E81",
+                950: "#1e1b4b",
+              },
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body>
+    <div class="min-h-screen bg-indigo-50 dark:bg-indigo-950 p-8">
+      <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-indigo-900 dark:text-indigo-50 mb-4">
+          Test Dark Mode Indigo Theme
+        </h1>
+
+        <div class="bg-white dark:bg-indigo-900 p-6 rounded-lg shadow-lg mb-4">
+          <h2
+            class="text-xl font-semibold text-indigo-900 dark:text-indigo-50 mb-2"
+          >
+            Card Example
+          </h2>
+          <p class="text-indigo-700 dark:text-indigo-200">
+            This is a test paragraph to check if dark mode colors are working
+            correctly.
+          </p>
+        </div>
+
+        <button
+          onclick="document.documentElement.classList.toggle('dark')"
+          class="px-4 py-2 bg-indigo-500 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+        >
+          Toggle Dark Mode
+        </button>
+
+        <div class="mt-4 p-4 bg-indigo-100 dark:bg-indigo-800 rounded">
+          <p class="text-indigo-900 dark:text-indigo-50">
+            Current mode: <span id="mode">Dark</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.querySelector("button").addEventListener("click", () => {
+        const isDark = document.documentElement.classList.contains("dark");
+        document.getElementById("mode").textContent = isDark ? "Dark" : "Light";
+      });
+    </script>
+  </body>
+</html>

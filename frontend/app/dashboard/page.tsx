@@ -450,7 +450,7 @@ export default function Page() {
 
   if (!isAuthReady) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="flex items-center justify-center h-screen bg-indigo-50 dark:bg-indigo-950">
         <Loader className="animate-spin mr-2" size={24} /> Loading...
       </div>
     );
@@ -458,7 +458,7 @@ export default function Page() {
 
   return (
     <ProtectedRoute>
-      <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900 font-sans transition-colors duration-500">
+      <div className="h-screen flex flex-col bg-indigo-50 dark:bg-indigo-950 font-sans transition-colors duration-500">
         {/* Top Bar */}
         <TopBar
           onOpenLeftSidebar={() => {

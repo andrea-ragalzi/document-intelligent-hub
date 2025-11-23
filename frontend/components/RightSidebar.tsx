@@ -82,14 +82,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
       {/* Overlay - Solo su mobile quando isOpen */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 xl:hidden"
+          className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 xl:hidden"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar - Permanente su desktop (xl+), overlay su mobile */}
       <div
-        className={`h-full w-96 bg-gray-50 dark:bg-gray-900 shadow-xl transform transition-all duration-200 ease-in-out flex flex-col border-l-2 border-gray-200 dark:border-gray-700 font-[Inter]
+        className={`h-full w-96 bg-indigo-50 dark:bg-indigo-950 shadow-xl transform transition-all duration-200 ease-in-out flex flex-col border-l-2 border-indigo-100 dark:border-indigo-800 font-[Inter]
           
           xl:relative xl:translate-x-0 xl:z-0
           
@@ -98,51 +98,51 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         `}
       >
         {activeView === "documents" && (
-          <div className="flex items-center justify-between p-4 border-b-2 border-gray-200 dark:border-gray-700 gap-2">
+          <div className="flex items-center justify-between p-4 border-b-2 border-indigo-100 dark:border-indigo-800 gap-2">
             <button
               onClick={() => setActiveView("menu")}
-              className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out h-10 w-10 justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-indigo-100 transition-all duration-200 ease-in-out h-11 w-11 justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 focus:outline-none focus:ring-3 focus:ring-focus"
             >
               <ChevronLeft
                 size={20}
-                className="text-gray-500 dark:text-gray-400"
+                className="text-indigo-700 dark:text-indigo-200"
               />
             </button>
-            <h2 className="flex-1 text-center text-xl font-bold text-gray-900 dark:text-gray-100">
+            <h2 className="flex-1 text-center text-xl font-bold text-indigo-900 dark:text-indigo-50">
               Documents
             </h2>
             <button
               onClick={onClose}
-              className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out xl:hidden"
+              className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
             >
-              <X size={20} className="text-gray-500 dark:text-gray-400" />
+              <X size={20} className="text-indigo-700 dark:text-indigo-200" />
             </button>
           </div>
         )}
         {activeView === "settings" && (
-          <div className="flex items-center justify-between p-4 border-b-2 border-gray-200 dark:border-gray-700 gap-2">
+          <div className="flex items-center justify-between p-4 border-b-2 border-indigo-100 dark:border-indigo-800 gap-2">
             <button
               onClick={() => setActiveView("menu")}
-              className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out h-10 w-10 justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-indigo-100 transition-all duration-200 ease-in-out h-11 w-11 justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 focus:outline-none focus:ring-3 focus:ring-focus"
             >
               <ChevronLeft
                 size={20}
-                className="text-gray-500 dark:text-gray-400"
+                className="text-indigo-700 dark:text-indigo-200"
               />
             </button>
-            <h2 className="flex-1 text-center text-xl font-bold text-gray-900 dark:text-gray-100">
+            <h2 className="flex-1 text-center text-xl font-bold text-indigo-900 dark:text-indigo-50">
               Settings
             </h2>
             <button
               onClick={onClose}
-              className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out xl:hidden"
+              className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
             >
-              <X size={20} className="text-gray-500 dark:text-gray-400" />
+              <X size={20} className="text-indigo-700 dark:text-indigo-200" />
             </button>
           </div>
         )}
         {activeView === "menu" && (
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 border-b border-indigo-100 dark:border-indigo-800">
             <div className="flex items-center gap-3 mb-3">
               {user?.photoURL ? (
                 <Image
@@ -153,30 +153,30 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   className="rounded-full"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium text-lg">
+                <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center text-white font-medium text-lg">
                   {displayName[0]?.toUpperCase() || "U"}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-50 truncate">
                   {displayName}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                <p className="text-xs text-indigo-700 dark:text-indigo-200 truncate">
                   {user?.email}
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out xl:hidden"
+                className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
               >
-                <X size={20} className="text-gray-500 dark:text-gray-400" />
+                <X size={20} className="text-indigo-700 dark:text-indigo-200" />
               </button>
             </div>
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mb-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+            <div className="bg-indigo-100 dark:bg-indigo-900 rounded-lg p-3 mb-3">
+              <p className="text-xs text-indigo-700 dark:text-indigo-200 mb-1">
                 User ID
               </p>
-              <p className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
+              <p className="text-xs font-mono text-indigo-900 dark:text-indigo-50 break-all">
                 {userId || "Non disponibile"}
               </p>
             </div>
@@ -184,7 +184,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             {/* Logout button - Gemini style */}
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
+              className="min-h-[44px] w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-indigo-900 dark:text-indigo-50 border-2 border-indigo-300 dark:border-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded-lg transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus"
             >
               <LogOut size={16} />
               Logout
@@ -196,71 +196,71 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             <div className="p-4 space-y-2">
               <button
                 onClick={onToggleTheme}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out text-left"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
                   <ThemeIcon
                     size={20}
-                    className="text-gray-600 dark:text-gray-400"
+                    className="text-indigo-700 dark:text-indigo-200"
                   />
-                  <span className="text-base font-medium text-gray-900 dark:text-gray-100">
+                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Tema
                   </span>
                 </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400 capitalize">
+                <span className="text-sm text-indigo-700 dark:text-indigo-200 capitalize">
                   {theme}
                 </span>
               </button>
               <button
                 onClick={() => setActiveView("documents")}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out text-left"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
                   <FileText
                     size={20}
-                    className="text-gray-600 dark:text-gray-400"
+                    className="text-indigo-700 dark:text-indigo-200"
                   />
-                  <span className="text-base font-medium text-gray-900 dark:text-gray-100">
+                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Gestione Documenti
                   </span>
                 </div>
                 <ChevronRight
                   size={20}
-                  className="text-gray-500 dark:text-gray-400"
+                  className="text-indigo-700 dark:text-indigo-200"
                 />
               </button>
               <button
                 onClick={() => setActiveView("settings")}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 ease-in-out text-left"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
                   <Settings
                     size={20}
-                    className="text-gray-600 dark:text-gray-400"
+                    className="text-indigo-700 dark:text-indigo-200"
                   />
-                  <span className="text-base font-medium text-gray-900 dark:text-gray-100">
+                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Settings
                   </span>
                 </div>
                 <ChevronRight
                   size={20}
-                  className="text-gray-500 dark:text-gray-400"
+                  className="text-indigo-700 dark:text-indigo-200"
                 />
               </button>
             </div>
           ) : activeView === "settings" ? (
             <div className="p-4">
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              <div className="border-2 border-indigo-300 dark:border-indigo-700 rounded-lg p-4">
+                <h3 className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
                   Account Management
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-sm text-indigo-700 dark:text-indigo-200 mb-4">
                   Permanently delete your account and all associated data. This
                   action cannot be undone.
                 </p>
                 <button
                   onClick={onDeleteAccount}
-                  className="w-full px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  className="min-h-[44px] w-full px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 border-2 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   Delete Account
                 </button>

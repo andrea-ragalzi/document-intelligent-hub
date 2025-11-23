@@ -93,7 +93,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 ease-in-out font-[Inter] relative pb-0">
+    <div className="w-full h-full flex flex-col bg-indigo-50 dark:bg-indigo-950 transition-colors duration-200 ease-in-out font-[Inter] relative pb-0">
       {/* Scrollable Chat Area: Altezza calcolata per lasciare spazio all'input bar */}
       <div
         className="p-4 sm:p-6 overflow-y-auto w-full flex-grow pb-0"
@@ -102,10 +102,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
       >
         <div className="max-w-4xl mx-auto">
           {chatHistory.length === 0 ? (
-            <div className="text-center p-8 sm:p-16 text-gray-400">
+            <div className="text-center p-8 sm:p-16 text-indigo-700 dark:text-indigo-200">
               <MessageSquare
                 size={48}
-                className="sm:size-16 mx-auto mb-4 text-indigo-300 dark:text-indigo-700"
+                className="sm:size-16 mx-auto mb-4 text-indigo-300"
               />
               {isChatDisabled ? (
                 <div className="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-xl border border-yellow-200 dark:border-yellow-700">
@@ -113,7 +113,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                     <AlertTriangle size={20} className="mr-2" />
                     Nessun Documento Caricato
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                  <p className="text-sm text-indigo-900 dark:text-indigo-50 mt-2">
                     Si prega di caricare almeno un documento PDF prima di
                     iniziare la conversazione.
                   </p>
@@ -172,15 +172,15 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
       {/* Gemini-style Input Bar - Sticky bottom with elegant spacing */}
       <form
         onSubmit={handleSubmit}
-        className="sticky bottom-0 left-0 right-0 bg-transparent sm:bg-gradient-to-t sm:from-gray-50 sm:via-gray-50 sm:to-transparent sm:dark:from-gray-900 sm:dark:via-gray-900 sm:dark:to-transparent pt-0 pb-0 -mx-4 md:mx-0 md:pt-4 md:pb-3 md:px-4 transition-all duration-200 ease-in-out z-10"
+        className="sticky bottom-0 left-0 right-0 bg-transparent sm:bg-gradient-to-t sm:from-indigo-50 sm:via-indigo-50 sm:to-transparent sm:dark:from-indigo-950 sm:dark:via-indigo-950 sm:dark:to-transparent pt-0 pb-0 -mx-4 md:mx-0 md:pt-4 md:pb-3 md:px-4 transition-all duration-200 ease-in-out z-10"
       >
         <div className="max-w-4xl md:mx-auto">
           {/* Gemini-inspired Input Container */}
           <div
-            className="relative bg-white dark:bg-gray-800 
+            className="relative bg-indigo-50 dark:bg-indigo-950 
             rounded-3xl md:rounded-[32px] 
             shadow-md md:shadow-lg 
-            border border-gray-200 dark:border-gray-700 
+            border-2 border-indigo-300 dark:border-indigo-700 
             hover:shadow-xl transition-shadow duration-300 
             overflow-hidden"
           >
@@ -197,7 +197,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                     : "Ask me anything..."
                 }
                 rows={1}
-                className="w-full py-1 px-1 text-base bg-transparent focus:outline-none disabled:cursor-not-allowed transition-all duration-200 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none overflow-y-auto leading-6"
+                className="w-full py-1 px-1 text-base bg-transparent focus:outline-none disabled:cursor-not-allowed transition-all duration-200 text-indigo-900 dark:text-indigo-50 placeholder-indigo-700 dark:placeholder-indigo-300 resize-none overflow-y-auto leading-6"
                 style={{
                   minHeight: "44px",
                   maxHeight: "144px",
@@ -216,7 +216,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                   type="button"
                   onClick={onOpenUploadModal}
                   disabled={!userId}
-                  className="flex items-center justify-center h-10 w-10 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center h-10 w-10 rounded-full text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus"
                   title="Upload document"
                   aria-label="Upload document"
                 >
@@ -228,7 +228,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                   type="button"
                   onClick={() => setIsLanguageSelectorOpen(true)}
                   disabled={!userId}
-                  className="flex items-center justify-center h-10 px-3 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-lg"
+                  className="min-h-[44px] flex items-center justify-center h-10 px-3 rounded-full text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-lg focus:outline-none focus:ring-3 focus:ring-focus"
                   title={`Response Language: ${selectedOutputLanguage.toUpperCase()}`}
                   aria-label="Select output language"
                 >
@@ -242,10 +242,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 disabled={
                   isQuerying || !query.trim() || !userId || isChatDisabled
                 }
-                className={`flex items-center justify-center h-10 w-10 rounded-full transition-all duration-200 ${
+                className={`min-h-[44px] min-w-[44px] flex items-center justify-center h-10 w-10 rounded-full transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus ${
                   isQuerying || !query.trim() || !userId || isChatDisabled
-                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                    : "bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 shadow-md hover:shadow-lg"
+                    ? "bg-indigo-300 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 cursor-not-allowed"
+                    : "bg-indigo-500 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
                 }`}
                 title="Send message"
                 aria-label="Send message"

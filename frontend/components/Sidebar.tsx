@@ -1,4 +1,4 @@
-import { PlusCircle, Search } from "lucide-react";
+import { MessageSquarePlus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConversationList } from "./ConversationList";
 import type { SavedConversation } from "@/lib/types";
@@ -62,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Overlay - Solo su mobile quando isOpen */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 lg:hidden"
+          className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 lg:hidden"
           onClick={onClose}
         />
       )}
@@ -71,11 +71,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         className={`
           h-full w-72
-          bg-white dark:bg-gray-800 
+          bg-indigo-50 dark:bg-indigo-950 
           shadow-lg
           transform transition-all duration-200 ease-in-out
           flex flex-col
-          border-r-2 border-gray-200 dark:border-gray-700
+          border-r-2 border-indigo-100 dark:border-indigo-800
           font-[Inter]
           
           lg:relative lg:translate-x-0 lg:z-0
@@ -84,24 +84,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        {/* Search Input - Flat Design */}
-        <div className="p-4 border-b-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        {/* Search & New Chat Section */}
+        <div className="p-4 space-y-3 border-b-2 border-indigo-100 dark:border-indigo-800">
+          {/* Search Input */}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={18} className="text-gray-400 dark:text-gray-500" />
+              <Search
+                size={18}
+                className="text-indigo-700 dark:text-indigo-200"
+              />
             </div>
             <input
               type="text"
               placeholder="Search conversations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-3 text-base bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
+              className="w-full pl-10 pr-3 py-3 text-base bg-white dark:bg-indigo-900 border-2 border-indigo-300 dark:border-indigo-700 rounded-lg focus:outline-none focus:ring-3 focus:ring-focus focus:border-indigo-500 text-indigo-900 dark:text-indigo-50 placeholder-indigo-700 dark:placeholder-indigo-300 transition-colors"
             />
           </div>
-        </div>
 
-        {/* New Chat Button - Flat Primary */}
-        <div className="p-4 bg-gray-50 dark:bg-gray-900 border-b-2 border-gray-200 dark:border-gray-700 flex gap-2">
+          {/* New Chat Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -110,15 +112,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onNewConversation();
               onClose();
             }}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg transition-all duration-200 ease-in-out font-semibold text-base shadow-md hover:shadow-lg"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 dark:active:bg-indigo-400 text-white rounded-lg transition-colors duration-150 font-medium text-base focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px]"
           >
-            <PlusCircle size={20} />
+            <MessageSquarePlus size={20} />
             <span>New Chat</span>
           </button>
         </div>
 
         {/* Conversations List - Scrollable with strong contrast */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 bg-white dark:bg-gray-800">
+        <div className="flex-1 overflow-y-auto px-3 py-4 bg-indigo-50 dark:bg-indigo-950">
           <ConversationList
             conversations={filteredConversations}
             currentConversationId={currentConversationId}

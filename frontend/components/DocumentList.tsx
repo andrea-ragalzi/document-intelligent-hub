@@ -347,7 +347,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           <>
             {/* Backdrop for mobile */}
             <div
-              className="fixed inset-0 bg-black/90 z-[100] md:hidden"
+              className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
               onClick={(e) => {
                 e.stopPropagation();
                 closeContextMenu();
@@ -355,7 +355,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
             />
             {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}
             <div
-              className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-gradient-to-b from-slate-900 to-black rounded-t-3xl md:rounded-lg shadow-2xl border-0 z-[110] transition-transform overflow-hidden"
+              className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-gradient-to-b from-indigo-900 to-indigo-950 dark:from-slate-900 dark:to-black rounded-t-3xl md:rounded-lg shadow-2xl border-0 z-[110] transition-transform overflow-hidden"
               ref={(node) => {
                 menuRef.current = node;
               }}
@@ -414,21 +414,21 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
       {/* Delete Confirmation Modal */}
       {modalOpen && pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-xs mx-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-indigo-950/80">
+          <div className="bg-indigo-50 dark:bg-indigo-950 rounded-xl shadow-xl p-6 w-full max-w-xs mx-2">
             <div className="flex flex-col items-center text-center">
               <AlertCircle size={32} className="mb-2 text-red-600" />
-              <p className="text-base font-semibold text-gray-800 dark:text-white mb-2">
+              <p className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
                 Delete document?
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 break-all">
+              <p className="text-xs text-indigo-700 dark:text-indigo-200 mb-4 break-all">
                 {pendingDelete.filename}
               </p>
               <div className="flex gap-2 w-full justify-center">
                 <button
                   onClick={() => handleDelete(pendingDelete.filename)}
                   disabled={deletingDoc === pendingDelete.filename}
-                  className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition disabled:opacity-50"
+                  className="min-h-[44px] flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition disabled:opacity-50 focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   {deletingDoc === pendingDelete.filename ? (
                     <Loader className="animate-spin" size={14} />
@@ -439,7 +439,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 <button
                   onClick={closeDeleteModal}
                   disabled={deletingDoc === pendingDelete.filename}
-                  className="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-medium rounded transition"
+                  className="min-h-[44px] flex-1 px-3 py-2 bg-indigo-300 hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-indigo-900 dark:text-indigo-50 text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   Cancel
                 </button>
@@ -450,39 +450,39 @@ const DocumentList: React.FC<DocumentListProps> = ({
       )}
       {/* Delete Multiple Confirmation Modal */}
       {deleteMultipleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-indigo-950/80">
+          <div className="bg-indigo-50 dark:bg-indigo-950 rounded-xl shadow-xl p-6 w-full max-w-md mx-2">
             <div className="flex flex-col items-center text-center">
               <AlertCircle size={32} className="mb-3 text-red-600" />
-              <p className="text-base font-semibold text-gray-800 dark:text-white mb-2">
+              <p className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
                 Delete {selectedDocs.length} document
                 {selectedDocs.length > 1 ? "s" : ""}?
               </p>
-              <div className="w-full max-h-48 overflow-y-auto mb-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+              <div className="w-full max-h-48 overflow-y-auto mb-4 bg-indigo-100 dark:bg-indigo-900 rounded-lg p-3">
                 <ul className="text-left">
                   {selectedDocs.map((filename) => (
                     <li
                       key={filename}
-                      className="text-xs text-gray-700 dark:text-gray-300 break-all py-1.5 border-b border-gray-200 dark:border-gray-700 last:border-0"
+                      className="text-xs text-indigo-900 dark:text-indigo-50 break-all py-1.5 border-b border-indigo-300 dark:border-indigo-700 last:border-0"
                     >
                       • {filename}
                     </li>
                   ))}
                 </ul>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              <p className="text-xs text-indigo-700 dark:text-indigo-200 mb-4">
                 This action cannot be undone.
               </p>
               <div className="flex gap-2 w-full justify-center">
                 <button
                   onClick={confirmDeleteSelected}
-                  className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition"
+                  className="min-h-[44px] flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   Delete
                 </button>
                 <button
                   onClick={() => setDeleteMultipleModalOpen(false)}
-                  className="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-medium rounded transition"
+                  className="min-h-[44px] flex-1 px-3 py-2 bg-indigo-300 hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-indigo-900 dark:text-indigo-50 text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   Cancel
                 </button>
