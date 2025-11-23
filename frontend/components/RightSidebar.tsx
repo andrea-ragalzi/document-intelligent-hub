@@ -11,6 +11,7 @@ import {
   Settings,
   Bug,
   Star,
+  Info,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -281,6 +282,23 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Give Feedback
+                  </span>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  router.push("/about");
+                  onClose();
+                }}
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+              >
+                <div className="flex items-center gap-3">
+                  <Info
+                    size={20}
+                    className="text-indigo-600 dark:text-indigo-300"
+                  />
+                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
+                    About
                   </span>
                 </div>
               </button>
