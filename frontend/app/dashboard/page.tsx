@@ -18,6 +18,7 @@ import { ChatSection } from "@/components/ChatSection";
 import { UploadModal } from "@/components/UploadModal";
 import { RenameModal } from "@/components/RenameModal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
+import { BugReportModal } from "@/components/BugReportModal";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -35,7 +36,7 @@ export default function Page() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { userId, isAuthReady } = useUserId();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -80,8 +81,11 @@ export default function Page() {
     currentConversationId,
     lastSavedMessageCount,
     isSaving: _isSaving,
+    bugReportModalOpen,
     openRenameModal,
     closeRenameModal,
+    openBugReportModal,
+    closeBugReportModal,
     setCurrentConversation,
     updateSavedMessageCount,
     startSaving,
@@ -547,6 +551,7 @@ export default function Page() {
               onDeleteDocument={deleteDocument}
               onRefreshDocuments={refreshDocuments}
               onDeleteAccount={() => setDeleteAccountModalOpen(true)}
+              onOpenBugReport={openBugReportModal}
             />
           </div>
 
@@ -564,6 +569,7 @@ export default function Page() {
                 onDeleteDocument={deleteDocument}
                 onRefreshDocuments={refreshDocuments}
                 onDeleteAccount={() => setDeleteAccountModalOpen(true)}
+                onOpenBugReport={openBugReportModal}
               />
             </div>
           )}
@@ -591,6 +597,14 @@ export default function Page() {
           onClose={() => setDeleteAccountModalOpen(false)}
           onConfirm={handleDeleteAccount}
           userEmail={user?.email || ""}
+        />
+
+        {/* Bug Report Modal */}
+        <BugReportModal
+          isOpen={bugReportModalOpen}
+          onClose={closeBugReportModal}
+          conversationId={currentConversationId}
+          userId={userId}
         />
       </div>
     </ProtectedRoute>

@@ -397,3 +397,118 @@ def get_supported_languages():
     )
 
 
+@router.post("/report-bug/", status_code=status.HTTP_201_CREATED)
+async def report_bug(
+    user_id: str = Form(..., description="User ID who is reporting the bug"),
+    description: str = Form(..., min_length=10, description="Bug description (min 10 chars)"),
+    conversation_id: str = Form(None, description="Optional conversation ID"),
+    timestamp: str = Form(..., description="ISO timestamp when bug was reported"),
+    user_agent: str = Form(None, description="Optional browser user agent"),
+    attachment: UploadFile = File(None, description="Optional file: image, video, PDF, or archive (ZIP, RAR, 7z, TAR.GZ) - max 10MB"),
+):
+    """
+    📝 Bug Report Endpoint
+    
+    Collects structured user feedback about errors, hallucinations, or system issues.
+    Sends email notification via SendGrid with optional attachment and logs to file.
+    Critical for MVP to identify and fix RAG accuracy problems and backend errors.
+    
+    Args:
+        user_id: User ID who is reporting the bug
+        description: Bug description (minimum 10 characters)
+        conversation_id: Optional conversation ID for context
+        timestamp: ISO timestamp when bug was reported
+        user_agent: Optional browser user agent string
+        attachment: Optional file attachment (image/video/PDF/archive, max 10MB)
+    
+    Returns:
+        Success message with report ID and email status
+    
+    Features:
+        - Sends formatted email to support team via SendGrid
+        - Supports file attachments (images, videos, PDFs, archives) up to 10MB
+        - Logs to logs/bug_reports.log with structured JSON
+        - Includes conversation context for debugging
+    
+    Setup:
+        - Requires SENDGRID_API_KEY in .env
+        - Configure SENDGRID_FROM_EMAIL and SUPPORT_EMAIL
+    """
+    import json
+    from datetime import datetime
+    from pathlib import Path
+
+    from app.core.logging import logger
+    from app.services.email_service import get_email_service
+    
+    # Validate attachment size (max 10MB)
+    if attachment and attachment.size:
+        max_size = 10 * 1024 * 1024  # 10MB in bytes
+        if attachment.size > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Attachment too large. Maximum size is 10MB, got {attachment.size / 1024 / 1024:.2f}MB"
+            )
+    
+    # Read attachment content if provided
+    attachment_data = None
+    attachment_filename = None
+    attachment_type = None
+    
+    if attachment and attachment.filename:
+        attachment_content = await attachment.read()
+        attachment_data = attachment_content
+        attachment_filename = attachment.filename
+        attachment_type = attachment.content_type
+        logger.info(f"📎 Attachment received | Name: {attachment_filename} | Type: {attachment_type} | Size: {len(attachment_content)} bytes")
+    
+    # Ensure logs directory exists
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Structured log entry
+    log_entry = {
+        "timestamp": timestamp,
+        "user_id": user_id,
+        "conversation_id": conversation_id,
+        "description": description,
+        "user_agent": user_agent,
+        "attachment_filename": attachment_filename,
+        "attachment_size": len(attachment_data) if attachment_data else 0,
+        "server_timestamp": datetime.utcnow().isoformat(),
+    }
+    
+    # Write to dedicated bug reports log
+    bug_log_path = logs_dir / "bug_reports.log"
+    with open(bug_log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+    
+    # Send email notification via SendGrid
+    email_service = get_email_service()
+    email_sent = email_service.send_bug_report(
+        user_id=user_id,
+        description=description,
+        conversation_id=conversation_id,
+        timestamp=timestamp,
+        user_agent=user_agent,
+        attachment_data=attachment_data,
+        attachment_filename=attachment_filename,
+        attachment_type=attachment_type,
+    )
+    
+    # Log to main logs with emoji for visibility
+    attachment_info = f" | 📎 {attachment_filename}" if attachment_filename else ""
+    logger.bind(BUG_REPORT=True).warning(
+        f"🐞 Bug Report from {user_id} | Conv: {conversation_id or 'N/A'} | Email: {'✅' if email_sent else '❌'}{attachment_info} | {description[:100]}"
+    )
+    
+    return {
+        "message": "Bug report received successfully",
+        "report_id": f"{user_id}_{datetime.utcnow().timestamp()}",
+        "status": "logged",
+        "email_sent": email_sent,
+        "attachment_included": attachment_filename is not None,
+    }
+
+
+

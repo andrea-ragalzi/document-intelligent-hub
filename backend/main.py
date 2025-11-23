@@ -3,6 +3,14 @@
 import os
 import time
 import warnings
+from pathlib import Path
+
+# Load .env file before any other imports
+from dotenv import load_dotenv
+
+# Load .env from backend directory
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path, override=True)
 
 from app.core.config import settings
 from app.core.logging import logger

@@ -49,6 +49,20 @@ class DocumentMetadata(BaseModel):
     language: str = Field(..., description="Document language code")
     uploaded_at: Optional[str] = Field(None, description="Upload timestamp")
     user_id: str = Field(..., description="User ID (owner of the document)")
+
+
+# --- Bug Report Schema ---
+
+class BugReportRequest(BaseModel):
+    """
+    Schema for user bug reports.
+    Used to collect structured feedback about errors, hallucinations, or system issues.
+    """
+    user_id: str = Field(..., description="User ID who is reporting the bug")
+    conversation_id: Optional[str] = Field(None, description="ID of the conversation where the bug occurred")
+    description: str = Field(..., min_length=10, description="Description of the bug (minimum 10 characters)")
+    timestamp: str = Field(..., description="ISO timestamp when the bug was reported")
+    user_agent: Optional[str] = Field(None, description="Browser user agent for debugging context")
     
     class Config:
         extra = "allow"  # Allow extra fields for flexibility

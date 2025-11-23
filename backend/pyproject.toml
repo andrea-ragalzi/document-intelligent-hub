@@ -25,6 +25,8 @@ unstructured = { extras = ["pdf"], version = "^0.18.18" }
 langchain-chroma = "^1.0.0"
 langdetect = "^1.0.9"
 translate = "^3.8.0"
+sendgrid = "^6.12.5"
+python-dotenv = "^1.2.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
