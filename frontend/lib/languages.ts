@@ -65,7 +65,12 @@ export async function fetchSupportedLanguages(): Promise<Language[]> {
 
     return cachedLanguages;
   } catch (error) {
-    console.error("Error fetching supported languages:", error);
+    // Silently handle network errors (server offline)
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      console.log("⚠️ Server offline - using fallback languages");
+    } else {
+      console.error("Error fetching supported languages:", error);
+    }
 
     // Fallback to minimal language set if API fails
     const fallback = [

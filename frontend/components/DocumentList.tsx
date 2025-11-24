@@ -21,12 +21,14 @@ interface DocumentListProps {
   documents: Document[] | undefined;
   deletingDoc: string | null;
   onDelete: (filename: string) => void;
+  isServerOnline?: boolean;
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
   documents,
   deletingDoc,
   onDelete,
+  isServerOnline = true,
 }) => {
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
 
@@ -220,7 +222,13 @@ const DocumentList: React.FC<DocumentListProps> = ({
             </button>
             <button
               onClick={handleDeleteSelected}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2"
+              disabled={!isServerOnline}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                !isServerOnline
+                  ? "Server offline - delete unavailable"
+                  : "Delete selected documents"
+              }
             >
               <Trash2 size={16} />
               <span>Delete ({selectedDocs.length})</span>
@@ -398,13 +406,21 @@ const DocumentList: React.FC<DocumentListProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        runActionAndCloseMenu(() => openDeleteModal(doc));
+                        if (isServerOnline) {
+                          runActionAndCloseMenu(() => openDeleteModal(doc));
+                        }
                       }}
-                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200"
+                      disabled={!isServerOnline}
+                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={
+                        !isServerOnline
+                          ? "Server offline - delete unavailable"
+                          : "Delete document"
+                      }
                     >
                       <Trash2 size={18} className="text-white/80" />
                       <span className="font-semibold tracking-wide">
-                        Delete
+                        {!isServerOnline ? "Delete (Offline)" : "Delete"}
                       </span>
                     </button>
 

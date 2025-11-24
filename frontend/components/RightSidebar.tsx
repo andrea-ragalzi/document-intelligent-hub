@@ -33,6 +33,7 @@ interface RightSidebarProps {
   onDeleteAccount: () => void;
   onOpenBugReport: () => void;
   onOpenFeedback: () => void;
+  isServerOnline?: boolean;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -46,6 +47,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onDeleteAccount,
   onOpenBugReport,
   onOpenFeedback,
+  isServerOnline = true,
 }) => {
   const [activeView, setActiveView] = useState<
     "menu" | "documents" | "settings"
@@ -327,6 +329,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 documents={documents}
                 deletingDoc={null}
                 onDelete={onDeleteDocument}
+                isServerOnline={isServerOnline}
               />
             </div>
           )}

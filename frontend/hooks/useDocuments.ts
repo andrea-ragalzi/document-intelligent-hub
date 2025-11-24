@@ -85,7 +85,12 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
       );
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
-      console.error("❌ Error loading documents:", errorMsg);
+      // Only log error if it's not a network/fetch error (server offline)
+      if (err instanceof TypeError && errorMsg.includes("fetch")) {
+        console.log("⚠️ Server offline - documents unavailable");
+      } else {
+        console.error("❌ Error loading documents:", errorMsg);
+      }
       setError(errorMsg);
       setDocuments([]);
     } finally {

@@ -20,8 +20,10 @@ import { RenameModal } from "@/components/RenameModal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { BugReportModal } from "@/components/BugReportModal";
 import { FeedbackModal } from "@/components/FeedbackModal";
+import { ServerOfflineBanner } from "@/components/ServerOfflineBanner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { useServerStatus } from "@/hooks/useServerStatus";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -76,6 +78,13 @@ export default function Page() {
   // Check if user has uploaded documents
   const { hasDocuments, isChecking } = useDocumentStatus(userId);
 
+  // Server status monitoring
+  const {
+    isOnline: isServerOnline,
+    isChecking: isCheckingServer,
+    checkStatus: retryServerConnection,
+  } = useServerStatus();
+
   // Zustand UI Store - sostituisce tutti gli useState
   const {
     statusAlert: _statusAlert,
@@ -87,6 +96,8 @@ export default function Page() {
     isSaving: _isSaving,
     bugReportModalOpen,
     feedbackModalOpen,
+    isServerOnline: isServerOnlineStore,
+    serverOfflineBannerDismissed,
     openRenameModal,
     closeRenameModal,
     openBugReportModal,
@@ -98,7 +109,26 @@ export default function Page() {
     startSaving,
     finishSaving,
     resetConversation,
+    setServerOnline,
   } = useUIStore();
+
+  // Sync server status to store
+  useEffect(() => {
+    setServerOnline(isServerOnline);
+  }, [isServerOnline, setServerOnline]);
+
+  // Refresh documents when server comes back online
+  useEffect(() => {
+    // Only refresh if server changed from offline to online (not on initial mount)
+    if (isServerOnline && !previousServerStatusRef.current && userId) {
+      console.log("✅ Server is back online - refreshing data...");
+      refreshDocuments();
+      // Also trigger document status refresh
+      window.dispatchEvent(new Event("refreshDocumentStatus"));
+    }
+    // Update previous status
+    previousServerStatusRef.current = isServerOnline;
+  }, [isServerOnline, userId, refreshDocuments]);
 
   const {
     chatHistory,
@@ -123,6 +153,7 @@ export default function Page() {
 
   const isSavingRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const previousServerStatusRef = useRef<boolean>(true); // Track previous server status
 
   // Track if we're waiting for a conversation to be created
   const isCreatingConversationRef = useRef(false);
@@ -484,6 +515,14 @@ export default function Page() {
           hasConversation={chatHistory.length > 0}
         />
 
+        {/* Server Offline Banner */}
+        {!isServerOnline && !serverOfflineBannerDismissed && (
+          <ServerOfflineBanner
+            onRetry={retryServerConnection}
+            isRetrying={isCheckingServer}
+          />
+        )}
+
         <RenameModal
           isOpen={renameModalOpen}
           currentName={conversationToRename?.currentName || ""}
@@ -542,6 +581,7 @@ export default function Page() {
               onOpenUploadModal={() => setUploadModalOpen(true)}
               selectedOutputLanguage={selectedOutputLanguage}
               onSelectOutputLanguage={setSelectedOutputLanguage}
+              isServerOnline={isServerOnline}
             />
           </div>
 
@@ -560,6 +600,7 @@ export default function Page() {
               onDeleteAccount={() => setDeleteAccountModalOpen(true)}
               onOpenBugReport={openBugReportModal}
               onOpenFeedback={openFeedbackModal}
+              isServerOnline={isServerOnline}
             />
           </div>
 
@@ -579,6 +620,7 @@ export default function Page() {
                 onDeleteAccount={() => setDeleteAccountModalOpen(true)}
                 onOpenBugReport={openBugReportModal}
                 onOpenFeedback={openFeedbackModal}
+                isServerOnline={isServerOnline}
               />
             </div>
           )}

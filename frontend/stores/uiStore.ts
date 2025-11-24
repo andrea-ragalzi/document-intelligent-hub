@@ -24,6 +24,10 @@ interface UIStore {
   lastSavedMessageCount: number;
   isSaving: boolean;
 
+  // Server status
+  isServerOnline: boolean;
+  serverOfflineBannerDismissed: boolean;
+
   // Theme (potremmo spostare anche questo qui in futuro)
   // theme: 'light' | 'dark';
 
@@ -53,11 +57,16 @@ interface UIStore {
   startSaving: () => void;
   finishSaving: () => void;
   resetConversation: () => void;
+
+  // Actions - Server status
+  setServerOnline: (online: boolean) => void;
+  dismissServerOfflineBanner: () => void;
+  showServerOfflineBanner: () => void;
 }
 
 export const useUIStore = create<UIStore>()(
   devtools(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       statusAlert: null,
       uploadAlert: null,
@@ -70,6 +79,8 @@ export const useUIStore = create<UIStore>()(
       currentConversationId: null,
       lastSavedMessageCount: 0,
       isSaving: false,
+      isServerOnline: true,
+      serverOfflineBannerDismissed: false,
 
       // Alert actions
       setStatusAlert: (alert) => set({ statusAlert: alert }),
@@ -117,6 +128,20 @@ export const useUIStore = create<UIStore>()(
           currentConversationId: null,
           lastSavedMessageCount: 0,
         }),
+
+      // Server status actions
+      setServerOnline: (online) =>
+        set({
+          isServerOnline: online,
+          // Show banner again when server goes offline
+          serverOfflineBannerDismissed: online
+            ? false
+            : get().serverOfflineBannerDismissed,
+        }),
+      dismissServerOfflineBanner: () =>
+        set({ serverOfflineBannerDismissed: true }),
+      showServerOfflineBanner: () =>
+        set({ serverOfflineBannerDismissed: false }),
     }),
     { name: "UI Store" }
   )

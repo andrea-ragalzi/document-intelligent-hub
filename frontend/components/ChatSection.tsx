@@ -24,6 +24,7 @@ interface ChatSectionProps {
   onOpenUploadModal: () => void;
   selectedOutputLanguage: string;
   onSelectOutputLanguage: (code: string) => void;
+  isServerOnline?: boolean;
 }
 export const ChatSection: React.FC<ChatSectionProps> = ({
   chatHistory,
@@ -38,11 +39,14 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   onOpenUploadModal,
   selectedOutputLanguage,
   onSelectOutputLanguage,
+  isServerOnline = true,
 }) => {
   const [isLanguageSelectorOpen, setIsLanguageSelectorOpen] = useState(false);
   const [languageFlag, setLanguageFlag] = useState<string>("🌍");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isChatDisabled = !hasDocuments && !isCheckingDocuments;
+  // Disable chat if no documents OR if server is offline
+  const isChatDisabled =
+    (!hasDocuments && !isCheckingDocuments) || !isServerOnline;
 
   // Fetch language flag when selectedOutputLanguage changes
   useEffect(() => {
@@ -111,17 +115,17 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 <div className="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-xl border border-yellow-200 dark:border-yellow-700">
                   <p className="font-bold text-lg text-yellow-700 dark:text-yellow-400 flex items-center justify-center">
                     <AlertTriangle size={20} className="mr-2" />
-                    Nessun Documento Caricato
+                    No Documents Uploaded
                   </p>
                   <p className="text-sm text-indigo-900 dark:text-indigo-50 mt-2">
-                    Si prega di caricare almeno un documento PDF prima di
-                    iniziare la conversazione.
+                    Please upload at least one PDF document before starting a
+                    conversation.
                   </p>
                 </div>
               ) : isCheckingDocuments ? (
                 <>
                   <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
-                    Controllo dei documenti in corso...
+                    Checking documents...
                   </p>
                   <Loader
                     size={24}
@@ -131,10 +135,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
               ) : (
                 <>
                   <p className="font-bold text-xl text-gray-900 dark:text-gray-100">
-                    Pronto a chattare.
+                    Ready to chat.
                   </p>
                   <p className="text-md text-gray-500 dark:text-gray-400 mt-2">
-                    Invia la tua prima domanda sui documenti caricati.
+                    Send your first question about your uploaded documents.
                   </p>
                 </>
               )}
@@ -192,7 +196,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 onChange={handleTextareaChange}
                 disabled={isQuerying || !userId || isChatDisabled}
                 placeholder={
-                  isChatDisabled
+                  !isServerOnline
+                    ? "Server offline - Read only mode..."
+                    : isChatDisabled
                     ? "Upload a document first..."
                     : "Ask me anything..."
                 }
@@ -215,9 +221,13 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 <button
                   type="button"
                   onClick={onOpenUploadModal}
-                  disabled={!userId}
+                  disabled={!userId || !isServerOnline}
                   className="min-h-[44px] min-w-[44px] flex items-center justify-center h-10 w-10 rounded-full text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus"
-                  title="Upload document"
+                  title={
+                    !isServerOnline
+                      ? "Server offline - upload unavailable"
+                      : "Upload document"
+                  }
                   aria-label="Upload document"
                 >
                   <Paperclip size={20} />

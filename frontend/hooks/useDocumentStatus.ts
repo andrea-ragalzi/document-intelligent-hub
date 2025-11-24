@@ -59,7 +59,12 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
           setDocumentCount(0);
         }
       } catch (error) {
-        console.error("❌ Error checking document status:", error);
+        // Silently handle network errors (server offline)
+        if (error instanceof TypeError && error.message.includes("fetch")) {
+          console.log("⚠️ Server offline - document status unavailable");
+        } else {
+          console.error("❌ Error checking document status:", error);
+        }
         setHasDocuments(false);
         setDocumentCount(0);
       } finally {
