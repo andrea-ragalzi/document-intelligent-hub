@@ -18,7 +18,7 @@ export interface Document {
 }
 
 interface DocumentListProps {
-  documents: Document[];
+  documents: Document[] | undefined;
   deletingDoc: string | null;
   onDelete: (filename: string) => void;
 }
@@ -29,6 +29,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
   onDelete,
 }) => {
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
+
+  // Safety check: ensure documents is always an array
+  const safeDocuments = documents || [];
 
   // Automatic selection mode when items are selected
   const isSelectionMode = selectedDocs.length > 0;
@@ -154,10 +157,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   const handleSelectAll = () => {
-    if (selectedDocs.length === documents.length) {
+    if (selectedDocs.length === safeDocuments.length) {
       setSelectedDocs([]);
     } else {
-      setSelectedDocs(documents.map((d) => d.filename));
+      setSelectedDocs(safeDocuments.map((d) => d.filename));
     }
   };
 
@@ -177,7 +180,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   // Sort documents by name (alphabetically)
-  const sortedDocuments = [...documents].sort((a, b) =>
+  const sortedDocuments = [...safeDocuments].sort((a, b) =>
     a.filename.localeCompare(b.filename)
   );
 
@@ -210,7 +213,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
               onClick={handleSelectAll}
               className="text-sm text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-indigo-100 transition font-semibold"
             >
-              {selectedDocs.length === documents.length && documents.length > 0
+              {selectedDocs.length === safeDocuments.length &&
+              safeDocuments.length > 0
                 ? "Deselect All"
                 : "Select All"}
             </button>
@@ -384,7 +388,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
               </div>
 
               {(() => {
-                const doc = documents.find((d) => d.filename === openKebabId);
+                const doc = safeDocuments.find(
+                  (d) => d.filename === openKebabId
+                );
                 if (!doc) return null;
 
                 return (

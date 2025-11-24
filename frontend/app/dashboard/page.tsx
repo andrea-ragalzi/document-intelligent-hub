@@ -64,11 +64,14 @@ export default function Page() {
 
   // Document management
   const {
-    documents,
+    documents: rawDocuments,
     isLoading: isLoadingDocuments,
     refreshDocuments,
     deleteDocument,
   } = useDocuments(userId);
+
+  // Ensure documents is always an array
+  const documents = rawDocuments || [];
 
   // Check if user has uploaded documents
   const { hasDocuments, isChecking } = useDocumentStatus(userId);

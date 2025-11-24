@@ -128,13 +128,14 @@ async def log_requests(request: Request, call_next):
 # --- CORS Configuration ---
 # CORS is required to allow the React frontend (running on a different port/origin) 
 # to communicate with this FastAPI backend.
+# Note: When using allow_credentials=True, you cannot use "*" for origins
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    # Mobile access via local network IP (all ports)
     "http://192.168.0.206:3000",
+    "http://192.168.0.206:3001",
     "http://192.168.0.206:8080",
-    # Allow all origins for development
-    "*"
 ]
 
 app.add_middleware(

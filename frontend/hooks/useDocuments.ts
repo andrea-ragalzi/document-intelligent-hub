@@ -76,9 +76,13 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
         data.documents.map((d) => d.filename)
       );
       console.log("💾 Setting documents state...");
-      setDocuments(data.documents);
+      // Ensure we always set an array, even if data.documents is null/undefined
+      setDocuments(Array.isArray(data.documents) ? data.documents : []);
       console.log("✅ Documents state updated successfully");
-      console.log("🔍 Current documents in state:", data.documents.length);
+      console.log(
+        "🔍 Current documents in state:",
+        data.documents?.length || 0
+      );
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       console.error("❌ Error loading documents:", errorMsg);

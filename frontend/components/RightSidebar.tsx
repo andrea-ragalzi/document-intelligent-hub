@@ -26,7 +26,7 @@ interface RightSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onToggleTheme: () => void;
-  documents: Document[];
+  documents: Document[] | undefined;
   isLoadingDocuments?: boolean;
   onDeleteDocument: (filename: string) => void;
   onRefreshDocuments?: () => Promise<void>;
