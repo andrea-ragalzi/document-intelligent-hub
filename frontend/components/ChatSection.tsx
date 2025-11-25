@@ -25,6 +25,7 @@ interface ChatSectionProps {
   selectedOutputLanguage: string;
   onSelectOutputLanguage: (code: string) => void;
   isServerOnline?: boolean;
+  isLimitReached?: boolean;
 }
 export const ChatSection: React.FC<ChatSectionProps> = ({
   chatHistory,
@@ -40,13 +41,15 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   selectedOutputLanguage,
   onSelectOutputLanguage,
   isServerOnline = true,
+  isLimitReached = false,
 }) => {
   const [isLanguageSelectorOpen, setIsLanguageSelectorOpen] = useState(false);
   const [languageFlag, setLanguageFlag] = useState<string>("🌍");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // Disable chat if no documents OR if server is offline
-  const isChatDisabled =
-    (!hasDocuments && !isCheckingDocuments) || !isServerOnline;
+
+  // Calculate specific disable reasons
+  const noDocuments = !hasDocuments && !isCheckingDocuments;
+  const isChatDisabled = noDocuments || !isServerOnline || isLimitReached;
 
   // Fetch language flag when selectedOutputLanguage changes
   useEffect(() => {
@@ -111,7 +114,38 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 size={48}
                 className="sm:size-16 mx-auto mb-4 text-indigo-300"
               />
-              {isChatDisabled ? (
+              {isCheckingDocuments ? (
+                <>
+                  <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
+                    Checking documents...
+                  </p>
+                  <Loader
+                    size={24}
+                    className="animate-spin mx-auto mt-4 text-indigo-500"
+                  />
+                </>
+              ) : !isServerOnline ? (
+                <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-xl border border-red-200 dark:border-red-700">
+                  <p className="font-bold text-lg text-red-700 dark:text-red-400 flex items-center justify-center">
+                    <AlertTriangle size={20} className="mr-2" />
+                    Server Offline
+                  </p>
+                  <p className="text-sm text-indigo-900 dark:text-indigo-50 mt-2">
+                    The server is currently offline. Please try again later.
+                  </p>
+                </div>
+              ) : isLimitReached ? (
+                <div className="bg-orange-100 dark:bg-orange-900/30 p-4 rounded-xl border border-orange-200 dark:border-orange-700">
+                  <p className="font-bold text-lg text-orange-700 dark:text-orange-400 flex items-center justify-center">
+                    <AlertTriangle size={20} className="mr-2" />
+                    Query Limit Reached
+                  </p>
+                  <p className="text-sm text-indigo-900 dark:text-indigo-50 mt-2">
+                    You&apos;ve reached your daily query limit. Upgrade your
+                    plan or try again tomorrow.
+                  </p>
+                </div>
+              ) : noDocuments ? (
                 <div className="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-xl border border-yellow-200 dark:border-yellow-700">
                   <p className="font-bold text-lg text-yellow-700 dark:text-yellow-400 flex items-center justify-center">
                     <AlertTriangle size={20} className="mr-2" />
@@ -122,16 +156,6 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                     conversation.
                   </p>
                 </div>
-              ) : isCheckingDocuments ? (
-                <>
-                  <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
-                    Checking documents...
-                  </p>
-                  <Loader
-                    size={24}
-                    className="animate-spin mx-auto mt-4 text-indigo-500"
-                  />
-                </>
               ) : (
                 <>
                   <p className="font-bold text-xl text-gray-900 dark:text-gray-100">
@@ -198,6 +222,8 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 placeholder={
                   !isServerOnline
                     ? "Server offline - Read only mode..."
+                    : isLimitReached
+                    ? "Daily query limit reached. Upgrade your plan or try again tomorrow..."
                     : isChatDisabled
                     ? "Upload a document first..."
                     : "Ask me anything..."

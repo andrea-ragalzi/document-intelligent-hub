@@ -13,12 +13,13 @@ env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
 
 from app.core.config import settings
+from app.core.firebase import initialize_firebase  # Firebase initialization
 from app.core.logging import logger
 from app.db.chroma_client import (  # Import database initialization
     get_chroma_client,
     get_embedding_function,
 )
-from app.routers import language_router, rag_router, translation_router
+from app.routers import auth_router, language_router, rag_router, translation_router
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -78,6 +79,17 @@ async def startup_event():
         logger.error(f"❌ Failed to preload embedding model: {e}")
         raise
     
+    # Verify Firebase initialization (optional feature)
+    try:
+        import firebase_admin
+        if len(firebase_admin._apps) > 0:
+            logger.info("✅ Firebase Admin SDK initialized - Authentication endpoints available")
+        else:
+            logger.warning("⚠️ Firebase Admin SDK not initialized - Authentication endpoints disabled")
+            logger.warning("⚠️ Set FIREBASE_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_PATH to enable authentication")
+    except Exception as e:
+        logger.warning(f"⚠️ Firebase check failed: {e}")
+    
     logger.info("✅ Application startup complete!")
 
 
@@ -128,20 +140,23 @@ async def log_requests(request: Request, call_next):
 # --- CORS Configuration ---
 # CORS is required to allow the React frontend (running on a different port/origin) 
 # to communicate with this FastAPI backend.
-# Note: When using allow_credentials=True, you cannot use "*" for origins
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    # Mobile access via local network IP (all ports)
-    "http://192.168.0.206:3000",
-    "http://192.168.0.206:3001",
-    "http://192.168.0.206:8080",
-]
+# Development: Allow all origins with wildcard for easier testing
+# Production: Restrict to specific domains
+
+if os.getenv("ENVIRONMENT") == "production":
+    # Production: strict origins
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+else:
+    # Development: allow all origins (easier for mobile testing, etc.)
+    origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=False if origins == ["*"] else True,
     allow_methods=["*"], # Allow all methods (GET, POST, etc.)
     allow_headers=["*"], # Allow all headers
 )
@@ -151,6 +166,17 @@ app.add_middleware(
 app.include_router(rag_router.router)
 app.include_router(language_router.router)
 app.include_router(translation_router.router)
+
+# Conditionally register auth router if Firebase is available
+try:
+    import firebase_admin
+    if len(firebase_admin._apps) > 0:
+        app.include_router(auth_router.router)
+        logger.info("✅ Authentication endpoints registered (/auth/register, /auth/refresh-claims)")
+    else:
+        logger.warning("⚠️ Authentication endpoints NOT registered - Firebase not initialized")
+except Exception as e:
+    logger.warning(f"⚠️ Authentication endpoints NOT registered: {e}")
 
 # --- Root Endpoint (Health Check) ---
 @app.get("/")

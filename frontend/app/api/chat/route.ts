@@ -38,7 +38,6 @@ export async function POST(req: Request) {
       conversation_history: chatHistory,
     };
 
-
     // Add output_language if provided
     if (output_language) {
       requestBody.output_language = output_language;
@@ -67,10 +66,13 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return new Response(
-        JSON.stringify({ error: errorData.detail || "Backend error" }),
-        { status: response.status }
-      );
+      const errorMessage = errorData.detail || "Backend error";
+
+      // Return error with appropriate status code (including 429)
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status: response.status,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();

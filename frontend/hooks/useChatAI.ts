@@ -28,7 +28,12 @@ export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
       output_language: selectedOutputLanguage?.toUpperCase(),
     },
     onError: (error: Error) => {
-      console.error("Chat error:", error);
+      // Silently handle rate limit errors (429) - they're expected
+      if (error.message.includes("Daily query limit exceeded")) {
+        console.log("⚠️ Query limit reached");
+      } else {
+        console.error("Chat error:", error);
+      }
     },
   });
 

@@ -14,7 +14,6 @@ from app.config.languages import SUPPORTED_LANGUAGES
 from app.schemas.rag_schema import (
     DetectLanguageResponse,
     DocumentDeleteResponse,
-    DocumentInfo,
     DocumentListResponse,
     FeedbackRequest,
     LanguageInfo,
@@ -27,7 +26,9 @@ from app.schemas.rag_schema import (
 )
 from app.services.query_parser_service import query_parser_service
 from app.services.rag_service import RAGService, get_rag_service
+from app.services.usage_tracking_service import get_usage_service
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from firebase_admin import auth
 
 # Router instance
 router = APIRouter(prefix="/rag", tags=["rag"])
@@ -121,7 +122,7 @@ async def detect_language_preview(
 
 
 @router.post("/query/", response_model=QueryResponse)
-def query_document(
+async def query_document(
     request: QueryRequest,
     rag_service: RAGService = Depends(get_rag_service),  # Injected by FastAPI
 ):
@@ -131,6 +132,8 @@ def query_document(
     
     NEW: Automatically extracts file filtering instructions from natural language
     (e.g., "only in file X", "exclude file Y") and applies them to the search.
+    
+    NEW: Tracks query usage and enforces tier-based rate limits.
     
     Transport Layer: Validates input, delegates to service, returns response.
     Optionally accepts conversation history for context-aware responses.
@@ -156,6 +159,46 @@ def query_document(
             logger.info("🌍 Output Language: Not specified (will auto-detect from query)")
         
         logger.info(f"{'='*80}")
+        
+        # === STEP 0: CHECK QUERY LIMIT ===
+        # Get user's tier and check if they can make more queries
+        user = auth.get_user(request.user_id)
+        custom_claims = user.custom_claims or {}
+        tier = custom_claims.get("tier", "FREE")
+        
+        logger.info(f"🎫 User ID: {request.user_id}")
+        logger.info(f"🎫 User tier: {tier}")
+        logger.info(f"🎫 All custom claims: {custom_claims}")
+        
+        # Load tier limits from Firestore
+        from app.routers.auth_router import load_app_config
+        app_config = await load_app_config()
+        
+        # CRITICAL FIX: Ensure UNLIMITED tier is always handled correctly
+        # UNLIMITED tier MUST have 9999 max_queries (injected by load_app_config)
+        # But we add extra safety check here
+        if tier == "UNLIMITED":
+            max_queries = 9999
+            logger.info(f"✅ UNLIMITED tier detected - max_queries set to {max_queries}")
+        else:
+            tier_limits = app_config["limits"].get(tier, app_config["limits"]["FREE"])
+            max_queries = tier_limits["max_queries_per_day"]
+            logger.info(f"📊 Tier limits for {tier}: {max_queries} queries/day")
+        
+        # Check if user has exceeded their query limit
+        usage_service = get_usage_service()
+        can_query, queries_used = await usage_service.check_query_limit(request.user_id, max_queries)
+        
+        logger.info(f"📊 Usage check result: can_query={can_query}, queries_used={queries_used}, max_queries={max_queries}")
+        
+        if not can_query:
+            logger.warning(f"⛔ Query limit exceeded for user {request.user_id} ({tier}): {queries_used}/{max_queries}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Daily query limit exceeded ({queries_used}/{max_queries}). Please upgrade your plan or try again tomorrow."
+            )
+        
+        logger.info(f"✅ Query limit check passed: {queries_used}/{max_queries} ({tier})")
         
         # === STEP 1: EXTRACT FILE FILTERS AND OPTIMIZE QUERY ===
         # Get user's available documents for validation
@@ -198,6 +241,11 @@ def query_document(
             exclude_files=exclude_files
         )
         
+        # === STEP 3: INCREMENT QUERY COUNTER ===
+        # Only increment if query succeeded (no exceptions)
+        new_count = await usage_service.increment_user_queries(request.user_id)
+        logger.info(f"📊 Query counter incremented: {new_count}/{max_queries} ({tier})")
+        
         # === DETAILED RESPONSE LOGGING ===
         logger.info(f"{'='*80}")
         logger.info("📤 [ROUTER] QUERY RESPONSE")
@@ -210,6 +258,9 @@ def query_document(
         logger.info(f"{'='*80}")
 
         return QueryResponse(answer=answer, source_documents=sources)
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 429 Too Many Requests)
+        raise
     except Exception as e:
         # Log the error for debugging purposes
         logger.error(f"{'='*80}")

@@ -20,10 +20,13 @@ import { RenameModal } from "@/components/RenameModal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { BugReportModal } from "@/components/BugReportModal";
 import { FeedbackModal } from "@/components/FeedbackModal";
+import InvitationCodeModal from "@/components/InvitationCodeModal";
 import { ServerOfflineBanner } from "@/components/ServerOfflineBanner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServerStatus } from "@/hooks/useServerStatus";
+import { useUserTier } from "@/hooks/useUserTier";
+import { useQueryUsage } from "@/hooks/useQueryUsage";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -40,10 +43,17 @@ export default function Page() {
   const { theme, toggleTheme } = useTheme();
   const { userId, isAuthReady } = useUserId();
   const { user } = useAuth();
+  const { tier, isLoading: isTierLoading, refreshTier } = useUserTier();
+  const {
+    queriesUsed,
+    isLimitReached,
+    refetch: refetchQueryUsage,
+  } = useQueryUsage();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [invitationCodeModalOpen, setInvitationCodeModalOpen] = useState(false);
   const [selectedOutputLanguage, setSelectedOutputLanguage] =
     useState<string>("en");
 
@@ -96,7 +106,7 @@ export default function Page() {
     isSaving: _isSaving,
     bugReportModalOpen,
     feedbackModalOpen,
-    isServerOnline: isServerOnlineStore,
+    isServerOnline: _isServerOnlineStore,
     serverOfflineBannerDismissed,
     openRenameModal,
     closeRenameModal,
@@ -285,6 +295,19 @@ export default function Page() {
     setCurrentConversation,
   ]);
 
+  // Show invitation code modal on first login if no tier
+  useEffect(() => {
+    if (!isTierLoading && user && tier === "FREE") {
+      // Check if user has custom claims set
+      user.getIdTokenResult().then((tokenResult) => {
+        // If no tier claim exists, show invitation modal
+        if (!tokenResult.claims.tier) {
+          setInvitationCodeModalOpen(true);
+        }
+      });
+    }
+  }, [user, tier, isTierLoading]);
+
   const handleLoad = (conv: SavedConversation) => {
     console.log("📂 Loading conversation:", conv.name);
     console.log("  Messages:", conv.history.length);
@@ -422,6 +445,11 @@ export default function Page() {
     e.preventDefault();
     if (userId) {
       handleSubmit(e);
+      // Refresh query usage counter after submission
+      // The counter will update when the response comes back
+      setTimeout(() => {
+        refetchQueryUsage();
+      }, 1000);
     } else {
       setStatusAlert({
         message: "Cannot send: User ID not available.",
@@ -582,6 +610,7 @@ export default function Page() {
               selectedOutputLanguage={selectedOutputLanguage}
               onSelectOutputLanguage={setSelectedOutputLanguage}
               isServerOnline={isServerOnline}
+              isLimitReached={isLimitReached}
             />
           </div>
 
@@ -601,6 +630,7 @@ export default function Page() {
               onOpenBugReport={openBugReportModal}
               onOpenFeedback={openFeedbackModal}
               isServerOnline={isServerOnline}
+              currentQueries={queriesUsed}
             />
           </div>
 
@@ -621,6 +651,7 @@ export default function Page() {
                 onOpenBugReport={openBugReportModal}
                 onOpenFeedback={openFeedbackModal}
                 isServerOnline={isServerOnline}
+                currentQueries={queriesUsed}
               />
             </div>
           )}
@@ -664,6 +695,21 @@ export default function Page() {
           onClose={closeFeedbackModal}
           conversationId={currentConversationId}
           userId={userId}
+        />
+
+        {/* Invitation Code Modal */}
+        <InvitationCodeModal
+          isOpen={invitationCodeModalOpen}
+          onClose={() => setInvitationCodeModalOpen(false)}
+          onSuccess={(assignedTier) => {
+            console.log("✅ Registration successful, tier:", assignedTier);
+            // useRegistration already forced token refresh, so update tier immediately
+            refreshTier();
+            // Small delay before closing modal for better UX
+            setTimeout(() => {
+              setInvitationCodeModalOpen(false);
+            }, 300);
+          }}
         />
       </div>
     </ProtectedRoute>

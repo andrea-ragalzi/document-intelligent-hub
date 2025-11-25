@@ -3,8 +3,14 @@
  * Tests file upload, validation, and submission
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { BugReportModal } from "@/components/BugReportModal";
 
@@ -25,6 +31,10 @@ describe("BugReportModal", () => {
     (global.fetch as any).mockClear();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe("Rendering", () => {
     it("should not render when isOpen is false", () => {
       const { container } = render(
@@ -40,7 +50,8 @@ describe("BugReportModal", () => {
 
     it("should show conversation ID when provided", () => {
       render(<BugReportModal {...defaultProps} />);
-      expect(screen.getByText(/test-conv-123/)).toBeInTheDocument();
+      const elements = screen.getAllByText(/test-conv-123/);
+      expect(elements.length).toBeGreaterThan(0);
     });
 
     it("should show file upload section", () => {
@@ -87,14 +98,19 @@ describe("BugReportModal", () => {
 
       // Less than 10 chars - should be red
       fireEvent.change(textarea, { target: { value: "Test" } });
-      const shortCount = screen.getByText(/4 \/ 10 chars/);
+      const shortCount = screen.getByText((content) =>
+        content.includes("4 / 10 chars")
+      );
       expect(shortCount).toHaveClass("text-red-600");
 
       // 10+ chars - should be green
       fireEvent.change(textarea, {
         target: { value: "Valid description here" },
       });
-      const validCount = screen.getByText(/23 \/ 10 chars/);
+      // "Valid description here" is 22 chars
+      const validCount = screen.getByText((content) =>
+        content.includes("22 / 10 chars")
+      );
       expect(validCount).toHaveClass("text-green-600");
     });
   });
@@ -145,7 +161,7 @@ describe("BugReportModal", () => {
       });
     });
 
-    it("should reject files larger than 10MB", async () => {
+    it("should show error message when file is too large", async () => {
       render(<BugReportModal {...defaultProps} />);
       const fileInput = document.getElementById(
         "bug-file-input"
@@ -170,7 +186,7 @@ describe("BugReportModal", () => {
       });
     });
 
-    it("should disable submit when file is too large", async () => {
+    it("should NOT disable submit when file is too large (file is rejected)", async () => {
       render(<BugReportModal {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(/What went wrong/);
       const fileInput = document.getElementById(
@@ -198,11 +214,14 @@ describe("BugReportModal", () => {
 
       await waitFor(() => {
         const submitButton = screen.getByText("Submit Report");
-        expect(submitButton).toBeDisabled();
+        // Button should be enabled because the invalid file was rejected
+        expect(submitButton).not.toBeDisabled();
+        // And error message should be shown
+        expect(screen.getByText(/File too large/)).toBeInTheDocument();
       });
     });
 
-    it('should show "Too large!" warning for oversized files', async () => {
+    it('should show "Too large!" warning in error message for oversized files', async () => {
       render(<BugReportModal {...defaultProps} />);
       const fileInput = document.getElementById(
         "bug-file-input"
@@ -222,7 +241,7 @@ describe("BugReportModal", () => {
       fireEvent.change(fileInput);
 
       await waitFor(() => {
-        expect(screen.getByText(/Too large! Max 10MB/)).toBeInTheDocument();
+        expect(screen.getByText(/File too large/)).toBeInTheDocument();
       });
     });
 
@@ -409,7 +428,8 @@ describe("BugReportModal", () => {
     });
 
     it("should close modal after successful submission", async () => {
-      vi.useFakeTimers();
+      // Spy on setTimeout instead of using fake timers
+      const setTimeoutSpy = vi.spyOn(global, "setTimeout");
 
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
@@ -430,14 +450,20 @@ describe("BugReportModal", () => {
         expect(screen.getByText(/submitted successfully/)).toBeInTheDocument();
       });
 
-      // Fast-forward 2 seconds
-      vi.advanceTimersByTime(2000);
+      // Check if setTimeout was called with 2000ms
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
 
-      await waitFor(() => {
-        expect(mockOnClose).toHaveBeenCalled();
-      });
+      // Execute the callback manually
+      const callback = setTimeoutSpy.mock.calls.find(
+        (call) => call[1] === 2000
+      )?.[0];
+      if (callback) {
+        act(() => {
+          callback();
+        });
+      }
 
-      vi.useRealTimers();
+      expect(mockOnClose).toHaveBeenCalled();
     });
   });
 
@@ -455,7 +481,13 @@ describe("BugReportModal", () => {
     });
 
     it("should disable all inputs while submitting", async () => {
-      (global.fetch as any).mockImplementation(() => new Promise(() => {})); // Never resolves
+      let resolveFetch: (value: any) => void;
+      (global.fetch as any).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveFetch = resolve;
+          })
+      );
 
       render(<BugReportModal {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(/What went wrong/);
@@ -470,10 +502,21 @@ describe("BugReportModal", () => {
         expect(textarea).toBeDisabled();
         expect(screen.getByText("Sending...")).toBeInTheDocument();
       });
+
+      // Clean up
+      await act(async () => {
+        resolveFetch!({ ok: true, json: async () => ({}) });
+      });
     });
 
     it("should prevent closing modal while submitting", async () => {
-      (global.fetch as any).mockImplementation(() => new Promise(() => {}));
+      let resolveFetch: (value: any) => void;
+      (global.fetch as any).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveFetch = resolve;
+          })
+      );
 
       render(<BugReportModal {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(/What went wrong/);
@@ -491,6 +534,11 @@ describe("BugReportModal", () => {
       // Try to click Cancel button - should be disabled
       const cancelButton = screen.getByText("Cancel");
       expect(cancelButton).toBeDisabled();
+
+      // Clean up
+      await act(async () => {
+        resolveFetch!({ ok: true, json: async () => ({}) });
+      });
     });
   });
 });

@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import DocumentList from "./DocumentList";
+import TierLimitsDisplay from "./TierLimitsDisplay";
 import type { Document } from "./DocumentList";
 
 interface RightSidebarProps {
@@ -34,6 +35,7 @@ interface RightSidebarProps {
   onOpenBugReport: () => void;
   onOpenFeedback: () => void;
   isServerOnline?: boolean;
+  currentQueries?: number;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -48,6 +50,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onOpenBugReport,
   onOpenFeedback,
   isServerOnline = true,
+  currentQueries = 0,
 }) => {
   const [activeView, setActiveView] = useState<
     "menu" | "documents" | "settings"
@@ -188,6 +191,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               <p className="text-xs font-mono text-indigo-900 dark:text-indigo-50 break-all">
                 {userId || "Non disponibile"}
               </p>
+            </div>
+
+            {/* Tier Limits Display */}
+            <div className="mb-3">
+              <TierLimitsDisplay
+                currentDocuments={documents?.length || 0}
+                currentQueries={currentQueries}
+              />
             </div>
 
             {/* Logout button - Gemini style */}

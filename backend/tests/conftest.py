@@ -48,8 +48,10 @@ def client():
     """
     Create a TestClient instance for testing FastAPI endpoints.
     """
-    with TestClient(app) as test_client:
-        yield test_client
+    # Mock Firebase initialization to avoid requiring credentials in tests
+    with patch("app.core.firebase.initialize_firebase"):
+        with TestClient(app) as test_client:
+            yield test_client
 
 
 @pytest.fixture(scope="function")

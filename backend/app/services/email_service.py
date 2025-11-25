@@ -394,6 +394,130 @@ Action: Review this feedback to improve user experience and system performance.
             logger.error(f"❌ Failed to send feedback email: {str(e)} | Type: {type(e).__name__}")
             return False
 
+    def send_invitation_request(
+        self,
+        first_name: str,
+        last_name: str,
+        email: str,
+    ) -> bool:
+        """
+        Send invitation code request email to support team.
+        
+        Args:
+            first_name: User's first name
+            last_name: User's last name
+            email: User's email address
+        
+        Returns:
+            True if email sent successfully, False otherwise
+        """
+        if not self.client:
+            logger.warning("📧 SendGrid not configured. Invitation request not sent via email.")
+            return False
+        
+        try:
+            # Email subject
+            subject = f"🎫 Invitation Code Request from {first_name} {last_name}"
+            
+            # Plain text content
+            plain_text = f"""
+Invitation Code Request
+========================
+
+A user has requested an invitation code.
+
+User Details:
+- Name: {first_name} {last_name}
+- Email: {email}
+
+Action Required:
+Please review this request and send an invitation code to the user if appropriate.
+
+---
+Automated email from Document Intelligent Hub
+            """
+            
+            # HTML content
+            html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }}
+        .content {{ background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }}
+        .user-info {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }}
+        .info-row {{ margin: 10px 0; }}
+        .label {{ font-weight: bold; color: #667eea; }}
+        .action {{ background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 20px 0; }}
+        .footer {{ text-align: center; color: #6b7280; font-size: 12px; margin-top: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2 style="margin: 0;">🎫 Invitation Code Request</h2>
+        </div>
+        <div class="content">
+            <p>A user has requested an invitation code for Document Intelligent Hub.</p>
+            
+            <div class="user-info">
+                <h3 style="margin-top: 0; color: #667eea;">User Details</h3>
+                <div class="info-row">
+                    <span class="label">Name:</span> {first_name} {last_name}
+                </div>
+                <div class="info-row">
+                    <span class="label">Email:</span> {email}
+                </div>
+            </div>
+            
+            <div class="action">
+                <h4 style="margin-top: 0; color: #f59e0b;">⚡ Action Required</h4>
+                <p style="margin: 0;">Please review this request and send an invitation code to the user if appropriate.</p>
+            </div>
+            
+            <div class="footer">
+                <p>Automated email from Document Intelligent Hub</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+            """
+            
+            # Create SendGrid message
+            email_message = Mail(
+                from_email=Email(self.from_email),
+                to_emails=To(self.support_email),
+                subject=subject,
+                plain_text_content=Content("text/plain", plain_text),
+                html_content=Content("text/html", html_content),
+            )
+            
+            # Send email
+            response = self.client.send(email_message)
+            
+            if response.status_code in [200, 201, 202]:
+                logger.bind(EMAIL=True).info(
+                    f"✅ Invitation request email sent | To: {self.support_email} | User: {first_name} {last_name} ({email})"
+                )
+                return True
+            else:
+                error_body = response.body.decode('utf-8') if response.body else 'No body'
+                logger.error(
+                    f"❌ SendGrid error | Status: {response.status_code} | Body: {error_body}"
+                )
+                if response.status_code == 403:
+                    logger.warning(
+                        "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
+                    )
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to send invitation request email: {str(e)} | Type: {type(e).__name__}")
+            return False
+
 
 # Singleton instance
 _email_service: Optional[EmailService] = None

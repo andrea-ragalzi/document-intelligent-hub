@@ -26,6 +26,7 @@ export default defineConfig({
         "components/ConversationList.tsx",
         "components/RenameModal.tsx",
         "hooks/useTheme.ts",
+        "hooks/useQueryUsage.ts",
         "lib/conversationsService.ts",
         "stores/uiStore.ts",
       ],
