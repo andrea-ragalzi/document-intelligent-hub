@@ -169,7 +169,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               onDragLeave={(e) => handleDragEvents(e, "leave")}
               onDragOver={(e) => handleDragEvents(e, "over")}
               onDrop={handleDrop}
-              onClick={() => document.getElementById('file-input')?.click()}
+              onClick={() => document.getElementById("file-input")?.click()}
               className={dropZoneClassName}
             >
               <div className="flex flex-col items-center justify-center gap-4 text-center">

@@ -186,9 +186,11 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             const isSelected = selectedConvs.includes(conv.id);
 
             return (
-              <button
+              <div
                 key={conv.id}
-                type="button"
+                role="button"
+                tabIndex={0}
+                aria-label={`Conversation: ${conv.name}`}
                 className={`group relative w-full text-left rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${getConversationItemClassName(
                   isSelected,
                   isActive
@@ -198,6 +200,16 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     handleSelect(conv.id);
                   } else {
                     onLoad(conv);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (isSelectionMode) {
+                      handleSelect(conv.id);
+                    } else {
+                      onLoad(conv);
+                    }
                   }
                 }}
                 onTouchStart={(e) => handleTouchStart(e, conv.id)}
@@ -264,7 +276,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     </div>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })
         )}
