@@ -25,9 +25,9 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
   useEffect(() => {
     // Listen for custom event to refresh document status
     const handleRefresh = () => setRefreshKey((prev) => prev + 1);
-    window.addEventListener("refreshDocumentStatus", handleRefresh);
+    globalThis.window.addEventListener("refreshDocumentStatus", handleRefresh);
     return () =>
-      window.removeEventListener("refreshDocumentStatus", handleRefresh);
+      globalThis.window.removeEventListener("refreshDocumentStatus", handleRefresh);
   }, []);
 
   useEffect(() => {

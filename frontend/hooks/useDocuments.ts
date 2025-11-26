@@ -146,7 +146,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
       console.log("✅ Document deleted:", result);
 
       // Trigger document status refresh
-      window.dispatchEvent(new Event("refreshDocumentStatus"));
+      globalThis.window.dispatchEvent(new Event("refreshDocumentStatus"));
 
       // Refresh the list
       await refreshDocuments();
@@ -189,7 +189,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
     console.log("✅ All documents deleted:", result);
 
     // Trigger document status refresh
-    window.dispatchEvent(new Event("refreshDocumentStatus"));
+    globalThis.window.dispatchEvent(new Event("refreshDocumentStatus"));
 
     // Refresh the list
     await refreshDocuments();

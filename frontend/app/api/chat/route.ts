@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     // Extract the last user query
     const lastMessage = messages[messages.length - 1] as Message;
-    if (!lastMessage || lastMessage.role !== "user") {
+    if (!lastMessage?.content || lastMessage.role !== "user") {
       return new Response("Invalid message format", { status: 400 });
     }
 
@@ -94,15 +94,15 @@ export async function POST(req: Request) {
 
     // Clean up [DOCUMENT X] markers from the answer
     // These are internal reference markers that shouldn't appear in user-facing text
-    answer = answer.replace(/\s*\[DOCUMENT\s+\d+\]/gi, "");
+    answer = answer.replaceAll(/\s*\[DOCUMENT\s+\d+\]/gi, "");
 
     // Create a stream compatible with Vercel AI SDK
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         // Vercel AI SDK format: each chunk must start with "0:" for text content
-        for (let i = 0; i < answer.length; i++) {
-          const chunk = `0:${JSON.stringify(answer[i])}\n`;
+        for (const char of answer) {
+          const chunk = `0:${JSON.stringify(char)}\n`;
           controller.enqueue(encoder.encode(chunk));
           // Small delay to simulate streaming
           await new Promise((resolve) => setTimeout(resolve, 10));

@@ -42,7 +42,7 @@ export const useConversations = ({
         // If no conversations in Firestore, check localStorage for migration
         if (
           firestoreConversations.length === 0 &&
-          typeof window !== "undefined"
+          typeof globalThis.window !== "undefined"
         ) {
           const stored = localStorage.getItem(CONVERSATIONS_KEY);
           if (stored) {
@@ -78,7 +78,7 @@ export const useConversations = ({
         setError("Unable to load conversations");
 
         // Fallback to localStorage if Firestore fails
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           const stored = localStorage.getItem(CONVERSATIONS_KEY);
           if (stored) {
             try {
@@ -135,7 +135,7 @@ export const useConversations = ({
         setSavedConversations((prev) => [newConversation, ...prev]);
 
         // Backup su localStorage
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           const updated = [newConversation, ...savedConversations];
           localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
         }
@@ -148,7 +148,7 @@ export const useConversations = ({
         setError("Unable to save conversation");
 
         // Fallback to localStorage
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           try {
             const newConversation: SavedConversation = {
               id: Date.now().toString(),
@@ -189,7 +189,7 @@ export const useConversations = ({
         setSavedConversations(updated);
 
         // Update localStorage
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
         }
 
@@ -199,7 +199,7 @@ export const useConversations = ({
         setError("Unable to delete conversation");
 
         // Fallback to localStorage
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           try {
             const updated = savedConversations.filter((conv) => conv.id !== id);
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
@@ -244,7 +244,7 @@ export const useConversations = ({
         setSavedConversations(updated);
 
         // Update localStorage
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
         }
 
@@ -254,7 +254,7 @@ export const useConversations = ({
         setError("Unable to rename conversation");
 
         // Fallback to localStorage
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           try {
             const updated = savedConversations.map((conv) =>
               conv.id === id ? { ...conv, name: newName } : conv
@@ -301,7 +301,7 @@ export const useConversations = ({
         setSavedConversations(updated);
 
         // Update localStorage
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
         }
 
@@ -311,7 +311,7 @@ export const useConversations = ({
         setError("Unable to update conversation");
 
         // Fallback to localStorage
-        if (typeof window !== "undefined") {
+        if (typeof globalThis.window !== "undefined") {
           try {
             const updated = savedConversations.map((conv) =>
               conv.id === id ? { ...conv, history } : conv
