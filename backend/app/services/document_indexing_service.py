@@ -17,7 +17,6 @@ import tempfile
 import time
 from typing import List, Optional, Tuple
 
-import aiofiles
 from app.core.logging import logger
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.services.document_classifier_service import (
@@ -307,15 +306,18 @@ class DocumentIndexingService:
         Returns:
             Tuple of (language_code, confidence_score)
         """
-        temp_file_path = f"/tmp/{file.filename}"
+        # Create a secure temporary file with PDF suffix
+        # This prevents path injection attacks by not using user-controlled filename
+        temp_fd, temp_file_path = tempfile.mkstemp(suffix=".pdf", prefix="preview_")
         
         try:
             content = await file.read()
             if not content:
                 raise ValueError("The uploaded file is empty.")
 
-            async with aiofiles.open(temp_file_path, "wb") as f:
-                await f.write(content)
+            # Write content to the secure temporary file
+            os.write(temp_fd, content)
+            os.close(temp_fd)  # Close the file descriptor before passing to loader
 
             # Load first pages only for preview
             loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
@@ -339,5 +341,7 @@ class DocumentIndexingService:
             logger.error(f"❌ Language detection error: {e}")
             raise e
         finally:
+            # Clean up the secure temporary file
+            # temp_file_path is from tempfile.mkstemp(), already an absolute path
             if os.path.exists(temp_file_path):
-                os.remove(os.path.abspath(temp_file_path))
+                os.remove(temp_file_path)
