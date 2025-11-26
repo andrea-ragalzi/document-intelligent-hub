@@ -481,13 +481,12 @@ describe("BugReportModal", () => {
     });
 
     it("should disable all inputs while submitting", async () => {
+      const mockResponse = { ok: true, json: async () => ({}) };
       let resolveFetch: (value: any) => void;
-      (globalThis.fetch as any).mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            resolveFetch = resolve;
-          })
-      );
+      const pendingPromise = new Promise((resolve) => {
+        resolveFetch = resolve;
+      });
+      (globalThis.fetch as any).mockImplementation(() => pendingPromise);
 
       render(<BugReportModal {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(/What went wrong/);
@@ -505,18 +504,17 @@ describe("BugReportModal", () => {
 
       // Clean up
       await act(async () => {
-        resolveFetch!({ ok: true, json: async () => ({}) });
+        resolveFetch!(mockResponse);
       });
     });
 
     it("should prevent closing modal while submitting", async () => {
+      const mockResponse = { ok: true, json: async () => ({}) };
       let resolveFetch: (value: any) => void;
-      (globalThis.fetch as any).mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            resolveFetch = resolve;
-          })
-      );
+      const pendingPromise = new Promise((resolve) => {
+        resolveFetch = resolve;
+      });
+      (globalThis.fetch as any).mockImplementation(() => pendingPromise);
 
       render(<BugReportModal {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(/What went wrong/);
@@ -537,7 +535,7 @@ describe("BugReportModal", () => {
 
       // Clean up
       await act(async () => {
-        resolveFetch!({ ok: true, json: async () => ({}) });
+        resolveFetch!(mockResponse);
       });
     });
   });

@@ -59,12 +59,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   const handleDragEvents = (
     e: DragEvent<HTMLDivElement>,
-    action: 'enter' | 'leave' | 'over'
+    action: "enter" | "leave" | "over"
   ) => {
     e.preventDefault();
     e.stopPropagation();
-    if (action === 'enter') setIsDragging(true);
-    if (action === 'leave') setIsDragging(false);
+    if (action === "enter") setIsDragging(true);
+    if (action === "leave") setIsDragging(false);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -145,9 +145,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* Drag & Drop Zone */}
             <div
-              onDragEnter={(e) => handleDragEvents(e, 'enter')}
-              onDragLeave={(e) => handleDragEvents(e, 'leave')}
-              onDragOver={(e) => handleDragEvents(e, 'over')}
+              onDragEnter={(e) => handleDragEvents(e, "enter")}
+              onDragLeave={(e) => handleDragEvents(e, "leave")}
+              onDragOver={(e) => handleDragEvents(e, "over")}
               onDrop={handleDrop}
               className={`
                 relative border-2 border-dashed rounded-xl p-8 transition-all duration-200
