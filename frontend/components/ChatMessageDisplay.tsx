@@ -11,8 +11,10 @@ interface ChatMessageDisplayProps {
 }
 
 // Utility function to clean [DOCUMENT X] markers from text
+// Regex is safe: no nested quantifiers, bounded input from backend
 const cleanDocumentMarkers = (text: string): string => {
-  return text.replaceAll(/\s*\[DOCUMENT\s+\d+\]/gi, "");
+  // Match [DOCUMENT <number>] with optional leading space (no backtracking risk)
+  return text.replaceAll(/\s?\[DOCUMENT\s+\d+\]/gi, "");
 };
 
 // Componente di visualizzazione dell'Avatar
