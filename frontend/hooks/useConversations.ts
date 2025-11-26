@@ -161,9 +161,9 @@ export const useConversations = ({
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (localErr) {
+          } catch (error_) {
             // Intentional: localStorage errors should not block the save flow
-            console.error("Error saving to localStorage:", localErr);
+            console.error("Error saving to localStorage:", error_);
           }
         }
 
@@ -206,9 +206,9 @@ export const useConversations = ({
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (localErr) {
+          } catch (error_) {
             // Intentional: localStorage errors should not block the delete flow
-            console.error("Error deleting from localStorage:", localErr);
+            console.error("Error deleting from localStorage:", error_);
           }
         }
 
@@ -264,9 +264,9 @@ export const useConversations = ({
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (localErr) {
+          } catch (error_) {
             // Intentional: localStorage errors should not block the rename flow
-            console.error("Error updating localStorage:", localErr);
+            console.error("Error updating localStorage:", error_);
           }
         }
 
@@ -322,9 +322,9 @@ export const useConversations = ({
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (localErr) {
+          } catch (error_) {
             // Intentional: localStorage errors should not block the update flow
-            console.error("Error updating localStorage:", localErr);
+            console.error("Error updating localStorage:", error_);
           }
         }
 

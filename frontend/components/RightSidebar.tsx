@@ -134,11 +134,10 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
       {/* Overlay - Solo su mobile quando isOpen */}
       {isOpen && (
         <div
-          role="presentation"
+          aria-hidden="true"
           className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 xl:hidden"
           onClick={onClose}
           onKeyDown={(e) => e.key === "Escape" && onClose()}
-          aria-label="Close sidebar"
         />
       )}
 

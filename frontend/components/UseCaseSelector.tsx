@@ -99,7 +99,7 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
     <>
       {/* Backdrop - same style as conversations/documents */}
       <div
-        role="presentation"
+        aria-hidden="true"
         className="fixed inset-0 bg-black/90 dark:bg-indigo-950/95 z-[100]"
         onClick={(e) => {
           e.stopPropagation();

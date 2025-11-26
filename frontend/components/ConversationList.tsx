@@ -288,8 +288,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           <>
             {/* Backdrop for mobile */}
             <div
-              role="presentation"
-              aria-label="Close menu"
+              aria-hidden="true"
               className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
               onClick={(e) => {
                 e.stopPropagation();
