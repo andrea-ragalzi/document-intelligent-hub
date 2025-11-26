@@ -40,18 +40,18 @@ export const useDocumentUpload = (
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== "application/pdf") {
-        setUploadAlert({
-          message: "Only PDF files are supported.",
-          type: "error",
-        });
-        setFile(null);
-      } else {
+      if (selectedFile.type === "application/pdf") {
         setFile(selectedFile);
         setUploadAlert({
           message: `${selectedFile.name} ready for indexing.`,
           type: "info",
         });
+      } else {
+        setUploadAlert({
+          message: "Only PDF files are supported.",
+          type: "error",
+        });
+        setFile(null);
       }
     } else {
       setFile(null);

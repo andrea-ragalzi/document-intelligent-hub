@@ -26,7 +26,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 
-async def setup_test_data():
+def setup_test_data():
     """
     Create test data in Firestore for registration testing.
 
@@ -96,7 +96,7 @@ async def setup_test_data():
     print("6. Register without code and not in unlimited list -> Should fail")
 
 
-async def test_registration_flow():
+def test_registration_flow():
     """
     Example of how to call the registration endpoint.
 

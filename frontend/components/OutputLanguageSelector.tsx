@@ -56,7 +56,6 @@ export const OutputLanguageSelector: React.FC<OutputLanguageSelectorProps> = ({
     <>
       {/* Backdrop */}
       <div
-        role="presentation"
         className="fixed inset-0 bg-black/90 dark:bg-indigo-950/95 z-[100]"
         onClick={(e) => {
           e.stopPropagation();
@@ -67,7 +66,6 @@ export const OutputLanguageSelector: React.FC<OutputLanguageSelectorProps> = ({
       {/* Mobile Bottom Sheet */}
       <div className="fixed inset-0 z-[110] flex items-end justify-center pt-20">
         <div
-          role="presentation"
           className="bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl w-full overflow-hidden flex flex-col transition-transform"
           style={{
             maxHeight: "calc(100vh - 5rem)",

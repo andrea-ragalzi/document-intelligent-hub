@@ -11,6 +11,19 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useMobileGestures } from "@/hooks/useMobileGestures";
 
+const getConversationItemClassName = (
+  isSelected: boolean,
+  isActive: boolean
+): string => {
+  if (isSelected) {
+    return "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-500";
+  }
+  if (isActive) {
+    return "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-300 dark:border-indigo-700";
+  }
+  return "bg-white dark:bg-indigo-950 border-2 border-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-800 hover:border-indigo-500";
+};
+
 interface ConversationListProps {
   conversations: SavedConversation[];
   currentConversationId?: string | null;
@@ -177,13 +190,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 key={conv.id}
                 role="button"
                 tabIndex={0}
-                className={`group relative rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${
-                  isSelected
-                    ? "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-500"
-                    : isActive
-                    ? "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-300 dark:border-indigo-700"
-                    : "bg-white dark:bg-indigo-950 border-2 border-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-800 hover:border-indigo-500"
-                } cursor-pointer`}
+                className={`group relative rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${getConversationItemClassName(
+                  isSelected,
+                  isActive
+                )} cursor-pointer`}
                 onClick={() => {
                   if (isSelectionMode) {
                     handleSelect(conv.id);

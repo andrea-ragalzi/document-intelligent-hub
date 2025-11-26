@@ -153,7 +153,6 @@ class DocumentIndexingService:
             List of chunked documents
         """
         use_structural_chunking = False
-        strategy_reason = "Default Classification"
         
         if category == DocumentCategory.AUTORITA_STRUTTURALE:
             use_structural_chunking = True

@@ -221,10 +221,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
             </button>
             <button
               onClick={handleDeleteSelected}
-              disabled={!isServerOnline}
+              disabled={isServerOnline === false}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               title={
-                !isServerOnline
+                isServerOnline === false
                   ? "Server offline - delete unavailable"
                   : "Delete selected documents"
               }
@@ -263,7 +263,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
                     }
                   }}
                   onKeyDown={(e) => {
-                    if ((e.key === "Enter" || e.key === " ") && isSelectionMode) {
+                    if (
+                      (e.key === "Enter" || e.key === " ") &&
+                      isSelectionMode
+                    ) {
                       e.preventDefault();
                       handleSelect(doc.filename);
                     }
@@ -366,7 +369,6 @@ const DocumentList: React.FC<DocumentListProps> = ({
           <>
             {/* Backdrop for mobile */}
             <div
-              role="presentation"
               className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
               onClick={(e) => {
                 e.stopPropagation();
@@ -418,17 +420,19 @@ const DocumentList: React.FC<DocumentListProps> = ({
                           runActionAndCloseMenu(() => openDeleteModal(doc));
                         }
                       }}
-                      disabled={!isServerOnline}
+                      disabled={isServerOnline === false}
                       className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       title={
-                        !isServerOnline
+                        isServerOnline === false
                           ? "Server offline - delete unavailable"
                           : "Delete document"
                       }
                     >
                       <Trash2 size={18} className="text-white/80" />
                       <span className="font-semibold tracking-wide">
-                        {!isServerOnline ? "Delete (Offline)" : "Delete"}
+                        {isServerOnline === false
+                          ? "Delete (Offline)"
+                          : "Delete"}
                       </span>
                     </button>
 

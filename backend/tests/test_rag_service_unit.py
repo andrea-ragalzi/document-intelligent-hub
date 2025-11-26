@@ -8,7 +8,7 @@ This is the key benefit of the Repository Pattern - services can be tested
 independently with fast, reliable mock objects.
 """
 
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from app.repositories.vector_store_repository import VectorStoreRepository
