@@ -11,7 +11,7 @@ from app.core.logging import logger
 from firebase_admin import auth
 
 
-async def get_user_tier_limits(user_id: str) -> Tuple[str, Dict[str, int]]:
+def get_user_tier_limits(user_id: str) -> Tuple[str, Dict[str, int]]:
     """
     Get user's tier and associated limits from Firebase config.
     
@@ -27,7 +27,7 @@ async def get_user_tier_limits(user_id: str) -> Tuple[str, Dict[str, int]]:
         - max_file_size_mb: int
         
     Examples:
-        >>> tier, limits = await get_user_tier_limits("user123")
+        >>> tier, limits = get_user_tier_limits("user123")
         >>> print(f"Tier: {tier}, Max file size: {limits['max_file_size_mb']}MB")
         Tier: PRO, Max file size: 50MB
     """
@@ -41,7 +41,7 @@ async def get_user_tier_limits(user_id: str) -> Tuple[str, Dict[str, int]]:
         from app.routers.auth_router import load_app_config
         
         # Load limits from Firestore
-        app_config = await load_app_config()
+        app_config = load_app_config()
         tier_limits = app_config["limits"]
         
         # Get limits for user's tier (fallback to FREE if tier not found)
@@ -65,7 +65,7 @@ async def get_user_tier_limits(user_id: str) -> Tuple[str, Dict[str, int]]:
         }
 
 
-async def get_max_upload_size_bytes(user_id: str) -> int:
+def get_max_upload_size_bytes(user_id: str) -> int:
     """
     Get maximum upload size in bytes for user based on their tier.
     
@@ -76,16 +76,16 @@ async def get_max_upload_size_bytes(user_id: str) -> int:
         int: Maximum file size in bytes
         
     Examples:
-        >>> max_size = await get_max_upload_size_bytes("user123")
+        >>> max_size = get_max_upload_size_bytes("user123")
         >>> print(f"Max upload: {max_size / 1024 / 1024}MB")
         Max upload: 50.0MB
     """
-    _, limits = await get_user_tier_limits(user_id)
+    _, limits = get_user_tier_limits(user_id)
     max_mb = limits.get("max_file_size_mb", 10)
     return max_mb * 1024 * 1024  # Convert MB to bytes
 
 
-async def check_file_count_limit(user_id: str, current_count: int) -> Tuple[bool, int]:
+def check_file_count_limit(user_id: str, current_count: int) -> Tuple[bool, int]:
     """
     Check if user has reached their maximum file upload limit.
     
@@ -97,11 +97,11 @@ async def check_file_count_limit(user_id: str, current_count: int) -> Tuple[bool
         Tuple of (can_upload, max_files)
         
     Examples:
-        >>> can_upload, max_files = await check_file_count_limit("user123", 4)
+        >>> can_upload, max_files = check_file_count_limit("user123", 4)
         >>> if not can_upload:
         >>>     print(f"Limit reached! Max: {max_files}")
     """
-    _, limits = await get_user_tier_limits(user_id)
+    _, limits = get_user_tier_limits(user_id)
     max_files = limits.get("max_files", 5)
     
     can_upload = current_count < max_files
@@ -109,7 +109,7 @@ async def check_file_count_limit(user_id: str, current_count: int) -> Tuple[bool
     return can_upload, max_files
 
 
-async def get_tier_info_for_display(user_id: str) -> Dict[str, Any]:
+def get_tier_info_for_display(user_id: str) -> Dict[str, Any]:
     """
     Get formatted tier information for display in UI.
     
@@ -120,7 +120,7 @@ async def get_tier_info_for_display(user_id: str) -> Dict[str, Any]:
         Dictionary with tier name and all limits
         
     Example:
-        >>> info = await get_tier_info_for_display("user123")
+        >>> info = get_tier_info_for_display("user123")
         >>> print(info)
         {
             "tier": "PRO",
@@ -129,7 +129,7 @@ async def get_tier_info_for_display(user_id: str) -> Dict[str, Any]:
             "max_file_size_mb": 50
         }
     """
-    tier, limits = await get_user_tier_limits(user_id)
+    tier, limits = get_user_tier_limits(user_id)
     
     return {
         "tier": tier,

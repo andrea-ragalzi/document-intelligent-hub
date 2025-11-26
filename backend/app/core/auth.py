@@ -9,7 +9,7 @@ from fastapi import Header, HTTPException, status
 from firebase_admin import auth
 
 
-async def verify_firebase_token(authorization: str = Header(None)) -> str:
+def verify_firebase_token(authorization: str = Header(None)) -> str:
     """
     Verify Firebase Auth token from Authorization header.
     
@@ -101,11 +101,11 @@ async def verify_firebase_token(authorization: str = Header(None)) -> str:
         )
 
 
-async def get_verified_user_id(authorization: str = Header(None)) -> str:
+def get_verified_user_id(authorization: str = Header(None)) -> str:
     """
     Alias for verify_firebase_token for better semantic clarity.
     
     Usage:
         user_id: str = Depends(get_verified_user_id)
     """
-    return await verify_firebase_token(authorization)
+    return verify_firebase_token(authorization)

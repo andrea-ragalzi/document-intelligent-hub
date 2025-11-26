@@ -54,12 +54,12 @@ async def upload_document(
     **Tier Limits:** Automatically enforced based on user's Firebase custom claims.
     """
     # Get user's tier-based limits
-    max_upload_size_bytes = await get_max_upload_size_bytes(user_id)
+    max_upload_size_bytes = get_max_upload_size_bytes(user_id)
     max_upload_size_mb = get_safe_file_size_mb(max_upload_size_bytes)
     
     # Check file count limit
     current_file_count = rag_service.get_user_document_count(user_id)
-    can_upload, max_files = await check_file_count_limit(user_id, current_file_count)
+    can_upload, max_files = check_file_count_limit(user_id, current_file_count)
     
     if not can_upload:
         logger.warning(f"⚠️ File limit reached | User: {user_id} | Files: {current_file_count}/{max_files}")

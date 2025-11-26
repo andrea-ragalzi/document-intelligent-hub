@@ -62,7 +62,7 @@ def calculate_remaining_queries(query_limit: int, queries_used: int) -> int:
     return max(0, query_limit - queries_used)
 
 
-async def get_current_user_id(authorization: str = Header(...)) -> str:
+def get_current_user_id(authorization: str = Header(...)) -> str:
     """
     Extract and validate user ID from Firebase token.
     
@@ -100,7 +100,7 @@ _unlimited_emails_cache: List[str] | None = None
 _tier_limits_cache: dict | None = None
 
 
-async def load_app_config() -> dict:
+def load_app_config() -> dict:
     """
     Load application configuration from Firestore app_config/settings.
     
@@ -175,7 +175,7 @@ async def load_app_config() -> dict:
         }
 
 
-async def get_unlimited_emails() -> List[str]:
+def get_unlimited_emails() -> List[str]:
     """
     Retrieve list of emails with unlimited tier access from Firestore.
     
@@ -259,7 +259,7 @@ async def register_user(registration_data: RegistrationData):
         )
     
     # Step 2: Load app configuration (unlimited emails + tier limits)
-    app_config = await load_app_config()
+    app_config = load_app_config()
     unlimited_emails = app_config["unlimited_emails"]
     
     if user_email and user_email in unlimited_emails:
@@ -402,7 +402,7 @@ async def register_user(registration_data: RegistrationData):
 
 
 @router.post("/refresh-claims")
-async def refresh_user_claims(id_token: str):
+def refresh_user_claims(id_token: str):
     """
     Retrieve current user claims from Firebase token.
     
@@ -494,7 +494,7 @@ async def request_invitation_code(
 
 
 @router.get("/tier-limits")
-async def get_tier_limits():
+def get_tier_limits():
     """
     Get tier limits configuration from Firestore.
     
@@ -505,7 +505,7 @@ async def get_tier_limits():
         dict: Dictionary with tier limits
     """
     try:
-        app_config = await load_app_config()
+        app_config = load_app_config()
         limits = app_config["limits"]
         
         logger.info("✅ Tier limits retrieved successfully")
@@ -548,13 +548,13 @@ async def get_user_usage(user_id: str = Depends(get_current_user_id)):
         tier = custom_claims.get("tier", "FREE")
         
         # Get tier limits
-        app_config = await load_app_config()
+        app_config = load_app_config()
         tier_limits = app_config["limits"].get(tier, app_config["limits"]["FREE"])
         query_limit = tier_limits["max_queries_per_day"]
         
         # Get usage service and fetch today's query count
         usage_service = get_usage_service()
-        queries_today = await usage_service.get_user_queries_today(user_id)
+        queries_today = usage_service.get_user_queries_today(user_id)
         
         # Calculate remaining queries using helper function
         remaining = calculate_remaining_queries(query_limit, queries_today)
@@ -577,7 +577,7 @@ async def get_user_usage(user_id: str = Depends(get_current_user_id)):
 
 
 @router.post("/admin/set-tier")
-async def set_user_tier_admin(
+def set_user_tier_admin(
     email: str,
     tier: str,
     current_user_id: str = Depends(get_current_user_id)

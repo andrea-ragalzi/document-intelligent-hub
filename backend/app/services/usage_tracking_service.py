@@ -22,7 +22,7 @@ class UsageTrackingService:
         """Get today's date key in YYYY-MM-DD format (UTC)."""
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    async def get_user_queries_today(self, user_id: str) -> int:
+    def get_user_queries_today(self, user_id: str) -> int:
         """
         Get the number of queries the user has made today.
         
@@ -52,7 +52,7 @@ class UsageTrackingService:
             logger.error(f"❌ Error getting user queries: {e}")
             return 0
     
-    async def increment_user_queries(self, user_id: str) -> int:
+    def increment_user_queries(self, user_id: str) -> int:
         """
         Increment the user's query count for today.
         
@@ -132,7 +132,7 @@ class UsageTrackingService:
             # On error, allow the query but log it
             return True, 0
     
-    async def cleanup_old_usage(self, days_to_keep: int = 30):
+    def cleanup_old_usage(self, days_to_keep: int = 30):
         """
         Clean up old usage data (keep last N days).
         
