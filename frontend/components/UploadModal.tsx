@@ -86,14 +86,36 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     onUpload(e);
   };
 
+  const overlayClassName = `fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-50 transition-opacity duration-300 ${
+    isUploading ? "cursor-not-allowed" : "cursor-pointer"
+  }`;
+
+  const dropZoneClassName = `relative border-2 border-dashed rounded-xl p-8 transition-all duration-200 ${
+    isDragging
+      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+      : "border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50"
+  } ${isUploading ? "opacity-50 pointer-events-none" : ""}`;
+
+  const iconWrapperClassName = `p-4 rounded-full transition-colors ${
+    isDragging
+      ? "bg-blue-100 dark:bg-blue-900/40"
+      : "bg-gray-200 dark:bg-gray-700"
+  }`;
+
+  const iconClassName = isDragging
+    ? "text-blue-600 dark:text-blue-400"
+    : "text-gray-400 dark:text-gray-500";
+
+  const dropZoneText = isDragging
+    ? "Drop your PDF here"
+    : "Drag & drop your PDF here";
+
   return (
     <>
       {/* Overlay */}
       <div
         aria-label="Close upload modal"
-        className={`fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-50 transition-opacity duration-300 ${
-          isUploading ? "cursor-not-allowed" : "cursor-pointer"
-        }`}
+        className={overlayClassName}
         onClick={isUploading ? undefined : onClose}
         onKeyDown={
           isUploading
@@ -149,44 +171,16 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               onDragLeave={(e) => handleDragEvents(e, "leave")}
               onDragOver={(e) => handleDragEvents(e, "over")}
               onDrop={handleDrop}
-              className={`
-                relative border-2 border-dashed rounded-xl p-8 transition-all duration-200
-                ${
-                  isDragging
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                    : "border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50"
-                }
-                ${isUploading ? "opacity-50 pointer-events-none" : ""}
-              `}
+              className={dropZoneClassName}
             >
               <div className="flex flex-col items-center justify-center gap-4 text-center">
-                <div
-                  className={`
-                  p-4 rounded-full transition-colors
-                  ${
-                    isDragging
-                      ? "bg-blue-100 dark:bg-blue-900/40"
-                      : "bg-gray-200 dark:bg-gray-700"
-                  }
-                `}
-                >
-                  <FileText
-                    size={48}
-                    className={`
-                    ${
-                      isDragging
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-gray-400 dark:text-gray-500"
-                    }
-                  `}
-                  />
+                <div className={iconWrapperClassName}>
+                  <FileText size={48} className={iconClassName} />
                 </div>
 
                 <div>
                   <p className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    {isDragging
-                      ? "Drop your PDF here"
-                      : "Drag & drop your PDF here"}
+                    {dropZoneText}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     or click to browse files
