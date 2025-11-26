@@ -58,7 +58,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   if (!isOpen) return null;
 
   const handleDragEvents = (
-    e: DragEvent<HTMLDivElement>,
+    e: DragEvent<HTMLButtonElement>,
     action: "enter" | "leave" | "over"
   ) => {
     e.preventDefault();
@@ -67,7 +67,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     if (action === "leave") setIsDragging(false);
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -161,13 +161,15 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
           {/* Content */}
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* Drag & Drop Zone - Visual container for file input */}
+            {/* Drag & Drop Zone - Using button for semantic HTML and accessibility */}
             {/* Drag events provide enhancement; accessible file input inside provides primary interaction */}
-            <div
+            <button
+              type="button"
               onDragEnter={(e) => handleDragEvents(e, "enter")}
               onDragLeave={(e) => handleDragEvents(e, "leave")}
               onDragOver={(e) => handleDragEvents(e, "over")}
               onDrop={handleDrop}
+              onClick={() => document.getElementById('file-input')?.click()}
               className={dropZoneClassName}
             >
               <div className="flex flex-col items-center justify-center gap-4 text-center">
@@ -186,13 +188,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
                 <input
                   type="file"
+                  id="file-input"
                   accept=".pdf"
                   onChange={onFileChange}
                   disabled={isUploading}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                 />
               </div>
-            </div>
+            </button>
 
             {/* Selected File */}
             {file && (
