@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook } from "@testing-library/react";
 import { act } from "react";
 import { useRegistration } from "@/hooks/useRegistration";
 import type { User } from "firebase/auth";
@@ -31,7 +31,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 describe("useRegistration Hook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
   });
 
   afterEach(() => {
@@ -39,7 +39,7 @@ describe("useRegistration Hook", () => {
   });
 
   it("should register with valid invitation code", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         status: "success",
@@ -62,7 +62,7 @@ describe("useRegistration Hook", () => {
   });
 
   it("should register without code (FREE tier)", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         status: "success",
@@ -83,7 +83,7 @@ describe("useRegistration Hook", () => {
   });
 
   it("should handle invalid invitation code", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: async () => ({
@@ -104,7 +104,7 @@ describe("useRegistration Hook", () => {
   });
 
   it("should handle used invitation code", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: async () => ({
@@ -124,7 +124,7 @@ describe("useRegistration Hook", () => {
   });
 
   it("should handle expired invitation code", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: async () => ({
@@ -144,7 +144,7 @@ describe("useRegistration Hook", () => {
   });
 
   it("should handle network errors", async () => {
-    (global.fetch as any).mockRejectedValueOnce(new Error("Network error"));
+    (globalThis.fetch as any).mockRejectedValueOnce(new Error("Network error"));
 
     const { result } = renderHook(() => useRegistration());
 
@@ -158,7 +158,7 @@ describe("useRegistration Hook", () => {
   });
 
   it("should handle non-JSON responses", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 500,
       json: async () => {
@@ -179,7 +179,7 @@ describe("useRegistration Hook", () => {
   });
 
   it("should clear error", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: async () => ({
@@ -211,9 +211,8 @@ describe("useRegistration Hook", () => {
 
     const { result } = renderHook(() => useRegistration());
 
-    let tier;
     await act(async () => {
-      tier = await result.current.register("SOME_CODE");
+      await result.current.register("SOME_CODE");
     });
 
     // Should return null if no user (but our mock always has user)
@@ -225,11 +224,11 @@ describe("useRegistration Hook", () => {
 describe("useRegistration - Edge Cases", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
   });
 
   it("should handle empty invitation code", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         status: "success",
@@ -240,19 +239,18 @@ describe("useRegistration - Edge Cases", () => {
 
     const { result } = renderHook(() => useRegistration());
 
-    let tier;
     await act(async () => {
-      tier = await result.current.register("");
+      await result.current.register("");
     });
 
     // Empty string treated as no code (null)
-    const fetchCall = (global.fetch as any).mock.calls[0];
+    const fetchCall = (globalThis.fetch as any).mock.calls[0];
     const body = JSON.parse(fetchCall[1].body);
     expect(body.invitation_code).toBeNull();
   });
 
   it("should handle whitespace-only invitation code", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: async () => ({
@@ -272,7 +270,7 @@ describe("useRegistration - Edge Cases", () => {
 
   it("should handle concurrent registration attempts", async () => {
     let resolveFetch: (value: any) => void;
-    (global.fetch as any).mockImplementation(
+    (globalThis.fetch as any).mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveFetch = resolve;
@@ -311,11 +309,11 @@ describe("useRegistration - Edge Cases", () => {
 describe("Invitation Code Request", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
   });
 
   it("should successfully request invitation code", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         status: "success",
@@ -341,7 +339,7 @@ describe("Invitation Code Request", () => {
   });
 
   it("should handle invalid email format", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 422,
       json: async () => ({
@@ -369,7 +367,7 @@ describe("Invitation Code Request", () => {
 describe("Query Usage Tracking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
   });
 
   it("should track query usage correctly", async () => {
@@ -381,7 +379,7 @@ describe("Query Usage Tracking", () => {
       tier: "FREE",
     };
 
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => mockUsageResponse,
     });
@@ -408,7 +406,7 @@ describe("Query Usage Tracking", () => {
       tier: "UNLIMITED",
     };
 
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => mockUsageResponse,
     });
@@ -453,11 +451,11 @@ describe("Query Usage Tracking", () => {
 describe("Rate Limiting (429 Errors)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
   });
 
   it("should return 429 when query limit exceeded", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 429,
       json: async () => ({
