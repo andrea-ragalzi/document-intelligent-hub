@@ -1,0 +1,15 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.black-formatter",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "vitest.explorer",
+    "ryanluker.vscode-coverage-gutters",
+    "github.copilot",
+    "github.copilot-chat",
+    "sonarsource.sonarlint-vscode"
+  ],
+  "unwantedRecommendations": []
+}

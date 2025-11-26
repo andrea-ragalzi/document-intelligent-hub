@@ -42,15 +42,15 @@ build-backend = "poetry.core.masonry.api"
 # Pylint configuration - suppress false positives documented in sonar-project.properties
 [tool.pylint."MESSAGES CONTROL"]
 disable = [
-    "W1514",  # Using open without explicitly specifying an encoding - temp file operations
-    "R0801",  # Similar lines in multiple files - template patterns acceptable
-    "R0911",  # Too many return statements - validation logic
-    "R0912",  # Too many branches - email templates have inherent complexity
-    "R0913",  # Too many arguments - service layer constructors
-    "R0914",  # Too many local variables - complex workflows
-    "R0915",  # Too many statements - email service functions (35 complexity documented)
-    "C0301",  # Line too long - handled by Black formatter
-    "C0411",  # Import order - handled by isort
+    "W1514", # Using open without explicitly specifying an encoding - temp file operations
+    "R0801", # Similar lines in multiple files - template patterns acceptable
+    "R0911", # Too many return statements - validation logic
+    "R0912", # Too many branches - email templates have inherent complexity
+    "R0913", # Too many arguments - service layer constructors
+    "R0914", # Too many local variables - complex workflows
+    "R0915", # Too many statements - email service functions (35 complexity documented)
+    "C0301", # Line too long - handled by Black formatter
+    "C0411", # Import order - handled by isort
 ]
 
 # Type checking - Firebase Admin SDK has incomplete stubs
