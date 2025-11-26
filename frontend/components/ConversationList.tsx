@@ -288,8 +288,6 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           <>
             {/* Backdrop for mobile */}
             <div
-              role="button"
-              tabIndex={0}
               aria-label="Close menu"
               className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
               onClick={(e) => {
