@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 
 from app.core.logging import logger
 from firebase_admin import firestore
+from google.cloud.firestore import transactional as firestore_transactional
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 
 class UsageTrackingService:
@@ -66,8 +68,7 @@ class UsageTrackingService:
             
             # Use transaction to ensure atomic increment
             transaction = self.db.transaction()
-            
-            @firestore.transactional
+            @firestore_transactional
             def update_in_transaction(transaction, ref):
                 snapshot = ref.get(transaction=transaction)
                 
@@ -77,20 +78,18 @@ class UsageTrackingService:
                     current_count = queries.get(today, 0)
                     new_count = current_count + 1
                     queries[today] = new_count
-                    
                     transaction.update(ref, {
                         "queries": queries,
-                        "last_query_at": firestore.SERVER_TIMESTAMP,
-                        "updated_at": firestore.SERVER_TIMESTAMP
+                        "last_query_at": SERVER_TIMESTAMP,
+                        "updated_at": SERVER_TIMESTAMP
                     })
                     return new_count
                 else:
-                    # Create new document
                     new_data = {
                         "queries": {today: 1},
-                        "last_query_at": firestore.SERVER_TIMESTAMP,
-                        "created_at": firestore.SERVER_TIMESTAMP,
-                        "updated_at": firestore.SERVER_TIMESTAMP
+                        "last_query_at": SERVER_TIMESTAMP,
+                        "created_at": SERVER_TIMESTAMP,
+                        "updated_at": SERVER_TIMESTAMP
                     }
                     transaction.set(ref, new_data)
                     return 1
