@@ -131,11 +131,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl pointer-events-auto transform transition-all duration-300"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl pointer-events-auto transform transition-all duration-300">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -165,7 +161,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
           {/* Content */}
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* Drag & Drop Zone */}
+            {/* Drag & Drop Zone - Visual container for file input */}
             <div
               onDragEnter={(e) => handleDragEvents(e, "enter")}
               onDragLeave={(e) => handleDragEvents(e, "leave")}
