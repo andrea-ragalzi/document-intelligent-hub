@@ -57,54 +57,9 @@
   // GitHub Copilot - Detailed instructions in .github/copilot-instructions.md
   "github.copilot.chat.codeGeneration.useInstructionFiles": true,
 
-  // SonarLint Configuration - Suppress false positives
+  "docwriter.style": "Auto-detect",
   "sonarlint.connectedMode.project": {
     "connectionId": "andrea-ragalzi",
     "projectKey": "andrea-ragalzi_document-intelligent-hub"
-  },
-  "sonarlint.rules": {
-    "Web:S6a79": {
-      "level": "off"
-    },
-    "Web:S6880": {
-      "level": "off"
-    },
-    "Web:S3358": {
-      "level": "off"
-    },
-    "typescript:S6a79": {
-      "level": "off"
-    },
-    "typescript:S6880": {
-      "level": "off"
-    },
-    "typescript:S1874": {
-      "level": "off"
-    },
-    "typescript:S134": {
-      "level": "off"
-    },
-    "typescript:S3776": {
-      "level": "off"
-    },
-    "typescript:S3358": {
-      "level": "off"
-    },
-    "typescript:S2871": {
-      "level": "off"
-    },
-    "typescript:S6479": {
-      "level": "off"
-    },
-    "python:S1234": {
-      "level": "off"
-    },
-    "python:S3776": {
-      "level": "off"
-    },
-    "python:S5131": {
-      "level": "off"
-    }
-  },
-  "docwriter.style": "Auto-detect"
+  }
 }
