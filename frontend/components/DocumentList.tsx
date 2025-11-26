@@ -369,6 +369,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           <>
             {/* Backdrop for mobile */}
             <div
+              role="presentation"
               className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
               onClick={(e) => {
                 e.stopPropagation();

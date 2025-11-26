@@ -57,21 +57,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragEvents = (
+    e: DragEvent<HTMLDivElement>,
+    action: 'enter' | 'leave' | 'over'
+  ) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (action === 'enter') setIsDragging(true);
+    if (action === 'leave') setIsDragging(false);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -80,15 +73,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     setIsDragging(false);
 
     const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles.length > 0) {
-      const pdfFile = droppedFiles[0];
-      if (pdfFile.type === "application/pdf") {
-        // Create synthetic event for file change handler
-        const syntheticEvent = {
-          target: { files: droppedFiles },
-        } as ChangeEvent<HTMLInputElement>;
-        onFileChange(syntheticEvent);
-      }
+    if (droppedFiles.length > 0 && droppedFiles[0].type === "application/pdf") {
+      const syntheticEvent = {
+        target: { files: droppedFiles },
+      } as ChangeEvent<HTMLInputElement>;
+      onFileChange(syntheticEvent);
     }
   };
 
@@ -156,9 +145,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* Drag & Drop Zone */}
             <div
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
+              onDragEnter={(e) => handleDragEvents(e, 'enter')}
+              onDragLeave={(e) => handleDragEvents(e, 'leave')}
+              onDragOver={(e) => handleDragEvents(e, 'over')}
               onDrop={handleDrop}
               className={`
                 relative border-2 border-dashed rounded-xl p-8 transition-all duration-200

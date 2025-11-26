@@ -37,9 +37,11 @@ ERROR_SENDGRID_403_MESSAGE = "⚠️ SendGrid 403: Check if sender email is veri
 
 class EmailService:
     """
-    Email service using SendGrid.
+    SendGrid Email Service.
     Handles bug reports and system notifications.
     """
+    
+    client: Optional[SendGridAPIClient]
     
     def __init__(self):
         self.api_key = os.getenv("SENDGRID_API_KEY")
@@ -197,6 +199,10 @@ Action Required: Review this bug report and investigate the issue.
         context: str = ""
     ) -> bool:
         """Send email via SendGrid and check response status."""
+        if not self.client:
+            logger.warning("⚠️ SendGrid client not initialized. Email not sent.")
+            return False
+        
         try:
             response = self.client.send(message)
             

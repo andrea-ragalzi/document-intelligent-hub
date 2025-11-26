@@ -62,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Overlay - Solo su mobile quando isOpen */}
       {isOpen && (
         <div
+          role="presentation"
           aria-label="Close sidebar"
           className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 lg:hidden"
           onClick={onClose}

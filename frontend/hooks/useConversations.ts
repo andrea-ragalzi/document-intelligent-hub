@@ -161,7 +161,8 @@ export const useConversations = ({
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (error_) {
+          } catch (localErr) {
+            // Intentional: localStorage errors should not block the save flow
             console.error("Error saving to localStorage:", localErr);
           }
         }
@@ -205,7 +206,8 @@ export const useConversations = ({
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (error_) {
+          } catch (localErr) {
+            // Intentional: localStorage errors should not block the delete flow
             console.error("Error deleting from localStorage:", localErr);
           }
         }
@@ -262,7 +264,8 @@ export const useConversations = ({
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (error_) {
+          } catch (localErr) {
+            // Intentional: localStorage errors should not block the rename flow
             console.error("Error updating localStorage:", localErr);
           }
         }
@@ -319,7 +322,8 @@ export const useConversations = ({
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (error_) {
+          } catch (localErr) {
+            // Intentional: localStorage errors should not block the update flow
             console.error("Error updating localStorage:", localErr);
           }
         }
