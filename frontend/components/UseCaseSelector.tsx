@@ -104,7 +104,7 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
           e.stopPropagation();
           onClose();
         }}
-        onKeyDown={(e) => e.key === 'Escape' && onClose()}
+        onKeyDown={(e) => e.key === "Escape" && onClose()}
       />
 
       {/* Mobile Bottom Sheet - with top padding to avoid topbar */}

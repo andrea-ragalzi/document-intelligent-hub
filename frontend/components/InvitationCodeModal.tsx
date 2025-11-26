@@ -58,22 +58,8 @@ export default function InvitationCodeModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={(e) => {
-        // Prevent closing by clicking backdrop
-        e.stopPropagation();
-      }}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
-      <div
-        className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-xl"
-        onClick={(e) => {
-          // Prevent backdrop click from closing modal
-          e.stopPropagation();
-        }}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-xl">
         {/* Header */}
         <div className="flex items-center gap-3 p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">

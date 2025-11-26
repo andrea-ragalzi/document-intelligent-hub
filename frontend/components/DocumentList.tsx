@@ -374,6 +374,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 e.stopPropagation();
                 closeContextMenu();
               }}
+              onKeyDown={(e) => e.key === "Escape" && closeContextMenu()}
             />
             {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}
             <div

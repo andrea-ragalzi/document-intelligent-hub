@@ -81,7 +81,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
       );
     }
-    
+
     if (activeView === "documents") {
       return (
         <div className="p-4 flex-1 flex flex-col overflow-hidden">
@@ -94,7 +94,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
       );
     }
-    
+
     return null;
   };
 
@@ -136,7 +136,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         <div
           className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 xl:hidden"
           onClick={onClose}
-          onKeyDown={(e) => e.key === 'Escape' && onClose()}
+          onKeyDown={(e) => e.key === "Escape" && onClose()}
           aria-label="Close sidebar"
         />
       )}
