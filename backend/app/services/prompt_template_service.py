@@ -6,13 +6,14 @@ to overcome issues like "Constraint Neglect" and ensure adherence to
 quantity, format, and quality requirements.
 
 The prompt structure enforces RAG context usage and includes:
-    - System-level RAG enforcement rules
+    - System-level RAG enforcement rules (loaded from environment)
     - User request
     - Retrieved context block
     - Final question
 """
 
-from app.schemas.use_cases import PromptConstraints
+from app.core.config import settings
+from app.schemas.use_cases import PromptConstraints, UseCaseType
 
 
 class PromptTemplateService:
@@ -79,6 +80,34 @@ class PromptTemplateService:
 
         return "\n\n".join(prompt_parts)
 
+    def create_constraints_for_use_case(self, use_case: UseCaseType, quantity: int | None = None) -> PromptConstraints:
+        """
+        Create prompt constraints based on a specific use case.
+        """
+        from app.schemas.use_cases import (
+            get_output_format_description,
+            get_use_case_definition,
+        )
+
+        definition = get_use_case_definition(use_case)
+        
+        # The definition provides the *type* of format, we need the description
+        format_description = get_output_format_description(definition.optimal_output)
+
+        # For business strategy, we add a specific instruction
+        if use_case == UseCaseType.BUSINESS_STRATEGY:
+            format_description += " using a business analysis framework (e.g., SWOT, PESTEL)."
+
+        # No specific data type constraints are defined for the base use cases yet
+        data_type = None
+
+        return self.create_constraints(
+            quantity=quantity,
+            data_type=data_type,
+            custom_format=format_description,
+            additional=[],
+        )
+
     def get_query_rewriter_prompt(self, query: str) -> str:
         """Return the ultra-concise (TOON) prompt for the query rewriter agent."""
         return (
@@ -96,30 +125,17 @@ class PromptTemplateService:
         )
 
     def _build_context_enforcement_header(self) -> str:
-        """Build the mandatory system header enforcing RAG context usage."""
-        core_rule = "RULE 1: ONLY use the information provided in the [RAG Context] section below to answer the user's question."
+        """
+        Build the mandatory system header enforcing RAG context usage.
+        
+        Now loads from environment variable (settings.RAG_SYSTEM_PROMPT)
+        instead of hardcoded text for security and flexibility.
+        """
+        # Use environment-configured prompt instead of hardcoded
+        # This allows different prompts for dev/staging/prod without code changes
+        return f"""**SYSTEM RAG CONTEXT ENFORCEMENT HEADER**
 
-        reminder_one = "REMINDER A: RULE 1 IS ABSOLUTE. ONLY use the information provided in the [RAG Context] section below."
-        reminder_two = "REMINDER B: You are FORBIDDEN to use any knowledge outside the [RAG Context] section mentioned below."
-        rule_two = (
-            "RULE 2: If the [RAG Context] does not contain relevant information, you MUST state explicitly: "
-            "'I don't have enough information to answer this question based on the provided documents.' DO NOT attempt to answer with general knowledge."
-        )
-        rule_three = "RULE 3 (Constraint Repetition): RULE 1 is NON-NEGOTIABLE. Repeat after me — ONLY use the information provided in the [RAG Context] section below. ONLY that context. ONLY that context."
-
-        return """**SYSTEM RAG CONTEXT ENFORCEMENT HEADER**
-
-{core_rule}
-{reminder_one}
-{reminder_two}
-{rule_two}
-{rule_three}""".format(
-            core_rule=core_rule,
-            reminder_one=reminder_one,
-            reminder_two=reminder_two,
-            rule_two=rule_two,
-            rule_three=rule_three,
-        )
+{settings.RAG_SYSTEM_PROMPT}"""
 
     def _build_rag_context_block(self, retrieved_context: str | None) -> str:
         """Create the dedicated [RAG Context] block placed before the question."""

@@ -18,8 +18,15 @@ import { ChatSection } from "@/components/ChatSection";
 import { UploadModal } from "@/components/UploadModal";
 import { RenameModal } from "@/components/RenameModal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
+import { BugReportModal } from "@/components/BugReportModal";
+import { FeedbackModal } from "@/components/FeedbackModal";
+import InvitationCodeModal from "@/components/InvitationCodeModal";
+import { ServerOfflineBanner } from "@/components/ServerOfflineBanner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { useServerStatus } from "@/hooks/useServerStatus";
+import { useUserTier } from "@/hooks/useUserTier";
+import { useQueryUsage } from "@/hooks/useQueryUsage";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -35,11 +42,18 @@ export default function Page() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { userId, isAuthReady } = useUserId();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const { tier, isLoading: isTierLoading, refreshTier } = useUserTier();
+  const {
+    queriesUsed,
+    isLimitReached,
+    refetch: refetchQueryUsage,
+  } = useQueryUsage();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [invitationCodeModalOpen, setInvitationCodeModalOpen] = useState(false);
   const [selectedOutputLanguage, setSelectedOutputLanguage] =
     useState<string>("en");
 
@@ -62,14 +76,24 @@ export default function Page() {
 
   // Document management
   const {
-    documents,
+    documents: rawDocuments,
     isLoading: isLoadingDocuments,
     refreshDocuments,
     deleteDocument,
   } = useDocuments(userId);
 
+  // Ensure documents is always an array
+  const documents = rawDocuments || [];
+
   // Check if user has uploaded documents
   const { hasDocuments, isChecking } = useDocumentStatus(userId);
+
+  // Server status monitoring
+  const {
+    isOnline: isServerOnline,
+    isChecking: isCheckingServer,
+    checkStatus: retryServerConnection,
+  } = useServerStatus();
 
   // Zustand UI Store - sostituisce tutti gli useState
   const {
@@ -80,14 +104,41 @@ export default function Page() {
     currentConversationId,
     lastSavedMessageCount,
     isSaving: _isSaving,
+    bugReportModalOpen,
+    feedbackModalOpen,
+    isServerOnline: _isServerOnlineStore,
+    serverOfflineBannerDismissed,
     openRenameModal,
     closeRenameModal,
+    openBugReportModal,
+    closeBugReportModal,
+    openFeedbackModal,
+    closeFeedbackModal,
     setCurrentConversation,
     updateSavedMessageCount,
     startSaving,
     finishSaving,
     resetConversation,
+    setServerOnline,
   } = useUIStore();
+
+  // Sync server status to store
+  useEffect(() => {
+    setServerOnline(isServerOnline);
+  }, [isServerOnline, setServerOnline]);
+
+  // Refresh documents when server comes back online
+  useEffect(() => {
+    // Only refresh if server changed from offline to online (not on initial mount)
+    if (isServerOnline && !previousServerStatusRef.current && userId) {
+      console.log("✅ Server is back online - refreshing data...");
+      refreshDocuments();
+      // Also trigger document status refresh
+      window.dispatchEvent(new Event("refreshDocumentStatus"));
+    }
+    // Update previous status
+    previousServerStatusRef.current = isServerOnline;
+  }, [isServerOnline, userId, refreshDocuments]);
 
   const {
     chatHistory,
@@ -112,6 +163,7 @@ export default function Page() {
 
   const isSavingRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const previousServerStatusRef = useRef<boolean>(true); // Track previous server status
 
   // Track if we're waiting for a conversation to be created
   const isCreatingConversationRef = useRef(false);
@@ -242,6 +294,19 @@ export default function Page() {
     updateSavedMessageCount,
     setCurrentConversation,
   ]);
+
+  // Show invitation code modal on first login if no tier
+  useEffect(() => {
+    if (!isTierLoading && user && tier === "FREE") {
+      // Check if user has custom claims set
+      user.getIdTokenResult().then((tokenResult) => {
+        // If no tier claim exists, show invitation modal
+        if (!tokenResult.claims.tier) {
+          setInvitationCodeModalOpen(true);
+        }
+      });
+    }
+  }, [user, tier, isTierLoading]);
 
   const handleLoad = (conv: SavedConversation) => {
     console.log("📂 Loading conversation:", conv.name);
@@ -380,6 +445,11 @@ export default function Page() {
     e.preventDefault();
     if (userId) {
       handleSubmit(e);
+      // Refresh query usage counter after submission
+      // The counter will update when the response comes back
+      setTimeout(() => {
+        refetchQueryUsage();
+      }, 1000);
     } else {
       setStatusAlert({
         message: "Cannot send: User ID not available.",
@@ -473,6 +543,14 @@ export default function Page() {
           hasConversation={chatHistory.length > 0}
         />
 
+        {/* Server Offline Banner */}
+        {!isServerOnline && !serverOfflineBannerDismissed && (
+          <ServerOfflineBanner
+            onRetry={retryServerConnection}
+            isRetrying={isCheckingServer}
+          />
+        )}
+
         <RenameModal
           isOpen={renameModalOpen}
           currentName={conversationToRename?.currentName || ""}
@@ -531,6 +609,8 @@ export default function Page() {
               onOpenUploadModal={() => setUploadModalOpen(true)}
               selectedOutputLanguage={selectedOutputLanguage}
               onSelectOutputLanguage={setSelectedOutputLanguage}
+              isServerOnline={isServerOnline}
+              isLimitReached={isLimitReached}
             />
           </div>
 
@@ -547,6 +627,10 @@ export default function Page() {
               onDeleteDocument={deleteDocument}
               onRefreshDocuments={refreshDocuments}
               onDeleteAccount={() => setDeleteAccountModalOpen(true)}
+              onOpenBugReport={openBugReportModal}
+              onOpenFeedback={openFeedbackModal}
+              isServerOnline={isServerOnline}
+              currentQueries={queriesUsed}
             />
           </div>
 
@@ -564,6 +648,10 @@ export default function Page() {
                 onDeleteDocument={deleteDocument}
                 onRefreshDocuments={refreshDocuments}
                 onDeleteAccount={() => setDeleteAccountModalOpen(true)}
+                onOpenBugReport={openBugReportModal}
+                onOpenFeedback={openFeedbackModal}
+                isServerOnline={isServerOnline}
+                currentQueries={queriesUsed}
               />
             </div>
           )}
@@ -591,6 +679,37 @@ export default function Page() {
           onClose={() => setDeleteAccountModalOpen(false)}
           onConfirm={handleDeleteAccount}
           userEmail={user?.email || ""}
+        />
+
+        {/* Bug Report Modal */}
+        <BugReportModal
+          isOpen={bugReportModalOpen}
+          onClose={closeBugReportModal}
+          conversationId={currentConversationId}
+          userId={userId}
+        />
+
+        {/* Feedback Modal */}
+        <FeedbackModal
+          isOpen={feedbackModalOpen}
+          onClose={closeFeedbackModal}
+          conversationId={currentConversationId}
+          userId={userId}
+        />
+
+        {/* Invitation Code Modal */}
+        <InvitationCodeModal
+          isOpen={invitationCodeModalOpen}
+          onClose={() => setInvitationCodeModalOpen(false)}
+          onSuccess={(assignedTier) => {
+            console.log("✅ Registration successful, tier:", assignedTier);
+            // useRegistration already forced token refresh, so update tier immediately
+            refreshTier();
+            // Small delay before closing modal for better UX
+            setTimeout(() => {
+              setInvitationCodeModalOpen(false);
+            }, 300);
+          }}
         />
       </div>
     </ProtectedRoute>

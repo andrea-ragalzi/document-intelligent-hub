@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { AlertState } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/constants";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UseUploadOptions {
   onSuccess?: () => void;
@@ -26,6 +27,7 @@ export const useDocumentUpload = (
   options?: UseUploadOptions
 ): UseUploadResult => {
   const { onSuccess } = options || {};
+  const { getIdToken } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [documentsUploaded, setDocumentsUploaded] = useState<number>(0);
@@ -93,8 +95,17 @@ export const useDocumentUpload = (
       console.log("🌍 Selected language:", selectedLanguage.toUpperCase());
 
       try {
+        // Get Firebase Auth token
+        const token = await getIdToken();
+        if (!token) {
+          throw new Error("No authentication token available");
+        }
+
         const response = await fetch(`${API_BASE_URL}/upload/`, {
           method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
           body: formData,
         });
 

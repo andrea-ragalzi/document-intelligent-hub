@@ -1,7 +1,7 @@
 # backend/app/schemas/rag.py
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # --- RAG CATEGORIES ---
 # These are the possible categories for the user query, used for specialized retrieval logic.
@@ -35,9 +35,9 @@ class ChunkMetadata(BaseModel):
     # Temporal tracking
     uploaded_at: Optional[int] = Field(None, description="Upload timestamp in milliseconds (for sorting)")
     
-    class Config:
-        """Pydantic config for strict validation"""
-        extra = "forbid"  # Reject any extra fields not defined in schema
+    model_config = ConfigDict(
+        extra="forbid",  # Reject any extra fields not defined in schema
+    )
 
 class DocumentMetadata(BaseModel):
     """
@@ -49,9 +49,41 @@ class DocumentMetadata(BaseModel):
     language: str = Field(..., description="Document language code")
     uploaded_at: Optional[str] = Field(None, description="Upload timestamp")
     user_id: str = Field(..., description="User ID (owner of the document)")
+
+
+# --- Bug Report Schema ---
+
+class BugReportRequest(BaseModel):
+    """
+    Schema for user bug reports.
+    Used to collect structured feedback about errors, hallucinations, or system issues.
+    """
+    user_id: str = Field(..., description="User ID who is reporting the bug")
+    conversation_id: Optional[str] = Field(None, description="ID of the conversation where the bug occurred")
+    description: str = Field(..., min_length=10, description="Description of the bug (minimum 10 characters)")
+    timestamp: str = Field(..., description="ISO timestamp when the bug was reported")
+    user_agent: Optional[str] = Field(None, description="Browser user agent for debugging context")
     
-    class Config:
-        extra = "allow"  # Allow extra fields for flexibility
+    model_config = ConfigDict(
+        extra="allow",  # Allow extra fields for flexibility
+    )
+
+
+class FeedbackRequest(BaseModel):
+    """
+    Schema for user feedback with star rating.
+    Collects user satisfaction and optional comments.
+    """
+    user_id: str = Field(..., description="User ID who is providing feedback")
+    conversation_id: Optional[str] = Field(None, description="ID of the conversation being rated")
+    rating: int = Field(..., ge=1, le=5, description="Star rating from 1 to 5")
+    message: Optional[str] = Field(None, description="Optional feedback message")
+    timestamp: str = Field(..., description="ISO timestamp when feedback was submitted")
+    user_agent: Optional[str] = Field(None, description="Browser user agent for context")
+    
+    model_config = ConfigDict(
+        extra="allow",
+    )
 
 
 # --- RAG Schemas ---
@@ -98,7 +130,8 @@ class QueryClassification(BaseModel):
         description="The classified category tag of the user's query."
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
+    @classmethod
     def ensure_category_alias(cls, values):
         """Accept either 'category_tag' or its common alias 'category'."""
         if "category_tag" not in values and "category" in values:

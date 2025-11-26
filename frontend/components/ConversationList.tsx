@@ -7,8 +7,9 @@ import {
   Pin,
   CheckCircle,
 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useMobileGestures } from "@/hooks/useMobileGestures";
 
 interface ConversationListProps {
   conversations: SavedConversation[];
@@ -48,72 +49,30 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     null
   );
 
-  // Desktop kebab menu state
-  const [openKebabId, setOpenKebabId] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState<{
-    top: number;
-    right: number;
-  } | null>(null);
-  const kebabRef = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  // Long press tracking for mobile
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(
-    null
-  );
-
-  // Drag state for mobile menu
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartY = useRef(0);
-
-  const closeContextMenu = () => {
-    setOpenKebabId(null);
-    setMenuPosition(null);
-    setDragY(0);
-    setIsDragging(false);
-    menuRef.current = null;
-  };
-
-  const runActionAndCloseMenu = (action: () => void | Promise<void>) => {
-    try {
-      const result = action();
-      if (result instanceof Promise) {
-        result.catch((error) =>
-          console.error("Context menu action failed:", error)
-        );
-      }
-    } finally {
-      closeContextMenu();
-    }
-  };
-
   // Auto-enable selection mode when items are selected
   const isSelectionMode = selectedConvs.length > 0;
 
-  // Close kebab menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!openKebabId) {
-        return;
-      }
-
-      const kebabElement = kebabRef.current[openKebabId];
-      const menuElement = menuRef.current;
-      const targetNode = event.target as Node;
-
-      const clickedInsideTrigger =
-        kebabElement && kebabElement.contains(targetNode);
-      const clickedInsideMenu = menuElement && menuElement.contains(targetNode);
-
-      if (!clickedInsideTrigger && !clickedInsideMenu) {
-        closeContextMenu();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openKebabId]);
+  // Mobile gestures hook (replaces 100+ lines of duplicate code)
+  const {
+    openItemId: openKebabId,
+    menuPosition,
+    dragY,
+    isDragging: _isDragging,
+    kebabRef,
+    menuRef,
+    closeContextMenu,
+    runActionAndCloseMenu,
+    handleTouchStart,
+    handleTouchEnd,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+    handleKebabClick,
+  } = useMobileGestures({
+    longPressDuration: 200,
+    dismissThreshold: 100,
+    isSelectionMode,
+  });
 
   const handleSelect = (id: string) => {
     setSelectedConvs((prev) =>
@@ -126,59 +85,6 @@ export const ConversationList: React.FC<ConversationListProps> = ({
       setSelectedConvs([]);
     } else {
       setSelectedConvs(conversations.map((c) => c.id));
-    }
-  };
-
-  // Long press handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent, convId: string) => {
-    if (isSelectionMode) return;
-
-    const target = e.currentTarget;
-    const timer = setTimeout(() => {
-      if (!target) {
-        return;
-      }
-      // Open menu on long press
-      const rect = target.getBoundingClientRect();
-      setMenuPosition({
-        top: rect.bottom + window.scrollY + 4,
-        right: window.innerWidth - rect.right + window.scrollX,
-      });
-      setOpenKebabId(convId);
-    }, 500); // 500ms long press
-    setLongPressTimer(timer);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
-  };
-
-  // Drag handlers for mobile menu
-  const handleDragStart = (e: React.TouchEvent) => {
-    setIsDragging(true);
-    dragStartY.current = e.touches[0].clientY;
-  };
-
-  const handleDragMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const currentY = e.touches[0].clientY;
-    const deltaY = currentY - dragStartY.current;
-    if (deltaY > 0) {
-      // Only allow dragging down
-      setDragY(deltaY);
-    }
-  };
-
-  const handleDragEnd = () => {
-    if (dragY > 100) {
-      // If dragged more than 100px, close menu
-      closeContextMenu();
-    } else {
-      setIsDragging(false);
-      setDragY(0);
     }
   };
 
@@ -265,7 +171,6 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           sortedConversations.map((conv) => {
             const isActive = currentConversationId === conv.id;
             const isSelected = selectedConvs.includes(conv.id);
-            const isKebabOpen = openKebabId === conv.id;
 
             return (
               <div
@@ -289,12 +194,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 onContextMenu={(e) => {
                   if (!isSelectionMode) {
                     e.preventDefault();
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setMenuPosition({
-                      top: rect.bottom + window.scrollY + 4,
-                      right: window.innerWidth - rect.right + window.scrollX,
-                    });
-                    setOpenKebabId(conv.id);
+                    handleKebabClick(e as unknown as React.MouseEvent, conv.id);
                   }
                 }}
               >
@@ -344,21 +244,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
                       {/* Menu Kebab - Desktop only: visible on hover */}
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isKebabOpen) {
-                            closeContextMenu();
-                          } else {
-                            const rect =
-                              e.currentTarget.getBoundingClientRect();
-                            setMenuPosition({
-                              top: rect.bottom + window.scrollY + 4,
-                              right:
-                                window.innerWidth - rect.right + window.scrollX,
-                            });
-                            setOpenKebabId(conv.id);
-                          }
-                        }}
+                        onClick={(e) => handleKebabClick(e, conv.id)}
                         className="absolute inset-0 items-center justify-center text-indigo-700 hover:text-indigo-900 dark:text-indigo-200 dark:hover:text-indigo-100 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded transition-all duration-200 ease-in-out opacity-0 group-hover:opacity-100 hidden md:flex focus:outline-none focus:ring-3 focus:ring-focus"
                         title="Options"
                       >

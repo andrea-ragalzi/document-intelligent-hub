@@ -25,7 +25,7 @@ export const useConversations = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Carica le conversazioni all'avvio
+  // Load conversations on mount
   useEffect(() => {
     if (!userId) return;
 
@@ -34,12 +34,12 @@ export const useConversations = ({
       setError(null);
 
       try {
-        // Prova a caricare da Firestore
+        // Try loading from Firestore
         const firestoreConversations = await loadConversationsFromFirestore(
           userId
         );
 
-        // Se non ci sono conversazioni su Firestore, controlla localStorage per migrare
+        // If no conversations in Firestore, check localStorage for migration
         if (
           firestoreConversations.length === 0 &&
           typeof window !== "undefined"
@@ -50,7 +50,7 @@ export const useConversations = ({
               const localConversations: SavedConversation[] =
                 JSON.parse(stored);
               if (localConversations.length > 0) {
-                // Migra a Firestore
+                // Migrate to Firestore
                 console.log(
                   "Migrating conversations from localStorage to Firestore..."
                 );
@@ -58,11 +58,11 @@ export const useConversations = ({
                   userId,
                   localConversations
                 );
-                // Ricarica da Firestore
+                // Reload from Firestore
                 const migratedConversations =
                   await loadConversationsFromFirestore(userId);
                 setSavedConversations(migratedConversations);
-                // Pulisci localStorage dopo la migrazione
+                // Clean localStorage after migration
                 localStorage.removeItem(CONVERSATIONS_KEY);
                 return;
               }
@@ -75,9 +75,9 @@ export const useConversations = ({
         setSavedConversations(firestoreConversations);
       } catch (err) {
         console.error("Error loading conversations:", err);
-        setError("Impossibile caricare le conversazioni");
+        setError("Unable to load conversations");
 
-        // Fallback a localStorage se Firestore fallisce
+        // Fallback to localStorage if Firestore fails
         if (typeof window !== "undefined") {
           const stored = localStorage.getItem(CONVERSATIONS_KEY);
           if (stored) {
@@ -97,7 +97,7 @@ export const useConversations = ({
     loadConversations();
   }, [userId]);
 
-  // Salva una conversazione
+  // Save a conversation
   const saveConversation = useCallback(
     async (name: string): Promise<boolean> => {
       console.log("🗂️ useConversations.saveConversation called");
@@ -107,12 +107,12 @@ export const useConversations = ({
 
       if (!userId) {
         console.log("❌ No userId");
-        setError("User ID non disponibile");
+        setError("User ID not available");
         return false;
       }
       if (currentChatHistory.length === 0) {
         console.log("❌ No chat history");
-        setError("Nessuna conversazione da salvare");
+        setError("No conversation to save");
         return false;
       }
 
@@ -145,9 +145,9 @@ export const useConversations = ({
       } catch (err) {
         console.error("❌ Error saving conversation:", err);
         console.error("❌ Error details:", JSON.stringify(err, null, 2));
-        setError("Impossibile salvare la conversazione");
+        setError("Unable to save conversation");
 
-        // Fallback a localStorage
+        // Fallback to localStorage
         if (typeof window !== "undefined") {
           try {
             const newConversation: SavedConversation = {
@@ -174,21 +174,21 @@ export const useConversations = ({
     [userId, currentChatHistory, savedConversations]
   );
 
-  // Elimina una conversazione
+  // Delete a conversation
   const deleteConversation = useCallback(
     async (id: string): Promise<boolean> => {
       setIsLoading(true);
       setError(null);
 
       try {
-        // Elimina da Firestore
+        // Delete from Firestore
         await deleteConversationFromFirestore(id);
 
-        // Aggiorna lo stato locale
+        // Update local state
         const updated = savedConversations.filter((conv) => conv.id !== id);
         setSavedConversations(updated);
 
-        // Aggiorna localStorage
+        // Update localStorage
         if (typeof window !== "undefined") {
           localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
         }
@@ -196,9 +196,9 @@ export const useConversations = ({
         return true;
       } catch (err) {
         console.error("Error deleting conversation:", err);
-        setError("Impossibile eliminare la conversazione");
+        setError("Unable to delete conversation");
 
-        // Fallback a localStorage
+        // Fallback to localStorage
         if (typeof window !== "undefined") {
           try {
             const updated = savedConversations.filter((conv) => conv.id !== id);
@@ -218,7 +218,7 @@ export const useConversations = ({
     [savedConversations]
   );
 
-  // Rinomina una conversazione
+  // Rename a conversation
   const updateConversationName = useCallback(
     async (id: string, newName: string): Promise<boolean> => {
       if (!userId) {
@@ -231,19 +231,19 @@ export const useConversations = ({
       setError(null);
 
       try {
-        // Aggiorna in Firestore
+        // Update in Firestore
         const { updateConversationNameInFirestore } = await import(
           "@/lib/conversationsService"
         );
         await updateConversationNameInFirestore(id, newName);
 
-        // Aggiorna lo stato locale
+        // Update local state
         const updated = savedConversations.map((conv) =>
           conv.id === id ? { ...conv, name: newName } : conv
         );
         setSavedConversations(updated);
 
-        // Aggiorna localStorage
+        // Update localStorage
         if (typeof window !== "undefined") {
           localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
         }
@@ -251,9 +251,9 @@ export const useConversations = ({
         return true;
       } catch (err) {
         console.error("Error renaming conversation:", err);
-        setError("Impossibile rinominare la conversazione");
+        setError("Unable to rename conversation");
 
-        // Fallback a localStorage
+        // Fallback to localStorage
         if (typeof window !== "undefined") {
           try {
             const updated = savedConversations.map((conv) =>
@@ -275,7 +275,7 @@ export const useConversations = ({
     [savedConversations, userId]
   );
 
-  // Aggiorna la history di una conversazione
+  // Update conversation history
   const updateConversationHistory = useCallback(
     async (id: string, history: ChatMessage[]): Promise<boolean> => {
       if (!userId) {
@@ -288,19 +288,19 @@ export const useConversations = ({
       setError(null);
 
       try {
-        // Aggiorna in Firestore
+        // Update in Firestore
         const { updateConversationHistoryInFirestore } = await import(
           "@/lib/conversationsService"
         );
         await updateConversationHistoryInFirestore(id, history);
 
-        // Aggiorna lo stato locale
+        // Update local state
         const updated = savedConversations.map((conv) =>
           conv.id === id ? { ...conv, history } : conv
         );
         setSavedConversations(updated);
 
-        // Aggiorna localStorage
+        // Update localStorage
         if (typeof window !== "undefined") {
           localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
         }
@@ -308,9 +308,9 @@ export const useConversations = ({
         return true;
       } catch (err) {
         console.error("Error updating conversation history:", err);
-        setError("Impossibile aggiornare la conversazione");
+        setError("Unable to update conversation");
 
-        // Fallback a localStorage
+        // Fallback to localStorage
         if (typeof window !== "undefined") {
           try {
             const updated = savedConversations.map((conv) =>
@@ -343,7 +343,7 @@ export const useConversations = ({
   };
 };
 
-// Funzioni di utility per UPDATE (da usare direttamente dove serve)
+// Utility functions for UPDATE (to use directly where needed)
 export {
   updateConversationNameInFirestore,
   updateConversationHistoryInFirestore,

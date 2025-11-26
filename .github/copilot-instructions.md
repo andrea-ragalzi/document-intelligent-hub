@@ -36,16 +36,34 @@ frontend/
 
 ## Service Layer Architecture (Backend)
 
-The backend uses a **modular service architecture** where `rag_service.py` orchestrates specialized services:
+The backend uses a **service-oriented architecture** with an **orchestrator pattern**. The main `rag_orchestrator_service.py` (274 lines) delegates to 5 specialized services:
 
-- **`rag_service.py`** - Main orchestrator for document indexing, retrieval, and answer generation
-- **`language_service.py`** - Detects document/query language (supports 20+ languages)
-- **`translation_service.py`** - Translates queries/responses for multilingual support
+### Main Orchestrator
+
+- **`rag_orchestrator_service.py`** - Thin coordination layer (274 lines) that delegates to specialized services. Maintains backward compatibility with original RAGService API.
+
+### Specialized Services (Single Responsibility)
+
+- **`document_indexing_service.py`** (340 lines) - PDF processing, chunking strategies, language detection, embedding generation
+- **`query_processing_service.py`** (181 lines) - Query classification and reformulation with conversation history
+- **`answer_generation_service.py`** (332 lines) - Full RAG pipeline: retrieval, reranking, LLM invocation, translation, response formatting
+- **`document_management_service.py`** (167 lines) - CRUD operations for user documents (list, delete, count)
+- **`conversation_service.py`** (82 lines) - Conversation history summarization
+
+### Supporting Services
+
+- **`language_service.py`** - Multi-language detection (supports 20+ languages)
+- **`translation_service.py`** - Query/response translation for multilingual support
 - **`query_expansion_service.py`** - Generates alternative query phrasings for better retrieval
-- **`reranking_service.py`** - Uses Cohere to rerank retrieved documents by relevance
-- **`query_parser_service.py`** - Extracts file filters (include/exclude) from natural language, corrects grammar, removes filler words using gpt-4o-mini (~$0.00007 per query)
+- **`reranking_service.py`** - Cohere-based document reranking by relevance
+- **`query_parser_service.py`** - File filter extraction, grammar correction, filler word removal (gpt-4o-mini ~$0.00007/query)
 
-**Key Pattern:** Each service is self-contained with its own LLM instance and configuration. The RAG service imports and delegates to specialized services rather than handling everything inline.
+**Architecture Benefits:**
+
+- **Maintainability:** Each service 150-350 lines (team standard)
+- **Testability:** Dependency injection enables isolated unit testing
+- **Single Responsibility:** Clear boundaries between indexing, querying, answering, document management
+- **Backward Compatibility:** Orchestrator maintains same public API as original monolithic service
 
 ## Query Parsing & Optimization
 
@@ -71,7 +89,7 @@ The backend uses a **modular service architecture** where `rag_service.py` orche
 **ChromaDB Metadata Filtering:** Every document is tagged with `user_id` metadata. All queries filter by `user_id` to ensure strict tenant isolation:
 
 ```python
-# Indexing (app/services/rag_service.py)
+# Indexing (app/services/document_indexing_service.py)
 metadata = {
     "user_id": user_id,
     "filename": file.filename,
@@ -93,7 +111,7 @@ retriever = vectorstore.as_retriever(
 
 1. **Short-term (Buffer):** Last 7 exchanges (14 messages) sent with each query
    - Frontend: `useRAGChat.ts` prepares `conversation_history` array
-   - Backend: `rag_service.py` injects history between system prompt and RAG context
+   - Backend: `rag_orchestrator_service.py` injects history between system prompt and RAG context
 2. **Long-term (Summarization):** Auto-generates summary every 20 messages
    - Endpoint: `POST /rag/summarize/`
    - Summary stored in Firestore: `conversations/{id}.summary`
@@ -383,7 +401,7 @@ export const ConversationList: React.FC<ConversationProps> = ({
 
 ### File Naming
 
-- Backend: Snake case (`rag_service.py`, `use_case_detection_service.py`)
+- Backend: Snake case (`rag_orchestrator_service.py`, `document_indexing_service.py`)
 - Frontend: Pascal case for components (`ChatSection.tsx`), camel case for utilities (`conversationsService.ts`)
 
 ## Known Gotchas
@@ -396,7 +414,7 @@ export const ConversationList: React.FC<ConversationProps> = ({
 
 ## When Adding Features
 
-1. **New Service:** Create in `backend/app/services/`, import in `rag_service.py`, add tests
+1. **New Service:** Create in `backend/app/services/`, import in `rag_orchestrator_service.py`, add tests
 2. **New Endpoint:** Add to `routers/rag_router.py`, define schema in `schemas/rag.py`
 3. **New UI Component:** Add to `frontend/components/`, use Zustand for local state
 4. **New Hook:** Add to `frontend/hooks/`, keep it pure (testable)

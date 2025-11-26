@@ -1,6 +1,8 @@
 import { useChat } from "ai/react";
 import type { Message } from "ai/react";
 import { ChatMessage } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
 
 interface UseChatAIProps {
   userId: string;
@@ -8,6 +10,18 @@ interface UseChatAIProps {
 }
 
 export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
+  const { getIdToken } = useAuth();
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  // Get auth token on mount
+  useEffect(() => {
+    const fetchToken = async () => {
+      const token = await getIdToken();
+      setAuthToken(token);
+    };
+    fetchToken();
+  }, [getIdToken]);
+
   // Log output language selection
   console.log(
     `🌍 [useChatAI] Output language: ${selectedOutputLanguage || "auto"}`
@@ -23,12 +37,22 @@ export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
     setMessages,
   } = useChat({
     api: "/api/chat",
+    headers: authToken
+      ? {
+          Authorization: `Bearer ${authToken}`,
+        }
+      : undefined,
     body: {
       userId,
       output_language: selectedOutputLanguage?.toUpperCase(),
     },
     onError: (error: Error) => {
-      console.error("Chat error:", error);
+      // Silently handle rate limit errors (429) - they're expected
+      if (error.message.includes("Daily query limit exceeded")) {
+        console.log("⚠️ Query limit reached");
+      } else {
+        console.error("Chat error:", error);
+      }
     },
   });
 

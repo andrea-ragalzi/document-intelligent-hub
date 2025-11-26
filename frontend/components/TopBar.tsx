@@ -1,6 +1,8 @@
 "use client";
 
 import { Menu, User } from "lucide-react";
+import TierBadge from "./TierBadge";
+import { useUserTier } from "@/hooks/useUserTier";
 
 interface TopBarProps {
   onOpenLeftSidebar: () => void;
@@ -13,6 +15,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenLeftSidebar,
   onOpenRightSidebar,
 }) => {
+  const { tier, isLoading } = useUserTier();
+
   return (
     <div className="w-full bg-indigo-50 dark:bg-indigo-950 border-b-2 border-indigo-100 dark:border-indigo-800 shadow-sm transition-colors duration-200 ease-in-out font-[Inter]">
       <div className="flex items-center justify-between px-4 py-3">
@@ -34,6 +38,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           <h1 className="text-xl font-bold text-indigo-900 dark:text-indigo-50">
             Document Intelligent Hub
           </h1>
+          {/* Tier badge - hidden on small screens */}
+          {!isLoading && (
+            <div className="hidden md:block">
+              <TierBadge tier={tier} />
+            </div>
+          )}
         </div>
 
         {/* Right: User Profile Icon - Solo mobile (nascosto su xl+) */}

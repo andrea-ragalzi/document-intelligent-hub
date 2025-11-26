@@ -1,0 +1,20 @@
+[YOUR CLASSIFICATION PROMPT HERE]
+
+This prompt should categorize user queries into predefined categories.
+
+Required placeholders (do NOT remove):
+- {categories} - Will be replaced with available categories
+- {format_instructions} - Will be replaced with JSON schema
+- {query} - Will be replaced with user's question
+
+Example structure:
+---
+You are a query classifier. Categorize the query into: {categories}
+
+{format_instructions}
+
+Query: {query}
+---
+
+🔒 SECURITY: Copy to classification_prompt.txt and customize.
+

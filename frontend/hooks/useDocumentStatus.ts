@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { API_BASE_URL } from "@/lib/constants";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DocumentStatus {
   hasDocuments: boolean;
@@ -18,6 +19,7 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
   const [isChecking, setIsChecking] = useState(true);
   const [documentCount, setDocumentCount] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { getIdToken } = useAuth();
 
   // Expose refresh function
   useEffect(() => {
@@ -40,9 +42,20 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
       console.log("🔍 Checking documents for user:", userId);
 
       try {
+        // Get authentication token
+        const token = await getIdToken();
+        if (!token) {
+          throw new Error("No authentication token available");
+        }
+
         // Check if there are indexed documents for this user
         const response = await fetch(
-          `${API_BASE_URL}/documents/check?user_id=${userId}`
+          `${API_BASE_URL}/documents/check?user_id=${userId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
 
         if (response.ok) {
@@ -59,7 +72,12 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
           setDocumentCount(0);
         }
       } catch (error) {
-        console.error("❌ Error checking document status:", error);
+        // Silently handle network errors (server offline)
+        if (error instanceof TypeError && error.message.includes("fetch")) {
+          console.log("⚠️ Server offline - document status unavailable");
+        } else {
+          console.error("❌ Error checking document status:", error);
+        }
         setHasDocuments(false);
         setDocumentCount(0);
       } finally {

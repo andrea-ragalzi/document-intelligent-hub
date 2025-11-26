@@ -22,7 +22,12 @@ backend/
 │   │   └── rag.py                       # Pydantic models for validation
 │   └── services/
 │       ├── __init__.py
-│       ├── rag_service.py               # Main RAG orchestrator
+│       ├── rag_orchestrator_service.py  # Main RAG orchestrator (274 lines)
+│       ├── document_indexing_service.py # PDF processing & chunking (340 lines)
+│       ├── query_processing_service.py  # Classification & reformulation (181 lines)
+│       ├── answer_generation_service.py # RAG pipeline (332 lines)
+│       ├── document_management_service.py # CRUD operations (167 lines)
+│       ├── conversation_service.py      # Summarization (82 lines)
 │       ├── language_service.py          # Language detection/translation
 │       ├── translation_service.py       # Query translation for retrieval
 │       ├── language_detection_service.py # Document language detection
@@ -67,18 +72,24 @@ Handles HTTP requests and responses. Defines all API endpoints.
 
 ### 2. **Service Layer** (`services/`)
 
-The service layer is now modular with specialized services for each RAG component.
+The service layer uses an **orchestrator pattern** with specialized services for each RAG component.
 
-#### **RAG Service** (`rag_service.py`) - Main Orchestrator
+#### **RAG Orchestrator Service** (`rag_orchestrator_service.py`) - Main Coordinator
 
-The main service that coordinates all RAG operations by delegating to specialized services.
+**Architecture**: Thin orchestration layer (274 lines) that delegates to 5 specialized services.
+
+**Specialized Services**:
+1. **DocumentIndexingService** (340 lines) - PDF processing, chunking, language detection, embedding generation
+2. **QueryProcessingService** (181 lines) - Query classification and reformulation with conversation history
+3. **AnswerGenerationService** (332 lines) - Full RAG pipeline: retrieval, reranking, LLM invocation, translation
+4. **DocumentManagementService** (167 lines) - CRUD operations for user documents
+5. **ConversationService** (82 lines) - Conversation history summarization
 
 **Key Responsibilities**:
-- Document indexing with hierarchical metadata tracking
-- Query orchestration across specialized services
-- Context building and prompt generation
-- LLM response generation
-- Conversation history management
+- Initializes all specialized services with dependency injection
+- Delegates operations to appropriate services
+- Maintains backward compatibility with original API
+- Coordinates multi-step RAG workflows
 
 **Public Methods**:
 

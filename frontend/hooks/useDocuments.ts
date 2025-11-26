@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { API_BASE_URL } from "@/lib/constants";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface Document {
   filename: string;
@@ -27,11 +28,13 @@ interface UseDocumentsResult {
 
 /**
  * Hook to manage user documents (list, delete)
+ * Now with Firebase Auth token support for secure API calls
  */
 export const useDocuments = (userId: string | null): UseDocumentsResult => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { getIdToken } = useAuth();
 
   const refreshDocuments = useCallback(async () => {
     if (!userId) {
@@ -47,6 +50,12 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
     setError(null);
 
     try {
+      // Get Firebase Auth token
+      const token = await getIdToken();
+      if (!token) {
+        throw new Error("No authentication token available");
+      }
+
       const url = `${API_BASE_URL}/documents/list?user_id=${userId}&_t=${Date.now()}`;
       console.log("📡 Fetching:", url);
 
@@ -54,6 +63,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
         cache: "no-store",
         headers: {
           "Cache-Control": "no-cache",
+          Authorization: `Bearer ${token}`,
         },
       });
       console.log("📨 Response received, status:", response.status);
@@ -76,12 +86,21 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
         data.documents.map((d) => d.filename)
       );
       console.log("💾 Setting documents state...");
-      setDocuments(data.documents);
+      // Ensure we always set an array, even if data.documents is null/undefined
+      setDocuments(Array.isArray(data.documents) ? data.documents : []);
       console.log("✅ Documents state updated successfully");
-      console.log("🔍 Current documents in state:", data.documents.length);
+      console.log(
+        "🔍 Current documents in state:",
+        data.documents?.length || 0
+      );
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
-      console.error("❌ Error loading documents:", errorMsg);
+      // Only log error if it's not a network/fetch error (server offline)
+      if (err instanceof TypeError && errorMsg.includes("fetch")) {
+        console.log("⚠️ Server offline - documents unavailable");
+      } else {
+        console.error("❌ Error loading documents:", errorMsg);
+      }
       setError(errorMsg);
       setDocuments([]);
     } finally {
@@ -97,12 +116,21 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
 
       console.log("🗑️ Deleting document:", filename);
 
+      // Get Firebase Auth token
+      const token = await getIdToken();
+      if (!token) {
+        throw new Error("No authentication token available");
+      }
+
       const response = await fetch(
         `${API_BASE_URL}/documents/delete?user_id=${userId}&filename=${encodeURIComponent(
           filename
         )}`,
         {
           method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
@@ -133,10 +161,19 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
 
     console.log("🗑️ Deleting all documents for user:", userId);
 
+    // Get Firebase Auth token
+    const token = await getIdToken();
+    if (!token) {
+      throw new Error("No authentication token available");
+    }
+
     const response = await fetch(
       `${API_BASE_URL}/documents/delete-all?user_id=${userId}`,
       {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
 

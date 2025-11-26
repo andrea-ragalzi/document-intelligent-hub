@@ -1,0 +1,21 @@
+[YOUR SYSTEM PROMPT HERE]
+
+This file should contain your RAG system instruction that defines:
+- Assistant's role and behavior
+- RAG retrieval rules (e.g., "ONLY use provided context")
+- Response format requirements
+- Handling of missing information
+
+Example structure:
+---
+You are a [ROLE]. Your objective is to [OBJECTIVE].
+
+Rules:
+1. [RULE 1]
+2. [RULE 2]
+3. [RULE 3]
+---
+
+🔒 SECURITY: This is a template. Copy to rag_system_prompt.txt and add your proprietary prompt.
+📝 NOTE: Multi-line format, no quotes/escaping needed.
+

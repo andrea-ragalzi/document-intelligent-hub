@@ -4,6 +4,9 @@
 # Variabili d'ambiente (Non commettere le chiavi!)
 .env
 
+# 🔒 SECURITY: Prompt files (contain proprietary prompt engineering)
+config/*.txt
+
 # Database e cache locali (ChromaDB)
 chroma_db/
 

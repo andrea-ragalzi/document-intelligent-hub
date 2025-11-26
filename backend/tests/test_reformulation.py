@@ -3,9 +3,9 @@ Quick test for query reformulation functionality.
 Run with: poetry run python test_reformulation.py
 """
 
-from app.services.rag_service import RAGService
-from app.schemas.rag_schema import ConversationMessage
 from app.repositories.dependencies import get_vector_store_repository
+from app.schemas.rag_schema import ConversationMessage
+from app.services.rag_orchestrator_service import RAGService
 
 # Initialize service
 repository_dependency = get_vector_store_repository()
@@ -48,7 +48,8 @@ for idx, test in enumerate(test_cases, 1):
     print(f"  Original: {test['query']}")
     print(f"  History: {len(test['history'])} messages")
 
-    reformulated = rag_service._reformulate_query(test["query"], test["history"])
+    # Use public method from query_processing_service
+    reformulated = rag_service.query_processing_service.reformulate_query(test["query"], test["history"])
 
     print(f"  Reformulated: {reformulated}")
     print(f"  Expected: {test['expected']}")

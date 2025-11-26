@@ -9,9 +9,10 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./test/setup.ts"],
-    exclude: ["node_modules", ".next", "dist", "out", "public"],
-    // Limita i worker per evitare crash
+    // Limita i worker per evitare crash e timeout
     maxWorkers: 1,
+    testTimeout: 30000,
+    exclude: ["node_modules", ".next", "dist", "out", "public"],
 
     // --- CONFIGURAZIONE COVERAGE (SOLUZIONE AL PROBLEMA 0%) ---
     coverage: {
@@ -25,7 +26,9 @@ export default defineConfig({
         "components/ConfirmModal.tsx",
         "components/ConversationList.tsx",
         "components/RenameModal.tsx",
+        "components/SaveModal.tsx",
         "hooks/useTheme.ts",
+        "hooks/useQueryUsage.ts",
         "lib/conversationsService.ts",
         "stores/uiStore.ts",
       ],
@@ -57,7 +60,6 @@ export default defineConfig({
         "components/Sidebar.tsx", // Componente di integrazione complesso
         "components/ChatSection.tsx", // Richiede AI chat mocking
         "components/UploadSection.tsx", // Richiede file upload mocking
-        "components/SaveModal.tsx", // Semplice, coperto da pattern similari
         "components/ChatMessageDisplay.tsx", // Solo display, no logic
       ],
 

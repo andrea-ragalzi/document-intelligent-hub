@@ -24,6 +24,8 @@ interface ChatSectionProps {
   onOpenUploadModal: () => void;
   selectedOutputLanguage: string;
   onSelectOutputLanguage: (code: string) => void;
+  isServerOnline?: boolean;
+  isLimitReached?: boolean;
 }
 export const ChatSection: React.FC<ChatSectionProps> = ({
   chatHistory,
@@ -38,11 +40,16 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   onOpenUploadModal,
   selectedOutputLanguage,
   onSelectOutputLanguage,
+  isServerOnline = true,
+  isLimitReached = false,
 }) => {
   const [isLanguageSelectorOpen, setIsLanguageSelectorOpen] = useState(false);
   const [languageFlag, setLanguageFlag] = useState<string>("🌍");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isChatDisabled = !hasDocuments && !isCheckingDocuments;
+
+  // Calculate specific disable reasons
+  const noDocuments = !hasDocuments && !isCheckingDocuments;
+  const isChatDisabled = noDocuments || !isServerOnline || isLimitReached;
 
   // Fetch language flag when selectedOutputLanguage changes
   useEffect(() => {
@@ -107,34 +114,55 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 size={48}
                 className="sm:size-16 mx-auto mb-4 text-indigo-300"
               />
-              {isChatDisabled ? (
-                <div className="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-xl border border-yellow-200 dark:border-yellow-700">
-                  <p className="font-bold text-lg text-yellow-700 dark:text-yellow-400 flex items-center justify-center">
-                    <AlertTriangle size={20} className="mr-2" />
-                    Nessun Documento Caricato
-                  </p>
-                  <p className="text-sm text-indigo-900 dark:text-indigo-50 mt-2">
-                    Si prega di caricare almeno un documento PDF prima di
-                    iniziare la conversazione.
-                  </p>
-                </div>
-              ) : isCheckingDocuments ? (
+              {isCheckingDocuments ? (
                 <>
                   <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
-                    Controllo dei documenti in corso...
+                    Checking documents...
                   </p>
                   <Loader
                     size={24}
                     className="animate-spin mx-auto mt-4 text-indigo-500"
                   />
                 </>
+              ) : !isServerOnline ? (
+                <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-xl border border-red-200 dark:border-red-700">
+                  <p className="font-bold text-lg text-red-700 dark:text-red-400 flex items-center justify-center">
+                    <AlertTriangle size={20} className="mr-2" />
+                    Server Offline
+                  </p>
+                  <p className="text-sm text-indigo-900 dark:text-indigo-50 mt-2">
+                    The server is currently offline. Please try again later.
+                  </p>
+                </div>
+              ) : isLimitReached ? (
+                <div className="bg-orange-100 dark:bg-orange-900/30 p-4 rounded-xl border border-orange-200 dark:border-orange-700">
+                  <p className="font-bold text-lg text-orange-700 dark:text-orange-400 flex items-center justify-center">
+                    <AlertTriangle size={20} className="mr-2" />
+                    Query Limit Reached
+                  </p>
+                  <p className="text-sm text-indigo-900 dark:text-indigo-50 mt-2">
+                    You&apos;ve reached your daily query limit. Upgrade your
+                    plan or try again tomorrow.
+                  </p>
+                </div>
+              ) : noDocuments ? (
+                <div className="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-xl border border-yellow-200 dark:border-yellow-700">
+                  <p className="font-bold text-lg text-yellow-700 dark:text-yellow-400 flex items-center justify-center">
+                    <AlertTriangle size={20} className="mr-2" />
+                    No Documents Uploaded
+                  </p>
+                  <p className="text-sm text-indigo-900 dark:text-indigo-50 mt-2">
+                    Please upload at least one PDF document before starting a
+                    conversation.
+                  </p>
+                </div>
               ) : (
                 <>
                   <p className="font-bold text-xl text-gray-900 dark:text-gray-100">
-                    Pronto a chattare.
+                    Ready to chat.
                   </p>
                   <p className="text-md text-gray-500 dark:text-gray-400 mt-2">
-                    Invia la tua prima domanda sui documenti caricati.
+                    Send your first question about your uploaded documents.
                   </p>
                 </>
               )}
@@ -192,7 +220,11 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 onChange={handleTextareaChange}
                 disabled={isQuerying || !userId || isChatDisabled}
                 placeholder={
-                  isChatDisabled
+                  !isServerOnline
+                    ? "Server offline - Read only mode..."
+                    : isLimitReached
+                    ? "Daily query limit reached. Upgrade your plan or try again tomorrow..."
+                    : isChatDisabled
                     ? "Upload a document first..."
                     : "Ask me anything..."
                 }
@@ -215,9 +247,13 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 <button
                   type="button"
                   onClick={onOpenUploadModal}
-                  disabled={!userId}
+                  disabled={!userId || !isServerOnline}
                   className="min-h-[44px] min-w-[44px] flex items-center justify-center h-10 w-10 rounded-full text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus"
-                  title="Upload document"
+                  title={
+                    !isServerOnline
+                      ? "Server offline - upload unavailable"
+                      : "Upload document"
+                  }
                   aria-label="Upload document"
                 >
                   <Paperclip size={20} />

@@ -56,17 +56,18 @@ The RAG system combines document retrieval with large language models to provide
 
 ### 1. Document Processing Pipeline
 
-**Location**: `backend/app/services/rag_service.py`
+**Location**: `backend/app/services/document_indexing_service.py`
 
 #### Upload Flow
 
 ```python
 1. Receive PDF file
-2. Extract text with PyPDF2
-3. Split into chunks (1000 chars, 200 overlap)
-4. Generate embeddings for each chunk
-5. Store in ChromaDB with metadata
-6. Return success response
+2. Extract text with UnstructuredPDFLoader
+3. Detect document language (auto or manual)
+4. Apply chunking strategy (structural or fixed-size)
+5. Generate embeddings for each chunk (HuggingFace local model)
+6. Store in ChromaDB with metadata (user_id, filename, language)
+7. Return success response
 ```
 
 #### Chunking Strategy
@@ -93,23 +94,24 @@ Chunk 2: "lazy dog. The dog was sleeping."
 
 ### 2. Embedding Generation
 
-**Provider**: OpenAI `text-embedding-ada-002`
+**Provider**: HuggingFace `all-MiniLM-L6-v2` (local model)
 
 **Process:**
 ```python
-text = "What is machine learning?"
-embedding = openai.Embedding.create(
-    input=text,
-    model="text-embedding-ada-002"
+from langchain_huggingface import HuggingFaceEmbeddings
+
+embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
-vector = embedding['data'][0]['embedding']  # 1536 dimensions
+vector = embeddings.embed_query("What is machine learning?")
 ```
 
 **Properties:**
-- **Dimensions**: 1536
-- **Max input**: 8191 tokens
+- **Dimensions**: 384
+- **Max input**: 256 word pieces
 - **Output**: Normalized vector
-- **Cost**: $0.0001 / 1K tokens
+- **Cost**: FREE (runs locally)
+- **Speed**: Fast inference on CPU
 
 ### 3. Vector Database (ChromaDB)
 

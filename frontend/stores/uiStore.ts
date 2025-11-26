@@ -14,6 +14,8 @@ interface UIStore {
   // Modal states
   renameModalOpen: boolean;
   confirmDeleteOpen: boolean;
+  bugReportModalOpen: boolean;
+  feedbackModalOpen: boolean;
   conversationToRename: { id: string; currentName: string } | null;
   conversationToDelete: { id: string; name: string } | null;
 
@@ -21,6 +23,10 @@ interface UIStore {
   currentConversationId: string | null;
   lastSavedMessageCount: number;
   isSaving: boolean;
+
+  // Server status
+  isServerOnline: boolean;
+  serverOfflineBannerDismissed: boolean;
 
   // Theme (potremmo spostare anche questo qui in futuro)
   // theme: 'light' | 'dark';
@@ -37,27 +43,44 @@ interface UIStore {
   openDeleteModal: (id: string, name: string) => void;
   closeDeleteModal: () => void;
 
+  // Actions - Bug Report Modal
+  openBugReportModal: () => void;
+  closeBugReportModal: () => void;
+
+  // Actions - Feedback Modal
+  openFeedbackModal: () => void;
+  closeFeedbackModal: () => void;
+
   // Actions - Conversation tracking
   setCurrentConversation: (id: string | null) => void;
   updateSavedMessageCount: (count: number) => void;
   startSaving: () => void;
   finishSaving: () => void;
   resetConversation: () => void;
+
+  // Actions - Server status
+  setServerOnline: (online: boolean) => void;
+  dismissServerOfflineBanner: () => void;
+  showServerOfflineBanner: () => void;
 }
 
 export const useUIStore = create<UIStore>()(
   devtools(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       statusAlert: null,
       uploadAlert: null,
       renameModalOpen: false,
       confirmDeleteOpen: false,
+      bugReportModalOpen: false,
+      feedbackModalOpen: false,
       conversationToRename: null,
       conversationToDelete: null,
       currentConversationId: null,
       lastSavedMessageCount: 0,
       isSaving: false,
+      isServerOnline: true,
+      serverOfflineBannerDismissed: false,
 
       // Alert actions
       setStatusAlert: (alert) => set({ statusAlert: alert }),
@@ -87,6 +110,14 @@ export const useUIStore = create<UIStore>()(
           conversationToDelete: null,
         }),
 
+      // Bug report modal actions
+      openBugReportModal: () => set({ bugReportModalOpen: true }),
+      closeBugReportModal: () => set({ bugReportModalOpen: false }),
+
+      // Feedback modal actions
+      openFeedbackModal: () => set({ feedbackModalOpen: true }),
+      closeFeedbackModal: () => set({ feedbackModalOpen: false }),
+
       // Conversation tracking actions
       setCurrentConversation: (id) => set({ currentConversationId: id }),
       updateSavedMessageCount: (count) => set({ lastSavedMessageCount: count }),
@@ -97,6 +128,20 @@ export const useUIStore = create<UIStore>()(
           currentConversationId: null,
           lastSavedMessageCount: 0,
         }),
+
+      // Server status actions
+      setServerOnline: (online) =>
+        set({
+          isServerOnline: online,
+          // Show banner again when server goes offline
+          serverOfflineBannerDismissed: online
+            ? false
+            : get().serverOfflineBannerDismissed,
+        }),
+      dismissServerOfflineBanner: () =>
+        set({ serverOfflineBannerDismissed: true }),
+      showServerOfflineBanner: () =>
+        set({ serverOfflineBannerDismissed: false }),
     }),
     { name: "UI Store" }
   )

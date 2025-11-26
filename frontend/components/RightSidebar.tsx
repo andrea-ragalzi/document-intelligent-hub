@@ -9,12 +9,16 @@ import {
   ChevronRight,
   ChevronLeft,
   Settings,
+  Bug,
+  Star,
+  Info,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import DocumentList from "./DocumentList";
+import TierLimitsDisplay from "./TierLimitsDisplay";
 import type { Document } from "./DocumentList";
 
 interface RightSidebarProps {
@@ -23,11 +27,15 @@ interface RightSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onToggleTheme: () => void;
-  documents: Document[];
+  documents: Document[] | undefined;
   isLoadingDocuments?: boolean;
   onDeleteDocument: (filename: string) => void;
   onRefreshDocuments?: () => Promise<void>;
   onDeleteAccount: () => void;
+  onOpenBugReport: () => void;
+  onOpenFeedback: () => void;
+  isServerOnline?: boolean;
+  currentQueries?: number;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -39,6 +47,10 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   documents,
   onDeleteDocument,
   onDeleteAccount,
+  onOpenBugReport,
+  onOpenFeedback,
+  isServerOnline = true,
+  currentQueries = 0,
 }) => {
   const [activeView, setActiveView] = useState<
     "menu" | "documents" | "settings"
@@ -181,6 +193,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               </p>
             </div>
 
+            {/* Tier Limits Display */}
+            <div className="mb-3">
+              <TierLimitsDisplay
+                currentDocuments={documents?.length || 0}
+                currentQueries={currentQueries}
+              />
+            </div>
+
             {/* Logout button - Gemini style */}
             <button
               onClick={handleLogout}
@@ -247,6 +267,54 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   className="text-indigo-700 dark:text-indigo-200"
                 />
               </button>
+              <button
+                onClick={() => {
+                  onOpenBugReport();
+                  onClose();
+                }}
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+              >
+                <div className="flex items-center gap-3">
+                  <Bug size={20} className="text-red-600 dark:text-red-400" />
+                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
+                    Report Bug
+                  </span>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  onOpenFeedback();
+                  onClose();
+                }}
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+              >
+                <div className="flex items-center gap-3">
+                  <Star
+                    size={20}
+                    className="text-yellow-600 dark:text-yellow-400"
+                  />
+                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
+                    Give Feedback
+                  </span>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  router.push("/about");
+                  onClose();
+                }}
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+              >
+                <div className="flex items-center gap-3">
+                  <Info
+                    size={20}
+                    className="text-indigo-600 dark:text-indigo-300"
+                  />
+                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
+                    About
+                  </span>
+                </div>
+              </button>
             </div>
           ) : activeView === "settings" ? (
             <div className="p-4">
@@ -272,6 +340,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 documents={documents}
                 deletingDoc={null}
                 onDelete={onDeleteDocument}
+                isServerOnline={isServerOnline}
               />
             </div>
           )}
