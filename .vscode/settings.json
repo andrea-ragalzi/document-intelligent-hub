@@ -67,7 +67,10 @@
       "level": "off"
     },
     "Web:S6880": {
-      "level": "off"  
+      "level": "off"
+    },
+    "Web:S3358": {
+      "level": "off"
     },
     "typescript:S6a79": {
       "level": "off"
@@ -82,6 +85,15 @@
       "level": "off"
     },
     "typescript:S3776": {
+      "level": "off"
+    },
+    "typescript:S3358": {
+      "level": "off"
+    },
+    "typescript:S2871": {
+      "level": "off"
+    },
+    "typescript:S6479": {
       "level": "off"
     },
     "python:S1234": {
