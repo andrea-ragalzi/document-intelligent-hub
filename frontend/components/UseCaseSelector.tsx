@@ -116,8 +116,6 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
             maxHeight: "calc(100vh - 5rem)",
             transform: `translateY(${dragY}px)`,
           }}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
         >
           {/* Drag Handle */}
           <div
