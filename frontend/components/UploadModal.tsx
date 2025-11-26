@@ -162,6 +162,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           {/* Content */}
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* Drag & Drop Zone - Visual container for file input */}
+            {/* Drag events provide enhancement; accessible file input inside provides primary interaction */}
             <div
               onDragEnter={(e) => handleDragEvents(e, "enter")}
               onDragLeave={(e) => handleDragEvents(e, "leave")}
