@@ -102,7 +102,7 @@ class UsageTrackingService:
             logger.error(f"❌ Error incrementing user queries: {e}")
             raise
     
-    async def check_query_limit(self, user_id: str, max_queries: int) -> tuple[bool, int]:
+    def check_query_limit(self, user_id: str, max_queries: int) -> tuple[bool, int]:
         """
         Check if user has exceeded their daily query limit.
         
@@ -116,10 +116,10 @@ class UsageTrackingService:
         try:
             # Unlimited users (9999) always pass
             if max_queries >= 9999:
-                queries_used = await self.get_user_queries_today(user_id)
+                queries_used = self.get_user_queries_today(user_id)
                 return True, queries_used
             
-            queries_used = await self.get_user_queries_today(user_id)
+            queries_used = self.get_user_queries_today(user_id)
             can_query = queries_used < max_queries
             
             if not can_query:

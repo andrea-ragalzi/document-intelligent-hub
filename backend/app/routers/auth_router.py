@@ -219,6 +219,169 @@ def get_unlimited_emails() -> List[str]:
         return []
 
 
+def _verify_token_and_get_user_info(id_token: str) -> tuple[str, str | None]:
+    """
+    Verify Firebase ID token and extract user info.
+    
+    Args:
+        id_token: Firebase ID token
+        
+    Returns:
+        Tuple of (user_id, user_email)
+        
+    Raises:
+        HTTPException: If token is invalid or expired
+    """
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        user_id = decoded_token["uid"]
+        user_email = decoded_token.get("email")
+        logger.info(f"✅ Token verified for user: {user_id} ({user_email})")
+        return user_id, user_email
+    except Exception as e:
+        logger.error(f"❌ Token verification failed: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired ID token"
+        )
+
+
+def _assign_tier_to_user(user_id: str, tier: str) -> RegistrationResponse:
+    """
+    Assign tier via Firebase Custom Claims.
+    
+    Args:
+        user_id: Firebase user ID
+        tier: Tier to assign (FREE, PRO, UNLIMITED)
+        
+    Returns:
+        RegistrationResponse with success message
+        
+    Raises:
+        HTTPException: If assignment fails
+    """
+    try:
+        auth.set_custom_user_claims(user_id, {"tier": tier})
+        logger.info(f"✅ Custom claim set: {user_id} -> {tier}")
+        return RegistrationResponse(
+            status="success",
+            tier=tier,
+            message="Access to plan assigned successfully. You may need to refresh your token."
+        )
+    except Exception as e:
+        logger.error(f"❌ Failed to set custom claims: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to assign tier. Please try again."
+        )
+
+
+def _validate_invitation_code(invitation_code: str, db) -> dict:
+    """
+    Validate invitation code and return code data.
+    
+    Args:
+        invitation_code: Invitation code to validate
+        db: Firestore database client
+        
+    Returns:
+        Code data dictionary
+        
+    Raises:
+        HTTPException: If code is invalid, used, or expired
+    """
+    code_ref = db.collection("invitation_codes").document(invitation_code)
+    
+    try:
+        code_doc = code_ref.get()
+    except Exception as e:
+        logger.error(f"❌ Firestore error fetching code: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Database error. Please try again."
+        )
+    
+    if not code_doc.exists:
+        logger.warning(f"❌ Invitation code not found: {invitation_code}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid invitation code"
+        )
+    
+    code_data = code_doc.to_dict()
+    
+    if not code_data:
+        logger.error(f"❌ Code document exists but returned None: {invitation_code}")
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid code data"
+        )
+    
+    if code_data.get("is_used", True):
+        logger.warning(f"❌ Invitation code already used: {invitation_code}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invitation code has already been used"
+        )
+    
+    _check_code_expiration(invitation_code, code_data.get("expires_at"))
+    
+    return code_data
+
+
+def _check_code_expiration(invitation_code: str, expires_at):
+    """
+    Check if invitation code has expired.
+    
+    Args:
+        invitation_code: Code being checked
+        expires_at: Expiration timestamp from Firestore
+        
+    Raises:
+        HTTPException: If code has expired
+    """
+    if not expires_at:
+        return
+    
+    try:
+        expiration_date = expires_at.to_datetime() if hasattr(expires_at, "to_datetime") else expires_at
+        now = datetime.now(timezone.utc)
+        
+        if expiration_date.tzinfo is None:
+            expiration_date = expiration_date.replace(tzinfo=timezone.utc)
+        
+        if now > expiration_date:
+            logger.warning(f"❌ Invitation code expired: {invitation_code} (expired: {expiration_date})")
+            raise HTTPException(
+                status_code=400,
+                detail="Invitation code has expired"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"⚠️ Error checking expiration date: {e}")
+
+
+def _mark_code_as_used(code_ref, user_id: str, invitation_code: str):
+    """
+    Mark invitation code as used in Firestore.
+    
+    Args:
+        code_ref: Firestore document reference
+        user_id: User who used the code
+        invitation_code: Code that was used
+    """
+    try:
+        code_ref.update({
+            "is_used": True,
+            "used_by_user_id": user_id,
+            "used_at": SERVER_TIMESTAMP
+        })
+        logger.info(f"✅ Invitation code marked as used: {invitation_code}")
+    except Exception as e:
+        logger.error(f"❌ Failed to mark code as used: {e}")
+
+
 @router.post("/register", response_model=RegistrationResponse)
 async def register_user(registration_data: RegistrationData):
     """
@@ -243,48 +406,16 @@ async def register_user(registration_data: RegistrationData):
     """
     logger.info("🔐 Processing user registration request")
     
-    # Step 1: Decode and verify Firebase ID token
-    try:
-        decoded_token = auth.verify_id_token(registration_data.id_token)
-        user_id = decoded_token["uid"]
-        user_email = decoded_token.get("email")
-        
-        logger.info(f"✅ Token verified for user: {user_id} ({user_email})")
-        
-    except Exception as e:
-        logger.error(f"❌ Token verification failed: {e}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired ID token"
-        )
+    # Step 1: Verify Firebase ID token
+    user_id, user_email = _verify_token_and_get_user_info(registration_data.id_token)
     
-    # Step 2: Load app configuration (unlimited emails + tier limits)
+    # Step 2: Check if user is in unlimited emails list
     app_config = load_app_config()
     unlimited_emails = app_config["unlimited_emails"]
     
     if user_email and user_email in unlimited_emails:
         logger.info(f"🌟 User {user_email} found in unlimited list - assigning UNLIMITED tier")
-        assigned_tier = "UNLIMITED"
-        
-        # Skip invitation code validation - go directly to claim assignment
-        try:
-            # Step 6: Set Firebase Custom Claim
-            auth.set_custom_user_claims(user_id, {"tier": assigned_tier})
-            logger.info(f"✅ Custom claim set: {user_id} -> {assigned_tier}")
-            
-            # Step 8: Return success response
-            return RegistrationResponse(
-                status="success",
-                tier=assigned_tier,
-                message="Access to plan assigned successfully. You may need to refresh your token."
-            )
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to set custom claims: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to assign tier. Please try again."
-            )
+        return _assign_tier_to_user(user_id, "UNLIMITED")
     
     # Step 3: Validate invitation code (required if not in unlimited list)
     if not registration_data.invitation_code:
@@ -295,110 +426,21 @@ async def register_user(registration_data: RegistrationData):
         )
     
     invitation_code = registration_data.invitation_code.strip()
-    
-    # Fetch invitation code document from Firestore
     db = get_db()
-    code_ref = db.collection("invitation_codes").document(invitation_code)
     
-    try:
-        code_doc = code_ref.get()
-    except Exception as e:
-        logger.error(f"❌ Firestore error fetching code: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Database error. Please try again."
-        )
-    
-    # Step 4: Check code validity
-    if not code_doc.exists:
-        logger.warning(f"❌ Invitation code not found: {invitation_code}")
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid invitation code"
-        )
-    
-    code_data = code_doc.to_dict()
-    
-    # Validate code_data exists
-    if not code_data:
-        logger.error(f"❌ Code document exists but returned None: {invitation_code}")
-        raise HTTPException(
-            status_code=500,
-            detail="Invalid code data"
-        )
-    
-    # Check if code is already used
-    if code_data.get("is_used", True):
-        logger.warning(f"❌ Invitation code already used: {invitation_code}")
-        raise HTTPException(
-            status_code=400,
-            detail="Invitation code has already been used"
-        )
-    
-    # Check if code is expired
-    expires_at = code_data.get("expires_at")
-    if expires_at:
-        try:
-            # expires_at is a Firestore Timestamp - convert to datetime
-            expiration_date = expires_at.to_datetime() if hasattr(expires_at, "to_datetime") else expires_at
-            
-            # Make sure we're comparing timezone-aware datetimes
-            # Firestore returns UTC timezone-aware datetime
-            now = datetime.now(timezone.utc)
-            
-            # Ensure expiration_date is timezone-aware
-            if expiration_date.tzinfo is None:
-                # If naive, assume UTC
-                expiration_date = expiration_date.replace(tzinfo=timezone.utc)
-            
-            if now > expiration_date:
-                logger.warning(f"❌ Invitation code expired: {invitation_code} (expired: {expiration_date})")
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invitation code has expired"
-                )
-        except HTTPException:
-            # Re-raise HTTPException (don't catch our own exception)
-            raise
-        except Exception as e:
-            # Log error but don't fail - treat as no expiration
-            logger.error(f"⚠️ Error checking expiration date: {e}")
-            # Continue without checking expiration
-    
-    # Step 5: Get tier from invitation code
+    # Step 4: Validate invitation code
+    code_data = _validate_invitation_code(invitation_code, db)
     assigned_tier = code_data.get("tier", "FREE")
     logger.info(f"✅ Valid invitation code - assigning tier: {assigned_tier}")
     
-    # Step 6: Set Firebase Custom Claim
-    try:
-        auth.set_custom_user_claims(user_id, {"tier": assigned_tier})
-        logger.info(f"✅ Custom claim set: {user_id} -> {assigned_tier}")
-    except Exception as e:
-        logger.error(f"❌ Failed to set custom claims: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to assign tier. Please try again."
-        )
+    # Step 5: Assign tier to user
+    response = _assign_tier_to_user(user_id, assigned_tier)
     
-    # Step 7: Mark invitation code as used
-    try:
-        code_ref.update({
-            "is_used": True,
-            "used_by_user_id": user_id,
-            "used_at": SERVER_TIMESTAMP
-        })
-        logger.info(f"✅ Invitation code marked as used: {invitation_code}")
-    except Exception as e:
-        logger.error(f"❌ Failed to mark code as used: {e}")
-        # Don't fail registration if this fails - user already has tier assigned
-        # Just log the error
+    # Step 6: Mark invitation code as used
+    code_ref = db.collection("invitation_codes").document(invitation_code)
+    _mark_code_as_used(code_ref, user_id, invitation_code)
     
-    # Step 8: Return success response
-    return RegistrationResponse(
-        status="success",
-        tier=assigned_tier,
-        message="Access to plan assigned successfully. You may need to refresh your token."
-    )
+    return response
 
 
 @router.post("/refresh-claims")

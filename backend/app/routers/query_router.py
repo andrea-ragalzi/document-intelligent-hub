@@ -72,7 +72,7 @@ async def query_document(
         
         # Load tier limits from Firestore
         from app.routers.auth_router import load_app_config
-        app_config = await load_app_config()
+        app_config = load_app_config()
         
         # CRITICAL FIX: Ensure UNLIMITED tier is always handled correctly
         if tier == "UNLIMITED":
@@ -85,7 +85,7 @@ async def query_document(
         
         # Check if user has exceeded their query limit
         usage_service = get_usage_service()
-        can_query, queries_used = await usage_service.check_query_limit(user_id, max_queries)
+        can_query, queries_used = usage_service.check_query_limit(user_id, max_queries)
         
         logger.info(f"📊 Usage check result: can_query={can_query}, queries_used={queries_used}, max_queries={max_queries}")
         
@@ -129,7 +129,7 @@ async def query_document(
         )
         
         # === STEP 3: INCREMENT QUERY COUNTER ===
-        new_count = await usage_service.increment_user_queries(user_id)
+        new_count = usage_service.increment_user_queries(user_id)
         logger.info(f"📊 Query counter incremented: {new_count}/{max_queries} ({tier})")
         
         # === DETAILED RESPONSE LOGGING ===
