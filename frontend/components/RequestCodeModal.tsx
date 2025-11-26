@@ -13,9 +13,9 @@ const API_BASE_URL =
   "http://localhost:8000";
 
 interface RequestCodeModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  userEmail?: string;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly userEmail?: string;
 }
 
 export default function RequestCodeModal({

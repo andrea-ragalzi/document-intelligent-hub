@@ -175,6 +175,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             return (
               <div
                 key={conv.id}
+                role="button"
+                tabIndex={0}
                 className={`group relative rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${
                   isSelected
                     ? "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-500"
@@ -187,6 +189,16 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     handleSelect(conv.id);
                   } else {
                     onLoad(conv);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (isSelectionMode) {
+                      handleSelect(conv.id);
+                    } else {
+                      onLoad(conv);
+                    }
                   }
                 }}
                 onTouchStart={(e) => handleTouchStart(e, conv.id)}
@@ -266,10 +278,19 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           <>
             {/* Backdrop for mobile */}
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="Close menu"
               className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
               onClick={(e) => {
                 e.stopPropagation();
                 closeContextMenu();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+                  e.preventDefault();
+                  closeContextMenu();
+                }
               }}
             />
             {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}

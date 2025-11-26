@@ -110,7 +110,7 @@ export function useQueryUsage(): UseQueryUsageResult {
     tier: data?.tier ?? "FREE",
     isLimitReached: checkLimitReached(data?.remaining),
     isLoading,
-    error: error as Error | null,
-    refetch,
+    error: error ?? null,
+    refetch: () => void refetch(),
   };
 }

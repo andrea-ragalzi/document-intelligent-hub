@@ -196,7 +196,7 @@ class AnswerGenerationService:
                     all_retrieved_docs.append(doc)
                     doc_ids.add(doc_id)
 
-        unique_files = set(doc.metadata.get("original_filename", "Unknown") for doc in all_retrieved_docs)
+        unique_files = {doc.metadata.get("original_filename", "Unknown") for doc in all_retrieved_docs}
         logger.info(f"📚 Retrieved {len(all_retrieved_docs)} chunks from {len(unique_files)} files")
 
         # Rerank to top N
@@ -271,9 +271,9 @@ class AnswerGenerationService:
             final_answer = str(llm_response).strip()
 
             # Extract source files
-            source_documents = sorted(list(set(
+            source_documents = sorted({
                 doc.metadata.get("original_filename", "Unknown") for doc in context_docs
-            )))
+            })
 
             # Translate if needed
             if target_language != "EN" and self.language_service.detect_language(final_answer).upper() == "EN":

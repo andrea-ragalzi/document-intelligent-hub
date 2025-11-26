@@ -101,10 +101,23 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     <>
       {/* Overlay */}
       <div
+        role="button"
+        tabIndex={isUploading ? -1 : 0}
+        aria-label="Close upload modal"
         className={`fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-50 transition-opacity duration-300 ${
           isUploading ? "cursor-not-allowed" : "cursor-pointer"
         }`}
         onClick={isUploading ? undefined : onClose}
+        onKeyDown={
+          isUploading
+            ? undefined
+            : (e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  onClose();
+                }
+              }
+        }
       />
 
       {/* Modal */}

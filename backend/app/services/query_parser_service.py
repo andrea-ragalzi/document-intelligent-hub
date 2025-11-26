@@ -124,7 +124,7 @@ class QueryParserService:
             logger.debug(f"   Available files: {available_files}")
             
             # Build prompt for LLM
-            prompt = self._build_extraction_prompt(query, available_files)
+            prompt = self._build_extraction_prompt(query)
             
             # Build the full chain with structured output
             chain = prompt | self.llm | StrOutputParser() | self.parser
@@ -179,8 +179,7 @@ class QueryParserService:
     
     def _build_extraction_prompt(
         self, 
-        query: str, 
-        available_files: List[str]
+        query: str
     ) -> ChatPromptTemplate:
         """
         Build the prompt for file filter extraction.

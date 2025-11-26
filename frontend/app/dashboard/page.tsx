@@ -134,7 +134,7 @@ export default function Page() {
       console.log("✅ Server is back online - refreshing data...");
       refreshDocuments();
       // Also trigger document status refresh
-      window.dispatchEvent(new Event("refreshDocumentStatus"));
+      globalThis.dispatchEvent(new Event("refreshDocumentStatus"));
     }
     // Update previous status
     previousServerStatusRef.current = isServerOnline;
@@ -238,7 +238,7 @@ export default function Page() {
           await updateConversationHistory.mutateAsync({
             id: currentConversationId,
             history: chatHistory.map((msg) => ({
-              type: msg.type as "user" | "assistant",
+              type: msg.type,
               text: msg.text,
               sources: msg.sources || [],
             })),
@@ -252,7 +252,7 @@ export default function Page() {
           const newConversation = await createConversation.mutateAsync({
             name: autoName,
             history: chatHistory.map((msg) => ({
-              type: msg.type as "user" | "assistant",
+              type: msg.type,
               text: msg.text,
               sources: msg.sources || [],
             })),
@@ -700,7 +700,6 @@ export default function Page() {
         {/* Invitation Code Modal */}
         <InvitationCodeModal
           isOpen={invitationCodeModalOpen}
-          onClose={() => setInvitationCodeModalOpen(false)}
           onSuccess={(assignedTier) => {
             console.log("✅ Registration successful, tier:", assignedTier);
             // useRegistration already forced token refresh, so update tier immediately

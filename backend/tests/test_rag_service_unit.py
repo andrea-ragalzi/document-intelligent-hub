@@ -8,7 +8,7 @@ This is the key benefit of the Repository Pattern - services can be tested
 independently with fast, reliable mock objects.
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, AsyncMock, patch
 
 import pytest
 from app.repositories.vector_store_repository import VectorStoreRepository
@@ -90,9 +90,7 @@ class TestDocumentIndexing:
         mock_file = Mock()
         mock_file.filename = "test.pdf"
         
-        async def mock_read():
-            return b"fake pdf content"
-        mock_file.read = mock_read
+        mock_file.read = AsyncMock(return_value=b"fake pdf content")
         
         # Mock repository behavior
         mock_repository.check_document_exists.return_value = False
@@ -123,9 +121,7 @@ class TestDocumentIndexing:
         mock_file = Mock()
         mock_file.filename = "existing.pdf"
         
-        async def mock_read():
-            return b"fake content"
-        mock_file.read = mock_read
+        mock_file.read = AsyncMock(return_value=b"fake content")
         
         # Mock repository - document exists
         mock_repository.check_document_exists.return_value = True
@@ -206,13 +202,12 @@ class TestQueryProcessing:
         # This should include history in the prompt
         # (actual verification would require inspecting LLM call)
         try:
-            answer, sources = rag_service.answer_query(
+            _, _ = rag_service.answer_query(
                 query="Follow-up question",
                 user_id="test-user",
                 conversation_history=conversation_history
             )
-            # If it doesn't crash, basic functionality works
-            assert True
+            # Test passes if no exception raised - history feature working
         except Exception:
             # If conversation_history not implemented yet, skip
             pytest.skip("Conversation history feature not implemented")
@@ -379,7 +374,7 @@ class TestEdgeCases:
         
         # Should handle gracefully
         try:
-            answer, sources = rag_service.answer_query(
+            answer, _ = rag_service.answer_query(
                 query="",
                 user_id="test-user"
             )
@@ -436,9 +431,7 @@ class TestMockingBestPractices:
         mock_file1 = Mock()
         mock_file1.filename = "exists.pdf"
         
-        async def mock_read():
-            return b"content"
-        mock_file1.read = mock_read
+        mock_file1.read = AsyncMock(return_value=b"content")
         
         try:
             await rag_service.index_document(mock_file1, "user")

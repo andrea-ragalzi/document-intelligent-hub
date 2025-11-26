@@ -137,9 +137,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
       const menuElement = menuRef.current;
       const targetNode = event.target as Node;
 
-      const clickedInsideTrigger =
-        kebabElement && kebabElement.contains(targetNode);
-      const clickedInsideMenu = menuElement && menuElement.contains(targetNode);
+      const clickedInsideTrigger = kebabElement?.contains(targetNode);
+      const clickedInsideMenu = menuElement?.contains(targetNode);
 
       if (!clickedInsideTrigger && !clickedInsideMenu) {
         closeContextMenu();

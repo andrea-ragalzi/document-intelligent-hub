@@ -47,10 +47,10 @@ export interface UseMobileGesturesReturn {
   isDragging: boolean;
 
   /** Refs for kebab buttons (desktop) */
-  kebabRef: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
+  kebabRef: React.RefObject<{ [key: string]: HTMLDivElement | null }>;
 
   /** Ref for menu container (for click-outside detection) */
-  menuRef: React.MutableRefObject<HTMLDivElement | null>;
+  menuRef: React.RefObject<HTMLDivElement | null>;
 
   /** Close context menu/sheet */
   closeContextMenu: () => void;
@@ -131,9 +131,8 @@ export function useMobileGestures({
       const menuElement = menuRef.current;
       const targetNode = event.target as Node;
 
-      const clickedInsideTrigger =
-        kebabElement && kebabElement.contains(targetNode);
-      const clickedInsideMenu = menuElement && menuElement.contains(targetNode);
+      const clickedInsideTrigger = kebabElement?.contains(targetNode);
+      const clickedInsideMenu = menuElement?.contains(targetNode);
 
       if (!clickedInsideTrigger && !clickedInsideMenu) {
         closeContextMenu();

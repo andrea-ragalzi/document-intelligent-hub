@@ -153,10 +153,10 @@ class DocumentManagementService:
             if not metadatas:
                 return 0
             
-            unique_filenames = set(
+            unique_filenames = {
                 metadata.get("original_filename", "Unknown") 
                 for metadata in metadatas
-            )
+            }
             
             count = len(unique_filenames)
             logger.info(f"📊 User {user_id} has {count} documents")

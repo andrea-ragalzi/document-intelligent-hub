@@ -12,9 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import RequestCodeModal from "./RequestCodeModal";
 
 interface InvitationCodeModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (tier: string) => void;
+  readonly isOpen: boolean;
+  readonly onSuccess: (tier: string) => void;
 }
 
 export default function InvitationCodeModal({

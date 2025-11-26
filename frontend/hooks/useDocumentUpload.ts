@@ -125,7 +125,7 @@ export const useDocumentUpload = (
 
           // Trigger document status refresh (for UI state updates)
           console.log("📡 Dispatching refreshDocumentStatus event");
-          window.dispatchEvent(new Event("refreshDocumentStatus"));
+          globalThis.dispatchEvent(new Event("refreshDocumentStatus"));
 
           // NOTE: Removed 'documentUploaded' event dispatch to prevent multiple refreshes
           // DocumentManager now handles refresh based on isUploading state change

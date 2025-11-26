@@ -15,7 +15,7 @@ import "@testing-library/jest-dom";
 import { BugReportModal } from "@/components/BugReportModal";
 
 // Mock fetch globally
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn();
 
 describe("BugReportModal", () => {
   const mockOnClose = vi.fn();
@@ -28,7 +28,7 @@ describe("BugReportModal", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (global.fetch as any).mockClear();
+    (globalThis.fetch as any).mockClear();
   });
 
   afterEach(() => {
@@ -306,7 +306,7 @@ describe("BugReportModal", () => {
 
   describe("Form Submission", () => {
     it("should submit bug report without attachment", async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           message: "Bug report received successfully",
@@ -327,7 +327,7 @@ describe("BugReportModal", () => {
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(globalThis.fetch).toHaveBeenCalledWith(
           expect.stringContaining("/report-bug"),
           expect.objectContaining({
             method: "POST",
@@ -338,7 +338,7 @@ describe("BugReportModal", () => {
     });
 
     it("should submit bug report with attachment", async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           message: "Bug report received successfully",
@@ -374,14 +374,14 @@ describe("BugReportModal", () => {
       });
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalled();
-        const formData = (global.fetch as any).mock.calls[0][1].body;
+        expect(globalThis.fetch).toHaveBeenCalled();
+        const formData = (globalThis.fetch as any).mock.calls[0][1].body;
         expect(formData).toBeInstanceOf(FormData);
       });
     });
 
     it("should handle 413 error with user-friendly message", async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 413,
       });
@@ -403,7 +403,7 @@ describe("BugReportModal", () => {
     });
 
     it("should show success message after submission", async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           message: "Bug report received successfully",
@@ -429,9 +429,9 @@ describe("BugReportModal", () => {
 
     it("should close modal after successful submission", async () => {
       // Spy on setTimeout instead of using fake timers
-      const setTimeoutSpy = vi.spyOn(global, "setTimeout");
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           message: "Bug report received successfully",
@@ -482,7 +482,7 @@ describe("BugReportModal", () => {
 
     it("should disable all inputs while submitting", async () => {
       let resolveFetch: (value: any) => void;
-      (global.fetch as any).mockImplementation(
+      (globalThis.fetch as any).mockImplementation(
         () =>
           new Promise((resolve) => {
             resolveFetch = resolve;
@@ -511,7 +511,7 @@ describe("BugReportModal", () => {
 
     it("should prevent closing modal while submitting", async () => {
       let resolveFetch: (value: any) => void;
-      (global.fetch as any).mockImplementation(
+      (globalThis.fetch as any).mockImplementation(
         () =>
           new Promise((resolve) => {
             resolveFetch = resolve;

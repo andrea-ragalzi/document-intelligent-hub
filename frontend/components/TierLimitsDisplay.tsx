@@ -7,8 +7,8 @@ import { useUserTier } from "@/hooks/useUserTier";
 import TierBadge from "./TierBadge";
 
 interface TierLimitsDisplayProps {
-  currentDocuments?: number;
-  currentQueries?: number;
+  readonly currentDocuments?: number;
+  readonly currentQueries?: number;
 }
 
 export default function TierLimitsDisplay({

@@ -8,10 +8,10 @@ import { Crown, Zap, Gift } from "lucide-react";
 import { UserTier } from "@/hooks/useUserTier";
 
 interface TierBadgeProps {
-  tier: UserTier;
-  showUpgrade?: boolean;
-  onUpgrade?: () => void;
-  className?: string;
+  readonly tier: UserTier;
+  readonly showUpgrade?: boolean;
+  readonly onUpgrade?: () => void;
+  readonly className?: string;
 }
 
 const TIER_CONFIG = {
