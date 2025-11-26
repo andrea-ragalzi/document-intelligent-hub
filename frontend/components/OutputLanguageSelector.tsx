@@ -61,6 +61,7 @@ export const OutputLanguageSelector: React.FC<OutputLanguageSelectorProps> = ({
           e.stopPropagation();
           onClose();
         }}
+        onKeyDown={(e) => e.key === 'Escape' && onClose()}
       />
 
       {/* Mobile Bottom Sheet */}
@@ -72,6 +73,7 @@ export const OutputLanguageSelector: React.FC<OutputLanguageSelectorProps> = ({
             transform: `translateY(${dragY}px)`,
           }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           {/* Drag Handle */}
           <div

@@ -104,6 +104,7 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
           e.stopPropagation();
           onClose();
         }}
+        onKeyDown={(e) => e.key === 'Escape' && onClose()}
       />
 
       {/* Mobile Bottom Sheet - with top padding to avoid topbar */}
@@ -115,6 +116,7 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
             transform: `translateY(${dragY}px)`,
           }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           {/* Drag Handle */}
           <div

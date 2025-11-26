@@ -433,7 +433,7 @@ describe("Query Usage Tracking", () => {
       tier: "FREE",
     };
 
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => mockUsageResponse,
     });

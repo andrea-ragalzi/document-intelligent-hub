@@ -12,7 +12,7 @@ interface ChatMessageDisplayProps {
 
 // Utility function to clean [DOCUMENT X] markers from text
 const cleanDocumentMarkers = (text: string): string => {
-  return text.replace(/\s*\[DOCUMENT\s+\d+\]/gi, "");
+  return text.replaceAll(/\s*\[DOCUMENT\s+\d+\]/gi, "");
 };
 
 // Componente di visualizzazione dell'Avatar
@@ -85,7 +85,7 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({
               <ul className="list-disc list-inside text-xs text-indigo-900 dark:text-indigo-50 space-y-0.5 max-h-24 overflow-y-auto pr-2">
                 {msg.sources.map((source, i) => (
                   <li
-                    key={i}
+                    key={`source-${i}-${source.substring(0, 30)}`}
                     className="truncate hover:text-indigo-500 transition-colors"
                   >
                     <a
