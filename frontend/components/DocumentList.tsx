@@ -248,26 +248,16 @@ const DocumentList: React.FC<DocumentListProps> = ({
               const isKebabOpen = openKebabId === doc.filename;
 
               return (
-                <div
+                <button
                   key={doc.filename}
-                  role="button"
-                  tabIndex={0}
-                  className={`group relative rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${
+                  type="button"
+                  className={`group relative w-full text-left rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${
                     isSelected
                       ? "bg-indigo-100 dark:bg-indigo-900/50 border-2 border-indigo-500 dark:border-indigo-400"
                       : "bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:bg-indigo-50 dark:hover:bg-gray-600 hover:border-indigo-200 dark:hover:border-indigo-800"
                   } cursor-pointer`}
                   onClick={() => {
                     if (isSelectionMode) {
-                      handleSelect(doc.filename);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (
-                      (e.key === "Enter" || e.key === " ") &&
-                      isSelectionMode
-                    ) {
-                      e.preventDefault();
                       handleSelect(doc.filename);
                     }
                   }}
@@ -355,7 +345,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                       </div>
                     )}
                   </div>
-                </div>
+                </button>
               );
             })
           )}
