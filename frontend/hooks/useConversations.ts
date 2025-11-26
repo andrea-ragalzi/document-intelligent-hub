@@ -25,6 +25,41 @@ export const useConversations = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper: Try to load and parse from localStorage
+  const tryLoadFromLocalStorage = useCallback((): SavedConversation[] => {
+    if (globalThis.window === undefined) return [];
+
+    const stored = localStorage.getItem(CONVERSATIONS_KEY);
+    if (!stored) return [];
+
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error("Error parsing localStorage conversations:", e);
+      return [];
+    }
+  }, []);
+
+  // Helper: Handle localStorage migration to Firestore
+  const handleLocalStorageMigration = useCallback(
+    async (userId: string): Promise<SavedConversation[]> => {
+      const localConversations = tryLoadFromLocalStorage();
+
+      if (localConversations.length === 0) return [];
+
+      console.log("Migrating conversations from localStorage to Firestore...");
+      await migrateLocalStorageToFirestore(userId, localConversations);
+
+      const migratedConversations = await loadConversationsFromFirestore(
+        userId
+      );
+      localStorage.removeItem(CONVERSATIONS_KEY);
+
+      return migratedConversations;
+    },
+    [tryLoadFromLocalStorage]
+  );
+
   // Load conversations on mount
   useEffect(() => {
     if (!userId) return;
@@ -44,31 +79,16 @@ export const useConversations = ({
           firestoreConversations.length === 0 &&
           globalThis.window !== undefined
         ) {
-          const stored = localStorage.getItem(CONVERSATIONS_KEY);
-          if (stored) {
-            try {
-              const localConversations: SavedConversation[] =
-                JSON.parse(stored);
-              if (localConversations.length > 0) {
-                // Migrate to Firestore
-                console.log(
-                  "Migrating conversations from localStorage to Firestore..."
-                );
-                await migrateLocalStorageToFirestore(
-                  userId,
-                  localConversations
-                );
-                // Reload from Firestore
-                const migratedConversations =
-                  await loadConversationsFromFirestore(userId);
-                setSavedConversations(migratedConversations);
-                // Clean localStorage after migration
-                localStorage.removeItem(CONVERSATIONS_KEY);
-                return;
-              }
-            } catch (e) {
-              console.error("Error migrating from localStorage:", e);
+          try {
+            const migratedConversations = await handleLocalStorageMigration(
+              userId
+            );
+            if (migratedConversations.length > 0) {
+              setSavedConversations(migratedConversations);
+              return;
             }
+          } catch (e) {
+            console.error("Error migrating from localStorage:", e);
           }
         }
 
@@ -78,24 +98,15 @@ export const useConversations = ({
         setError("Unable to load conversations");
 
         // Fallback to localStorage if Firestore fails
-        if (globalThis.window !== undefined) {
-          const stored = localStorage.getItem(CONVERSATIONS_KEY);
-          if (stored) {
-            try {
-              const parsed = JSON.parse(stored);
-              setSavedConversations(parsed);
-            } catch (e) {
-              console.error("Error parsing localStorage conversations:", e);
-            }
-          }
-        }
+        const localConversations = tryLoadFromLocalStorage();
+        setSavedConversations(localConversations);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadConversations();
-  }, [userId]);
+  }, [userId, handleLocalStorageMigration, tryLoadFromLocalStorage]);
 
   // Save a conversation
   const saveConversation = useCallback(
