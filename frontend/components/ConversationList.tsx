@@ -186,10 +186,11 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             const isSelected = selectedConvs.includes(conv.id);
 
             return (
+              // NOSONAR typescript:S6848 - Cannot use native button: contains nested button for kebab menu
               <div
-                key={conv.id}
                 role="button"
                 tabIndex={0}
+                key={conv.id}
                 aria-label={`Conversation: ${conv.name}`}
                 className={`group relative w-full text-left rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${getConversationItemClassName(
                   isSelected,
@@ -203,7 +204,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   }
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     if (isSelectionMode) {
                       handleSelect(conv.id);

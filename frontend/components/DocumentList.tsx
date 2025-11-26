@@ -248,6 +248,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
               const isKebabOpen = openKebabId === doc.filename;
 
               return (
+                // NOSONAR typescript:S6848 - Cannot use native button: contains nested button for kebab menu
                 <div
                   key={doc.filename}
                   role="button"
@@ -264,7 +265,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                     }
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       if (isSelectionMode) {
                         handleSelect(doc.filename);
