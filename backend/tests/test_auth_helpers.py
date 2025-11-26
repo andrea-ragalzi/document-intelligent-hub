@@ -45,7 +45,7 @@ class TestLoadAppConfig:
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
             
-            result = await load_app_config()
+            result = load_app_config()
             
             assert "unlimited_emails" in result
             assert "limits" in result
@@ -78,10 +78,10 @@ class TestLoadAppConfig:
             mock_get_db.return_value = db_instance
             
             # First call
-            result1 = await load_app_config()
+            result1 = load_app_config()
             
             # Second call
-            result2 = await load_app_config()
+            result2 = load_app_config()
             
             # Should be same values (cached)
             assert result1["unlimited_emails"] == result2["unlimited_emails"]
@@ -108,7 +108,7 @@ class TestLoadAppConfig:
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
             
-            result = await load_app_config()
+            result = load_app_config()
             
             # Should return defaults
             assert result["unlimited_emails"] == []
@@ -131,7 +131,7 @@ class TestLoadAppConfig:
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
             
-            result = await load_app_config()
+            result = load_app_config()
             
             # Should return defaults on error
             assert result["unlimited_emails"] == []
@@ -160,7 +160,7 @@ class TestLoadAppConfig:
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
             
-            result = await load_app_config()
+            result = load_app_config()
             
             # Should have defaults for missing fields
             assert "unlimited_emails" in result
@@ -181,7 +181,7 @@ class TestGetCurrentUserId:
                 "email": "test@example.com"
             }
             
-            user_id = await get_current_user_id("Bearer valid_token")
+            user_id = get_current_user_id("Bearer valid_token")
             
             assert user_id == "user123"
             mock_auth.verify_id_token.assert_called_once_with("valid_token")
@@ -190,7 +190,7 @@ class TestGetCurrentUserId:
     async def test_get_current_user_id_missing_header(self):
         """Test with missing authorization header"""
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user_id("")  # Empty string instead of None
+            get_current_user_id("")  # Empty string instead of None
         
         assert exc_info.value.status_code == 401
         assert "Missing or invalid" in exc_info.value.detail
@@ -199,7 +199,7 @@ class TestGetCurrentUserId:
     async def test_get_current_user_id_invalid_format(self):
         """Test with invalid authorization header format (no Bearer)"""
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user_id("InvalidToken")
+            get_current_user_id("InvalidToken")
         
         assert exc_info.value.status_code == 401
         assert "Missing or invalid" in exc_info.value.detail
@@ -209,12 +209,15 @@ class TestGetCurrentUserId:
         """Test with empty Bearer token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             # Mock the call to verify_id_token to raise an exception for an empty string
-            mock_auth.verify_id_token.side_effect = lambda t: {
-                "uid": "user123"
-            } if t else (_ for _ in ()).throw(ValueError("Empty token"))
+            def verify_token_side_effect(t):
+                if t:
+                    return {"uid": "user123"}
+                raise ValueError("Empty token")
+            
+            mock_auth.verify_id_token.side_effect = verify_token_side_effect
 
             with pytest.raises(HTTPException) as exc_info:
-                await get_current_user_id("Bearer ")
+                get_current_user_id("Bearer ")
 
             assert exc_info.value.status_code == 401
             assert "Invalid or expired token" in exc_info.value.detail
@@ -228,7 +231,7 @@ class TestGetCurrentUserId:
             mock_auth.verify_id_token.side_effect = Exception("Invalid token")
             
             with pytest.raises(HTTPException) as exc_info:
-                await get_current_user_id("Bearer invalid_token")
+                get_current_user_id("Bearer invalid_token")
             
             assert exc_info.value.status_code == 401
             assert "Invalid or expired token" in exc_info.value.detail
@@ -240,7 +243,7 @@ class TestGetCurrentUserId:
             mock_auth.verify_id_token.side_effect = Exception("Token expired")
             
             with pytest.raises(HTTPException) as exc_info:
-                await get_current_user_id("Bearer expired_token")
+                get_current_user_id("Bearer expired_token")
             
             assert exc_info.value.status_code == 401
 
@@ -251,7 +254,7 @@ class TestGetCurrentUserId:
             mock_auth.verify_id_token.side_effect = Exception("Malformed token")
             
             with pytest.raises(HTTPException) as exc_info:
-                await get_current_user_id("Bearer malformed")
+                get_current_user_id("Bearer malformed")
             
             assert exc_info.value.status_code == 401
 
@@ -260,7 +263,7 @@ class TestGetCurrentUserId:
         """Test that Bearer prefix is case-sensitive"""
         # Should only accept "Bearer" not "bearer" or "BEARER"
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user_id("bearer token")
+            get_current_user_id("bearer token")
         
         assert exc_info.value.status_code == 401
 
@@ -273,7 +276,7 @@ class TestGetCurrentUserId:
             }
             
             # Should handle multiple spaces
-            user_id = await get_current_user_id("Bearer  token_with_spaces")
+            user_id = get_current_user_id("Bearer  token_with_spaces")
             
             # Should extract "token_with_spaces" after removing "Bearer "
             assert user_id == "user123"
@@ -288,7 +291,7 @@ class TestGetCurrentUserId:
             }
             
             with pytest.raises(HTTPException) as exc_info:
-                await get_current_user_id("Bearer valid_token")
+                get_current_user_id("Bearer valid_token")
             
             # Should catch KeyError and raise HTTPException
             assert exc_info.value.status_code == 401

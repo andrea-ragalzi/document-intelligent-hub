@@ -132,6 +132,16 @@ class UsageTrackingService:
             # On error, allow the query but log it
             return True, 0
     
+    def _should_keep_date(self, date_key: str, cutoff_date: datetime, days_to_keep: int) -> bool:
+        """Check if a date entry should be kept based on retention policy."""
+        try:
+            date_obj = datetime.strptime(date_key, "%Y-%m-%d")
+            days_old = (cutoff_date - date_obj).days
+            return days_old <= days_to_keep
+        except Exception:
+            # Invalid date format, don't keep
+            return False
+    
     def cleanup_old_usage(self, days_to_keep: int = 30):
         """
         Clean up old usage data (keep last N days).
@@ -158,18 +168,12 @@ class UsageTrackingService:
                 if not queries:
                     continue
                 
-                # Remove old date keys
-                updated_queries = {}
-                for date_key, count in queries.items():
-                    try:
-                        date_obj = datetime.strptime(date_key, "%Y-%m-%d")
-                        days_old = (cutoff_date - date_obj).days
-                        
-                        if days_old <= days_to_keep:
-                            updated_queries[date_key] = count
-                    except Exception:
-                        # Invalid date format, skip
-                        continue
+                # Filter queries to keep only recent ones
+                updated_queries = {
+                    date_key: count
+                    for date_key, count in queries.items()
+                    if self._should_keep_date(date_key, cutoff_date, days_to_keep)
+                }
                 
                 # Update document if changed
                 if len(updated_queries) < len(queries):
