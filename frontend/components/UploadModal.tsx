@@ -123,6 +123,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
+          role="presentation"
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl pointer-events-auto transform transition-all duration-300"
           onClick={(e) => e.stopPropagation()}
         >
@@ -157,6 +158,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* Drag & Drop Zone */}
             <div
+              role="presentation"
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               onDragOver={handleDragOver}

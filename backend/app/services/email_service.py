@@ -28,6 +28,12 @@ from sendgrid.helpers.mail import (
     To,
 )
 
+# Constants for repeated literals
+CONTENT_TYPE_TEXT_PLAIN = "text/plain"
+CONTENT_TYPE_TEXT_HTML = "text/html"
+ERROR_NO_BODY = "No body"
+ERROR_SENDGRID_403_MESSAGE = "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
+
 
 class EmailService:
     """
@@ -184,8 +190,8 @@ Action Required: Review this bug report and investigate the issue.
                 from_email=Email(self.from_email),
                 to_emails=To(self.support_email),
                 subject=subject,
-                plain_text_content=Content("text/plain", plain_text),
-                html_content=Content("text/html", html_content),
+                plain_text_content=Content(CONTENT_TYPE_TEXT_PLAIN, plain_text),
+                html_content=Content(CONTENT_TYPE_TEXT_HTML, html_content),
             )
             
             # Add attachment if provided
@@ -213,14 +219,12 @@ Action Required: Review this bug report and investigate the issue.
                 )
                 return True
             else:
-                error_body = response.body.decode('utf-8') if response.body else 'No body'
+                error_body = response.body.decode('utf-8') if response.body else ERROR_NO_BODY
                 logger.error(
                     f"❌ SendGrid error | Status: {response.status_code} | Body: {error_body}"
                 )
                 if response.status_code == 403:
-                    logger.warning(
-                        "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
-                    )
+                    logger.warning(ERROR_SENDGRID_403_MESSAGE)
                 return False
                 
         except Exception as e:
@@ -367,8 +371,8 @@ Action: Review this feedback to improve user experience and system performance.
                 from_email=Email(self.from_email),
                 to_emails=To(self.support_email),
                 subject=subject,
-                plain_text_content=Content("text/plain", plain_text),
-                html_content=Content("text/html", html_content),
+                plain_text_content=Content(CONTENT_TYPE_TEXT_PLAIN, plain_text),
+                html_content=Content(CONTENT_TYPE_TEXT_HTML, html_content),
             )
             
             # Send email
@@ -380,14 +384,12 @@ Action: Review this feedback to improve user experience and system performance.
                 )
                 return True
             else:
-                error_body = response.body.decode('utf-8') if response.body else 'No body'
+                error_body = response.body.decode('utf-8') if response.body else ERROR_NO_BODY
                 logger.error(
                     f"❌ SendGrid error | Status: {response.status_code} | Body: {error_body}"
                 )
                 if response.status_code == 403:
-                    logger.warning(
-                        "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
-                    )
+                    logger.warning(ERROR_SENDGRID_403_MESSAGE)
                 return False
                 
         except Exception as e:
@@ -491,8 +493,8 @@ Automated email from Document Intelligent Hub
                 from_email=Email(self.from_email),
                 to_emails=To(self.support_email),
                 subject=subject,
-                plain_text_content=Content("text/plain", plain_text),
-                html_content=Content("text/html", html_content),
+                plain_text_content=Content(CONTENT_TYPE_TEXT_PLAIN, plain_text),
+                html_content=Content(CONTENT_TYPE_TEXT_HTML, html_content),
             )
             
             # Send email
@@ -504,14 +506,12 @@ Automated email from Document Intelligent Hub
                 )
                 return True
             else:
-                error_body = response.body.decode('utf-8') if response.body else 'No body'
+                error_body = response.body.decode('utf-8') if response.body else ERROR_NO_BODY
                 logger.error(
                     f"❌ SendGrid error | Status: {response.status_code} | Body: {error_body}"
                 )
                 if response.status_code == 403:
-                    logger.warning(
-                        "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
-                    )
+                    logger.warning(ERROR_SENDGRID_403_MESSAGE)
                 return False
                 
         except Exception as e:

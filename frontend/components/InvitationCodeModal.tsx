@@ -59,6 +59,7 @@ export default function InvitationCodeModal({
 
   return (
     <div
+      role="presentation"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={(e) => {
         // Prevent closing by clicking backdrop
@@ -66,6 +67,7 @@ export default function InvitationCodeModal({
       }}
     >
       <div
+        role="presentation"
         className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-xl"
         onClick={(e) => {
           // Prevent backdrop click from closing modal

@@ -40,6 +40,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     <>
       {/* Overlay */}
       <div
+        role="presentation"
         className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-50 transition-opacity duration-300"
         onClick={isDeleting ? undefined : onClose}
       />
@@ -47,6 +48,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
+          role="presentation"
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto transform transition-all duration-300"
           onClick={(e) => e.stopPropagation()}
         >

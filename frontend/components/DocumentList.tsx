@@ -250,6 +250,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
               return (
                 <div
                   key={doc.filename}
+                  role="button"
+                  tabIndex={0}
                   className={`group relative rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${
                     isSelected
                       ? "bg-indigo-100 dark:bg-indigo-900/50 border-2 border-indigo-500 dark:border-indigo-400"
@@ -257,6 +259,12 @@ const DocumentList: React.FC<DocumentListProps> = ({
                   } cursor-pointer`}
                   onClick={() => {
                     if (isSelectionMode) {
+                      handleSelect(doc.filename);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if ((e.key === "Enter" || e.key === " ") && isSelectionMode) {
+                      e.preventDefault();
                       handleSelect(doc.filename);
                     }
                   }}
@@ -358,6 +366,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           <>
             {/* Backdrop for mobile */}
             <div
+              role="presentation"
               className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
               onClick={(e) => {
                 e.stopPropagation();
