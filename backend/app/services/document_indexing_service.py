@@ -14,9 +14,9 @@ Responsibilities:
 
 import os
 import time
-import aiofiles
 from typing import List, Optional, Tuple
 
+import aiofiles
 from app.core.logging import logger
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.services.document_classifier_service import (

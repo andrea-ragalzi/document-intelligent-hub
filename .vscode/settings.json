@@ -105,5 +105,6 @@
     "python:S5131": {
       "level": "off"
     }
-  }
+  },
+  "docwriter.style": "Auto-detect"
 }
