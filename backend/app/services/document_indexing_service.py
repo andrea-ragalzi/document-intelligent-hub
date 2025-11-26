@@ -13,6 +13,7 @@ Responsibilities:
 """
 
 import os
+import tempfile
 import time
 from typing import List, Optional, Tuple
 
@@ -77,20 +78,23 @@ class DocumentIndexingService:
         Returns:
             Tuple of (chunks_indexed, detected_or_specified_language)
         """
-        # 1. Save the uploaded content to a temporary file
-        temp_file_path = f"/tmp/{file.filename}"
         total_chunks_indexed = 0
         
         # Store the document language (user-provided or will be detected)
         doc_language = document_language.upper() if document_language else None
 
+        # Create a secure temporary file with PDF suffix
+        # This prevents path injection attacks by not using user-controlled filename directly
+        temp_fd, temp_file_path = tempfile.mkstemp(suffix=".pdf", prefix="upload_")
+        
         try:
             content = await file.read()
             if not content:
                 raise ValueError("The uploaded file is empty.")
 
-            async with aiofiles.open(temp_file_path, "wb") as f:
-                await f.write(content)
+            # Write content to the secure temporary file
+            os.write(temp_fd, content)
+            os.close(temp_fd)  # Close the file descriptor before passing to loader
 
             # 2. Load PDF using UnstructuredPDFLoader
             loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
@@ -132,9 +136,10 @@ class DocumentIndexingService:
             logger.error(f"❌ Indexing error (service level): {e}")
             raise e
         finally:
-            # 8. Clean up the temporary file
+            # Clean up the secure temporary file
+            # temp_file_path is from tempfile.mkstemp(), already an absolute path
             if os.path.exists(temp_file_path):
-                os.remove(os.path.abspath(temp_file_path))
+                os.remove(temp_file_path)
 
     def _apply_chunking_strategy(
         self,
