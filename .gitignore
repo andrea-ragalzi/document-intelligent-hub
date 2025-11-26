@@ -207,4 +207,14 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# Firebase credentials and secrets
+**/firebase-service-account.json
+**/serviceAccountKey.json
+firebase-adminsdk-*.json
+
+# Proprietary prompts and AI configuration
+backend/config/*.txt
+**/config/*_prompt.txt
+**/config/rag_system_prompt.txt
+
 *.zip
