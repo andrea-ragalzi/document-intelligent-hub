@@ -8,6 +8,7 @@ Handles support operations:
 """
 
 import json
+import aiofiles
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -114,8 +115,8 @@ async def report_bug(
     
     # Write to dedicated bug reports log
     bug_log_path = logs_dir / "bug_reports.log"
-    with open(bug_log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+    async with aiofiles.open(bug_log_path, "a", encoding="utf-8") as f:
+        await f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
     
     # Send email notification via SendGrid
     email_service = get_email_service()
@@ -178,8 +179,8 @@ async def submit_feedback(
     
     # Write to dedicated feedback log
     feedback_log_path = logs_dir / "feedback.log"
-    with open(feedback_log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+    async with aiofiles.open(feedback_log_path, "a", encoding="utf-8") as f:
+        await f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
     
     # Send email notification via SendGrid
     email_service = get_email_service()

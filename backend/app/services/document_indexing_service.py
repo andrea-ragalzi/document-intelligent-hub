@@ -14,6 +14,7 @@ Responsibilities:
 
 import os
 import time
+import aiofiles
 from typing import List, Optional, Tuple
 
 from app.core.logging import logger
@@ -88,8 +89,8 @@ class DocumentIndexingService:
             if not content:
                 raise ValueError("The uploaded file is empty.")
 
-            with open(temp_file_path, "wb") as f:
-                f.write(content)
+            async with aiofiles.open(temp_file_path, "wb") as f:
+                await f.write(content)
 
             # 2. Load PDF using UnstructuredPDFLoader
             loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
@@ -308,8 +309,8 @@ class DocumentIndexingService:
             if not content:
                 raise ValueError("The uploaded file is empty.")
 
-            with open(temp_file_path, "wb") as f:
-                f.write(content)
+            async with aiofiles.open(temp_file_path, "wb") as f:
+                await f.write(content)
 
             # Load first pages only for preview
             loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
