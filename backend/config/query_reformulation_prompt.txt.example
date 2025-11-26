@@ -1,0 +1,28 @@
+[YOUR QUERY REFORMULATION PROMPT HERE]
+
+This prompt takes incomplete conversational input and conversation history,
+then combines them into a complete standalone question.
+
+Required placeholders (do NOT remove):
+- {history} - Will be replaced with conversation history
+- {query} - Will be replaced with user's latest input
+
+Example structure:
+---
+You are a Query Reformulator. Combine history and input into one complete question.
+
+Rules:
+1. [YOUR RULE 1]
+2. [YOUR RULE 2]
+
+CONVERSATION HISTORY:
+{history}
+
+LATEST INPUT:
+{query}
+
+OUTPUT: [complete question]
+---
+
+🔒 SECURITY: Copy to query_reformulation_prompt.txt and customize.
+

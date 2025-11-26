@@ -1,111 +1,88 @@
-# backend/main.py
-
 import os
 import time
-import warnings
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-# Load .env file before any other imports
 from dotenv import load_dotenv
-
-# Load .env from backend directory
-env_path = Path(__file__).parent / ".env"
-load_dotenv(dotenv_path=env_path, override=True)
-
-from app.core.config import settings
-from app.core.firebase import initialize_firebase  # Firebase initialization
-from app.core.logging import logger
-from app.db.chroma_client import (  # Import database initialization
-    get_chroma_client,
-    get_embedding_function,
-)
-from app.routers import auth_router, language_router, rag_router, translation_router
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-# Suppress ONNX Runtime GPU device discovery warnings
-os.environ["ORT_LOG_SEVERITY_LEVEL"] = "3"  # Only show errors
-warnings.filterwarnings("ignore", category=UserWarning, module="onnxruntime")
+# Load .env from backend directory first
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path, override=True)
 
-# Initialize FastAPI App
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    description="Backend API for Document Intelligent Hub - Multi-Tenant RAG System."
+# Now, import other modules
+from app.core.config import settings  # noqa: E402
+from app.core.firebase import initialize_firebase  # noqa: E402
+from app.core.logging import logger  # noqa: E402
+from app.db.chroma_client import get_chroma_client, get_embedding_function  # noqa: E402
+from app.routers import (  # noqa: E402
+    auth_router,
+    documents_router,
+    query_router,
+    support_router,
 )
 
-logger.info(f"🚀 Starting {settings.PROJECT_NAME} v{settings.VERSION}")
 
+# --- Lifespan Context Manager (Modern FastAPI Pattern) ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager - handles startup and shutdown."""
+    # STARTUP
+    logger.info(f"🚀 Starting {settings.PROJECT_NAME} v{settings.PROJECT_VERSION}")
+    logger.info(f"🤖 LLM Model: {settings.LLM_MODEL}")
+    logger.info(f"🧠 Embedding Model: {settings.EMBEDDING_MODEL_NAME}")
 
-# --- Startup Event Handler (Dependency Injection Setup) ---
-@app.on_event("startup")
-async def startup_event():
-    """
-    Application startup handler.
-    
-    Initializes database connections and verifies system readiness.
-    This is where you would initialize connection pools, load models, etc.
-    
-    Architecture Note:
-        - Database clients are initialized via dependency injection at request time
-        - This handler only verifies that the system can connect successfully
-        - Actual per-request connections managed by FastAPI's Depends()
-    """
-    logger.info("🔧 Running startup checks...")
-    
-    # Ensure ChromaDB persistence folder exists
-    if not os.path.exists(settings.CHROMA_DB_PATH):
-        os.makedirs(settings.CHROMA_DB_PATH)
-        logger.info(f"📁 Created persistent database folder: {settings.CHROMA_DB_PATH}")
-    else:
-        logger.info(f"📁 Using existing database folder: {settings.CHROMA_DB_PATH}")
-    
-    # Verify ChromaDB connection
+    # Initialize Firebase
+    initialize_firebase()
+
+    # Verify ChromaDB connection and preload models
     try:
+        if not os.path.exists(settings.CHROMA_DB_PATH):
+            os.makedirs(settings.CHROMA_DB_PATH)
+            logger.info(f"📁 Created persistent DB folder: {settings.CHROMA_DB_PATH}")
+
         client = get_chroma_client()
-        logger.info("✅ ChromaDB client initialized successfully")
-        logger.info(f"📊 ChromaDB version: {client.get_version()}")
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize ChromaDB client: {e}")
-        raise
-    
-    # Preload embedding model to avoid "meta tensor" errors on first request
-    try:
+        logger.info(f"✅ ChromaDB client connected (Version: {client.get_version()})")
+
         embedding_fn = get_embedding_function()
-        # Test embedding generation to ensure model is fully loaded
-        test_embedding = embedding_fn.embed_query("test")
-        logger.info(f"✅ Embedding model preloaded successfully ({len(test_embedding)} dimensions)")
+        embedding_fn.embed_query("test")  # Preload model
+        logger.info("✅ Embedding model preloaded successfully.")
+
     except Exception as e:
-        logger.error(f"❌ Failed to preload embedding model: {e}")
+        logger.error(f"❌ Critical startup failure: {e}")
         raise
-    
-    # Verify Firebase initialization (optional feature)
-    try:
-        import firebase_admin
-        if len(firebase_admin._apps) > 0:
-            logger.info("✅ Firebase Admin SDK initialized - Authentication endpoints available")
-        else:
-            logger.warning("⚠️ Firebase Admin SDK not initialized - Authentication endpoints disabled")
-            logger.warning("⚠️ Set FIREBASE_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_PATH to enable authentication")
-    except Exception as e:
-        logger.warning(f"⚠️ Firebase check failed: {e}")
-    
-    logger.info("✅ Application startup complete!")
 
+    yield  # Application runs here
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Application shutdown handler.
-    
-    Cleanup resources, close connections, and gracefully shutdown services.
-    
-    Architecture Note:
-        - ChromaDB client doesn't require explicit cleanup (handled by OS)
-        - Add here any custom cleanup logic (e.g., save state, close connections)
-    """
+    # SHUTDOWN
     logger.info("🔄 Shutting down application...")
     logger.info("✅ Shutdown complete!")
+
+
+# Initialize FastAPI app with lifespan
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.PROJECT_VERSION,
+    description="Document Intelligent Hub API",
+    lifespan=lifespan,
+)
+
+# --- CORS Configuration ---
+if os.getenv("ENVIRONMENT") == "production":
+    origins = settings.ALLOWED_ORIGINS.split(",")
+    logger.info(f"🔒 Production CORS enabled for: {origins}")
+else:
+    origins = ["*"]
+    logger.warning("🔓 Development CORS enabled for all origins ('*')")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # --- Logging Middleware ---
@@ -113,77 +90,56 @@ async def shutdown_event():
 async def log_requests(request: Request, call_next):
     """Log all HTTP requests with timing information."""
     start_time = time.time()
-    
-    # Log request
     client_host = request.client.host if request.client else "unknown"
     logger.bind(ACCESS=True).info(
         f"➡️  {request.method} {request.url.path} - Client: {client_host}"
     )
-    
-    # Process request
+
     try:
         response = await call_next(request)
-        process_time = time.time() - start_time
-        
-        # Log response
+        process_time = (time.time() - start_time) * 1000  # in milliseconds
         status_emoji = "✅" if response.status_code < 400 else "❌"
         logger.bind(ACCESS=True).info(
-            f"{status_emoji} {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.3f}s"
+            f"{status_emoji} {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.2f}ms"
         )
-        
         return response
     except Exception as e:
-        process_time = time.time() - start_time
-        logger.error(f"❌ {request.method} {request.url.path} - Error: {str(e)} - Time: {process_time:.3f}s")
+        process_time = (time.time() - start_time) * 1000
+        logger.error(
+            f"❌ {request.method} {request.url.path} - Error: {str(e)} - Time: {process_time:.2f}ms"
+        )
+        # Re-raise the exception to be handled by FastAPI's error handling
         raise
 
-# --- CORS Configuration ---
-# CORS is required to allow the React frontend (running on a different port/origin) 
-# to communicate with this FastAPI backend.
-# Development: Allow all origins with wildcard for easier testing
-# Production: Restrict to specific domains
-
-if os.getenv("ENVIRONMENT") == "production":
-    # Production: strict origins
-    origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
-else:
-    # Development: allow all origins (easier for mobile testing, etc.)
-    origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=False if origins == ["*"] else True,
-    allow_methods=["*"], # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allow all headers
-)
 
 # --- Router Registration ---
-# Register all feature API endpoints
-app.include_router(rag_router.router)
-app.include_router(language_router.router)
-app.include_router(translation_router.router)
+app.include_router(documents_router.router)
+app.include_router(query_router.router)
+app.include_router(support_router.router)
 
 # Conditionally register auth router if Firebase is available
 try:
     import firebase_admin
+
     if len(firebase_admin._apps) > 0:
         app.include_router(auth_router.router)
-        logger.info("✅ Authentication endpoints registered (/auth/register, /auth/refresh-claims)")
+        logger.info("✅ Authentication endpoints registered.")
     else:
-        logger.warning("⚠️ Authentication endpoints NOT registered - Firebase not initialized")
-except Exception as e:
-    logger.warning(f"⚠️ Authentication endpoints NOT registered: {e}")
+        logger.warning(
+            "⚠️ Authentication endpoints NOT registered - Firebase not initialized."
+        )
+except (ImportError, AttributeError):
+    logger.warning(
+        "⚠️ Authentication endpoints NOT registered - 'firebase_admin' not found."
+    )
+
 
 # --- Root Endpoint (Health Check) ---
-@app.get("/")
+@app.get("/", tags=["Root"])
 def read_root():
-    """Health check endpoint - verifies API is running."""
+    """Health check endpoint to verify the API is running."""
     return {
-        "message": f"{settings.PROJECT_NAME} API is running!",
-        "version": settings.VERSION,
-        "status": "healthy"
+        "message": f"Welcome to the {settings.PROJECT_NAME} API!",
+        "version": settings.PROJECT_VERSION,
+        "status": "healthy",
     }

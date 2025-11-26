@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import type { FormEvent } from "react";
 import type { ChatMessage } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/constants";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UseChatResult {
   query: string;
@@ -18,6 +19,7 @@ export const useRAGChat = (): UseChatResult => {
   const [query, setQuery] = useState<string>("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isQuerying, setIsQuerying] = useState<boolean>(false);
+  const { getIdToken } = useAuth();
 
   const handleQuerySubmit = useCallback(
     async (e: FormEvent, currentUserId: string) => {
@@ -41,6 +43,12 @@ export const useRAGChat = (): UseChatResult => {
       setIsQuerying(true);
 
       try {
+        // Get authentication token
+        const token = await getIdToken();
+        if (!token) {
+          throw new Error("No authentication token available");
+        }
+
         // Prepare conversation history: last 7 exchanges (14 messages max)
         const conversationHistory = chatHistory
           .slice(-14) // Last 14 messages = 7 user + 7 assistant exchanges
@@ -52,7 +60,10 @@ export const useRAGChat = (): UseChatResult => {
 
         const response = await fetch(`${API_BASE_URL}/query/`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             query: userQuery,
             user_id: currentUserId,

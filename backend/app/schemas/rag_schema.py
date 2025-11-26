@@ -1,7 +1,7 @@
 # backend/app/schemas/rag.py
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # --- RAG CATEGORIES ---
 # These are the possible categories for the user query, used for specialized retrieval logic.
@@ -35,9 +35,9 @@ class ChunkMetadata(BaseModel):
     # Temporal tracking
     uploaded_at: Optional[int] = Field(None, description="Upload timestamp in milliseconds (for sorting)")
     
-    class Config:
-        """Pydantic config for strict validation"""
-        extra = "forbid"  # Reject any extra fields not defined in schema
+    model_config = ConfigDict(
+        extra="forbid",  # Reject any extra fields not defined in schema
+    )
 
 class DocumentMetadata(BaseModel):
     """
@@ -64,8 +64,9 @@ class BugReportRequest(BaseModel):
     timestamp: str = Field(..., description="ISO timestamp when the bug was reported")
     user_agent: Optional[str] = Field(None, description="Browser user agent for debugging context")
     
-    class Config:
-        extra = "allow"  # Allow extra fields for flexibility
+    model_config = ConfigDict(
+        extra="allow",  # Allow extra fields for flexibility
+    )
 
 
 class FeedbackRequest(BaseModel):
@@ -80,8 +81,9 @@ class FeedbackRequest(BaseModel):
     timestamp: str = Field(..., description="ISO timestamp when feedback was submitted")
     user_agent: Optional[str] = Field(None, description="Browser user agent for context")
     
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(
+        extra="allow",
+    )
 
 
 # --- RAG Schemas ---
@@ -128,7 +130,8 @@ class QueryClassification(BaseModel):
         description="The classified category tag of the user's query."
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
+    @classmethod
     def ensure_category_alias(cls, values):
         """Accept either 'category_tag' or its common alias 'category'."""
         if "category_tag" not in values and "category" in values:

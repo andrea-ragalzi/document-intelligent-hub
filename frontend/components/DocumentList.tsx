@@ -91,7 +91,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
         right: window.innerWidth - rect.right + window.scrollX,
       });
       setOpenKebabId(filename);
-    }, 500);
+    }, 200);
 
     setLongPressTimer(timer);
   };

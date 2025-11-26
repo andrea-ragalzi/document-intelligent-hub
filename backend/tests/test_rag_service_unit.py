@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from app.repositories.vector_store_repository import VectorStoreRepository
-from app.services.rag_service import RAGService
+from app.services.rag_orchestrator_service import RAGService
 from langchain_core.documents import Document
 
 
@@ -68,14 +68,14 @@ class TestRAGServiceInitialization:
         """Test that RAGService requires repository parameter"""
         with pytest.raises(TypeError):
             # Should fail because repository is required
-            RAGService()
+            RAGService() # type: ignore
 
 
 class TestDocumentIndexing:
     """Test document indexing business logic"""
     
     @pytest.mark.skip(reason="Requires mocking UnstructuredPDFLoader - PDF parsing is complex")
-    @patch("app.services.rag_service.UnstructuredPDFLoader")
+    @patch("app.services.rag_orchestrator_service.UnstructuredPDFLoader")
     @pytest.mark.asyncio
     async def test_index_document_success(self, mock_pdf_loader, rag_service, mock_repository):
         """Test successful document indexing"""
@@ -150,7 +150,7 @@ class TestDocumentIndexing:
 class TestQueryProcessing:
     """Test query processing and answer generation"""
     
-    @patch("app.services.rag_service.ChatOpenAI")
+    @patch("app.services.rag_orchestrator_service.ChatOpenAI")
     def test_answer_query_basic(self, mock_llm_class, rag_service, mock_repository):
         """Test basic query processing"""
         # Mock LLM response
@@ -336,7 +336,7 @@ class TestServiceIsolation:
         """Verify RAGService doesn't import ChromaDB directly"""
         import inspect
 
-        import app.services.rag_service as rag_module
+        import app.services.rag_orchestrator_service as rag_module
         
         source = inspect.getsource(rag_module)
         

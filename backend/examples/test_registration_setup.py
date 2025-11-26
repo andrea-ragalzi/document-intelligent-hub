@@ -7,7 +7,6 @@ This script demonstrates how to:
 3. Test the registration endpoint
 """
 
-import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -30,7 +29,7 @@ db = firestore.client()
 async def setup_test_data():
     """
     Create test data in Firestore for registration testing.
-    
+
     Creates:
     - Sample invitation codes with different tiers
     - Unlimited emails configuration
@@ -100,7 +99,7 @@ async def setup_test_data():
 async def test_registration_flow():
     """
     Example of how to call the registration endpoint.
-    
+
     Note: This is a demonstration. In practice, you would:
     1. Get id_token from Firebase Auth on frontend
     2. Send POST request to /auth/register with token and optional code
@@ -139,10 +138,10 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # Run setup
-    asyncio.run(setup_test_data())
+    # asyncio.run(setup_test_data())
     
     # Show usage examples
-    asyncio.run(test_registration_flow())
+    # asyncio.run(test_registration_flow())
     
     print("\n" + "=" * 60)
     print("✅ Setup complete! You can now test the endpoints.")

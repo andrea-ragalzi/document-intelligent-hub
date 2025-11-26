@@ -140,8 +140,6 @@ class TestUsageTrackingService:
     @pytest.mark.asyncio
     async def test_increment_user_queries_new_user(self, usage_service, mock_firestore_db):
         """Test incrementing queries for new user (creates document)"""
-        today_key = usage_service._get_today_key()
-        
         # Mock transaction
         transaction = MagicMock()
         

@@ -3,43 +3,53 @@ Pytest configuration and fixtures for backend tests.
 """
 
 import os
+
+# New imports for ChromaDB cleanup
+import shutil
 import tempfile
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from app.core.config import settings
 from fastapi.testclient import TestClient
 from main import app
 
 
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_chroma_db_after_session():
+    """
+    Fixture to clean up the ChromaDB test directory after the test session.
+    This runs once per session, after all tests are complete.
+    """
+    yield
+    # Teardown: remove the test database directory
+    if "test" in settings.CHROMA_DB_PATH and os.path.exists(settings.CHROMA_DB_PATH):
+        print(f"🧹 Cleaning up ChromaDB test directory: {settings.CHROMA_DB_PATH}")
+        shutil.rmtree(settings.CHROMA_DB_PATH)
+
+
 @pytest.fixture(scope="module", autouse=True)
-def mock_openai():
+def mock_firebase_auth():
     """
-    Mock OpenAI LLM calls for all tests.
-    
-    NOTE: HuggingFace embeddings are NOT mocked - they run locally and are fast/free.
-    This is intentional to test real embedding generation without API costs.
+    Mock Firebase Admin SDK auth functions to avoid real auth calls in tests.
+    This prevents tests from failing due to missing credentials or network issues.
     """
-    # Mock only OpenAI LLM (ChatGPT) - embeddings are local now
-    with patch("langchain_openai.ChatOpenAI.invoke") as mock_llm_invoke, \
-         patch("openai.resources.chat.completions.Completions.create") as mock_openai_create:
-        
-        # Mock LangChain ChatOpenAI.invoke
-        mock_response = Mock()
-        mock_response.content = "This is a mocked answer based on the document content."
-        mock_llm_invoke.return_value = mock_response
-        
-        # Mock OpenAI client completions.create
-        mock_completion = Mock()
-        mock_choice = Mock()
-        mock_message = Mock()
-        mock_message.content = "translated query"
-        mock_choice.message = mock_message
-        mock_completion.choices = [mock_choice]
-        mock_openai_create.return_value = mock_completion
+    with patch("firebase_admin.auth.verify_id_token") as mock_verify_id_token, \
+         patch("firebase_admin.auth.get_user") as mock_get_user:
+
+        # Mock verify_id_token
+        mock_verify_id_token.return_value = {"uid": "test-user-12345"}
+
+        # Mock get_user
+        mock_user = Mock()
+        mock_user.uid = "test-user-12345"
+        mock_user.email = "test@example.com"
+        mock_user.custom_claims = {"tier": "FREE"}
+        mock_get_user.return_value = mock_user
         
         yield {
-            "llm_invoke": mock_llm_invoke,
-            "openai_create": mock_openai_create
+            "verify_id_token": mock_verify_id_token,
+            "get_user": mock_get_user
         }
 
 
@@ -188,3 +198,48 @@ def mock_vector_store_repository():
     mock_repo.get_retriever.return_value = mock_retriever
     
     return mock_repo
+
+
+@pytest.fixture(scope="function", autouse=True)
+def mock_usage_service():
+    """
+    Mock the usage tracking service to prevent hitting rate limits in tests.
+    This fixture will automatically be used in all tests.
+    """
+    with patch("app.routers.query_router.get_usage_service") as mock_get_service:
+        # Create a mock for the service *instance*
+        mock_service_instance = Mock()
+
+        # The router expects two values (can_query, queries_used).
+        # The mock should return a tuple that matches this structure.
+        mock_service_instance.check_query_limit = AsyncMock(return_value=(True, 0))
+        mock_service_instance.increment_user_queries = AsyncMock(return_value=1)
+
+        # The dependency-injected function `get_usage_service` should return this instance.
+        mock_get_service.return_value = mock_service_instance
+        
+        yield mock_service_instance
+
+
+@pytest.fixture(scope="function", autouse=True)
+def mock_email_service():
+    """
+    Mock the email service to prevent sending real emails during tests.
+    This fixture will automatically be used in all tests.
+    """
+    with patch("app.routers.auth_router.get_email_service") as mock_get_service_auth, \
+         patch("app.services.email_service.get_email_service") as mock_get_service_global:
+        
+        # Create a mock for the service *instance*
+        mock_service_instance = Mock()
+        
+        # Configure default behaviors - return True (success) but do nothing
+        mock_service_instance.send_bug_report.return_value = True
+        mock_service_instance.send_feedback.return_value = True
+        mock_service_instance.send_invitation_request.return_value = True
+        
+        # The dependency-injected function `get_email_service` should return this instance.
+        mock_get_service_auth.return_value = mock_service_instance
+        mock_get_service_global.return_value = mock_service_instance
+        
+        yield mock_service_instance

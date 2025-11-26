@@ -26,7 +26,7 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.db.chroma_client import get_embedding_function
 from app.schemas.rag_schema import FileFilterResponse
-from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, SecretStr
@@ -126,8 +126,10 @@ class QueryParserService:
             # Build prompt for LLM
             prompt = self._build_extraction_prompt(query, available_files)
             
-            # Call LLM with structured output
-            chain = prompt | self.llm | self.parser
+            # Build the full chain with structured output
+            chain = prompt | self.llm | StrOutputParser() | self.parser
+            
+            # Invoke the chain
             result = chain.invoke({
                 "query": query,
                 "available_files": "\n".join([f"- {f}" for f in available_files])

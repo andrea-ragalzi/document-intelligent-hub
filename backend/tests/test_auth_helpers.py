@@ -207,10 +207,19 @@ class TestGetCurrentUserId:
     @pytest.mark.asyncio
     async def test_get_current_user_id_empty_bearer(self):
         """Test with empty Bearer token"""
-        with pytest.raises(HTTPException) as exc_info:
-            await get_current_user_id("Bearer ")
-        
-        assert exc_info.value.status_code == 401
+        with patch("app.routers.auth_router.auth") as mock_auth:
+            # Mock the call to verify_id_token to raise an exception for an empty string
+            mock_auth.verify_id_token.side_effect = lambda t: {
+                "uid": "user123"
+            } if t else (_ for _ in ()).throw(ValueError("Empty token"))
+
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_user_id("Bearer ")
+
+            assert exc_info.value.status_code == 401
+            assert "Invalid or expired token" in exc_info.value.detail
+            # Ensure it was called with an empty string
+            mock_auth.verify_id_token.assert_called_once_with("")
 
     @pytest.mark.asyncio
     async def test_get_current_user_id_invalid_token(self):

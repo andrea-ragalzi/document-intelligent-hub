@@ -71,7 +71,7 @@ app/
 └── services/
     ├── __init__.py
     ├── language_service.py    # Multi-language support
-    └── rag_service.py         # RAG business logic
+    └── rag_orchestrator_service.py  # RAG orchestrator (main coordinator)
 ```
 
 ### Key Backend Files
@@ -82,7 +82,7 @@ app/
 | `app/core/config.py` | Environment variables and configuration |
 | `app/db/chroma_client.py` | ChromaDB setup and collection management |
 | `app/routers/rag_router.py` | `/upload`, `/query` endpoints |
-| `app/services/rag_service.py` | Document processing, embeddings, retrieval |
+| `app/services/rag_orchestrator_service.py` | RAG orchestrator - delegates to specialized services |
 | `app/services/language_service.py` | Language detection and switching |
 
 ## Frontend Structure
@@ -309,7 +309,7 @@ frontend/test/
 
 ### Backend
 
-- **Modules**: snake_case (e.g., `rag_service.py`)
+- **Modules**: snake_case (e.g., `rag_orchestrator_service.py`)
 - **Classes**: PascalCase (e.g., `RAGService`)
 - **Functions**: snake_case (e.g., `process_document`)
 - **Tests**: `test_*.py`
@@ -334,7 +334,7 @@ import { useStore } from "@/stores/uiStore";
 # Relative imports within app/
 from app.core.config import settings
 from app.db.chroma_client import get_chroma_client
-from app.services.rag_service import RAGService
+from app.services.rag_orchestrator_service import RAGService
 ```
 
 ## Build Outputs

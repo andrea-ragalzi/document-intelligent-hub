@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { ChatMessage } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/constants";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UseConversationSummaryProps {
   chatHistory: ChatMessage[];
@@ -23,6 +24,7 @@ export const useConversationSummary = ({
 }: UseConversationSummaryProps) => {
   const lastSummarizedCountRef = useRef(0);
   const isSummarizingRef = useRef(false);
+  const { getIdToken } = useAuth();
 
   useEffect(() => {
     // Don't summarize if:
@@ -45,6 +47,12 @@ export const useConversationSummary = ({
       );
 
       try {
+        // Get authentication token
+        const token = await getIdToken();
+        if (!token) {
+          throw new Error("No authentication token available");
+        }
+
         // Prepare conversation history for summarization
         const conversationHistory = chatHistory
           .filter((msg) => !msg.isThinking)
@@ -55,7 +63,10 @@ export const useConversationSummary = ({
 
         const response = await fetch(`${API_BASE_URL}/summarize/`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             conversation_history: conversationHistory,
           }),

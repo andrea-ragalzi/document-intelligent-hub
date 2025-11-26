@@ -14,7 +14,7 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert "message" in data
-        assert "running" in data["message"].lower()
+        assert "welcome" in data["message"].lower()
 
 
 class TestUploadEndpoint:
@@ -53,7 +53,7 @@ class TestUploadEndpoint:
         response = client.post("/rag/upload/", files=files, data=data)
 
         assert response.status_code == 400
-        assert "Invalid file type" in response.json()["detail"]
+        assert "PDF" in response.json()["detail"]
 
     def test_upload_missing_file(self, client, test_user_id):
         """Test upload without file returns 422"""

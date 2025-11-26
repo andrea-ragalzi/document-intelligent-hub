@@ -10,6 +10,15 @@ interface Message {
 
 export async function POST(req: Request) {
   try {
+    // Extract Authorization header from the incoming request
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization token" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const { messages, userId, output_language } = await req.json();
 
     if (!userId) {
@@ -60,6 +69,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: authHeader,
       },
       body: JSON.stringify(requestBody),
     });
