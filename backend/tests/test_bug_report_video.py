@@ -29,7 +29,7 @@ def create_test_video():
         width, height = 320, 240
         
         # Video writer setup
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # type: ignore[attr-defined]
         video_bytes = io.BytesIO()
         
         # Create temporary file path

@@ -1,5 +1,6 @@
 import { Bug, Paperclip, X } from "lucide-react";
 import { useState } from "react";
+import Image from "next/image";
 
 interface BugReportModalProps {
   isOpen: boolean;
@@ -355,11 +356,15 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                   {filePreview && attachedFile && (
                     <div className="relative w-full max-h-48 overflow-hidden rounded-lg border-2 border-indigo-200 dark:border-indigo-700">
                       {attachedFile.type.startsWith("image/") ? (
-                        <img
-                          src={filePreview}
-                          alt="Preview"
-                          className="w-full h-auto object-contain"
-                        />
+                        <div className="relative w-full h-48">
+                          <Image
+                            src={filePreview}
+                            alt="File preview"
+                            fill
+                            className="object-contain"
+                            unoptimized
+                          />
+                        </div>
                       ) : attachedFile.type.startsWith("video/") ? (
                         <video
                           src={filePreview}
@@ -461,7 +466,8 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                 disabled={
                   isSubmitting ||
                   description.trim().length < 10 ||
-                  (attachedFile !== null && attachedFile.size > 10 * 1024 * 1024)
+                  (attachedFile !== null &&
+                    attachedFile.size > 10 * 1024 * 1024)
                 }
                 className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 dark:bg-red-600 dark:hover:bg-red-500 dark:active:bg-red-400 text-white rounded-lg transition-colors font-medium focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
               >

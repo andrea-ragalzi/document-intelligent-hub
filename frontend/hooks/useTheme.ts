@@ -13,9 +13,7 @@ export const useTheme = () => {
     const savedTheme = localStorage.getItem("theme") as Theme | null;
     if (savedTheme) {
       setTheme(savedTheme);
-    } else if (
-      globalThis.matchMedia("(prefers-color-scheme: dark)").matches
-    ) {
+    } else if (globalThis.matchMedia("(prefers-color-scheme: dark)").matches) {
       setTheme("dark");
     }
   }, []);

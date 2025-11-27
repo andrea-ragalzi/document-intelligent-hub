@@ -68,7 +68,10 @@ export const useUploadProgress = ({
     // Update progress every 500ms
     progressInterval.current = setInterval(() => {
       const elapsed = (Date.now() - startTime.current) / 1000; // seconds
-      const progressPercent = Math.min(95, (elapsed / estimatedTotalTime) * 100);
+      const progressPercent = Math.min(
+        95,
+        (elapsed / estimatedTotalTime) * 100
+      );
 
       // Determine status and message based on progress
       let status: UploadProgressState["status"] = "uploading";
