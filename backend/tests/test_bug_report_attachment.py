@@ -25,7 +25,7 @@ def create_test_image():
     try:
         # Try to use a default font
         font = ImageFont.load_default()
-    except:
+    except (OSError, ImportError):
         font = None
     
     draw.text((150, 140), "TEST BUG SCREENSHOT", fill='white', font=font)
