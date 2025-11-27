@@ -7,6 +7,9 @@ from pathlib import Path
 
 from loguru import logger
 
+# Constants
+LOG_ROTATION_SIZE = "10 MB"
+
 # Remove default logger
 logger.remove()
 
@@ -25,7 +28,7 @@ logger.add(
 # File logging - General logs (rotation)
 logger.add(
     LOGS_DIR / "app.log",
-    rotation="10 MB",  # Rotate when file reaches 10MB
+    rotation=LOG_ROTATION_SIZE,  # Rotate when file reaches 10MB
     retention="7 days",  # Keep logs for 7 days
     compression="zip",  # Compress rotated files
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
@@ -37,7 +40,7 @@ logger.add(
 # File logging - Error logs only
 logger.add(
     LOGS_DIR / "errors.log",
-    rotation="10 MB",
+    rotation=LOG_ROTATION_SIZE,
     retention="30 days",  # Keep error logs longer
     compression="zip",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
@@ -49,7 +52,7 @@ logger.add(
 # File logging - Access logs for API requests
 logger.add(
     LOGS_DIR / "access.log",
-    rotation="10 MB",
+    rotation=LOG_ROTATION_SIZE,
     retention="7 days",
     compression="zip",
     format="{time:YYYY-MM-DD HH:mm:ss} | {message}",
