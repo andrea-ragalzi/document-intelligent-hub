@@ -15,6 +15,14 @@ from fastapi.testclient import TestClient
 from main import app
 
 
+class TestClientWithContext(TestClient):
+    """
+    Extended TestClient with test_user_context attribute for auth mocking.
+    This allows type-safe access to the context dictionary in tests.
+    """
+    test_user_context: dict[str, str | None]
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_chroma_db_after_session():
     """
@@ -64,8 +72,8 @@ def client():
     from app.core.auth import verify_firebase_token
     from fastapi import HTTPException, status
     
-    # Shared state for current test user ID
-    test_user_context = {"user_id": "test-user-12345"}
+    # Shared state for current test user ID (can be None for auth failure tests)
+    test_user_context: dict[str, str | None] = {"user_id": "test-user-12345"}
     
     def mock_verify_token():
         """
@@ -88,7 +96,7 @@ def client():
         # Override the dependency in the app to bypass token verification
         app.dependency_overrides[verify_firebase_token] = mock_verify_token
         
-        with TestClient(app) as test_client:
+        with TestClientWithContext(app) as test_client:
             # Attach context to client for tests to modify
             test_client.test_user_context = test_user_context
             yield test_client
