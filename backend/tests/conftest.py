@@ -57,11 +57,35 @@ def mock_firebase_auth():
 def client():
     """
     Create a TestClient instance for testing FastAPI endpoints.
+    Mock Firebase auth to bypass token verification in tests.
+    
+    The mock returns a test user ID that can be overridden per-test.
     """
+    from app.core.auth import verify_firebase_token
+    
+    # Shared state for current test user ID
+    test_user_context = {"user_id": "test-user-12345"}
+    
+    def mock_verify_token():
+        """
+        Mock Firebase token verification for tests.
+        Returns the current test user ID without verifying any token.
+        """
+        return test_user_context["user_id"]
+    
     # Mock Firebase initialization to avoid requiring credentials in tests
     with patch("app.core.firebase.initialize_firebase"):
+        
+        # Override the dependency in the app to bypass token verification
+        app.dependency_overrides[verify_firebase_token] = mock_verify_token
+        
         with TestClient(app) as test_client:
+            # Attach context to client for tests to modify
+            test_client.test_user_context = test_user_context
             yield test_client
+        
+        # Clean up dependency overrides after tests
+        app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
