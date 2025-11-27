@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for FastAPI Backend
 # Stage 1: Builder - Install dependencies
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -36,10 +36,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 
 # Create directory for ChromaDB persistence
-RUN mkdir -p chroma_db
-
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && \
+RUN mkdir -p chroma_db && \
+    # Create non-root user for security
+    useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 USER appuser
 

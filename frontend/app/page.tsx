@@ -183,9 +183,9 @@ export default function LandingPage() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-          {features.map((feature, index) => (
+          {features.map((feature) => (
             <div
-              key={index}
+              key={feature.title}
               className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 group hover:-translate-y-1"
             >
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
@@ -231,8 +231,8 @@ export default function LandingPage() {
                 title: "Chat",
                 desc: "Ask questions and get instant, accurate answers",
               },
-            ].map((item, index) => (
-              <div key={index} className="text-center">
+            ].map((item) => (
+              <div key={item.step} className="text-center">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl sm:text-3xl font-bold mx-auto mb-5 sm:mb-6 shadow-lg">
                   {item.step}
                 </div>
@@ -260,9 +260,9 @@ export default function LandingPage() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-          {technologies.map((tech, index) => (
+          {technologies.map((tech) => (
             <div
-              key={index}
+              key={tech}
               className="px-4 sm:px-6 py-2 sm:py-3 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm sm:text-base font-medium hover:shadow-lg hover:-translate-y-0.5 transition-all"
             >
               {tech}

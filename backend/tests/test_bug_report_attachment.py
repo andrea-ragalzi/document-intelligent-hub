@@ -62,7 +62,7 @@ def test_bug_report_with_attachment():
         print(f"📤 Sending POST request to {API_URL}")
         print(f"   User ID: {USER_ID}")
         print(f"   Conversation ID: {CONVERSATION_ID}")
-        print(f"   Attachment: test_screenshot.png (PNG image)")
+        print("   Attachment: test_screenshot.png (PNG image)")
         
         response = requests.post(API_URL, data=data, files=files)
         
@@ -103,7 +103,7 @@ def test_bug_report_without_attachment():
     try:
         print(f"📤 Sending POST request to {API_URL}")
         print(f"   User ID: {USER_ID}")
-        print(f"   No attachment")
+        print("   No attachment")
         
         response = requests.post(API_URL, data=data)
         

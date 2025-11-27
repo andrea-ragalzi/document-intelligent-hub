@@ -68,10 +68,7 @@ export const useUploadProgress = ({
     // Update progress every 500ms
     progressInterval.current = setInterval(() => {
       const elapsed = (Date.now() - startTime.current) / 1000; // seconds
-      const progressPercent = Math.min(
-        95,
-        (elapsed / estimatedTotalTime) * 100
-      );
+      const progressPercent = Math.min(95, (elapsed / estimatedTotalTime) * 100);
 
       // Determine status and message based on progress
       let status: UploadProgressState["status"] = "uploading";
@@ -111,14 +108,14 @@ export const useUploadProgress = ({
         message = "Writing to database...";
       }
 
-      const remaining = estimatedTotalTime - elapsed;
+      const remaining = Math.max(0, estimatedTotalTime - elapsed);
 
       setState((prev) => ({
         ...prev,
         progress: progressPercent,
         status,
         message,
-        estimatedTime: formatTime(remaining > 0 ? remaining : 0),
+        estimatedTime: formatTime(remaining),
       }));
     }, 500);
 

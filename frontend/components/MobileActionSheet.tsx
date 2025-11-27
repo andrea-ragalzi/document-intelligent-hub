@@ -90,9 +90,9 @@ export const MobileActionSheet: React.FC<MobileActionSheetProps> = ({
 
         {/* Options list */}
         <div className="py-2">
-          {options.map((option, index) => (
+          {options.map((option) => (
             <button
-              key={index}
+              key={option.label}
               onClick={() => {
                 option.onClick();
                 onClose();

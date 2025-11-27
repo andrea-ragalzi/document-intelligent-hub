@@ -150,10 +150,10 @@ export default function AboutPage() {
               <div className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950 border-2 border-yellow-300 dark:border-yellow-800 rounded-xl">
                 <p className="text-base text-gray-700 dark:text-gray-200 leading-relaxed">
                   ⚠️ As an MVP using advanced AI, the system may occasionally
-                  produce inaccurate or unfounded information (&ldquo;
+                  produce inaccurate or unfounded information(&ldquo;
                   <strong className="text-yellow-700 dark:text-yellow-300">
                     Hallucinations
-                  </strong>
+                  </strong>{" "}
                   &rdquo;). Please <strong>verify all critical details</strong>{" "}
                   against the source cited by the system in each response.
                 </p>

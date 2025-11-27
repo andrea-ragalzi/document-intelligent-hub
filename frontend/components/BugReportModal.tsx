@@ -461,8 +461,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                 disabled={
                   isSubmitting ||
                   description.trim().length < 10 ||
-                  (attachedFile !== null &&
-                    attachedFile.size > 10 * 1024 * 1024)
+                  (attachedFile !== null && attachedFile.size > 10 * 1024 * 1024)
                 }
                 className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 dark:bg-red-600 dark:hover:bg-red-500 dark:active:bg-red-400 text-white rounded-lg transition-colors font-medium focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
               >

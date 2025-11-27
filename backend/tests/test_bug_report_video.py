@@ -102,7 +102,7 @@ def test_bug_report_with_video():
         print(f"📤 Sending POST request to {API_URL}")
         print(f"   User ID: {USER_ID}")
         print(f"   Conversation ID: {CONVERSATION_ID}")
-        print(f"   Attachment: test_bug_video.mp4 (video/mp4) 🎥")
+        print("   Attachment: test_bug_video.mp4 (video/mp4) 🎥")
         
         response = requests.post(API_URL, data=data, files=files)
         

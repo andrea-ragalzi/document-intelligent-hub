@@ -42,7 +42,7 @@ class LanguageService:
             translator = Translator(to_lang=self.target_lang)
             translation = translator.translate(content)
             return translation.strip()
-        except (Exception, StopIteration) as e:
+        except (Exception) as e:
             # Cattura StopIteration, errore comune per il fallimento della traduzione
             print(
                 f"Translation failed (Type: {type(e).__name__}). Returning original content."
@@ -64,7 +64,7 @@ class LanguageService:
             translator = Translator(to_lang=target_language_code.lower())
             translation = translator.translate(answer)
             return translation.strip()
-        except (Exception, StopIteration) as e:
+        except (Exception) as e:
             print(
                 f"Translation failed (Type: {type(e).__name__}). Returning English answer."
             )

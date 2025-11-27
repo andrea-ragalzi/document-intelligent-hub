@@ -253,7 +253,7 @@ describe("useDocuments", () => {
     });
 
     const eventListener = vi.fn();
-    window.addEventListener("refreshDocumentStatus", eventListener);
+    globalThis.addEventListener("refreshDocumentStatus", eventListener);
 
     // Mock delete response
     vi.mocked(fetch).mockResolvedValueOnce({
@@ -281,7 +281,7 @@ describe("useDocuments", () => {
 
     expect(eventListener).toHaveBeenCalled();
 
-    window.removeEventListener("refreshDocumentStatus", eventListener);
+    globalThis.removeEventListener("refreshDocumentStatus", eventListener);
   });
 
   it("should reload documents when userId changes", async () => {

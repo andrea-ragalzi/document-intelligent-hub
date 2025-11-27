@@ -26,30 +26,25 @@ if (
 }
 
 // Initialize Firebase (singleton pattern)
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
+const app: FirebaseApp = !getApps().length
+  ? initializeApp(firebaseConfig)
+  : getApps()[0];
+
+const auth: Auth = getAuth(app);
+
+const db: Firestore = !getApps().length
+  ? initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    })
+  : getFirestore(app);
 
 if (!getApps().length) {
   console.log("🔥 Initializing Firebase...");
   console.log("  Project ID:", firebaseConfig.projectId);
-
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-
-  // Inizializza Firestore con cache locale
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-    }),
-  });
-
   console.log("✅ Firebase initialized");
   console.log("  Firestore database:", db.app.options.projectId);
-} else {
-  app = getApps()[0];
-  auth = getAuth(app);
-  db = getFirestore(app);
 }
 
 export { app, auth, db };

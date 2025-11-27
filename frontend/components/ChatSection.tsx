@@ -217,11 +217,8 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
           ) : (
             // Display history and optional skeleton loader
             <>
-              {chatHistory.map((msg, index) => (
-                <ChatMessageDisplay
-                  key={`msg-${index}-${msg.text.slice(0, 20)}`}
-                  msg={msg}
-                />
+              {chatHistory.map((msg) => (
+                <ChatMessageDisplay key={`${msg.type}-${msg.text}`} msg={msg} />
               ))}
               {isQuerying && (
                 <div className="flex justify-start mb-6 px-1 sm:px-2">

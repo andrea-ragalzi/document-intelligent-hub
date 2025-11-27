@@ -65,7 +65,7 @@ describe('useQueryUsage', () => {
       loading: false,
     } as any);
 
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         status: 'success',
@@ -100,7 +100,7 @@ describe('useQueryUsage', () => {
       loading: false,
     } as any);
 
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         status: 'success',
@@ -135,7 +135,7 @@ describe('useQueryUsage', () => {
       loading: false,
     } as any);
 
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         status: 'success',
@@ -170,7 +170,7 @@ describe('useQueryUsage', () => {
       loading: false,
     } as any);
 
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         status: 'success',
@@ -205,7 +205,7 @@ describe('useQueryUsage', () => {
       loading: false,
     } as any);
 
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         status: 'success',
@@ -240,7 +240,7 @@ describe('useQueryUsage', () => {
       loading: false,
     } as any);
 
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
       json: async () => ({ detail: 'Server error' }),
