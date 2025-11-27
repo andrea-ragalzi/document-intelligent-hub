@@ -141,7 +141,6 @@ class QueryClassification(BaseModel):
 class QueryRequest(BaseModel):
     """Schema for the incoming RAG query request."""
     query: str = Field(..., description="The user's natural language question.")
-    user_id: str = Field(..., description="The unique ID of the user (tenant).")
     conversation_history: List[ConversationMessage] = Field(
         default=[],
         description="Recent conversation history for context (last 5-7 exchanges). Empty list if no history."

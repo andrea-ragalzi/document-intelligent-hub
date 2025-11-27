@@ -5,7 +5,7 @@ Tests complete endpoint flows with FastAPI TestClient.
 Covers registration, invitation requests, tier limits, and usage tracking.
 """
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -458,7 +458,7 @@ class TestUsageEndpoint:
             
             # Mock usage service
             mock_service = MagicMock()
-            mock_service.get_user_queries_today = AsyncMock(return_value=15)
+            mock_service.get_user_queries_today = Mock(return_value=15)
             mock_get_service.return_value = mock_service
             
             # Mock get_db for app_config
@@ -548,7 +548,7 @@ class TestUsageEndpoint:
             mock_auth.get_user.return_value = mock_user
             
             mock_service = MagicMock()
-            mock_service.get_user_queries_today = AsyncMock(return_value=1000)
+            mock_service.get_user_queries_today = Mock(return_value=1000)
             mock_get_service.return_value = mock_service
             
             with patch("app.routers.auth_router.get_db") as mock_get_db:
@@ -620,7 +620,7 @@ class TestUsageEndpoint:
             
             mock_service = MagicMock()
             # 5000 queries - exceeds FREE (20) and PRO (200) limits
-            mock_service.get_user_queries_today = AsyncMock(return_value=5000)
+            mock_service.get_user_queries_today = Mock(return_value=5000)
             mock_get_service.return_value = mock_service
             
             with patch("app.routers.auth_router.get_db") as mock_get_db:

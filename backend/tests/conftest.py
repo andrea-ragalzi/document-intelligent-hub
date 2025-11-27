@@ -7,7 +7,7 @@ import os
 # New imports for ChromaDB cleanup
 import shutil
 import tempfile
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from app.core.config import settings
@@ -62,6 +62,7 @@ def client():
     The mock returns a test user ID that can be overridden per-test.
     """
     from app.core.auth import verify_firebase_token
+    from fastapi import HTTPException, status
     
     # Shared state for current test user ID
     test_user_context = {"user_id": "test-user-12345"}
@@ -70,8 +71,16 @@ def client():
         """
         Mock Firebase token verification for tests.
         Returns the current test user ID without verifying any token.
+        Raises 401 if user_id is None (simulating missing auth).
         """
-        return test_user_context["user_id"]
+        user_id = test_user_context["user_id"]
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing Authorization header",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user_id
     
     # Mock Firebase initialization to avoid requiring credentials in tests
     with patch("app.core.firebase.initialize_firebase"):
@@ -229,18 +238,25 @@ def mock_usage_service():
     """
     Mock the usage tracking service to prevent hitting rate limits in tests.
     This fixture will automatically be used in all tests.
+    Patches both query_router and auth_router usage service imports.
     """
-    with patch("app.routers.query_router.get_usage_service") as mock_get_service:
+    with patch("app.routers.query_router.get_usage_service") as mock_get_service_query, \
+         patch("app.routers.auth_router.get_usage_service") as mock_get_service_auth:
         # Create a mock for the service *instance*
         mock_service_instance = Mock()
 
-        # The router expects two values (can_query, queries_used).
-        # The mock should return a tuple that matches this structure.
-        mock_service_instance.check_query_limit = AsyncMock(return_value=(True, 0))
-        mock_service_instance.increment_user_queries = AsyncMock(return_value=1)
+        # check_query_limit is SYNCHRONOUS - returns tuple directly (not awaitable)
+        mock_service_instance.check_query_limit = Mock(return_value=(True, 0))
+        
+        # increment_user_queries is also SYNCHRONOUS
+        mock_service_instance.increment_user_queries = Mock(return_value=1)
+        
+        # get_user_queries_today is also SYNCHRONOUS
+        mock_service_instance.get_user_queries_today = Mock(return_value=0)
 
         # The dependency-injected function `get_usage_service` should return this instance.
-        mock_get_service.return_value = mock_service_instance
+        mock_get_service_query.return_value = mock_service_instance
+        mock_get_service_auth.return_value = mock_service_instance
         
         yield mock_service_instance
 

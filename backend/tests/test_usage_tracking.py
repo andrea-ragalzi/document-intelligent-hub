@@ -47,8 +47,7 @@ class TestUsageTrackingService:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         assert key == today
 
-    @pytest.mark.asyncio
-    async def test_get_user_queries_today_no_document(self, usage_service, mock_firestore_db):
+    def test_get_user_queries_today_no_document(self, usage_service, mock_firestore_db):
         """Test getting queries for user with no usage document"""
         # Mock document doesn't exist
         user_doc = MagicMock()
@@ -59,12 +58,11 @@ class TestUsageTrackingService:
         
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
         
-        result = await usage_service.get_user_queries_today("user123")
+        result = usage_service.get_user_queries_today("user123")
         
         assert result == 0
 
-    @pytest.mark.asyncio
-    async def test_get_user_queries_today_no_queries_field(self, usage_service, mock_firestore_db):
+    def test_get_user_queries_today_no_queries_field(self, usage_service, mock_firestore_db):
         """Test getting queries when document exists but no queries field"""
         user_doc = MagicMock()
         user_doc.exists = True
@@ -75,12 +73,11 @@ class TestUsageTrackingService:
         
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
         
-        result = await usage_service.get_user_queries_today("user123")
+        result = usage_service.get_user_queries_today("user123")
         
         assert result == 0
 
-    @pytest.mark.asyncio
-    async def test_get_user_queries_today_no_today_entry(self, usage_service, mock_firestore_db):
+    def test_get_user_queries_today_no_today_entry(self, usage_service, mock_firestore_db):
         """Test getting queries when queries field exists but no entry for today"""
         user_doc = MagicMock()
         user_doc.exists = True
@@ -96,12 +93,11 @@ class TestUsageTrackingService:
         
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
         
-        result = await usage_service.get_user_queries_today("user123")
+        result = usage_service.get_user_queries_today("user123")
         
         assert result == 0
 
-    @pytest.mark.asyncio
-    async def test_get_user_queries_today_with_count(self, usage_service, mock_firestore_db):
+    def test_get_user_queries_today_with_count(self, usage_service, mock_firestore_db):
         """Test getting queries when user has made queries today"""
         today_key = usage_service._get_today_key()
         
@@ -119,26 +115,24 @@ class TestUsageTrackingService:
         
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
         
-        result = await usage_service.get_user_queries_today("user123")
+        result = usage_service.get_user_queries_today("user123")
         
         assert result == 15
 
-    @pytest.mark.asyncio
-    async def test_get_user_queries_today_error_handling(self, usage_service, mock_firestore_db):
+    def test_get_user_queries_today_error_handling(self, usage_service, mock_firestore_db):
         """Test error handling when Firestore fails"""
         doc_ref = MagicMock()
         doc_ref.get.side_effect = Exception("Firestore error")
         
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
         
-        result = await usage_service.get_user_queries_today("user123")
+        result = usage_service.get_user_queries_today("user123")
         
         # Should return 0 on error (fallback)
         assert result == 0
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    @pytest.mark.asyncio
-    async def test_increment_user_queries_new_user(self, usage_service, mock_firestore_db):
+    def test_increment_user_queries_new_user(self, usage_service, mock_firestore_db):
         """Test incrementing queries for new user (creates document)"""
         # Mock transaction
         transaction = MagicMock()
@@ -160,14 +154,13 @@ class TestUsageTrackingService:
             with patch.object(mock_firestore_db, "transaction") as mock_transaction_ctx:
                 mock_transaction_ctx.return_value.__enter__.return_value = transaction
                 
-                result = await usage_service.increment_user_queries("user123")
+                result = usage_service.increment_user_queries("user123")
         
         # Should return 1 for first query
         assert result == 1
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    @pytest.mark.asyncio
-    async def test_increment_user_queries_existing_user(self, usage_service, mock_firestore_db):
+    def test_increment_user_queries_existing_user(self, usage_service, mock_firestore_db):
         """Test incrementing queries for existing user"""
         transaction = MagicMock()
         today_key = usage_service._get_today_key()
@@ -191,14 +184,13 @@ class TestUsageTrackingService:
             with patch.object(mock_firestore_db, "transaction") as mock_transaction_ctx:
                 mock_transaction_ctx.return_value.__enter__.return_value = transaction
                 
-                result = await usage_service.increment_user_queries("user123")
+                result = usage_service.increment_user_queries("user123")
         
         # Should return 11 (10 + 1)
         assert result == 11
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    @pytest.mark.asyncio
-    async def test_increment_user_queries_error_handling(self, usage_service, mock_firestore_db):
+    def test_increment_user_queries_error_handling(self, usage_service, mock_firestore_db):
         """Test error handling during increment"""
         doc_ref = MagicMock()
         doc_ref.get.side_effect = Exception("Transaction failed")
@@ -208,81 +200,73 @@ class TestUsageTrackingService:
         with patch.object(mock_firestore_db, "transaction") as mock_transaction_ctx:
             mock_transaction_ctx.return_value.__enter__.side_effect = Exception("Transaction error")
             
-            result = await usage_service.increment_user_queries("user123")
+            result = usage_service.increment_user_queries("user123")
         
         # Should return 0 on error
         assert result == 0
 
-    @pytest.mark.asyncio
-    async def test_check_query_limit_under_limit(self, usage_service):
+    def test_check_query_limit_under_limit(self, usage_service):
         """Test checking limit when user is under their limit"""
         with patch.object(usage_service, "get_user_queries_today", return_value=10):
-            can_query, queries_used = await usage_service.check_query_limit("user123", 20)
+            can_query, queries_used = usage_service.check_query_limit("user123", 20)
         
         assert can_query is True
         assert queries_used == 10
 
-    @pytest.mark.asyncio
-    async def test_check_query_limit_at_limit(self, usage_service):
+    def test_check_query_limit_at_limit(self, usage_service):
         """Test checking limit when user is at their limit"""
         with patch.object(usage_service, "get_user_queries_today", return_value=20):
-            can_query, queries_used = await usage_service.check_query_limit("user123", 20)
+            can_query, queries_used = usage_service.check_query_limit("user123", 20)
         
         assert can_query is False
         assert queries_used == 20
 
-    @pytest.mark.asyncio
-    async def test_check_query_limit_over_limit(self, usage_service):
+    def test_check_query_limit_over_limit(self, usage_service):
         """Test checking limit when user is over their limit"""
         with patch.object(usage_service, "get_user_queries_today", return_value=25):
-            can_query, queries_used = await usage_service.check_query_limit("user123", 20)
+            can_query, queries_used = usage_service.check_query_limit("user123", 20)
         
         assert can_query is False
         assert queries_used == 25
 
-    @pytest.mark.asyncio
-    async def test_check_query_limit_unlimited(self, usage_service):
+    def test_check_query_limit_unlimited(self, usage_service):
         """Test unlimited tier (9999 threshold)"""
         with patch.object(usage_service, "get_user_queries_today", return_value=1000):
-            can_query, queries_used = await usage_service.check_query_limit("user123", 9999)
+            can_query, queries_used = usage_service.check_query_limit("user123", 9999)
         
         # Should always pass for unlimited
         assert can_query is True
         assert queries_used == 1000
 
-    @pytest.mark.asyncio
-    async def test_check_query_limit_unlimited_at_threshold(self, usage_service):
+    def test_check_query_limit_unlimited_at_threshold(self, usage_service):
         """Test unlimited tier exactly at threshold"""
         with patch.object(usage_service, "get_user_queries_today", return_value=9999):
-            can_query, queries_used = await usage_service.check_query_limit("user123", 9999)
+            can_query, queries_used = usage_service.check_query_limit("user123", 9999)
         
         # Should still pass (>= 9999 means unlimited)
         assert can_query is True
         assert queries_used == 9999
 
-    @pytest.mark.asyncio
-    async def test_check_query_limit_zero_limit(self, usage_service):
+    def test_check_query_limit_zero_limit(self, usage_service):
         """Test with zero limit (should block all queries)"""
         with patch.object(usage_service, "get_user_queries_today", return_value=0):
-            can_query, queries_used = await usage_service.check_query_limit("user123", 0)
+            can_query, queries_used = usage_service.check_query_limit("user123", 0)
         
         assert can_query is False
         assert queries_used == 0
 
-    @pytest.mark.asyncio
-    async def test_check_query_limit_unlimited_with_high_usage(self, usage_service):
+    def test_check_query_limit_unlimited_with_high_usage(self, usage_service):
         """Test UNLIMITED tier with usage way over normal limits (regression test for bug)"""
         # Simulate user with 5000 queries (would exceed FREE/PRO limits)
         with patch.object(usage_service, "get_user_queries_today", return_value=5000):
-            can_query, queries_used = await usage_service.check_query_limit("unlimited_user", 9999)
+            can_query, queries_used = usage_service.check_query_limit("unlimited_user", 9999)
         
         # UNLIMITED tier should ALWAYS allow queries regardless of count
         assert can_query is True
         assert queries_used == 5000
 
     @pytest.mark.skip(reason="cleanup_old_usage returns None, needs implementation fix")
-    @pytest.mark.asyncio
-    async def test_cleanup_old_usage(self, usage_service, mock_firestore_db):
+    def test_cleanup_old_usage(self, usage_service, mock_firestore_db):
         """Test cleanup of old usage data"""
         # Mock collection query
         mock_query = MagicMock()
@@ -316,21 +300,20 @@ class TestUsageTrackingService:
         
         mock_firestore_db.collection.return_value.document.side_effect = get_doc_ref
         
-        cleaned = await usage_service.cleanup_old_usage(days_to_keep=30)
+        cleaned = usage_service.cleanup_old_usage(days_to_keep=30)
         
         # Should clean up old entries
         assert cleaned >= 0
 
     @pytest.mark.skip(reason="cleanup_old_usage returns None, needs implementation fix")
-    @pytest.mark.asyncio
-    async def test_cleanup_old_usage_error_handling(self, usage_service, mock_firestore_db):
+    def test_cleanup_old_usage_error_handling(self, usage_service, mock_firestore_db):
         """Test cleanup error handling"""
         mock_query = MagicMock()
         mock_query.stream.side_effect = Exception("Firestore error")
         
         mock_firestore_db.collection.return_value = mock_query
         
-        cleaned = await usage_service.cleanup_old_usage()
+        cleaned = usage_service.cleanup_old_usage()
         
         # Should return 0 on error
         assert cleaned == 0
@@ -355,8 +338,7 @@ class TestUsageServiceEdgeCases:
     """Test edge cases and boundary conditions"""
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    @pytest.mark.asyncio
-    async def test_increment_with_none_user_id(self, usage_service, mock_firestore_db):
+    def test_increment_with_none_user_id(self, usage_service, mock_firestore_db):
         """Test increment with None user_id"""
         doc_ref = MagicMock()
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
@@ -364,13 +346,12 @@ class TestUsageServiceEdgeCases:
         with patch.object(mock_firestore_db, "transaction") as mock_transaction_ctx:
             mock_transaction_ctx.return_value.__enter__.side_effect = Exception("Invalid user_id")
             
-            result = await usage_service.increment_user_queries(None)
+            result = usage_service.increment_user_queries(None)
         
         assert result == 0
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    @pytest.mark.asyncio
-    async def test_increment_with_empty_user_id(self, usage_service, mock_firestore_db):
+    def test_increment_with_empty_user_id(self, usage_service, mock_firestore_db):
         """Test increment with empty string user_id"""
         doc_ref = MagicMock()
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
@@ -378,12 +359,11 @@ class TestUsageServiceEdgeCases:
         with patch.object(mock_firestore_db, "transaction") as mock_transaction_ctx:
             mock_transaction_ctx.return_value.__enter__.side_effect = Exception("Invalid user_id")
             
-            result = await usage_service.increment_user_queries("")
+            result = usage_service.increment_user_queries("")
         
         assert result == 0
 
-    @pytest.mark.asyncio
-    async def test_get_queries_with_corrupted_data(self, usage_service, mock_firestore_db):
+    def test_get_queries_with_corrupted_data(self, usage_service, mock_firestore_db):
         """Test handling corrupted queries data"""
         user_doc = MagicMock()
         user_doc.exists = True
@@ -396,23 +376,21 @@ class TestUsageServiceEdgeCases:
         
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
         
-        result = await usage_service.get_user_queries_today("user123")
+        result = usage_service.get_user_queries_today("user123")
         
         # Should handle gracefully and return 0
         assert result == 0
 
-    @pytest.mark.asyncio
-    async def test_check_limit_with_negative_limit(self, usage_service):
+    def test_check_limit_with_negative_limit(self, usage_service):
         """Test checking limit with negative limit value"""
         with patch.object(usage_service, "get_user_queries_today", return_value=5):
-            can_query, queries_used = await usage_service.check_query_limit("user123", -1)
+            can_query, queries_used = usage_service.check_query_limit("user123", -1)
         
         # Negative limit should block
         assert can_query is False
         assert queries_used == 5
 
-    @pytest.mark.asyncio
-    async def test_date_boundary_midnight(self, usage_service, mock_firestore_db):
+    def test_date_boundary_midnight(self, usage_service, mock_firestore_db):
         """Test behavior at date boundary (midnight)"""
         # This tests the date key generation
         with patch("app.services.usage_tracking_service.datetime") as mock_datetime:

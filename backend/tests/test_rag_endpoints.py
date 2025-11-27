@@ -22,11 +22,13 @@ class TestUploadEndpoint:
 
     def test_upload_valid_pdf(self, client, sample_pdf, test_user_id):
         """Test uploading a valid PDF file"""
+        # Set the user_id context for this test
+        client.test_user_context["user_id"] = test_user_id
+        
         with open(sample_pdf, "rb") as f:
             files = {"file": ("test.pdf", f, "application/pdf")}
-            data = {"user_id": test_user_id}
 
-            response = client.post("/rag/upload/", files=files, data=data)
+            response = client.post("/rag/upload/", files=files)
 
         assert response.status_code == 201
         json_response = response.json()
@@ -36,30 +38,36 @@ class TestUploadEndpoint:
         assert json_response["chunks_indexed"] > 0
 
     def test_upload_missing_user_id(self, client, sample_pdf):
-        """Test upload without user_id returns 422"""
+        """Test upload without auth token returns 401"""
+        # Don't set user_id context - simulate missing auth
+        client.test_user_context["user_id"] = None
+        
         with open(sample_pdf, "rb") as f:
             files = {"file": ("test.pdf", f, "application/pdf")}
 
             response = client.post("/rag/upload/", files=files)
 
-        assert response.status_code == 422  # Unprocessable Entity
+        assert response.status_code == 401  # Unauthorized
 
     def test_upload_invalid_file_type(self, client, test_user_id):
         """Test uploading non-PDF file returns 400"""
+        # Set the user_id context for this test
+        client.test_user_context["user_id"] = test_user_id
+        
         fake_txt = BytesIO(b"This is not a PDF file")
         files = {"file": ("test.txt", fake_txt, "text/plain")}
-        data = {"user_id": test_user_id}
 
-        response = client.post("/rag/upload/", files=files, data=data)
+        response = client.post("/rag/upload/", files=files)
 
         assert response.status_code == 400
         assert "PDF" in response.json()["detail"]
 
     def test_upload_missing_file(self, client, test_user_id):
         """Test upload without file returns 422"""
-        data = {"user_id": test_user_id}
+        # Set the user_id context for this test
+        client.test_user_context["user_id"] = test_user_id
 
-        response = client.post("/rag/upload/", data=data)
+        response = client.post("/rag/upload/")
 
         assert response.status_code == 422
 
@@ -69,9 +77,11 @@ class TestQueryEndpoint:
 
     def test_query_basic(self, client, test_user_id):
         """Test basic query functionality"""
+        # Set the user_id context for this test
+        client.test_user_context["user_id"] = test_user_id
+        
         payload = {
             "query": "What is this document about?",
-            "user_id": test_user_id,
         }
 
         response = client.post("/rag/query/", json=payload)
@@ -85,9 +95,11 @@ class TestQueryEndpoint:
 
     def test_query_long_text(self, client, test_user_id):
         """Test query with longer question"""
+        # Set the user_id context for this test
+        client.test_user_context["user_id"] = test_user_id
+        
         payload = {
             "query": "Can you provide a detailed explanation of the main topics covered in this document?",
-            "user_id": test_user_id,
         }
 
         response = client.post("/rag/query/", json=payload)
@@ -98,16 +110,22 @@ class TestQueryEndpoint:
         assert len(json_response["answer"]) > 0
 
     def test_query_missing_user_id(self, client):
-        """Test query without user_id returns 422"""
+        """Test query without auth token returns 401"""
+        # Don't set user_id context - simulate missing auth
+        client.test_user_context["user_id"] = None
+        
         payload = {"query": "Test question"}
 
         response = client.post("/rag/query/", json=payload)
 
-        assert response.status_code == 422
+        assert response.status_code == 401  # Unauthorized
 
     def test_query_empty_query(self, client, test_user_id):
         """Test query with empty string"""
-        payload = {"query": "", "user_id": test_user_id}
+        # Set the user_id context for this test
+        client.test_user_context["user_id"] = test_user_id
+        
+        payload = {"query": ""}
 
         response = client.post("/rag/query/", json=payload)
 
@@ -116,9 +134,11 @@ class TestQueryEndpoint:
 
     def test_query_with_extra_fields(self, client, test_user_id):
         """Test query with extra fields (should be ignored by Pydantic)"""
+        # Set the user_id context for this test
+        client.test_user_context["user_id"] = test_user_id
+        
         payload = {
             "query": "Test question",
-            "user_id": test_user_id,
             "extra_field": "ignored",
             "chat_history": [{"role": "user", "content": "test"}],
         }
@@ -134,19 +154,20 @@ class TestEndToEndFlow:
 
     def test_upload_then_query(self, client, sample_pdf, test_user_id):
         """Test uploading a document and then querying it"""
+        # Set the user_id context for this test
+        client.test_user_context["user_id"] = test_user_id
+        
         # Step 1: Upload document
         with open(sample_pdf, "rb") as f:
             files = {"file": ("test_doc.pdf", f, "application/pdf")}
-            data = {"user_id": test_user_id}
 
-            upload_response = client.post("/rag/upload/", files=files, data=data)
+            upload_response = client.post("/rag/upload/", files=files)
 
         assert upload_response.status_code == 201
 
         # Step 2: Query the uploaded document
         query_payload = {
             "query": "What does this document contain?",
-            "user_id": test_user_id,
         }
 
         query_response = client.post("/rag/query/", json=query_payload)
@@ -164,15 +185,15 @@ class TestEndToEndFlow:
         user2_id = "user-2-test"
 
         # User 1 uploads a document
+        client.test_user_context["user_id"] = user1_id
         with open(sample_pdf, "rb") as f:
             files = {"file": ("user1_doc.pdf", f, "application/pdf")}
-            data = {"user_id": user1_id}
-            client.post("/rag/upload/", files=files, data=data)
+            client.post("/rag/upload/", files=files)
 
         # User 2 queries (should not see User 1's document)
+        client.test_user_context["user_id"] = user2_id
         query_payload = {
             "query": "What is in user 1's document?",
-            "user_id": user2_id,
         }
 
         response = client.post("/rag/query/", json=query_payload)
