@@ -40,7 +40,11 @@ export default function AboutPage() {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push("/dashboard")}
-                className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className={
+                  "p-2 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg " +
+                  "transition-all duration-200 group focus:outline-none focus:ring-3 " +
+                  "focus:ring-focus min-h-[44px] min-w-[44px] flex items-center justify-center"
+                }
                 aria-label="Back to dashboard"
               >
                 <ArrowLeft
@@ -373,7 +377,13 @@ export default function AboutPage() {
             <div className="flex justify-center pt-4">
               <button
                 onClick={() => router.push("/dashboard")}
-                className="group relative px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:from-purple-800 active:to-indigo-800 text-white rounded-lg transition-all duration-300 font-semibold text-base focus:outline-none focus:ring-3 focus:ring-focus shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden min-h-[44px]"
+                className={
+                  "group relative px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 " +
+                  "hover:from-purple-700 hover:to-indigo-700 active:from-purple-800 active:to-indigo-800 " +
+                  "text-white rounded-lg transition-all duration-300 font-semibold text-base " +
+                  "focus:outline-none focus:ring-3 focus:ring-focus shadow-lg hover:shadow-xl " +
+                  "hover:scale-105 overflow-hidden min-h-[44px]"
+                }
                 aria-label="Return to dashboard"
               >
                 <span className="relative z-10 flex items-center gap-3">
