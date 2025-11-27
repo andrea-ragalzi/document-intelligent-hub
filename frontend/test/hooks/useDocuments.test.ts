@@ -1,9 +1,15 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { useDocuments } from "@/hooks/useDocuments";
+import * as AuthContext from "@/contexts/AuthContext";
+
+// Mock AuthContext
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: vi.fn(),
+}));
 
 // Mock fetch
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn();
 
 describe("useDocuments", () => {
   const mockUserId = "test-user-123";
@@ -24,6 +30,14 @@ describe("useDocuments", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Mock useAuth to return getIdToken function
+    vi.mocked(AuthContext.useAuth).mockReturnValue({
+      user: { uid: mockUserId } as any,
+      loading: false,
+      getIdToken: vi.fn().mockResolvedValue("mock-token"),
+    } as any);
+
     // Mock successful fetch by default
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
