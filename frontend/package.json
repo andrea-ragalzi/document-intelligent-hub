@@ -15,7 +15,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.8",
     "@tanstack/react-query-devtools": "^5.90.2",
-    "ai": "^4.3.19",
+    "ai": "^5.0.104",
     "firebase": "^12.5.0",
     "lucide-react": "^0.553.0",
     "next": "16.0.1",
