@@ -15,9 +15,15 @@ from firebase_admin import credentials, firestore
 from google.cloud.firestore import SERVER_TIMESTAMP
 
 # Initialize Firebase Admin SDK
-service_account_path = Path(__file__).parent.parent / "app" / "config" / "firebase-service-account.json"
+service_account_path = (
+    Path(__file__).parent.parent / "app" / "config" / "firebase-service-account.json"
+)
 
-if not firebase_admin._apps:
+# Check if Firebase is initialized using public API
+try:
+    firebase_admin.get_app()
+    print("✅ Firebase already initialized")
+except ValueError:
     cred = credentials.Certificate(str(service_account_path))
     firebase_admin.initialize_app(cred)
     print(f"✅ Firebase initialized with: {service_account_path}")
@@ -35,7 +41,7 @@ def setup_test_data():
     - Unlimited emails configuration
     """
     print("🔧 Setting up test data...")
-    
+
     # 1. Create invitation codes
     codes_to_create = [
         {
@@ -67,25 +73,25 @@ def setup_test_data():
             "created_at": SERVER_TIMESTAMP
         }
     ]
-    
+
     for code_data in codes_to_create:
         code_ref = db.collection("invitation_codes").document(code_data["code"])
         code_ref.set(code_data)
         print(f"✅ Created invitation code: {code_data['code']} ({code_data['tier']})")
-    
+
     # 2. Configure unlimited emails list
     unlimited_emails = [
         "andrea.ragalzi.social@gmail.com",  # Social account - unlimited access
         "andrea.ragalzi.code@gmail.com",    # Dev account - unlimited access
     ]
-    
+
     settings_ref = db.collection("app_config").document("settings")
     settings_ref.set({
         "unlimited_emails": unlimited_emails,
         "updated_at": SERVER_TIMESTAMP
     })
     print(f"✅ Configured {len(unlimited_emails)} unlimited emails")
-    
+
     print("\n🎉 Test data setup complete!")
     print("\n📋 Test Scenarios:")
     print("1. Register with email in unlimited list -> UNLIMITED tier (no code needed)")
@@ -113,7 +119,7 @@ def test_registration_flow():
         "invitation_code": null
     }
     """)
-    
+
     print("\n2. For users with invitation code:")
     print("""
     POST /auth/register
@@ -122,7 +128,7 @@ def test_registration_flow():
         "invitation_code": "PRO2024"
     }
     """)
-    
+
     print("\n3. Check current tier:")
     print("""
     POST /auth/refresh-claims
@@ -136,13 +142,13 @@ if __name__ == "__main__":
     print("=" * 60)
     print("Authentication & Registration Test Setup")
     print("=" * 60)
-    
+
     # Run setup
     # asyncio.run(setup_test_data())
-    
+
     # Show usage examples
     # asyncio.run(test_registration_flow())
-    
+
     print("\n" + "=" * 60)
     print("✅ Setup complete! You can now test the endpoints.")
     print("=" * 60)

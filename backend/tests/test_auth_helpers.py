@@ -11,7 +11,11 @@ Tests cover:
 from unittest.mock import MagicMock, patch
 
 import pytest
-from app.routers.auth_router import get_current_user_id, load_app_config
+from app.routers.auth_router import (
+    clear_cache,
+    get_current_user_id,
+    load_app_config,
+)
 from fastapi import HTTPException
 
 
@@ -22,10 +26,8 @@ class TestLoadAppConfig:
     async def test_load_app_config_success(self):
         """Test successful loading of app config"""
         # Clear cache before test
-        import app.routers.auth_router as auth_router_module
-        auth_router_module._unlimited_emails_cache = None
-        auth_router_module._tier_limits_cache = None
-        
+        clear_cache()
+
         with patch("app.routers.auth_router.get_db") as mock_get_db:
             # Mock Firestore
             config_doc = MagicMock()
@@ -37,16 +39,16 @@ class TestLoadAppConfig:
                     "PRO": {"max_queries_per_day": 500}
                 }
             }
-            
+
             doc_ref = MagicMock()
             doc_ref.get.return_value = config_doc
-            
+
             db_instance = MagicMock()
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
-            
+
             result = load_app_config()
-            
+
             assert "unlimited_emails" in result
             assert "limits" in result
             assert result["unlimited_emails"] == ["admin@example.com"]
@@ -58,10 +60,8 @@ class TestLoadAppConfig:
     async def test_load_app_config_caching(self):
         """Test that app config is cached after first load"""
         # Clear cache
-        import app.routers.auth_router as auth_router_module
-        auth_router_module._unlimited_emails_cache = None
-        auth_router_module._tier_limits_cache = None
-        
+        clear_cache()
+
         with patch("app.routers.auth_router.get_db") as mock_get_db:
             config_doc = MagicMock()
             config_doc.exists = True
@@ -69,23 +69,23 @@ class TestLoadAppConfig:
                 "unlimited_emails": [],
                 "limits": {}
             }
-            
+
             doc_ref = MagicMock()
             doc_ref.get.return_value = config_doc
-            
+
             db_instance = MagicMock()
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
-            
+
             # First call
             result1 = load_app_config()
-            
+
             # Second call
             result2 = load_app_config()
-            
+
             # Should be same values (cached)
             assert result1["unlimited_emails"] == result2["unlimited_emails"]
-            
+
             # Firestore should only be called once
             assert doc_ref.get.call_count == 1
 
@@ -93,23 +93,21 @@ class TestLoadAppConfig:
     async def test_load_app_config_document_not_exists(self):
         """Test when config document doesn't exist"""
         # Clear cache
-        import app.routers.auth_router as auth_router_module
-        auth_router_module._unlimited_emails_cache = None
-        auth_router_module._tier_limits_cache = None
-        
+        clear_cache()
+
         with patch("app.routers.auth_router.get_db") as mock_get_db:
             config_doc = MagicMock()
             config_doc.exists = False
-            
+
             doc_ref = MagicMock()
             doc_ref.get.return_value = config_doc
-            
+
             db_instance = MagicMock()
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
-            
+
             result = load_app_config()
-            
+
             # Should return defaults
             assert result["unlimited_emails"] == []
             assert "FREE" in result["limits"]
@@ -119,20 +117,18 @@ class TestLoadAppConfig:
     async def test_load_app_config_firestore_error(self):
         """Test error handling when Firestore fails"""
         # Clear cache
-        import app.routers.auth_router as auth_router_module
-        auth_router_module._unlimited_emails_cache = None
-        auth_router_module._tier_limits_cache = None
-        
+        clear_cache()
+
         with patch("app.routers.auth_router.get_db") as mock_get_db:
             doc_ref = MagicMock()
             doc_ref.get.side_effect = Exception("Firestore error")
-            
+
             db_instance = MagicMock()
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
-            
+
             result = load_app_config()
-            
+
             # Should return defaults on error
             assert result["unlimited_emails"] == []
             assert "FREE" in result["limits"]
@@ -140,28 +136,26 @@ class TestLoadAppConfig:
 
     @pytest.mark.asyncio
     async def test_load_app_config_missing_fields(self):
-        """Test when config document exists but missing fields"""
+        """Test handling when config document has missing fields"""
         # Clear cache
-        import app.routers.auth_router as auth_router_module
-        auth_router_module._unlimited_emails_cache = None
-        auth_router_module._tier_limits_cache = None
-        
+        clear_cache()
+
         with patch("app.routers.auth_router.get_db") as mock_get_db:
             config_doc = MagicMock()
             config_doc.exists = True
             config_doc.to_dict.return_value = {
                 # Missing unlimited_emails and limits
             }
-            
+
             doc_ref = MagicMock()
             doc_ref.get.return_value = config_doc
-            
+
             db_instance = MagicMock()
             db_instance.collection.return_value.document.return_value = doc_ref
             mock_get_db.return_value = db_instance
-            
+
             result = load_app_config()
-            
+
             # Should have defaults for missing fields
             assert "unlimited_emails" in result
             assert "limits" in result
@@ -180,9 +174,9 @@ class TestGetCurrentUserId:
                 "uid": "user123",
                 "email": "test@example.com"
             }
-            
+
             user_id = get_current_user_id("Bearer valid_token")
-            
+
             assert user_id == "user123"
             mock_auth.verify_id_token.assert_called_once_with("valid_token")
 
@@ -191,7 +185,7 @@ class TestGetCurrentUserId:
         """Test with missing authorization header"""
         with pytest.raises(HTTPException) as exc_info:
             get_current_user_id("")  # Empty string instead of None
-        
+
         assert exc_info.value.status_code == 401
         assert "Missing or invalid" in exc_info.value.detail
 
@@ -200,7 +194,7 @@ class TestGetCurrentUserId:
         """Test with invalid authorization header format (no Bearer)"""
         with pytest.raises(HTTPException) as exc_info:
             get_current_user_id("InvalidToken")
-        
+
         assert exc_info.value.status_code == 401
         assert "Missing or invalid" in exc_info.value.detail
 
@@ -209,11 +203,11 @@ class TestGetCurrentUserId:
         """Test with empty Bearer token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             # Mock the call to verify_id_token to raise an exception for an empty string
-            def verify_token_side_effect(t):
+            def verify_token_side_effect(t: str):
                 if t:
                     return {"uid": "user123"}
                 raise ValueError("Empty token")
-            
+
             mock_auth.verify_id_token.side_effect = verify_token_side_effect
 
             with pytest.raises(HTTPException) as exc_info:
@@ -229,10 +223,10 @@ class TestGetCurrentUserId:
         """Test with invalid token that fails verification"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Invalid token")
-            
+
             with pytest.raises(HTTPException) as exc_info:
                 get_current_user_id("Bearer invalid_token")
-            
+
             assert exc_info.value.status_code == 401
             assert "Invalid or expired token" in exc_info.value.detail
 
@@ -241,10 +235,10 @@ class TestGetCurrentUserId:
         """Test with expired token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Token expired")
-            
+
             with pytest.raises(HTTPException) as exc_info:
                 get_current_user_id("Bearer expired_token")
-            
+
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
@@ -252,10 +246,10 @@ class TestGetCurrentUserId:
         """Test with malformed token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Malformed token")
-            
+
             with pytest.raises(HTTPException) as exc_info:
                 get_current_user_id("Bearer malformed")
-            
+
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
@@ -264,7 +258,7 @@ class TestGetCurrentUserId:
         # Should only accept "Bearer" not "bearer" or "BEARER"
         with pytest.raises(HTTPException) as exc_info:
             get_current_user_id("bearer token")
-        
+
         assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
@@ -274,10 +268,10 @@ class TestGetCurrentUserId:
             mock_auth.verify_id_token.return_value = {
                 "uid": "user123"
             }
-            
+
             # Should handle multiple spaces
             user_id = get_current_user_id("Bearer  token_with_spaces")
-            
+
             # Should extract "token_with_spaces" after removing "Bearer "
             assert user_id == "user123"
 
@@ -289,10 +283,10 @@ class TestGetCurrentUserId:
                 "email": "test@example.com"
                 # Missing uid
             }
-            
+
             with pytest.raises(HTTPException) as exc_info:
                 get_current_user_id("Bearer valid_token")
-            
+
             # Should catch KeyError and raise HTTPException
             assert exc_info.value.status_code == 401
             assert "Invalid or expired token" in exc_info.value.detail

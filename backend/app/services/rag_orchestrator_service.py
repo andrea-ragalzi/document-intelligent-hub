@@ -12,7 +12,7 @@ Architecture:
 - ConversationService: Conversation summarization
 """
 
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -41,10 +41,10 @@ from pydantic import SecretStr
 class RAGService:
     """
     Main RAG Service - Orchestrator
-    
+
     Thin coordination layer that delegates to specialized services.
     Maintains backward compatibility with existing API.
-    
+
     Refactored from 1020 lines to ~200 lines by extracting:
     - DocumentIndexingService (340 lines)
     - QueryProcessingService (181 lines)
@@ -52,44 +52,44 @@ class RAGService:
     - DocumentManagementService (167 lines)
     - ConversationService (82 lines)
     """
-    
+
     def __init__(self, repository: VectorStoreRepository):
         """
         Initialize RAG service with repository and specialized services.
-        
+
         Args:
             repository: Vector store repository for data access
         """
         self.repository = repository
-        
+
         # Initialize LLMs
         self.llm = ChatOpenAI(
             model=settings.LLM_MODEL,
             temperature=0.0,
             api_key=SecretStr(settings.OPENAI_API_KEY)
         )
-        
+
         self.query_gen_llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.0,
             api_key=SecretStr(settings.OPENAI_API_KEY)
         )
-        
+
         # Initialize shared services
         self.language_service = LanguageService()
-        
+
         # Initialize specialized services with dependencies
         self.indexing_service = DocumentIndexingService(
             repository=repository,
             language_service=self.language_service,
             classifier_service=document_classifier_service
         )
-        
+
         self.query_processing_service = QueryProcessingService(
             llm=self.llm,
             query_gen_llm=self.query_gen_llm
         )
-        
+
         self.answer_generation_service = AnswerGenerationService(
             llm=self.llm,
             repository=repository,
@@ -98,19 +98,19 @@ class RAGService:
             query_expansion_service=query_expansion_service,
             reranking_service=reranking_service
         )
-        
+
         self.document_management_service = DocumentManagementService(
             repository=repository
         )
-        
+
         self.conversation_service = ConversationService(
             query_gen_llm=self.query_gen_llm
         )
-        
+
         logger.info("✅ RAGService initialized with specialized services")
-    
+
     # === DOCUMENT INDEXING OPERATIONS ===
-    
+
     async def index_document(
         self,
         file: UploadFile,
@@ -119,34 +119,34 @@ class RAGService:
     ) -> Tuple[int, str]:
         """
         Delegate to DocumentIndexingService.
-        
+
         Args:
             file: Uploaded PDF file
             user_id: User identifier
             document_language: Optional language code
-            
+
         Returns:
             Tuple of (chunks_indexed, detected_language)
         """
         return await self.indexing_service.index_document(file, user_id, document_language)
-    
+
     async def detect_document_language_preview(
         self,
         file: UploadFile
     ) -> Tuple[str, float]:
         """
         Delegate to DocumentIndexingService.
-        
+
         Args:
             file: Uploaded PDF file
-            
+
         Returns:
             Tuple of (language_code, confidence)
         """
         return await self.indexing_service.detect_document_language_preview(file)
-    
+
     # === QUERY PROCESSING & ANSWER GENERATION ===
-    
+
     def answer_query(
         self,
         query: str,
@@ -158,12 +158,12 @@ class RAGService:
     ) -> Tuple[str, List[str]]:
         """
         Process query and generate answer using RAG pipeline.
-        
+
         Workflow:
         1. Reformulate query (QueryProcessingService)
         2. Classify query (QueryProcessingService)
         3. Generate answer (AnswerGenerationService)
-        
+
         Args:
             query: User's question
             user_id: User identifier
@@ -171,21 +171,21 @@ class RAGService:
             output_language: Optional target language
             include_files: Optional file filter (include only)
             exclude_files: Optional file filter (exclude)
-            
+
         Returns:
             Tuple of (answer_with_sources, source_filenames)
         """
         conversation_history = conversation_history or []
-        
+
         # Step 1: Reformulate query if needed (handles conversational context)
         reformulated_query = self.query_processing_service.reformulate_query(
             query, conversation_history
         )
-        
+
         # Step 2: Classify query (for future optimizations)
         query_tag = self.query_processing_service.classify_query(reformulated_query)
         logger.info(f"🏷️  Query classified as: {query_tag}")
-        
+
         # Step 3: Generate answer with full RAG pipeline
         return self.answer_generation_service.generate_answer(
             query=reformulated_query,
@@ -195,70 +195,70 @@ class RAGService:
             include_files=include_files,
             exclude_files=exclude_files
         )
-    
+
     # === DOCUMENT MANAGEMENT OPERATIONS ===
-    
-    def get_user_documents(self, user_id: str) -> List:
+
+    def get_user_documents(self, user_id: str) -> List[Any]:
         """
         Delegate to DocumentManagementService.
-        
+
         Args:
             user_id: User identifier
-            
+
         Returns:
             List of DocumentInfo objects
         """
         return self.document_management_service.get_user_documents(user_id)
-    
+
     def delete_user_document(self, user_id: str, filename: str) -> int:
         """
         Delegate to DocumentManagementService.
-        
+
         Args:
             user_id: User identifier
             filename: Document filename to delete
-            
+
         Returns:
             Number of chunks deleted
         """
         return self.document_management_service.delete_user_document(user_id, filename)
-    
+
     def delete_all_user_documents(self, user_id: str) -> int:
         """
         Delegate to DocumentManagementService.
-        
+
         Args:
             user_id: User identifier
-            
+
         Returns:
             Number of chunks deleted
         """
         return self.document_management_service.delete_all_user_documents(user_id)
-    
+
     def get_user_document_count(self, user_id: str) -> int:
         """
         Delegate to DocumentManagementService.
-        
+
         Args:
             user_id: User identifier
-            
+
         Returns:
             Number of unique documents
         """
         return self.document_management_service.get_user_document_count(user_id)
-    
+
     # === CONVERSATION OPERATIONS ===
-    
+
     def generate_conversation_summary(
         self,
         conversation_history: List[ConversationMessage]
     ) -> str:
         """
         Delegate to ConversationService.
-        
+
         Args:
             conversation_history: List of conversation messages
-            
+
         Returns:
             Concise summary string
         """

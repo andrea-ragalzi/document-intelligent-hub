@@ -6,30 +6,88 @@
   "python.testing.autoTestDiscoverOnSaveEnabled": true,
   "python.testing.cwd": "${workspaceFolder}/backend",
   "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+
+  // Python Quality Gate Enforcement
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "none",
+    "reportMissingTypeStubs": "none",
+    "reportUnknownParameterType": "none",
+    "reportUnknownArgumentType": "none",
+    "reportUnknownMemberType": "none",
+    "reportUnknownVariableType": "none",
+    "reportMissingTypeArgument": "warning"
+  },
+  "python.analysis.ignore": ["**/site-packages/**", "**/.venv/**"],
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.pylintPath": "${workspaceFolder}/backend/.venv/bin/pylint",
+  "python.linting.pylintArgs": [
+    "--rcfile=${workspaceFolder}/backend/.pylintrc"
+  ],
+  "python.linting.cwd": "${workspaceFolder}/backend",
+  "python.linting.lintOnSave": true,
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyPath": "${workspaceFolder}/backend/.venv/bin/mypy",
+  "python.linting.mypyArgs": [
+    "--config-file=${workspaceFolder}/backend/mypy.ini",
+    "--show-column-numbers"
+  ],
+
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": false,
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit"
-    }
+    },
+    "editor.rulers": [120]
   },
   "python.analysis.extraPaths": ["${workspaceFolder}/backend"],
   "python.envFile": "${workspaceFolder}/backend/.env",
 
   // Vitest Configuration (Frontend)
-  "vitest.enable": true,
-  "vitest.commandLine": "npm test --",
   "vitest.workspaceConfig": "${workspaceFolder}/frontend/vitest.config.ts",
 
-  // Test Explorer
-  "testExplorer.useNativeTesting": true,
+  // TypeScript/JavaScript Quality Gate Enforcement
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "eslint.enable": true,
+  "eslint.workingDirectories": ["frontend"],
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "eslint.lintTask.enable": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
 
-  // TypeScript/JavaScript
   "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.rulers": [100]
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.rulers": [100]
+  },
+  "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
-  "[typescriptreact]": {
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
@@ -50,16 +108,14 @@
   "coverage-gutters.noHighlightDark": "rgba(255, 0, 0, 0.3)",
   "coverage-gutters.partialHighlightDark": "rgba(255, 255, 0, 0.3)",
   "coverage-gutters.manualCoverageFilePaths": [
-    "${workspaceFolder}/backend/coverage.lcov",
-    "${workspaceFolder}/frontend/coverage/lcov.info"
+    "${workspaceFolder}/backend/coverage.lcov"
   ],
 
-  // GitHub Copilot - Detailed instructions in .github/copilot-instructions.md
-  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  // Editor Configuration
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
 
-  "docwriter.style": "Auto-detect",
-  "sonarlint.connectedMode.project": {
-    "connectionId": "andrea-ragalzi",
-    "projectKey": "andrea-ragalzi_document-intelligent-hub"
-  }
+  // GitHub Copilot - Detailed instructions in .github/copilot-instructions.md
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true
 }

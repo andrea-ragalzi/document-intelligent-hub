@@ -7,10 +7,11 @@ Reranking Service Module - Versione 2 (Logarithmic TF Score)
 - Pulizia: Aggiunto un set base di stop word universali per migliorare la qualità delle keyword.
 """
 
-from typing import List, Set, Tuple
-import re
 import math
+import re
 from collections import Counter
+from typing import List, Set, Tuple
+
 from langchain_core.documents import Document
 
 # Stop word universali, agnostiche e comuni (lunghezza > 2)
@@ -119,7 +120,8 @@ class RerankingService:
         top_n: int = 7,
     ) -> List[Document]:
         """
-        Rerank documents using hybrid scoring: vector similarity + improved TF-inspired keyword score.
+        Rerank documents using hybrid scoring:
+        vector similarity + improved TF-inspired keyword score.
         """
         if not documents:
             return []
@@ -156,12 +158,11 @@ class RerankingService:
         # 3. Ordinamento e Selezione Top N
         scored_docs.sort(key=lambda x: x[0], reverse=True)
 
-        top_docs = [doc for score, doc in scored_docs[:top_n]]
+        top_docs = [doc for _, doc in scored_docs[:top_n]]
 
         print(f"DEBUG [Reranking]: Reranked {total_docs} → {len(top_docs)} documents")
-        print(
-            f"DEBUG [Reranking]: Top 3 scores: {[round(scored_docs[i][0], 3) for i in range(min(3, len(scored_docs)))]}"
-        )
+        top_3_scores = [round(scored_docs[i][0], 3) for i in range(min(3, len(scored_docs)))]
+        print(f"DEBUG [Reranking]: Top 3 scores: {top_3_scores}")
 
         return top_docs
 
