@@ -15,7 +15,7 @@ Responsibilities:
 import os
 import tempfile
 import time
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from app.core.logging import logger
 from app.repositories.vector_store_repository import VectorStoreRepository
@@ -34,19 +34,19 @@ from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 class DocumentIndexingService:
     """
     Specialized service for document indexing operations.
-    
+
     Part of RAGService refactoring to maintain 200-300 lines per service.
     """
-    
+
     def __init__(
         self,
         repository: VectorStoreRepository,
         language_service: LanguageService,
-        classifier_service: DocumentClassifierService
+        classifier_service: DocumentClassifierService,
     ):
         """
         Initialize DocumentIndexingService with required dependencies.
-        
+
         Args:
             repository: Vector store repository for document storage
             language_service: Service for language detection
@@ -55,110 +55,157 @@ class DocumentIndexingService:
         self.repository = repository
         self.language_service = language_service
         self.classifier_service = classifier_service
-    
+
     async def index_document(
-        self, 
-        file: UploadFile, 
-        user_id: str,
-        document_language: Optional[str] = None
+        self, file: UploadFile, user_id: str, document_language: Optional[str] = None
     ) -> Tuple[int, str]:
         """
         Load a PDF, split it into chunks, create embeddings, and save to ChromaDB.
-        
+
         Documents are indexed in their original language (no translation).
-        Each chunk is tagged with user_id for multi-tenancy isolation and 
+        Each chunk is tagged with user_id for multi-tenancy isolation and
         document language for multilingual retrieval optimization.
-        
+
         Args:
             file: The uploaded PDF file
             user_id: The user identifier for multi-tenancy
-            document_language: Optional language code (IT, EN, FR, etc.). Auto-detected if not provided.
-            
+            document_language: Optional language code (IT, EN, FR, etc.).
+                               Auto-detected if not provided.
+
         Returns:
             Tuple of (chunks_indexed, detected_or_specified_language)
         """
-        total_chunks_indexed = 0
-        
-        # Store the document language (user-provided or will be detected)
         doc_language = document_language.upper() if document_language else None
+        temp_file_path = await self._create_temp_file_from_upload(file)
 
-        # Create a secure temporary file with PDF suffix
-        # This prevents path injection attacks by not using user-controlled filename directly
-        temp_fd, temp_file_path = tempfile.mkstemp(suffix=".pdf", prefix="upload_")
-        
         try:
-            content = await file.read()
-            if not content:
-                raise ValueError("The uploaded file is empty.")
-
-            # Write content to the secure temporary file
-            os.write(temp_fd, content)
-            os.close(temp_fd)  # Close the file descriptor before passing to loader
-
-            # 2. Load PDF using UnstructuredPDFLoader
-            loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
-            documents = loader.load()
-
-            # 3. Classify document to determine chunking strategy
-            full_text_preview = " ".join([doc.page_content for doc in documents[:15]])[:5000]
-            category = self.classifier_service.classify_document(
-                file.filename or "unknown",
-                full_text_preview[:1000]
+            # Load PDF and classify document
+            documents = UnstructuredPDFLoader(temp_file_path, mode="elements").load()
+            full_text_preview = " ".join([doc.page_content for doc in documents[:15]])[
+                :5000
+            ]
+            category = self._classify_document(
+                file.filename or "unknown", full_text_preview
             )
-            logger.info(f"📄 Initial classification: {category.value}")
 
-            # 4. Apply chunking strategy based on classification with fallback
-            chunks = self._apply_chunking_strategy(documents, category, full_text_preview)
-
-            # 5. Process and filter chunks
+            # Apply chunking strategy and prepare chunks
+            chunks = self._apply_chunking_strategy(
+                documents, category, full_text_preview
+            )
             chunks = filter_complex_metadata(chunks)
-            
-            # 6. Prepare chunks with metadata
             final_chunks = self._prepare_chunks_with_metadata(
                 chunks, user_id, file.filename or "unknown.pdf", doc_language
             )
-            
-            # Update doc_language if it was auto-detected
-            if doc_language is None and final_chunks:
-                doc_language = final_chunks[0].metadata.get("original_language_code", "EN")
 
-            # 7. Index the chunks (in their original language) - OPTIMIZED WITH BATCH UPSERT
-            if final_chunks:
-                total_chunks_indexed = self._batch_index_chunks(final_chunks)
+            # Detect language if not provided
+            doc_language = self._resolve_document_language(doc_language, final_chunks)
 
-            # Ensure doc_language is not None before returning
-            final_doc_language = doc_language if doc_language else "EN"
-            logger.info(f"✅ Indexed {total_chunks_indexed} chunks in language: {final_doc_language}")
-            return total_chunks_indexed, final_doc_language
-            
+            # Index chunks
+            total_chunks_indexed = (
+                self._batch_index_chunks(final_chunks) if final_chunks else 0
+            )
+            logger.info(
+                f"✅ Indexed {total_chunks_indexed} chunks in language: {doc_language}"
+            )
+            return total_chunks_indexed, doc_language
+
         except Exception as e:
             logger.error(f"❌ Indexing error (service level): {e}")
             raise e
         finally:
-            # Clean up the secure temporary file
-            # temp_file_path is from tempfile.mkstemp(), already an absolute path
+            self._cleanup_temp_file(temp_file_path)
+
+    async def _create_temp_file_from_upload(self, file: UploadFile) -> str:
+        """
+        Create a secure temporary file from uploaded PDF.
+
+        Args:
+            file: The uploaded PDF file
+
+        Returns:
+            Path to temporary file
+
+        Raises:
+            ValueError: If file is empty
+        """
+        temp_fd, temp_file_path = tempfile.mkstemp(suffix=".pdf", prefix="upload_")
+        try:
+            content = await file.read()
+            if not content:
+                raise ValueError("The uploaded file is empty.")
+            os.write(temp_fd, content)
+            os.close(temp_fd)
+            return temp_file_path
+        except Exception:
+            os.close(temp_fd)
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
+            raise
+
+    def _classify_document(self, filename: str, text_preview: str) -> Any:
+        """
+        Classify document to determine chunking strategy.
+
+        Args:
+            filename: Document filename
+            text_preview: Preview of document text
+
+        Returns:
+            Document category
+        """
+        category = self.classifier_service.classify_document(
+            filename, text_preview[:1000]
+        )
+        logger.info(f"📄 Initial classification: {category.value}")
+        return category
+
+    def _resolve_document_language(
+        self, doc_language: Optional[str], chunks: List[Any]
+    ) -> str:
+        """
+        Resolve document language from user input or auto-detection.
+
+        Args:
+            doc_language: User-provided language code or None
+            chunks: Prepared document chunks with metadata
+
+        Returns:
+            Final language code (defaults to EN)
+        """
+        if doc_language is None and chunks:
+            return chunks[0].metadata.get("original_language_code", "EN")
+        return doc_language if doc_language else "EN"
+
+    @staticmethod
+    def _cleanup_temp_file(temp_file_path: str) -> None:
+        """
+        Clean up temporary file.
+
+        Args:
+            temp_file_path: Path to temporary file
+        """
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
 
     def _apply_chunking_strategy(
         self,
         documents: List[Document],
         category: DocumentCategory,
-        full_text_preview: str
+        full_text_preview: str,
     ) -> List[Document]:
         """
         Apply appropriate chunking strategy based on document classification.
-        
+
         Args:
             documents: Loaded document pages
             category: Document category from classification
             full_text_preview: Preview text for structural analysis
-            
+
         Returns:
             List of chunked documents
         """
         use_structural_chunking = False
-        
+
         if category == DocumentCategory.AUTORITA_STRUTTURALE:
             use_structural_chunking = True
             strategy_reason = "Direct Classification (AUTORITA_STRUTTURALE)"
@@ -170,12 +217,12 @@ class DocumentIndexingService:
                 strategy_reason = "Fallback: High Structural Density"
             else:
                 strategy_reason = "Direct Classification (INFORMATIVO_NON_STRUTTURATO)"
-        
+
         logger.info(
             f"🧠 Chunking Strategy: {'STRUCTURAL' if use_structural_chunking else 'FIXED-SIZE'} "
             f"| Reason: {strategy_reason}"
         )
-        
+
         if use_structural_chunking:
             # Structural chunking (semantic)
             text_splitter = RecursiveCharacterTextSplitter.from_language(
@@ -185,10 +232,12 @@ class DocumentIndexingService:
             logger.info(f"🪓 Applied STRUCTURAL chunking: {len(chunks)} chunks")
         else:
             # Standard fixed-size chunking
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50)
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=512, chunk_overlap=50
+            )
             chunks = text_splitter.split_documents(documents)
             logger.info(f"🪓 Applied FIXED-SIZE chunking: {len(chunks)} chunks")
-        
+
         return chunks
 
     def _prepare_chunks_with_metadata(
@@ -196,17 +245,17 @@ class DocumentIndexingService:
         chunks: List[Document],
         user_id: str,
         filename: str,
-        doc_language: Optional[str]
+        doc_language: Optional[str],
     ) -> List[Document]:
         """
         Add metadata to chunks including user_id, language, chapter tracking, and timestamp.
-        
+
         Args:
             chunks: Chunked documents
             user_id: User identifier for multi-tenancy
             filename: Original filename
             doc_language: Document language (None = auto-detect)
-            
+
         Returns:
             Chunks with complete metadata
         """
@@ -227,7 +276,9 @@ class DocumentIndexingService:
             # Use provided language or auto-detect from content
             if detected_language is None and len(chunk.page_content) > 50:
                 # Auto-detect language from first substantial chunk
-                detected_lang_code = self.language_service.detect_language(chunk.page_content)
+                detected_lang_code = self.language_service.detect_language(
+                    chunk.page_content
+                )
                 detected_language = detected_lang_code.upper()
                 logger.debug(f"🌍 Auto-detected document language: {detected_language}")
             elif detected_language is None:
@@ -247,69 +298,68 @@ class DocumentIndexingService:
     def _batch_index_chunks(self, chunks: List[Document]) -> int:
         """
         Index chunks in optimized batches for better throughput.
-        
+
         Args:
             chunks: Chunks to index
-            
+
         Returns:
             Total number of chunks indexed
         """
         start_time = time.time()
         total_chunks_indexed = 0
-        
+
         # Optimized batch size for better throughput
-        OPTIMIZED_BATCH_SIZE = 500
-        total_batches = (len(chunks) + OPTIMIZED_BATCH_SIZE - 1) // OPTIMIZED_BATCH_SIZE
-        
+        optimized_batch_size = 500
+        total_batches = (len(chunks) + optimized_batch_size - 1) // optimized_batch_size
+
         logger.info(
             f"📊 Starting embedding generation for {len(chunks)} chunks in {total_batches} batches"
         )
-        
+
         # Process in batches for better progress visibility
-        for batch_idx, i in enumerate(range(0, len(chunks), OPTIMIZED_BATCH_SIZE), 1):
-            batch = chunks[i : i + OPTIMIZED_BATCH_SIZE]
+        for batch_idx, i in enumerate(range(0, len(chunks), optimized_batch_size), 1):
+            batch = chunks[i : i + optimized_batch_size]
             batch_start = time.time()
-            
+
             # Single upsert operation for entire batch via repository
             self.repository.add_documents(batch)
-            
+
             batch_time = time.time() - batch_start
             total_chunks_indexed += len(batch)
             throughput = len(batch) / batch_time if batch_time > 0 else 0
-            
+
             logger.info(
                 f"⚡ Batch {batch_idx}/{total_batches}: {len(batch)} chunks in {batch_time:.2f}s "
                 f"({throughput:.1f} chunks/s)"
             )
-        
+
         elapsed = time.time() - start_time
         overall_throughput = len(chunks) / elapsed if elapsed > 0 else 0
         logger.info(
             f"🚀 Processed {len(chunks)} chunks in {elapsed:.2f}s "
             f"({overall_throughput:.1f} chunks/s overall)"
         )
-        
+
         return total_chunks_indexed
 
     async def detect_document_language_preview(
-        self,
-        file: UploadFile
+        self, file: UploadFile
     ) -> Tuple[str, float]:
         """
         Detect language from PDF preview without full indexing.
-        
+
         Used for pre-upload language confirmation UI.
-        
+
         Args:
             file: The uploaded PDF file
-            
+
         Returns:
             Tuple of (language_code, confidence_score)
         """
         # Create a secure temporary file with PDF suffix
         # This prevents path injection attacks by not using user-controlled filename
         temp_fd, temp_file_path = tempfile.mkstemp(suffix=".pdf", prefix="preview_")
-        
+
         try:
             content = await file.read()
             if not content:
@@ -322,21 +372,23 @@ class DocumentIndexingService:
             # Load first pages only for preview
             loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
             documents = loader.load()
-            
+
             # Extract preview text (first 3 pages or 2000 chars)
             preview_text = " ".join([doc.page_content for doc in documents[:3]])[:2000]
-            
+
             if len(preview_text) < 50:
                 logger.warning("⚠️ Not enough text for language detection")
                 return "EN", 0.5  # Default fallback
-            
+
             # Detect language (confidence not available, assume high confidence if detected)
             detected_lang = self.language_service.detect_language(preview_text)
             confidence = 0.9  # langdetect has high accuracy
-            
-            logger.info(f"🌍 Preview language detected: {detected_lang} (confidence: {confidence:.2f})")
+
+            logger.info(
+                f"🌍 Preview language detected: {detected_lang} (confidence: {confidence:.2f})"
+            )
             return detected_lang.upper(), confidence
-            
+
         except Exception as e:
             logger.error(f"❌ Language detection error: {e}")
             raise e

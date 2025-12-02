@@ -61,7 +61,7 @@ class AnswerGenerationService:
         translation_service: TranslationService,
         *,  # Force keyword-only arguments below
         query_expansion_service: QueryExpansionService,
-        reranking_service: RerankingService
+        reranking_service: RerankingService,
     ):
         """
         Initialize AnswerGenerationService with all required dependencies.
@@ -89,7 +89,7 @@ class AnswerGenerationService:
         output_language: Optional[str] = None,
         *,  # Force keyword-only arguments below
         include_files: Optional[List[str]] = None,
-        exclude_files: Optional[List[str]] = None
+        exclude_files: Optional[List[str]] = None,
     ) -> Tuple[str, List[str]]:
         """
         Generate answer using RAG pipeline: retrieval, reranking, LLM invocation.
@@ -121,11 +121,15 @@ class AnswerGenerationService:
             output_language.upper() if output_language else query_language_code
         )
 
-        logger.info(f"🌍 Query Language: {query_language_code} → Target: {target_response_language}")
+        logger.info(
+            f"🌍 Query Language: {query_language_code} → Target: {target_response_language}"
+        )
 
         # Translate query for retrieval (English works best)
         if query_language_code != "EN":
-            translated_query = self.translation_service.translate_query_to_language(query, "EN")
+            translated_query = self.translation_service.translate_query_to_language(
+                query, "EN"
+            )
             logger.info(f"🔄 Translated for retrieval: {translated_query[:100]}")
         else:
             translated_query = query
@@ -136,7 +140,7 @@ class AnswerGenerationService:
             query,
             user_id,
             include_files=include_files,
-            exclude_files=exclude_files
+            exclude_files=exclude_files,
         )
 
         # Handle no documents found
@@ -161,7 +165,7 @@ class AnswerGenerationService:
         user_id: str,
         *,  # Force keyword-only arguments below
         include_files: Optional[List[str]],
-        exclude_files: Optional[List[str]]
+        exclude_files: Optional[List[str]],
     ) -> List[Any]:
         """
         Execute retrieval with query expansion and rerank results.
@@ -189,7 +193,7 @@ class AnswerGenerationService:
             user_id=user_id,
             k=QueryConstants.BASE_RETRIEVAL_K,  # Large pool for comprehensive search
             include_files=include_files,
-            exclude_files=exclude_files
+            exclude_files=exclude_files,
         )
 
         # Parallel retrieval
@@ -210,9 +214,12 @@ class AnswerGenerationService:
                     doc_ids.add(doc_id)
 
         unique_files = {
-            doc.metadata.get("original_filename", "Unknown") for doc in all_retrieved_docs
+            doc.metadata.get("original_filename", "Unknown")
+            for doc in all_retrieved_docs
         }
-        logger.info(f"📚 Retrieved {len(all_retrieved_docs)} chunks from {len(unique_files)} files")
+        logger.info(
+            f"📚 Retrieved {len(all_retrieved_docs)} chunks from {len(unique_files)} files"
+        )
 
         # Rerank to top N
         logger.info(f"🎯 Reranking documents → top {QueryConstants.FINAL_RETRIEVAL_K}")
@@ -220,7 +227,7 @@ class AnswerGenerationService:
             documents=all_retrieved_docs,
             original_query=original_query,
             alternative_queries=alternative_queries,
-            top_n=QueryConstants.FINAL_RETRIEVAL_K
+            top_n=QueryConstants.FINAL_RETRIEVAL_K,
         )
         logger.info(f"✨ Reranking completed: {len(context_docs)} documents")
 
@@ -231,7 +238,7 @@ class AnswerGenerationService:
         query: str,
         context_docs: List[Any],
         conversation_history: List[ConversationMessage],
-        target_language: str
+        target_language: str,
     ) -> Tuple[str, List[str]]:
         """
         Generate LLM response with context and history.
@@ -245,74 +252,171 @@ class AnswerGenerationService:
         Returns:
             Tuple of (formatted_answer, source_files)
         """
-        # Format conversation history
+        history_str = self._format_conversation_history(conversation_history)
+        context_str = self._format_context_documents(context_docs)
+        final_llm_query = self._build_final_prompt(
+            context_str, history_str, query, target_language
+        )
+
+        try:
+            final_answer = self._invoke_llm_and_translate(
+                final_llm_query, target_language
+            )
+            source_documents = self._extract_source_files(context_docs)
+            final_answer = self._append_sources_to_answer(
+                final_answer, source_documents, target_language
+            )
+            return final_answer, source_documents
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"❌ Error during LLM invocation: {e}")
+            return self._get_fallback_response(query), []
+
+    def _format_conversation_history(
+        self, conversation_history: List[ConversationMessage]
+    ) -> str:
+        """
+        Format conversation history for prompt.
+
+        Args:
+            conversation_history: List of conversation messages
+
+        Returns:
+            Formatted history string
+        """
+        if not conversation_history:
+            return "No history available."
+
         history_formatted = []
         for msg in conversation_history:
             if msg.role == "user":
                 history_formatted.append(f"User: {msg.content}")
             else:
-                # Extract answer without sources
                 answer_content = msg.content.split("\n\n📚 Fonti:")[0].strip()
                 history_formatted.append(f"Assistant: {answer_content}")
 
-        history_str = "\n".join(history_formatted) if history_formatted else "No history available."
+        return "\n".join(history_formatted)
 
-        # Format context
-        context_str = "\n---\n".join([
-            f"Section: {doc.metadata.get('chapter_title', 'Document Start')}\n"
-            f"Source: {doc.metadata.get('original_filename', 'Unknown')}\n"
-            f"Content:\n{doc.page_content.strip()}"
-            for doc in context_docs
-        ])
+    def _format_context_documents(self, context_docs: List[Any]) -> str:
+        """
+        Format retrieved documents as context string.
 
-        # Build prompt (with or without history)
+        Args:
+            context_docs: Retrieved and reranked documents
+
+        Returns:
+            Formatted context string
+        """
+        return "\n---\n".join(
+            [
+                f"Section: {doc.metadata.get('chapter_title', 'Document Start')}\n"
+                f"Source: {doc.metadata.get('original_filename', 'Unknown')}\n"
+                f"Content:\n{doc.page_content.strip()}"
+                for doc in context_docs
+            ]
+        )
+
+    def _build_final_prompt(
+        self, context_str: str, history_str: str, query: str, target_language: str
+    ) -> str:
+        """
+        Build final LLM prompt with context and history.
+
+        Args:
+            context_str: Formatted context documents
+            history_str: Formatted conversation history
+            query: User's query
+            target_language: Target response language
+
+        Returns:
+            Final prompt string
+        """
         if history_str and history_str != "No history available.":
             rag_prompt = _build_rag_prompt_with_history(context_str, history_str, query)
         else:
             rag_prompt = _build_rag_prompt(context_str, query)
 
-        # Add language instruction
-        final_llm_query = (
+        return (
             f"{rag_prompt}\n\n"
             f"--- FINAL INSTRUCTION ---\n"
             f"You MUST respond ENTIRELY in the target language: {target_language}. "
             f"Do not include source citations; they will be handled separately."
         )
 
-        try:
-            # LLM invocation
-            logger.info("💬 Invoking LLM for answer generation...")
-            llm_response = self.llm.invoke(final_llm_query).content
-            final_answer = str(llm_response).strip()
+    def _invoke_llm_and_translate(self, prompt: str, target_language: str) -> str:
+        """
+        Invoke LLM and translate response if needed.
 
-            # Extract source files
-            source_documents = sorted({
-                doc.metadata.get("original_filename", "Unknown") for doc in context_docs
-            })
+        Args:
+            prompt: LLM prompt
+            target_language: Target response language
 
-            # Translate if needed
-            detected_lang = self.language_service.detect_language(final_answer).upper()
-            if target_language != "EN" and detected_lang == "EN":
-                final_answer = self.translation_service.translate_answer_back(
-                    final_answer, target_language
-                )
-                logger.debug(f"🔄 Answer translated to {target_language}")
+        Returns:
+            Final translated answer
+        """
+        logger.info("💬 Invoking LLM for answer generation...")
+        llm_response = self.llm.invoke(prompt).content
+        final_answer = str(llm_response).strip()
 
-            # Append sources
-            if source_documents:
-                sources_label = self._get_sources_label(target_language)
-                sources_list = "\n".join([f"- {doc}" for doc in source_documents])
-                final_answer = f"{final_answer}\n\n📚 {sources_label}:\n{sources_list}"
-
-            return final_answer, source_documents
-
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error during LLM invocation: {e}")
-            query_lang = self.language_service.detect_language(query).upper()
-            fallback = self.language_service.translate_answer_back(
-                "An unexpected error occurred during answer generation.", query_lang
+        detected_lang = self.language_service.detect_language(final_answer).upper()
+        if target_language != "EN" and detected_lang == "EN":
+            final_answer = self.translation_service.translate_answer_back(
+                final_answer, target_language
             )
-            return fallback, []
+            logger.debug(f"🔄 Answer translated to {target_language}")
+
+        return final_answer
+
+    @staticmethod
+    def _extract_source_files(context_docs: List[Any]) -> List[str]:
+        """
+        Extract unique source filenames from documents.
+
+        Args:
+            context_docs: Retrieved documents
+
+        Returns:
+            Sorted list of unique filenames
+        """
+        return sorted(
+            {doc.metadata.get("original_filename", "Unknown") for doc in context_docs}
+        )
+
+    def _append_sources_to_answer(
+        self, answer: str, source_documents: List[str], target_language: str
+    ) -> str:
+        """
+        Append source citations to answer.
+
+        Args:
+            answer: Generated answer
+            source_documents: List of source filenames
+            target_language: Target language for sources label
+
+        Returns:
+            Answer with appended sources
+        """
+        if not source_documents:
+            return answer
+
+        sources_label = self._get_sources_label(target_language)
+        sources_list = "\n".join([f"- {doc}" for doc in source_documents])
+        return f"{answer}\n\n📚 {sources_label}:\n{sources_list}"
+
+    def _get_fallback_response(self, query: str) -> str:
+        """
+        Generate fallback response on error.
+
+        Args:
+            query: User's original query
+
+        Returns:
+            Translated error message
+        """
+        query_lang = self.language_service.detect_language(query).upper()
+        return self.language_service.translate_answer_back(
+            "An unexpected error occurred during answer generation.", query_lang
+        )
 
     def _handle_no_documents(self, query_language: str) -> Tuple[str, List[str]]:
         """
@@ -325,7 +429,9 @@ class AnswerGenerationService:
             Tuple of (fallback_message, empty_source_list)
         """
         logger.warning("⚠️ No relevant documents found")
-        fallback_answer = "I cannot answer this question based on the documents provided."
+        fallback_answer = (
+            "I cannot answer this question based on the documents provided."
+        )
         translated_fallback = self.language_service.translate_answer_back(
             fallback_answer, query_language
         )
@@ -348,6 +454,6 @@ class AnswerGenerationService:
             "FR": "Sources",
             "DE": "Quellen",
             "ES": "Fuentes",
-            "PT": "Fontes"
+            "PT": "Fontes",
         }
         return sources_translations.get(language_code, "Sources")

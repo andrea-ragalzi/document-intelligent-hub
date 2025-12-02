@@ -23,6 +23,10 @@ help:
 	@echo "  make test-backend - Run backend tests"
 	@echo "  make test-coverage - Run tests with coverage"
 	@echo ""
+	@echo "Code Quality:"
+	@echo "  make lint-frontend - Run ESLint on frontend"
+	@echo "  make quality-gate  - Run Quality Gate analysis with HTML report"
+	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean      - Remove containers (keeps volumes)"
 	@echo "  make prune      - Remove containers and volumes (⚠️  deletes data)"
@@ -152,3 +156,8 @@ format-backend:
 lint-frontend:
 	@echo "🔍 Linting frontend code..."
 	cd frontend && npm run lint
+
+# Quality Gate
+quality-gate:
+	@echo "🎯 Running Quality Gate..."
+	@./scripts/quality-gate.sh

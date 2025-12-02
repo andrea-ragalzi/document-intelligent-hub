@@ -44,18 +44,13 @@ export default function Page() {
   const { userId, isAuthReady } = useUserId();
   const { user } = useAuth();
   const { tier, isLoading: isTierLoading, refreshTier } = useUserTier();
-  const {
-    queriesUsed,
-    isLimitReached,
-    refetch: refetchQueryUsage,
-  } = useQueryUsage();
+  const { queriesUsed, isLimitReached, refetch: refetchQueryUsage } = useQueryUsage();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
   const [invitationCodeModalOpen, setInvitationCodeModalOpen] = useState(false);
-  const [selectedOutputLanguage, setSelectedOutputLanguage] =
-    useState<string>("en");
+  const [selectedOutputLanguage, setSelectedOutputLanguage] = useState<string>("en");
 
   const {
     file,
@@ -140,17 +135,12 @@ export default function Page() {
     previousServerStatusRef.current = isServerOnline;
   }, [isServerOnline, userId, refreshDocuments]);
 
-  const {
-    chatHistory,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    setMessages,
-  } = useChatAI({
-    userId: userId || "",
-    selectedOutputLanguage,
-  });
+  const { chatHistory, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChatAI(
+    {
+      userId: userId || "",
+      selectedOutputLanguage,
+    }
+  );
 
   // TanStack Query - gestisce le conversazioni con Firestore
   const { data: savedConversations = [], isLoading: _isLoadingConversations } =
@@ -162,7 +152,6 @@ export default function Page() {
   const deleteConversation = useDeleteConversation(userId);
 
   const isSavingRef = useRef(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const previousServerStatusRef = useRef<boolean>(true); // Track previous server status
 
   // Track if we're waiting for a conversation to be created
@@ -171,23 +160,18 @@ export default function Page() {
   // Generate automatic name for the conversation
   const generateConversationName = (): string => {
     if (chatHistory.length > 0) {
-      const firstUserMessage = chatHistory.find((msg) => msg.type === "user");
+      const firstUserMessage = chatHistory.find(msg => msg.type === "user");
       if (firstUserMessage) {
         // Take first 50 characters of the first message
         const preview = firstUserMessage.text.substring(0, 50);
-        return preview.length < firstUserMessage.text.length
-          ? `${preview}...`
-          : preview;
+        return preview.length < firstUserMessage.text.length ? `${preview}...` : preview;
       }
     }
     // Fallback: use date and time
     return `Conversation from ${new Date().toLocaleString("en-US")}`;
   };
 
-  // Auto-scroll when chat changes
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory]);
+  // Auto-scroll is now handled by ChatSection component's useChatScroll hook
 
   // Automatic conversation save
   useEffect(() => {
@@ -214,12 +198,7 @@ export default function Page() {
     // Only save if there are new messages
     if (chatHistory.length <= lastSavedMessageCount) {
       console.log("⏭️ Skipping save - no new messages");
-      console.log(
-        "  Messages:",
-        chatHistory.length,
-        "Last saved:",
-        lastSavedMessageCount
-      );
+      console.log("  Messages:", chatHistory.length, "Last saved:", lastSavedMessageCount);
       return;
     }
 
@@ -237,7 +216,7 @@ export default function Page() {
           // Update existing conversation
           await updateConversationHistory.mutateAsync({
             id: currentConversationId,
-            history: chatHistory.map((msg) => ({
+            history: chatHistory.map(msg => ({
               type: msg.type,
               text: msg.text,
               sources: msg.sources || [],
@@ -251,16 +230,13 @@ export default function Page() {
           console.log("📝 Creating new conversation:", autoName);
           const newConversation = await createConversation.mutateAsync({
             name: autoName,
-            history: chatHistory.map((msg) => ({
+            history: chatHistory.map(msg => ({
               type: msg.type,
               text: msg.text,
               sources: msg.sources || [],
             })),
           });
-          console.log(
-            "✅ New conversation created with ID:",
-            newConversation.id
-          );
+          console.log("✅ New conversation created with ID:", newConversation.id);
           // Set the conversation ID immediately
           setCurrentConversation(newConversation.id);
           updateSavedMessageCount(chatHistory.length);
@@ -299,7 +275,7 @@ export default function Page() {
   useEffect(() => {
     if (!isTierLoading && user && tier === "FREE") {
       // Check if user has custom claims set
-      user.getIdTokenResult().then((tokenResult) => {
+      user.getIdTokenResult().then(tokenResult => {
         // If no tier claim exists, show invitation modal
         if (!tokenResult.claims.tier) {
           setInvitationCodeModalOpen(true);
@@ -369,17 +345,14 @@ export default function Page() {
 
     try {
       // Trova la conversazione da aggiornare
-      const conversation = savedConversations.find((conv) => conv.id === id);
+      const conversation = savedConversations.find(conv => conv.id === id);
       if (!conversation) {
         throw new Error("Conversation not found");
       }
 
       console.log("  Current isPinned state:", conversation.isPinned);
       console.log("  New isPinned state:", isPinned);
-      console.log(
-        "  Conversation history length:",
-        conversation.history.length
-      );
+      console.log("  Conversation history length:", conversation.history.length);
 
       // Update Firestore con il nuovo stato isPinned
       await updateConversationHistory.mutateAsync({
@@ -393,9 +366,7 @@ export default function Page() {
       console.log("✅ Pin state updated successfully in Firestore");
 
       setStatusAlert({
-        message: isPinned
-          ? "Conversation pinned to top."
-          : "Conversation unpinned.",
+        message: isPinned ? "Conversation pinned to top." : "Conversation unpinned.",
         type: "success",
       });
     } catch (error) {
@@ -499,9 +470,7 @@ export default function Page() {
         firestoreQuery(conversationsRef, where("userId", "==", userId))
       );
 
-      const deletePromises = conversationsSnapshot.docs.map((doc) =>
-        deleteDoc(doc.ref)
-      );
+      const deletePromises = conversationsSnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
 
       // Delete user account from Firebase Auth
@@ -545,10 +514,7 @@ export default function Page() {
 
         {/* Server Offline Banner */}
         {!isServerOnline && !serverOfflineBannerDismissed && (
-          <ServerOfflineBanner
-            onRetry={retryServerConnection}
-            isRetrying={isCheckingServer}
-          />
+          <ServerOfflineBanner onRetry={retryServerConnection} isRetrying={isCheckingServer} />
         )}
 
         <RenameModal
@@ -601,7 +567,6 @@ export default function Page() {
               query={input}
               isQuerying={isLoading}
               userId={userId}
-              chatEndRef={chatEndRef}
               onQueryChange={handleQueryChange}
               onQuerySubmit={submitQuery}
               hasDocuments={hasDocuments}
@@ -700,7 +665,7 @@ export default function Page() {
         {/* Invitation Code Modal */}
         <InvitationCodeModal
           isOpen={invitationCodeModalOpen}
-          onSuccess={(assignedTier) => {
+          onSuccess={assignedTier => {
             console.log("✅ Registration successful, tier:", assignedTier);
             // useRegistration already forced token refresh, so update tier immediately
             refreshTier();

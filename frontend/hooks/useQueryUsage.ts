@@ -9,6 +9,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import type { User } from "firebase/auth";
 
 interface QueryUsageResponse {
   status: string;
@@ -61,6 +62,103 @@ function checkLimitReached(remaining: number | undefined): boolean {
 }
 
 /**
+ * Builds the API URL for usage endpoint.
+ *
+ * @returns API URL string
+ */
+function buildUsageApiUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/rag", "/auth/usage") ||
+    "http://localhost:8000/auth/usage"
+  );
+}
+
+/**
+ * Fetches usage data from backend.
+ *
+ * @param apiUrl - API endpoint URL
+ * @param token - Firebase auth token
+ * @returns Response object
+ * @throws Error if fetch fails
+ */
+async function fetchUsageData(apiUrl: string, token: string): Promise<Response> {
+  return await fetch(apiUrl, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+/**
+ * Handles API response errors.
+ *
+ * @param response - Fetch response
+ * @throws Error with error details
+ */
+async function handleResponseError(response: Response): Promise<never> {
+  const errorData = await response.json().catch(() => ({ detail: "Failed to fetch usage data" }));
+  throw new Error(errorData.detail || `HTTP ${response.status}`);
+}
+
+/**
+ * Creates query function for TanStack Query.
+ *
+ * @param user - Firebase user object
+ * @returns Query function
+ */
+function createQueryFn(user: User | null) {
+  return async () => {
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    const token = await user.getIdToken();
+    const apiUrl = buildUsageApiUrl();
+    const response = await fetchUsageData(apiUrl, token);
+
+    if (!response.ok) {
+      await handleResponseError(response);
+    }
+
+    return await response.json();
+  };
+}
+
+/**
+ * Builds result object from query data.
+ *
+ * @param data - Query response data
+ * @param isLoading - Loading state
+ * @param error - Error object
+ * @param refetch - Refetch function
+ * @returns Formatted usage result
+ */
+function buildUsageResult(
+  data: QueryUsageResponse | undefined,
+  isLoading: boolean,
+  error: Error | null,
+  refetch: () => void
+): UseQueryUsageResult {
+  const queriesUsed = data?.queries_today ?? 0;
+  const queryLimit = data?.query_limit ?? 0;
+  const remaining = data?.remaining ?? 0;
+  const tier = data?.tier ?? "FREE";
+
+  return {
+    queriesUsed,
+    queryLimit,
+    remaining,
+    tier,
+    isLimitReached: checkLimitReached(remaining),
+    isLoading,
+    error: error ?? null,
+    refetch,
+  };
+}
+
+/**
  * Custom hook to fetch user's query usage from backend.
  *
  * @returns Query usage data and loading/error states
@@ -70,47 +168,11 @@ export function useQueryUsage(): UseQueryUsageResult {
 
   const { data, isLoading, error, refetch } = useQuery<QueryUsageResponse>({
     queryKey: ["queryUsage", user?.uid],
-    queryFn: async () => {
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
-      const token = await user.getIdToken();
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/rag", "/auth/usage") ||
-        "http://localhost:8000/auth/usage";
-
-      const response = await fetch(apiUrl, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ detail: "Failed to fetch usage data" }));
-        throw new Error(errorData.detail || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
-    },
-    enabled: !!user, // Only run query if user is authenticated
-    staleTime: 60000, // Consider data fresh for 1 minute
-    refetchInterval: 60000, // Auto-refetch every minute
+    queryFn: createQueryFn(user),
+    enabled: !!user,
+    staleTime: 60000,
+    refetchInterval: 60000,
   });
 
-  return {
-    queriesUsed: data?.queries_today ?? 0,
-    queryLimit: data?.query_limit ?? 0,
-    remaining: data?.remaining ?? 0,
-    tier: data?.tier ?? "FREE",
-    isLimitReached: checkLimitReached(data?.remaining),
-    isLoading,
-    error: error ?? null,
-    refetch: () => void refetch(),
-  };
+  return buildUsageResult(data, isLoading, error, refetch);
 }

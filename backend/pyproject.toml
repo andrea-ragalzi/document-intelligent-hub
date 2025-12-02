@@ -36,6 +36,8 @@ httpx = "^0.28.1"
 pytest-cov = "^6.0.0"
 pytest-asyncio = "^1.3.0"
 mypy = "^1.19.0"
+pylint = "^3.3.9"
+lizard = "^1.19.0"
 
 [build-system]
 requires = ["poetry-core"]

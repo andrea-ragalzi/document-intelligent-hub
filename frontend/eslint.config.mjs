@@ -10,11 +10,16 @@ const eslintConfig = defineConfig([
       // Disable setState in useEffect error - intentional in SSR hooks for initialization
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/exhaustive-deps": "off",
-      "@typescript-eslint/no-unused-vars": ["warn", {
-        "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_"
-      }]
-    }
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+        },
+      ],
+      // Cyclomatic Complexity Quality Gate - fail if > 15
+      complexity: ["error", { max: 15 }],
+    },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
@@ -26,7 +31,7 @@ const eslintConfig = defineConfig([
     // Additional ignores:
     "coverage/**",
     "test/**",
-    "*.config.*"
+    "*.config.*",
   ]),
 ]);
 

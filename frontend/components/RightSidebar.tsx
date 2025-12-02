@@ -20,6 +20,10 @@ import Image from "next/image";
 import DocumentList from "./DocumentList";
 import TierLimitsDisplay from "./TierLimitsDisplay";
 import type { Document } from "./DocumentList";
+import { SettingsView } from "./RightSidebar/SettingsView";
+import { DocumentsView } from "./RightSidebar/DocumentsView";
+import { SidebarHeader } from "./RightSidebar/SidebarHeader";
+import { MenuProfileSection } from "./RightSidebar/MenuProfileSection";
 
 interface RightSidebarProps {
   userId: string | null;
@@ -52,51 +56,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   isServerOnline = true,
   currentQueries = 0,
 }) => {
-  const [activeView, setActiveView] = useState<
-    "menu" | "documents" | "settings"
-  >("menu");
+  const [activeView, setActiveView] = useState<"menu" | "documents" | "settings">("menu");
   const { user, logout } = useAuth();
   const router = useRouter();
-
-  // Helper to render content based on active view
-  const getMainContentView = () => {
-    if (activeView === "settings") {
-      return (
-        <div className="p-4">
-          <div className="border-2 border-indigo-300 dark:border-indigo-700 rounded-lg p-4">
-            <h3 className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
-              Account Management
-            </h3>
-            <p className="text-sm text-indigo-700 dark:text-indigo-200 mb-4">
-              Permanently delete your account and all associated data. This
-              action cannot be undone.
-            </p>
-            <button
-              onClick={onDeleteAccount}
-              className="min-h-[44px] w-full px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 border-2 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors focus:outline-none focus:ring-3 focus:ring-focus"
-            >
-              Delete Account
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (activeView === "documents") {
-      return (
-        <div className="p-4 flex-1 flex flex-col overflow-hidden">
-          <DocumentList
-            documents={documents}
-            deletingDoc={null}
-            onDelete={onDeleteDocument}
-            isServerOnline={isServerOnline}
-          />
-        </div>
-      );
-    }
-
-    return null;
-  };
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -137,121 +99,35 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
           aria-hidden="true"
           className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 xl:hidden"
           onClick={onClose}
-          onKeyDown={(e) => e.key === "Escape" && onClose()}
+          onKeyDown={e => e.key === "Escape" && onClose()}
         />
       )}
 
       {/* Sidebar - Permanente su desktop (xl+), overlay su mobile */}
       <div
         className={`h-full w-96 bg-indigo-50 dark:bg-indigo-950 shadow-xl transform transition-all duration-200 ease-in-out flex flex-col border-l-2 border-indigo-100 dark:border-indigo-800 font-[Inter]
-          
+
           xl:relative xl:translate-x-0 xl:z-0
-          
+
           fixed top-0 right-0 z-50
           ${isOpen ? "translate-x-0" : "translate-x-full xl:translate-x-0"}
         `}
       >
-        {activeView === "documents" && (
-          <div className="flex items-center justify-between p-4 border-b-2 border-indigo-100 dark:border-indigo-800 gap-2">
-            <button
-              onClick={() => setActiveView("menu")}
-              className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-indigo-100 transition-all duration-200 ease-in-out h-11 w-11 justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 focus:outline-none focus:ring-3 focus:ring-focus"
-            >
-              <ChevronLeft
-                size={20}
-                className="text-indigo-700 dark:text-indigo-200"
-              />
-            </button>
-            <h2 className="flex-1 text-center text-xl font-bold text-indigo-900 dark:text-indigo-50">
-              Documents
-            </h2>
-            <button
-              onClick={onClose}
-              className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
-            >
-              <X size={20} className="text-indigo-700 dark:text-indigo-200" />
-            </button>
-          </div>
-        )}
-        {activeView === "settings" && (
-          <div className="flex items-center justify-between p-4 border-b-2 border-indigo-100 dark:border-indigo-800 gap-2">
-            <button
-              onClick={() => setActiveView("menu")}
-              className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-indigo-100 transition-all duration-200 ease-in-out h-11 w-11 justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 focus:outline-none focus:ring-3 focus:ring-focus"
-            >
-              <ChevronLeft
-                size={20}
-                className="text-indigo-700 dark:text-indigo-200"
-              />
-            </button>
-            <h2 className="flex-1 text-center text-xl font-bold text-indigo-900 dark:text-indigo-50">
-              Settings
-            </h2>
-            <button
-              onClick={onClose}
-              className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
-            >
-              <X size={20} className="text-indigo-700 dark:text-indigo-200" />
-            </button>
-          </div>
-        )}
+        <SidebarHeader
+          activeView={activeView}
+          onClose={onClose}
+          onBackToMenu={() => setActiveView("menu")}
+        />
         {activeView === "menu" && (
-          <div className="px-6 py-4 border-b border-indigo-100 dark:border-indigo-800">
-            <div className="flex items-center gap-3 mb-3">
-              {user?.photoURL ? (
-                <Image
-                  src={user.photoURL}
-                  alt="Profile"
-                  width={48}
-                  height={48}
-                  className="rounded-full"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center text-white font-medium text-lg">
-                  {displayName[0]?.toUpperCase() || "U"}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-50 truncate">
-                  {displayName}
-                </p>
-                <p className="text-xs text-indigo-700 dark:text-indigo-200 truncate">
-                  {user?.email}
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
-              >
-                <X size={20} className="text-indigo-700 dark:text-indigo-200" />
-              </button>
-            </div>
-            <div className="bg-indigo-100 dark:bg-indigo-900 rounded-lg p-3 mb-3">
-              <p className="text-xs text-indigo-700 dark:text-indigo-200 mb-1">
-                User ID
-              </p>
-              <p className="text-xs font-mono text-indigo-900 dark:text-indigo-50 break-all">
-                {userId || "Non disponibile"}
-              </p>
-            </div>
-
-            {/* Tier Limits Display */}
-            <div className="mb-3">
-              <TierLimitsDisplay
-                currentDocuments={documents?.length || 0}
-                currentQueries={currentQueries}
-              />
-            </div>
-
-            {/* Logout button - Gemini style */}
-            <button
-              onClick={handleLogout}
-              className="min-h-[44px] w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-indigo-900 dark:text-indigo-50 border-2 border-indigo-300 dark:border-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded-lg transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus"
-            >
-              <LogOut size={16} />
-              Logout
-            </button>
-          </div>
+          <MenuProfileSection
+            user={user}
+            userId={userId}
+            displayName={displayName}
+            documents={documents}
+            currentQueries={currentQueries}
+            onClose={onClose}
+            onLogout={handleLogout}
+          />
         )}
         <div className="flex-1 overflow-y-auto">
           {activeView === "menu" ? (
@@ -261,10 +137,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <ThemeIcon
-                    size={20}
-                    className="text-indigo-700 dark:text-indigo-200"
-                  />
+                  <ThemeIcon size={20} className="text-indigo-700 dark:text-indigo-200" />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Tema
                   </span>
@@ -278,36 +151,24 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <FileText
-                    size={20}
-                    className="text-indigo-700 dark:text-indigo-200"
-                  />
+                  <FileText size={20} className="text-indigo-700 dark:text-indigo-200" />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Gestione Documenti
                   </span>
                 </div>
-                <ChevronRight
-                  size={20}
-                  className="text-indigo-700 dark:text-indigo-200"
-                />
+                <ChevronRight size={20} className="text-indigo-700 dark:text-indigo-200" />
               </button>
               <button
                 onClick={() => setActiveView("settings")}
                 className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <Settings
-                    size={20}
-                    className="text-indigo-700 dark:text-indigo-200"
-                  />
+                  <Settings size={20} className="text-indigo-700 dark:text-indigo-200" />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Settings
                   </span>
                 </div>
-                <ChevronRight
-                  size={20}
-                  className="text-indigo-700 dark:text-indigo-200"
-                />
+                <ChevronRight size={20} className="text-indigo-700 dark:text-indigo-200" />
               </button>
               <button
                 onClick={() => {
@@ -331,10 +192,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <Star
-                    size={20}
-                    className="text-yellow-600 dark:text-yellow-400"
-                  />
+                  <Star size={20} className="text-yellow-600 dark:text-yellow-400" />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     Give Feedback
                   </span>
@@ -348,19 +206,22 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <Info
-                    size={20}
-                    className="text-indigo-600 dark:text-indigo-300"
-                  />
+                  <Info size={20} className="text-indigo-600 dark:text-indigo-300" />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
                     About
                   </span>
                 </div>
               </button>
             </div>
-          ) : (
-            getMainContentView()
-          )}
+          ) : activeView === "settings" ? (
+            <SettingsView onDeleteAccount={onDeleteAccount} />
+          ) : activeView === "documents" ? (
+            <DocumentsView
+              documents={documents}
+              onDeleteDocument={onDeleteDocument}
+              isServerOnline={isServerOnline}
+            />
+          ) : null}
         </div>
       </div>
     </>

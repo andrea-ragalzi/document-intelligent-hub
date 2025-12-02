@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quality Gate Report - Matrix Style</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load IBM Plex Mono for a proper terminal look -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Stili base per il tema Matrix */
+      body {
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      /* Scrollbar personalizzata */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #1a5e1a;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #000000;
+      }
+
+      /* Colori e bagliori tema Matrix */
+      .matrix-text {
+        color: #38bdf8;
+      }
+      .matrix-fail-text {
+        color: #f87171;
+      }
+      .matrix-pass-glow {
+        box-shadow: 0 0 8px #10b981;
+      }
+      .matrix-fail-glow {
+        box-shadow: 0 0 8px #f87171;
+      }
+
+      .status-pass {
+        background-color: #166534;
+      }
+      .status-fail {
+        background-color: #991b1b;
+      }
+      .icon-pass {
+        color: #4ade80;
+      }
+      .icon-fail {
+        color: #f87171;
+      }
+      .icon-skipped {
+        color: #f59e0b;
+      }
+
+      .card-border-pass {
+        border: 2px solid #10b981;
+      }
+      .card-border-fail {
+        border: 2px solid #f87171;
+      }
+      .card-border-skipped {
+        border: 2px solid #f59e0b;
+      }
+
+      /* Nascondi la textarea usata per la copia */
+      .hidden-textarea {
+        position: absolute;
+        left: -9999px;
+        top: -9999px;
+      }
+    </style>
+  </head>
+  <body class="bg-black text-lime-400 p-4 min-h-screen">
+    <div id="app" class="max-w-7xl mx-auto py-8">
+      <!-- Intestazione Principale e Indicatore di Stato -->
+      <header class="text-center mb-12">
+        <h1 class="text-5xl font-extrabold text-lime-400 mb-2 matrix-pass-glow">
+          Quality Gate Access Terminal
+        </h1>
+        <p class="text-lg text-lime-500/80 mb-6" id="timestamp-display">
+          [RAG Project :: Log Scan __TIMESTAMP__]
+        </p>
+        <div
+          id="overall-status-box"
+          class="mt-6 inline-block px-8 py-3 rounded-md shadow-2xl transition duration-300"
+        >
+          <span
+            id="overall-status-text"
+            class="text-2xl font-bold uppercase tracking-widest matrix-text"
+            >LOADING BODY DATA...</span
+          >
+        </div>
+      </header>
+
+      <!-- Contenitore delle Sezioni (Griglia Responsive) -->
+      <div id="report-container" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Il contenuto sarà iniettato qui dal JavaScript -->
+      </div>
+    </div>
+
+    <script>
+      // Dati Quality Gate (questi sarebbero iniettati dal tuo script CI/CD/backend)
+      const qualityGateResults = {
+        // Il timestamp deve essere unico ad ogni aggiornamento
+        timestamp: new Date().toISOString(),
+        overallStatus: "RUNNING",
+        frontend: [
+          {
+            name: "Prettier",
+            role: "Code Formatting Check",
+            status: "PASSED",
+            severity: "ZERO differenze",
+            details: "Nessuna modifica di formattazione richiesta.",
+          },
+          {
+            name: "TypeScript (TS)",
+            role: "Compilation & Type Checking",
+            status: "PENDING",
+            severity: "",
+            details: "",
+          },
+          {
+            name: "ESLint",
+            role: "Linter (Quality, CCN)",
+            status: "SKIPPED",
+            severity: "Regola disabilitata per questo branch.",
+            details: "Controllo ESLint bypassato a causa di feature flag.",
+          },
+          {
+            name: "Vitest",
+            role: "Unit Tests & Coverage (80%+)",
+            status: "PENDING",
+            severity: "",
+            details: "",
+          },
+        ],
+        backend: [
+          {
+            name: "Black",
+            role: "Code Formatting Check",
+            status: "PASSED",
+            severity: "ZERO differenze di formattazione",
+            details: "Successo: 0 file riformattati.",
+          },
+          {
+            name: "Mypy",
+            role: "Type Checker (Strict)",
+            status: "PASSED",
+            severity: "ZERO errori di tipizzazione",
+            details: "Mypy superato con successo.",
+          },
+          {
+            name: "Pylint",
+            role: "Linter (Quality)",
+            status: "FAILED",
+            severity: "10 W (Warning) messaggi trovati.",
+            details:
+              "W0613: Argumento inutilizzato 'user_id' (rag_orchestrator_service.py:100)\nE0401: Impossibile importare 'app.db.chroma_client' (rag_router.py:5)",
+          },
+          {
+            name: "Lizard",
+            role: "Cyclomatic Complexity (Max 15)",
+            status: "PASSED",
+            severity: "ZERO funzioni > 15 CCN",
+            details: "Tutte le funzioni sono entro la soglia di complessità.",
+          },
+          {
+            name: "Pytest",
+            role: "Tests & Coverage (80%+)",
+            status: "PENDING",
+            severity: "",
+            details: "",
+          },
+        ],
+      };
+    </script>
+
+    <!-- Carica il modulo JavaScript esterno -->
+    <script src="quality-gate-report.js"></script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quality Gate Report - RAG Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="quality-gate-matrix.css">
+    <style>
+        body { font-family: 'IBM Plex Mono', monospace; }
+        .matrix-pass-glow { box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+        .matrix-fail-glow { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+        .matrix-fail-text { color: #ef4444; }
+        .card-border-pass { border: 2px solid #10b981; }
+        .card-border-fail { border: 2px solid #ef4444; }
+        .card-border-skipped { border: 2px solid #f97316; }
+        .status-pass { background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); }
+        .status-fail { background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); }
+        .icon-pass { color: #10b981; filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6)); }
+        .icon-fail { color: #ef4444; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)); }
+        .icon-skipped { color: #f97316; filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.6)); }
+        .hidden-textarea { position: absolute; left: -9999px; }
+    </style>
+</head>
+<body class="bg-black text-lime-400 font-mono min-h-screen p-6">
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-bold mb-2 text-lime-300 tracking-wider matrix-pass-glow">
+            QUALITY GATE ACCESS TERMINAL
+        </h1>
+        <p id="timestamp-display" class="text-sm text-lime-500/70">[RAG Project :: Log Scan --:--:--]</p>
+        <div id="overall-status-box" class="mt-6 inline-block px-8 py-3 rounded-md shadow-2xl transition duration-300 bg-yellow-900 matrix-pass-glow">
+            <p id="overall-status-text" class="text-2xl font-bold uppercase tracking-widest text-yellow-200">[STATUS: LOADING...]</p>
+        </div>
+    </header>
+    <main>
+        <div id="report-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto"></div>
+    </main>
+    <script>
+        window.reportDataUrl = 'report-data.json';
+    </script>
+    <script src="quality-gate-report.js"></script>
+</body>
+</html>

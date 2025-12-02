@@ -1,0 +1,383 @@
+#!/bin/bash
+
+# Quality Gate Script
+# Runs complete quality gate checks and generates HTML report
+
+set -e
+
+# Colors for terminal output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+NC='\033[0m' # No Color
+
+# Configuration
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPTS_DIR="${PROJECT_DIR}/scripts"
+FRONTEND_DIR="${PROJECT_DIR}/frontend"
+BACKEND_DIR="${PROJECT_DIR}/backend"
+REPORT_DIR="${SCRIPTS_DIR}"
+TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+REPORT_FILE="${REPORT_DIR}/report_${TIMESTAMP}.html"
+LATEST_REPORT="${REPORT_DIR}/latest.html"
+
+# Thresholds
+MAX_COMPLEXITY=15
+
+# Lock file for atomic JSON updates
+LOCK_FILE="/tmp/quality_gate_${USER}.lock"
+
+# Results storage
+declare -A PHASE_RESULTS
+declare -A PHASE_STATUS
+declare -A PHASE_DETAILS
+OVERALL_STATUS="PASSED"
+
+echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║    Quality Gate - Full Analysis       ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
+echo ""
+
+# Start HTTP server for live updates (required for auto-refresh to work)
+cd "${SCRIPTS_DIR}"
+echo -e "${BLUE}🌐 Starting HTTP server on port 8000...${NC}"
+python3 -m http.server 8000 > /dev/null 2>&1 &
+HTTP_SERVER_PID=$!
+
+# Wait a moment for server to start
+sleep 1
+
+
+# Function to update HTML report with current status
+update_html_report() {
+    local current_status="$1"
+    local temp_dir="${2:-${TEMP_RESULTS_DIR}}"
+
+    # ATOMIC LOCK: Acquire exclusive lock before updating JSON
+    exec 200>"$LOCK_FILE"
+    flock -x 200
+
+    # Generate JSON report using Python script
+    python3 "${SCRIPTS_DIR}/generate-report-data.py" \
+        "${temp_dir}" \
+        "${current_status}" \
+        "${SCRIPTS_DIR}/report-data.json"
+
+    # Release lock
+    exec 200>&-
+}
+
+# Generate initial report
+update_html_report "RUNNING"
+
+# Open report in browser immediately for live viewing
+REPORT_URL="http://localhost:8000/quality-gate-index.html"
+if command -v xdg-open &> /dev/null; then
+    xdg-open "${REPORT_URL}" 2>/dev/null &
+elif command -v open &> /dev/null; then
+    open "${REPORT_URL}" 2>/dev/null &
+fi
+
+echo -e "${BLUE}📊 Report opened in browser: ${REPORT_URL}${NC}"
+echo -e "${BLUE}   (Server running on http://localhost:8000)${NC}"
+echo ""
+
+# Temporary directory for parallel execution results
+TEMP_RESULTS_DIR=$(mktemp -d)
+trap "rm -rf ${TEMP_RESULTS_DIR}" EXIT
+
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}Starting Quality Gate Checks (Parallel Execution)${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+#####################################
+# FRONTEND CHECKS (in background)
+#####################################
+(
+    echo -e "${BLUE}[FRONTEND] Starting frontend checks...${NC}"
+
+    cd "${FRONTEND_DIR}"
+
+    # Phase 1: Prettier
+    PRETTIER_OUTPUT=$(npx prettier --check "**/*.{ts,tsx,js,jsx,json,css}" 2>&1 || true)
+    if echo "$PRETTIER_OUTPUT" | grep -q "Code style issues found in"; then
+        PRETTIER_COUNT=$(echo "$PRETTIER_OUTPUT" | grep -oE 'Code style issues found in [0-9]+ files' | grep -oE '[0-9]+' || echo "0")
+        [ -z "$PRETTIER_COUNT" ] && PRETTIER_COUNT="0"
+        echo "FAILED" > "${TEMP_RESULTS_DIR}/prettier_status"
+    else
+        PRETTIER_COUNT=0
+        echo "PASSED" > "${TEMP_RESULTS_DIR}/prettier_status"
+    fi
+    echo "$PRETTIER_COUNT" > "${TEMP_RESULTS_DIR}/prettier_count"
+    echo "$PRETTIER_OUTPUT" > "${TEMP_RESULTS_DIR}/prettier_details"
+    echo -e "${GREEN}[FRONTEND] ✓ Prettier check completed${NC}"
+    update_html_report "RUNNING" "${TEMP_RESULTS_DIR}"
+
+    # Phase 2: TypeScript
+    TS_OUTPUT=$(npx tsc --noEmit 2>&1 || true)
+    if [ -z "$TS_OUTPUT" ]; then
+        TS_ERROR_COUNT=0
+        TS_WARNING_COUNT=0
+    else
+        TS_ERROR_COUNT=$(echo "$TS_OUTPUT" | grep -c "error TS" || echo "0")
+        # TypeScript warnings are typically suggestions or deprecation notices
+        TS_WARNING_COUNT=$(echo "$TS_OUTPUT" | grep -cE "warning TS|deprecated" || echo "0")
+    fi
+
+    if [ "$TS_ERROR_COUNT" -eq 0 ]; then
+        echo "PASSED" > "${TEMP_RESULTS_DIR}/typescript_status"
+    else
+        echo "FAILED" > "${TEMP_RESULTS_DIR}/typescript_status"
+    fi
+    echo "$TS_ERROR_COUNT" > "${TEMP_RESULTS_DIR}/typescript_errors"
+    echo "$TS_WARNING_COUNT" > "${TEMP_RESULTS_DIR}/typescript_warnings"
+    echo "$TS_OUTPUT" > "${TEMP_RESULTS_DIR}/typescript_details"
+    echo -e "${GREEN}[FRONTEND] ✓ TypeScript check completed${NC}"
+    update_html_report "RUNNING" "${TEMP_RESULTS_DIR}"
+
+    # Phase 3 & 4: ESLint & Complexity (Optimized: Single Run with JSON parsing)
+    # Run ESLint with JSON output
+    npm run lint -- -f json > "${TEMP_RESULTS_DIR}/eslint_output.json" 2>/dev/null || true
+
+    # Parse JSON output with Python script
+    python3 "${SCRIPTS_DIR}/parse-eslint-output.py" \
+        "${TEMP_RESULTS_DIR}/eslint_output.json" \
+        "${TEMP_RESULTS_DIR}"
+
+    echo -e "${GREEN}[FRONTEND] ✓ ESLint check completed${NC}"
+    update_html_report "RUNNING" "${TEMP_RESULTS_DIR}"
+
+    echo -e "${GREEN}[FRONTEND] ✓ Complexity check completed${NC}"
+    update_html_report "RUNNING" "${TEMP_RESULTS_DIR}"
+
+    echo "DONE" > "${TEMP_RESULTS_DIR}/frontend_done"
+) &
+FRONTEND_PID=$!
+
+#####################################
+# BACKEND CHECKS (in background)
+#####################################
+(
+    echo -e "${BLUE}[BACKEND] Starting backend checks...${NC}"
+    cd "${BACKEND_DIR}"
+
+    if [ -d ".venv" ]; then
+        source .venv/bin/activate
+
+        # Phase 6: Black
+        if command -v black &> /dev/null; then
+            BLACK_OUTPUT=$(black --check app/ tests/ 2>&1 || true)
+            if echo "$BLACK_OUTPUT" | grep -q "would be reformatted"; then
+                BLACK_COUNT=$(echo "$BLACK_OUTPUT" | grep -oE '[0-9]+ files? would be reformatted' | grep -oE '^[0-9]+' || echo "0")
+                [ -z "$BLACK_COUNT" ] && BLACK_COUNT="0"
+                echo "FAILED" > "${TEMP_RESULTS_DIR}/black_status"
+            else
+                BLACK_COUNT=0
+                echo "PASSED" > "${TEMP_RESULTS_DIR}/black_status"
+            fi
+            echo "$BLACK_COUNT" > "${TEMP_RESULTS_DIR}/black_count"
+            echo "$BLACK_OUTPUT" > "${TEMP_RESULTS_DIR}/black_details"
+            echo -e "${GREEN}[BACKEND] ✓ Black check completed${NC}"
+            update_html_report "RUNNING" "${TEMP_RESULTS_DIR}"
+        else
+            echo "SKIPPED" > "${TEMP_RESULTS_DIR}/black_status"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/black_count"
+        fi
+
+        # Phase 7: MyPy (Swapped with Pylint)
+        if command -v mypy &> /dev/null; then
+            MYPY_OUTPUT=$(mypy app/ --ignore-missing-imports 2>&1 || true)
+            MYPY_ERROR_COUNT=$(echo "$MYPY_OUTPUT" | grep -c ": error:" || echo "0")
+            MYPY_WARNING_COUNT=$(echo "$MYPY_OUTPUT" | grep -c ": note:" || echo "0")
+
+            [ -z "$MYPY_ERROR_COUNT" ] && MYPY_ERROR_COUNT=0
+            [ -z "$MYPY_WARNING_COUNT" ] && MYPY_WARNING_COUNT=0
+
+            if [ "$MYPY_ERROR_COUNT" -eq 0 ]; then
+                echo "PASSED" > "${TEMP_RESULTS_DIR}/mypy_status"
+            else
+                echo "FAILED" > "${TEMP_RESULTS_DIR}/mypy_status"
+            fi
+            echo "$MYPY_ERROR_COUNT" > "${TEMP_RESULTS_DIR}/mypy_errors"
+            echo "$MYPY_WARNING_COUNT" > "${TEMP_RESULTS_DIR}/mypy_notes"
+            echo "$MYPY_OUTPUT" > "${TEMP_RESULTS_DIR}/mypy_details"
+            echo -e "${GREEN}[BACKEND] ✓ Mypy check completed${NC}"
+            update_html_report "RUNNING" "${TEMP_RESULTS_DIR}"
+        else
+            echo "SKIPPED" > "${TEMP_RESULTS_DIR}/mypy_status"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/mypy_errors"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/mypy_notes"
+        fi
+
+        # Phase 8: Pylint (Swapped with MyPy)
+        if command -v pylint &> /dev/null; then
+            # Get all issues (not just errors)
+            PYLINT_OUTPUT=$(pylint app/ 2>&1 || true)
+            PYLINT_ERROR_COUNT=$(echo "$PYLINT_OUTPUT" | grep -cE ": [EF][0-9]+:" || echo "0")
+            PYLINT_WARNING_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": W[0-9]*:" || echo "0")
+            PYLINT_CONVENTION_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": C[0-9]*:" || echo "0")
+            PYLINT_REFACTOR_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": R[0-9]*:" || echo "0")
+            PYLINT_INFO_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": I[0-9]*:" || echo "0")
+
+            [ -z "$PYLINT_ERROR_COUNT" ] && PYLINT_ERROR_COUNT=0
+            [ -z "$PYLINT_WARNING_COUNT" ] && PYLINT_WARNING_COUNT=0
+            [ -z "$PYLINT_CONVENTION_COUNT" ] && PYLINT_CONVENTION_COUNT=0
+            [ -z "$PYLINT_REFACTOR_COUNT" ] && PYLINT_REFACTOR_COUNT=0
+            [ -z "$PYLINT_INFO_COUNT" ] && PYLINT_INFO_COUNT=0
+
+            if [ "$PYLINT_ERROR_COUNT" -eq 0 ]; then
+                echo "PASSED" > "${TEMP_RESULTS_DIR}/pylint_status"
+            else
+                echo "FAILED" > "${TEMP_RESULTS_DIR}/pylint_status"
+            fi
+            echo "$PYLINT_ERROR_COUNT" > "${TEMP_RESULTS_DIR}/pylint_errors"
+            echo "$PYLINT_WARNING_COUNT" > "${TEMP_RESULTS_DIR}/pylint_warnings"
+            echo "$PYLINT_CONVENTION_COUNT" > "${TEMP_RESULTS_DIR}/pylint_conventions"
+            echo "$PYLINT_REFACTOR_COUNT" > "${TEMP_RESULTS_DIR}/pylint_refactors"
+            echo "$PYLINT_INFO_COUNT" > "${TEMP_RESULTS_DIR}/pylint_info"
+            echo "$PYLINT_OUTPUT" > "${TEMP_RESULTS_DIR}/pylint_details"
+            echo -e "${GREEN}[BACKEND] ✓ Pylint check completed${NC}"
+            update_html_report "RUNNING" "${TEMP_RESULTS_DIR}"
+        else
+            echo "SKIPPED" > "${TEMP_RESULTS_DIR}/pylint_status"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/pylint_errors"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/pylint_warnings"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/pylint_conventions"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/pylint_refactors"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/pylint_info"
+        fi
+
+        # Phase 9: Lizard
+        if command -v lizard &> /dev/null; then
+            LIZARD_OUTPUT=$(lizard app/ -C 15 2>&1 || true)
+            # Count functions in the warning section (between header and === separator)
+            LIZARD_COUNT=$(echo "$LIZARD_OUTPUT" | sed -n '/!!!! Warnings/,/^Total nloc/p' | grep -c '@app/' || echo "0")
+            [ -z "$LIZARD_COUNT" ] && LIZARD_COUNT=0
+
+            if [ "$LIZARD_COUNT" -eq 0 ]; then
+                echo "PASSED" > "${TEMP_RESULTS_DIR}/lizard_status"
+            else
+                echo "FAILED" > "${TEMP_RESULTS_DIR}/lizard_status"
+            fi
+            echo "$LIZARD_COUNT" > "${TEMP_RESULTS_DIR}/lizard_count"
+            echo "$LIZARD_OUTPUT" > "${TEMP_RESULTS_DIR}/lizard_details"
+            echo -e "${GREEN}[BACKEND] ✓ Lizard check completed${NC}"
+            update_html_report "RUNNING" "${TEMP_RESULTS_DIR}"
+        else
+            echo "SKIPPED" > "${TEMP_RESULTS_DIR}/lizard_status"
+            echo "N/A" > "${TEMP_RESULTS_DIR}/lizard_count"
+        fi
+
+        deactivate
+    else
+        echo "SKIPPED" > "${TEMP_RESULTS_DIR}/black_status"
+        echo "SKIPPED" > "${TEMP_RESULTS_DIR}/pylint_status"
+        echo "SKIPPED" > "${TEMP_RESULTS_DIR}/mypy_status"
+        echo "SKIPPED" > "${TEMP_RESULTS_DIR}/lizard_status"
+        echo "N/A" > "${TEMP_RESULTS_DIR}/black_count"
+        echo "N/A" > "${TEMP_RESULTS_DIR}/pylint_errors"
+        echo "N/A" > "${TEMP_RESULTS_DIR}/mypy_errors"
+        echo "N/A" > "${TEMP_RESULTS_DIR}/lizard_count"
+    fi
+
+    echo "DONE" > "${TEMP_RESULTS_DIR}/backend_done"
+) &
+BACKEND_PID=$!
+
+# Wait for both frontend and backend to complete
+echo -e "${YELLOW}Waiting for frontend and backend checks to complete...${NC}"
+wait $FRONTEND_PID
+wait $BACKEND_PID
+
+echo ""
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}All Checks Complete${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+# Determine overall status by reading from temp files
+for phase in prettier typescript eslint complexity black mypy pylint lizard; do
+    status=$(cat "${TEMP_RESULTS_DIR}/${phase}_status" 2>/dev/null || echo "PENDING")
+    if [ "$status" = "FAILED" ]; then
+        OVERALL_STATUS="FAILED"
+        break
+    fi
+done
+
+# Update final report with overall status
+update_html_report "${OVERALL_STATUS}"
+
+echo ""
+
+#####################################
+# Generate Summary
+#####################################
+echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║         Quality Gate Summary           ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
+echo ""
+
+# Determine overall status display
+if [ "$OVERALL_STATUS" = "PASSED" ]; then
+    STATUS_COLOR="green"
+    ICON="✓"
+    echo -e "${GREEN}Overall Status: ✓ PASSED${NC}"
+else
+    STATUS_COLOR="red"
+    ICON="✗"
+    echo -e "${RED}Overall Status: ✗ FAILED${NC}"
+fi
+
+echo ""
+echo -e "${MAGENTA}Phase Results:${NC}"
+for phase in prettier typescript eslint complexity black mypy pylint lizard; do
+    status=$(cat "${TEMP_RESULTS_DIR}/${phase}_status" 2>/dev/null || echo "UNKNOWN")
+    if [ "$status" = "PASSED" ]; then
+        echo -e "  ${GREEN}✓${NC} ${phase}: ${GREEN}${status}${NC}"
+    elif [ "$status" = "FAILED" ]; then
+        echo -e "  ${RED}✗${NC} ${phase}: ${RED}${status}${NC}"
+    else
+        echo -e "  ${YELLOW}⚠${NC} ${phase}: ${YELLOW}${status}${NC}"
+    fi
+done
+echo ""
+
+# Generate HTML Report
+cd "${FRONTEND_DIR}"
+
+# Final report already updated above, no need to call again
+
+# Cleanup is done in update_html_report function
+
+# Print final results
+echo ""
+echo -e "${GREEN}✓ Report generated successfully!${NC}"
+echo -e "  File: ${REPORT_FILE}"
+echo -e "  Latest: ${LATEST_REPORT}"
+echo ""
+
+# Wait a moment for browser to fetch final status (polling every 100ms)
+echo -e "${BLUE}⏳ Waiting 2 seconds for browser to fetch final status...${NC}"
+sleep 2
+
+# Close HTTP server now that browser has received final update
+echo -e "${BLUE}🛑 Closing HTTP server (PID: ${HTTP_SERVER_PID})...${NC}"
+kill ${HTTP_SERVER_PID} 2>/dev/null || true
+echo -e "${GREEN}✓ Server closed${NC}"
+
+# Exit with appropriate code
+if [ "$OVERALL_STATUS" = "PASSED" ]; then
+    echo -e "${GREEN}═══════════════════════════════════════${NC}"
+    echo -e "${GREEN}   🎉 QUALITY GATE PASSED! 🎉${NC}"
+    echo -e "${GREEN}═══════════════════════════════════════${NC}"
+    exit 0
+else
+    echo -e "${RED}═══════════════════════════════════════${NC}"
+    echo -e "${RED}   ✗ QUALITY GATE FAILED${NC}"
+    echo -e "${RED}═══════════════════════════════════════${NC}"
+    exit 1
+fi
