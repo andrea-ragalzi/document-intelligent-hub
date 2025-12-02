@@ -59,11 +59,7 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_any_unimported = false
-exclude = [
-    "chroma_db",
-    "__pycache__",
-    ".venv",
-]
+exclude = ["chroma_db", "__pycache__", ".venv"]
 
 # Ignore missing imports for third-party libraries without stubs
 [[tool.mypy.overrides]]
