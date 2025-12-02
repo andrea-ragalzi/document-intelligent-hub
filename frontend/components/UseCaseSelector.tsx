@@ -1,12 +1,4 @@
-import {
-  Sparkles,
-  Code,
-  BarChart,
-  Lightbulb,
-  Calendar,
-  TrendingUp,
-  Wand2,
-} from "lucide-react";
+import { Sparkles, Code, BarChart, Lightbulb, Calendar, TrendingUp, Wand2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useState, useRef } from "react";
 
@@ -101,11 +93,11 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
       <div
         aria-hidden="true"
         className="fixed inset-0 bg-black/90 dark:bg-indigo-950/95 z-[100]"
-        onClick={(e) => {
+        onClick={e => {
           e.stopPropagation();
           onClose();
         }}
-        onKeyDown={(e) => e.key === "Escape" && onClose()}
+        onKeyDown={e => e.key === "Escape" && onClose()}
       />
 
       {/* Mobile Bottom Sheet - with top padding to avoid topbar */}
@@ -129,7 +121,7 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
 
           {/* Use Cases List - starting from bottom */}
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {USE_CASES.map((useCase) => {
+            {USE_CASES.map(useCase => {
               const isSelected = selectedUseCaseId === useCase.id;
 
               return (

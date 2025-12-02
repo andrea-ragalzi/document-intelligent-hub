@@ -26,8 +26,10 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 router = APIRouter(prefix="/rag", tags=["support"])
 
 
-@router.get("/languages/", response_model=LanguagesListResponse, status_code=status.HTTP_200_OK)
-def get_supported_languages():
+@router.get(
+    "/languages/", response_model=LanguagesListResponse, status_code=status.HTTP_200_OK
+)
+def get_supported_languages() -> LanguagesListResponse:
     """
     **Get list of supported languages.**
 
@@ -50,21 +52,22 @@ def get_supported_languages():
         )
         for lang in SUPPORTED_LANGUAGES
     ]
-    
-    return LanguagesListResponse(
-        languages=languages,
-        total_count=len(languages)
-    )
+
+    return LanguagesListResponse(languages=languages, total_count=len(languages))
 
 
 @router.post("/report-bug/", status_code=status.HTTP_201_CREATED)
 async def report_bug(
     user_id: str = Form(..., description="User ID who is reporting the bug"),
-    description: str = Form(..., min_length=10, description="Bug description (min 10 chars)"),
+    description: str = Form(
+        ..., min_length=10, description="Bug description (min 10 chars)"
+    ),
     conversation_id: str = Form(None, description="Optional conversation ID"),
     timestamp: str = Form(..., description="ISO timestamp when bug was reported"),
     user_agent: str = Form(None, description="Optional browser user agent"),
-    attachment: UploadFile = File(None, description="Optional file attachment (max 10MB)"),
+    attachment: UploadFile = File(
+        None, description="Optional file attachment (max 10MB)"
+    ),
 ):
     """
     **Report a bug with optional attachment.**
@@ -82,25 +85,27 @@ async def report_bug(
         if attachment.size > MAX_ATTACHMENT_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"Attachment too large. Maximum size is 10MB, got {attachment.size / 1024 / 1024:.2f}MB"
+                detail=f"Attachment too large. Maximum size is 10MB, got {attachment.size / 1024 / 1024:.2f}MB",
             )
-    
+
     # Read attachment content if provided
     attachment_data = None
     attachment_filename = None
     attachment_type = None
-    
+
     if attachment and attachment.filename:
         attachment_content = await attachment.read()
         attachment_data = attachment_content
         attachment_filename = attachment.filename
         attachment_type = attachment.content_type
-        logger.info(f"📎 Attachment received | Name: {attachment_filename} | Type: {attachment_type} | Size: {len(attachment_content)} bytes")
-    
+        logger.info(
+            f"📎 Attachment received | Name: {attachment_filename} | Type: {attachment_type} | Size: {len(attachment_content)} bytes"
+        )
+
     # Ensure logs directory exists
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
-    
+
     # Structured log entry
     log_entry = {
         "timestamp": timestamp,
@@ -112,12 +117,12 @@ async def report_bug(
         "attachment_size": len(attachment_data) if attachment_data else 0,
         "server_timestamp": datetime.now(UTC).isoformat(),
     }
-    
+
     # Write to dedicated bug reports log
     bug_log_path = logs_dir / "bug_reports.log"
     async with aiofiles.open(bug_log_path, "a", encoding="utf-8") as f:
         await f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-    
+
     # Send email notification via SendGrid
     email_service = get_email_service()
     email_sent = email_service.send_bug_report(
@@ -130,13 +135,13 @@ async def report_bug(
         attachment_filename=attachment_filename,
         attachment_type=attachment_type,
     )
-    
+
     # Log to main logs with emoji for visibility
     attachment_info = f" | 📎 {attachment_filename}" if attachment_filename else ""
     logger.bind(BUG_REPORT=True).warning(
         f"🐞 Bug Report from {user_id} | Conv: {conversation_id or 'N/A'} | Email: {'✅' if email_sent else '❌'}{attachment_info} | {description[:100]}"
     )
-    
+
     return {
         "message": "Bug report received successfully",
         "report_id": f"{user_id}_{datetime.now(UTC).timestamp()}",
@@ -165,7 +170,7 @@ async def submit_feedback(
     # Ensure logs directory exists
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
-    
+
     # Structured log entry
     log_entry = {
         "timestamp": feedback.timestamp,
@@ -176,12 +181,12 @@ async def submit_feedback(
         "user_agent": feedback.user_agent,
         "server_timestamp": datetime.now(UTC).isoformat(),
     }
-    
+
     # Write to dedicated feedback log
     feedback_log_path = logs_dir / "feedback.log"
     async with aiofiles.open(feedback_log_path, "a", encoding="utf-8") as f:
         await f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-    
+
     # Send email notification via SendGrid
     email_service = get_email_service()
     email_sent = email_service.send_feedback(
@@ -192,7 +197,7 @@ async def submit_feedback(
         timestamp=feedback.timestamp,
         user_agent=feedback.user_agent,
     )
-    
+
     # Determine sentiment emoji for logging
     if feedback.rating >= 4.0:
         sentiment_emoji = "😊"
@@ -200,12 +205,12 @@ async def submit_feedback(
         sentiment_emoji = "😐"
     else:
         sentiment_emoji = "😞"
-    
+
     # Log to main logs with emoji for visibility
     logger.bind(FEEDBACK=True).info(
         f"{sentiment_emoji} Feedback from {feedback.user_id} | Rating: {feedback.rating}/5.0 | Conv: {feedback.conversation_id or 'N/A'} | Email: {'✅' if email_sent else '❌'} | {feedback.message[:100] if feedback.message else 'No message'}"
     )
-    
+
     return {
         "message": "Feedback received successfully",
         "feedback_id": f"{feedback.user_id}_{datetime.now(UTC).timestamp()}",

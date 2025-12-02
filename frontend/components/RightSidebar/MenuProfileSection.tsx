@@ -1,12 +1,19 @@
 import { X } from "lucide-react";
 import Image from "next/image";
 import TierLimitsDisplay from "../TierLimitsDisplay";
+import { User } from "firebase/auth";
+
+interface Document {
+  filename: string;
+  chunks_count: number;
+  language?: string;
+}
 
 interface MenuProfileSectionProps {
-  user: any;
+  user: User | null;
   userId: string | null;
   displayName: string;
-  documents: any[] | undefined;
+  documents: Document[] | undefined;
   currentQueries: number;
   onClose: () => void;
   onLogout: () => void;

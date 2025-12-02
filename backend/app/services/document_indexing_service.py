@@ -43,7 +43,7 @@ class DocumentIndexingService:
         repository: VectorStoreRepository,
         language_service: LanguageService,
         classifier_service: DocumentClassifierService,
-    ):
+    ) -> None:
         """
         Initialize DocumentIndexingService with required dependencies.
 

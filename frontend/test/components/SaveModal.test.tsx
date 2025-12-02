@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 
 describe("SaveModal", () => {
   const mockOnClose = vi.fn();
-  const mockOnSave = vi.fn((e) => e.preventDefault());
+  const mockOnSave = vi.fn(e => e.preventDefault());
   const mockSetConversationName = vi.fn();
 
   const defaultProps = {
@@ -19,9 +19,7 @@ describe("SaveModal", () => {
   it("should render correctly when isOpen is true", () => {
     render(<SaveModal {...defaultProps} />);
     expect(screen.getByText("Save Chat")).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText("Conversation name (e.g. Q3 Report)")
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Conversation name (e.g. Q3 Report)")).toBeInTheDocument();
   });
 
   it("should not render when isOpen is false", () => {
@@ -48,9 +46,7 @@ describe("SaveModal", () => {
 
   it("should update the input value correctly", () => {
     render(<SaveModal {...defaultProps} />);
-    const input = screen.getByPlaceholderText(
-      "Conversation name (e.g. Q3 Report)"
-    );
+    const input = screen.getByPlaceholderText("Conversation name (e.g. Q3 Report)");
     fireEvent.change(input, { target: { value: "New Name" } });
     expect(mockSetConversationName).toHaveBeenCalledWith("New Name");
   });

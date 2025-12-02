@@ -97,18 +97,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   } ${isUploading ? "opacity-50 pointer-events-none" : ""}`;
 
   const iconWrapperClassName = `p-4 rounded-full transition-colors ${
-    isDragging
-      ? "bg-blue-100 dark:bg-blue-900/40"
-      : "bg-gray-200 dark:bg-gray-700"
+    isDragging ? "bg-blue-100 dark:bg-blue-900/40" : "bg-gray-200 dark:bg-gray-700"
   }`;
 
   const iconClassName = isDragging
     ? "text-blue-600 dark:text-blue-400"
     : "text-gray-400 dark:text-gray-500";
 
-  const dropZoneText = isDragging
-    ? "Drop your PDF here"
-    : "Drag & drop your PDF here";
+  const dropZoneText = isDragging ? "Drop your PDF here" : "Drag & drop your PDF here";
 
   return (
     <>
@@ -120,7 +116,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         onKeyDown={
           isUploading
             ? undefined
-            : (e) => {
+            : e => {
                 if (e.key === "Escape") {
                   e.preventDefault();
                   onClose();
@@ -136,15 +132,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                <Upload
-                  size={24}
-                  className="text-blue-600 dark:text-blue-400"
-                />
+                <Upload size={24} className="text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Upload Document
-                </h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Upload Document</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Add a PDF to your knowledge base
                 </p>
@@ -165,9 +156,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             {/* Drag events provide enhancement; accessible file input inside provides primary interaction */}
             <button
               type="button"
-              onDragEnter={(e) => handleDragEvents(e, "enter")}
-              onDragLeave={(e) => handleDragEvents(e, "leave")}
-              onDragOver={(e) => handleDragEvents(e, "over")}
+              onDragEnter={e => handleDragEvents(e, "enter")}
+              onDragLeave={e => handleDragEvents(e, "leave")}
+              onDragOver={e => handleDragEvents(e, "over")}
               onDrop={handleDrop}
               onClick={() => document.getElementById("file-input")?.click()}
               className={dropZoneClassName}
@@ -200,10 +191,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             {/* Selected File */}
             {file && (
               <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <FileText
-                  size={24}
-                  className="text-blue-600 dark:text-blue-400 flex-shrink-0"
-                />
+                <FileText size={24} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                     {file.name}

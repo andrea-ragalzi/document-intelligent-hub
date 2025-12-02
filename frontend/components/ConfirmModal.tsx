@@ -47,15 +47,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Header */}
-        <div
-          className={`p-6 ${styles.bg} border-b border-gray-200 dark:border-gray-700`}
-        >
+        <div className={`p-6 ${styles.bg} border-b border-gray-200 dark:border-gray-700`}>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <AlertTriangle size={24} className={styles.icon} />
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                {title}
-              </h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h2>
             </div>
             <button
               onClick={onCancel}

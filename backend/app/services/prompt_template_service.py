@@ -24,7 +24,7 @@ class PromptTemplateService:
     to ensure LLM adherence to document-based information.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the prompt template service."""
         pass
 
@@ -62,25 +62,27 @@ class PromptTemplateService:
 
         # RAG context block
         rag_context_block = self._build_rag_context_block(retrieved_context)
-        
+
         # Final question block
         final_question_block = self._build_new_question_block(user_request)
 
         # Combine all sections
         prompt_parts = [system_header]
-        
+
         if constraints_section:
             prompt_parts.append(constraints_section)
-            
+
         if context_section:
             prompt_parts.append(context_section)
-            
+
         prompt_parts.append(rag_context_block)
         prompt_parts.append(final_question_block)
 
         return "\n\n".join(prompt_parts)
 
-    def create_constraints_for_use_case(self, use_case: UseCaseType, quantity: int | None = None) -> PromptConstraints:
+    def create_constraints_for_use_case(
+        self, use_case: UseCaseType, quantity: int | None = None
+    ) -> PromptConstraints:
         """
         Create prompt constraints based on a specific use case.
         """
@@ -90,13 +92,15 @@ class PromptTemplateService:
         )
 
         definition = get_use_case_definition(use_case)
-        
+
         # The definition provides the *type* of format, we need the description
         format_description = get_output_format_description(definition.optimal_output)
 
         # For business strategy, we add a specific instruction
         if use_case == UseCaseType.BUSINESS_STRATEGY:
-            format_description += " using a business analysis framework (e.g., SWOT, PESTEL)."
+            format_description += (
+                " using a business analysis framework (e.g., SWOT, PESTEL)."
+            )
 
         # No specific data type constraints are defined for the base use cases yet
         data_type = None
@@ -127,7 +131,7 @@ class PromptTemplateService:
     def _build_context_enforcement_header(self) -> str:
         """
         Build the mandatory system header enforcing RAG context usage.
-        
+
         Now loads from environment variable (settings.RAG_SYSTEM_PROMPT)
         instead of hardcoded text for security and flexibility.
         """

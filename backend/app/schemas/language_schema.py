@@ -17,26 +17,24 @@ LanguageCode = Literal[
 
 class LanguageDetectionRequest(BaseModel):
     """Schema for language detection request."""
+
     content: str = Field(
-        ...,
-        description="Text content to detect language from",
-        min_length=1
+        ..., description="Text content to detect language from", min_length=1
     )
 
 
 class LanguageDetectionResponse(BaseModel):
     """Schema for language detection response."""
+
     language_code: str = Field(
-        ...,
-        description="Detected language code (e.g., 'EN', 'IT', 'FR')"
+        ..., description="Detected language code (e.g., 'EN', 'IT', 'FR')"
     )
     language_name: str = Field(
-        ...,
-        description="Full language name (e.g., 'English', 'Italian')"
+        ..., description="Full language name (e.g., 'English', 'Italian')"
     )
     confidence: float = Field(
         default=1.0,
         description="Detection confidence score (0.0 to 1.0)",
         ge=0.0,
-        le=1.0
+        le=1.0,
     )

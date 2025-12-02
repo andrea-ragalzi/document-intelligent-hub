@@ -1,10 +1,5 @@
 import type { ChatMessage } from "@/lib/types";
-import {
-  MessageSquare,
-  User as UserIcon,
-  Loader,
-  Link as LinkIcon,
-} from "lucide-react";
+import { MessageSquare, User as UserIcon, Loader, Link as LinkIcon } from "lucide-react";
 
 interface ChatMessageDisplayProps {
   msg: ChatMessage;
@@ -31,20 +26,14 @@ const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
   </div>
 );
 
-export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({
-  msg,
-}) => {
+export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) => {
   const isUser = msg.type === "user";
 
   // Clean up the message text to remove [DOCUMENT X] markers
   const cleanedText = cleanDocumentMarkers(msg.text);
 
   return (
-    <div
-      className={`flex ${
-        isUser ? "justify-end" : "justify-start"
-      } mb-4 sm:mb-6 px-1 sm:px-2`}
-    >
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 sm:mb-6 px-1 sm:px-2`}>
       {!isUser && <Avatar isUser={false} />}
 
       <div className="max-w-[85%] sm:max-w-[80%] flex flex-col">
@@ -73,9 +62,7 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({
               <span className="break-words">{cleanedText}</span>
             </div>
           ) : (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">
-              {cleanedText}
-            </p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">{cleanedText}</p>
           )}
 
           {/* Source/Citations Section (Solo per l'Assistente e quando non sta pensando) */}

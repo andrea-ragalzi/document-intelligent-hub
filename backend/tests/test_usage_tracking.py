@@ -50,7 +50,9 @@ class TestUsageTrackingService:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         assert key == today
 
-    def test_get_user_queries_today_no_document(self, usage_service: Any, mock_firestore_db: Any):
+    def test_get_user_queries_today_no_document(
+        self, usage_service: Any, mock_firestore_db: Any
+    ):
         """Test getting queries for user with no usage document"""
         # Mock document doesn't exist
         user_doc = MagicMock()
@@ -89,10 +91,7 @@ class TestUsageTrackingService:
         user_doc = MagicMock()
         user_doc.exists = True
         user_doc.to_dict.return_value = {
-            "queries": {
-                "2025-11-23": 5,  # Yesterday
-                "2025-11-22": 3   # Day before
-            }
+            "queries": {"2025-11-23": 5, "2025-11-22": 3}  # Yesterday  # Day before
         }
 
         doc_ref = MagicMock()
@@ -104,18 +103,15 @@ class TestUsageTrackingService:
 
         assert result == 0
 
-    def test_get_user_queries_today_with_count(self, usage_service: Any, mock_firestore_db: Any):
+    def test_get_user_queries_today_with_count(
+        self, usage_service: Any, mock_firestore_db: Any
+    ):
         """Test getting queries when user has made queries today"""
         today_key = usage_service._get_today_key()
 
         user_doc = MagicMock()
         user_doc.exists = True
-        user_doc.to_dict.return_value = {
-            "queries": {
-                today_key: 15,
-                "2025-11-23": 10
-            }
-        }
+        user_doc.to_dict.return_value = {"queries": {today_key: 15, "2025-11-23": 10}}
 
         doc_ref = MagicMock()
         doc_ref.get.return_value = user_doc
@@ -141,7 +137,9 @@ class TestUsageTrackingService:
         assert result == 0
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    def test_increment_user_queries_new_user(self, usage_service: Any, mock_firestore_db: Any):
+    def test_increment_user_queries_new_user(
+        self, usage_service: Any, mock_firestore_db: Any
+    ):
         """Test incrementing queries for new user (creates document)"""
         # Mock transaction
         transaction = MagicMock()
@@ -171,7 +169,9 @@ class TestUsageTrackingService:
         assert result == 1
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    def test_increment_user_queries_existing_user(self, usage_service: Any, mock_firestore_db: Any):
+    def test_increment_user_queries_existing_user(
+        self, usage_service: Any, mock_firestore_db: Any
+    ):
         """Test incrementing queries for existing user"""
         transaction = MagicMock()
         today_key = usage_service._get_today_key()
@@ -179,11 +179,7 @@ class TestUsageTrackingService:
         # Mock existing document
         doc_snapshot = MagicMock()
         doc_snapshot.exists = True
-        doc_snapshot.to_dict.return_value = {
-            "queries": {
-                today_key: 10
-            }
-        }
+        doc_snapshot.to_dict.return_value = {"queries": {today_key: 10}}
         transaction.get.return_value = doc_snapshot
 
         doc_ref = MagicMock()
@@ -213,7 +209,9 @@ class TestUsageTrackingService:
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
 
         with patch.object(mock_firestore_db, "transaction") as mock_transaction_ctx:
-            mock_transaction_ctx.return_value.__enter__.side_effect = Exception("Transaction error")
+            mock_transaction_ctx.return_value.__enter__.side_effect = Exception(
+                "Transaction error"
+            )
 
             result = usage_service.increment_user_queries("user123")
 
@@ -274,7 +272,9 @@ class TestUsageTrackingService:
         """Test UNLIMITED tier with usage way over normal limits (regression test for bug)"""
         # Simulate user with 5000 queries (would exceed FREE/PRO limits)
         with patch.object(usage_service, "get_user_queries_today", return_value=5000):
-            can_query, queries_used = usage_service.check_query_limit("unlimited_user", 9999)
+            can_query, queries_used = usage_service.check_query_limit(
+                "unlimited_user", 9999
+            )
 
         # UNLIMITED tier should ALWAYS allow queries regardless of count
         assert can_query is True
@@ -286,19 +286,22 @@ class TestUsageTrackingService:
         # Mock collection query
         mock_query = MagicMock()
         mock_stream = [
-            MagicMock(id="user1", to_dict=lambda: {
-                "queries": {
-                    "2025-11-24": 10,  # Today
-                    "2025-10-20": 5,   # Old (35 days ago)
-                    "2025-10-15": 3    # Very old (40 days ago)
-                }
-            }),
-            MagicMock(id="user2", to_dict=lambda: {
-                "queries": {
-                    "2025-11-23": 8,
-                    "2025-09-01": 2    # Very old
-                }
-            })
+            MagicMock(
+                id="user1",
+                to_dict=lambda: {
+                    "queries": {
+                        "2025-11-24": 10,  # Today
+                        "2025-10-20": 5,  # Old (35 days ago)
+                        "2025-10-15": 3,  # Very old (40 days ago)
+                    }
+                },
+            ),
+            MagicMock(
+                id="user2",
+                to_dict=lambda: {
+                    "queries": {"2025-11-23": 8, "2025-09-01": 2}  # Very old
+                },
+            ),
         ]
         mock_query.stream.return_value = mock_stream
 
@@ -321,7 +324,9 @@ class TestUsageTrackingService:
         assert cleaned >= 0
 
     @pytest.mark.skip(reason="cleanup_old_usage returns None, needs implementation fix")
-    def test_cleanup_old_usage_error_handling(self, usage_service: Any, mock_firestore_db: Any):
+    def test_cleanup_old_usage_error_handling(
+        self, usage_service: Any, mock_firestore_db: Any
+    ):
         """Test cleanup error handling"""
         mock_query = MagicMock()
         mock_query.stream.side_effect = Exception("Firestore error")
@@ -356,38 +361,46 @@ class TestUsageServiceEdgeCases:
     """Test edge cases and boundary conditions"""
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    def test_increment_with_none_user_id(self, usage_service: Any, mock_firestore_db: Any):
+    def test_increment_with_none_user_id(
+        self, usage_service: Any, mock_firestore_db: Any
+    ):
         """Test increment with None user_id"""
         doc_ref = MagicMock()
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
 
         with patch.object(mock_firestore_db, "transaction") as mock_transaction_ctx:
-            mock_transaction_ctx.return_value.__enter__.side_effect = Exception("Invalid user_id")
+            mock_transaction_ctx.return_value.__enter__.side_effect = Exception(
+                "Invalid user_id"
+            )
 
             result = usage_service.increment_user_queries(None)
 
         assert result == 0
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
-    def test_increment_with_empty_user_id(self, usage_service: Any, mock_firestore_db: Any):
+    def test_increment_with_empty_user_id(
+        self, usage_service: Any, mock_firestore_db: Any
+    ):
         """Test increment with empty string user_id"""
         doc_ref = MagicMock()
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
 
         with patch.object(mock_firestore_db, "transaction") as mock_transaction_ctx:
-            mock_transaction_ctx.return_value.__enter__.side_effect = Exception("Invalid user_id")
+            mock_transaction_ctx.return_value.__enter__.side_effect = Exception(
+                "Invalid user_id"
+            )
 
             result = usage_service.increment_user_queries("")
 
         assert result == 0
 
-    def test_get_queries_with_corrupted_data(self, usage_service: Any, mock_firestore_db: Any):
+    def test_get_queries_with_corrupted_data(
+        self, usage_service: Any, mock_firestore_db: Any
+    ):
         """Test handling corrupted queries data"""
         user_doc = MagicMock()
         user_doc.exists = True
-        user_doc.to_dict.return_value = {
-            "queries": "not a dict"  # Corrupted data
-        }
+        user_doc.to_dict.return_value = {"queries": "not a dict"}  # Corrupted data
 
         doc_ref = MagicMock()
         doc_ref.get.return_value = user_doc
@@ -413,9 +426,7 @@ class TestUsageServiceEdgeCases:
     ):
         """Test behavior at date boundary (midnight)"""
         # This tests the date key generation
-        with patch(
-            "app.services.usage_tracking_service.datetime"
-        ) as mock_datetime:
+        with patch("app.services.usage_tracking_service.datetime") as mock_datetime:
             # Set to exactly midnight
             mock_datetime.now.return_value = datetime(
                 2025, 11, 25, 0, 0, 0, tzinfo=timezone.utc

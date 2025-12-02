@@ -15,13 +15,8 @@ interface UseConversationsParams {
   userId: string | null;
 }
 
-export const useConversations = ({
-  currentChatHistory,
-  userId,
-}: UseConversationsParams) => {
-  const [savedConversations, setSavedConversations] = useState<
-    SavedConversation[]
-  >([]);
+export const useConversations = ({ currentChatHistory, userId }: UseConversationsParams) => {
+  const [savedConversations, setSavedConversations] = useState<SavedConversation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,9 +45,7 @@ export const useConversations = ({
       console.log("Migrating conversations from localStorage to Firestore...");
       await migrateLocalStorageToFirestore(userId, localConversations);
 
-      const migratedConversations = await loadConversationsFromFirestore(
-        userId
-      );
+      const migratedConversations = await loadConversationsFromFirestore(userId);
       localStorage.removeItem(CONVERSATIONS_KEY);
 
       return migratedConversations;
@@ -70,19 +63,12 @@ export const useConversations = ({
 
       try {
         // Try loading from Firestore
-        const firestoreConversations = await loadConversationsFromFirestore(
-          userId
-        );
+        const firestoreConversations = await loadConversationsFromFirestore(userId);
 
         // If no conversations in Firestore, check localStorage for migration
-        if (
-          firestoreConversations.length === 0 &&
-          globalThis.window !== undefined
-        ) {
+        if (firestoreConversations.length === 0 && globalThis.window !== undefined) {
           try {
-            const migratedConversations = await handleLocalStorageMigration(
-              userId
-            );
+            const migratedConversations = await handleLocalStorageMigration(userId);
             if (migratedConversations.length > 0) {
               setSavedConversations(migratedConversations);
               return;
@@ -134,16 +120,12 @@ export const useConversations = ({
       try {
         console.log("🔥 Calling Firestore...");
         // Salva su Firestore (rimosso timeout per vedere l'errore reale)
-        const newConversation = await saveConversationToFirestore(
-          userId,
-          name,
-          currentChatHistory
-        );
+        const newConversation = await saveConversationToFirestore(userId, name, currentChatHistory);
 
         console.log("✅ Got response from Firestore:", newConversation);
 
         // Aggiorna lo stato locale
-        setSavedConversations((prev) => [newConversation, ...prev]);
+        setSavedConversations(prev => [newConversation, ...prev]);
 
         // Backup su localStorage
         if (globalThis.window !== undefined) {
@@ -197,7 +179,7 @@ export const useConversations = ({
         await deleteConversationFromFirestore(id);
 
         // Update local state
-        const updated = savedConversations.filter((conv) => conv.id !== id);
+        const updated = savedConversations.filter(conv => conv.id !== id);
         setSavedConversations(updated);
 
         // Update localStorage
@@ -213,7 +195,7 @@ export const useConversations = ({
         // Fallback to localStorage
         if (globalThis.window !== undefined) {
           try {
-            const updated = savedConversations.filter((conv) => conv.id !== id);
+            const updated = savedConversations.filter(conv => conv.id !== id);
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
@@ -245,13 +227,11 @@ export const useConversations = ({
 
       try {
         // Update in Firestore
-        const { updateConversationNameInFirestore } = await import(
-          "@/lib/conversationsService"
-        );
+        const { updateConversationNameInFirestore } = await import("@/lib/conversationsService");
         await updateConversationNameInFirestore(id, newName);
 
         // Update local state
-        const updated = savedConversations.map((conv) =>
+        const updated = savedConversations.map(conv =>
           conv.id === id ? { ...conv, name: newName } : conv
         );
         setSavedConversations(updated);
@@ -269,7 +249,7 @@ export const useConversations = ({
         // Fallback to localStorage
         if (globalThis.window !== undefined) {
           try {
-            const updated = savedConversations.map((conv) =>
+            const updated = savedConversations.map(conv =>
               conv.id === id ? { ...conv, name: newName } : conv
             );
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
@@ -303,13 +283,11 @@ export const useConversations = ({
 
       try {
         // Update in Firestore
-        const { updateConversationHistoryInFirestore } = await import(
-          "@/lib/conversationsService"
-        );
+        const { updateConversationHistoryInFirestore } = await import("@/lib/conversationsService");
         await updateConversationHistoryInFirestore(id, history);
 
         // Update local state
-        const updated = savedConversations.map((conv) =>
+        const updated = savedConversations.map(conv =>
           conv.id === id ? { ...conv, history } : conv
         );
         setSavedConversations(updated);
@@ -327,7 +305,7 @@ export const useConversations = ({
         // Fallback to localStorage
         if (globalThis.window !== undefined) {
           try {
-            const updated = savedConversations.map((conv) =>
+            const updated = savedConversations.map(conv =>
               conv.id === id ? { ...conv, history } : conv
             );
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));

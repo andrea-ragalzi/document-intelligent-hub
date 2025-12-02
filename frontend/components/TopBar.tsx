@@ -11,10 +11,7 @@ interface TopBarProps {
   hasConversation: boolean;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({
-  onOpenLeftSidebar,
-  onOpenRightSidebar,
-}) => {
+export const TopBar: React.FC<TopBarProps> = ({ onOpenLeftSidebar, onOpenRightSidebar }) => {
   const { tier, isLoading } = useUserTier();
 
   return (

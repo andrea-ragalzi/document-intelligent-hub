@@ -15,7 +15,7 @@ class LanguageService:
     NOTA: Il linguaggio target per l'indicizzazione è sempre 'English'.
     """
 
-    def __init__(self, target_lang: str = RETRIEVAL_TARGET_LANGUAGE):
+    def __init__(self, target_lang: str = RETRIEVAL_TARGET_LANGUAGE) -> None:
         # Il linguaggio target è fisso su 'English' per la strategia RAG
         self.target_lang = target_lang
 
@@ -42,7 +42,7 @@ class LanguageService:
             translator = Translator(to_lang=self.target_lang)
             translation = translator.translate(content)
             return translation.strip()
-        except (Exception) as e:
+        except Exception as e:
             # Cattura StopIteration, errore comune per il fallimento della traduzione
             print(
                 f"Translation failed (Type: {type(e).__name__}). Returning original content."
@@ -64,19 +64,19 @@ class LanguageService:
             translator = Translator(to_lang=target_language_code.lower())
             translation = translator.translate(answer)
             return translation.strip()
-        except (Exception) as e:
+        except Exception as e:
             print(
                 f"Translation failed (Type: {type(e).__name__}). Returning English answer."
             )
             return answer  # Restituisce la risposta inglese originale come fallback
-    
+
     def get_language_name(self, language_code: str) -> str:
         """
         Get the full language name from a language code.
-        
+
         Args:
             language_code: ISO language code (e.g., 'IT', 'EN')
-            
+
         Returns:
             Full language name (e.g., 'Italian', 'English')
         """

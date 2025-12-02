@@ -1,7 +1,6 @@
 export const runtime = "edge";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/rag";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/rag";
 
 interface Message {
   role: "user" | "assistant";
@@ -13,10 +12,10 @@ export async function POST(req: Request) {
     // Extract Authorization header from the incoming request
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization token" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Missing authorization token" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const { messages, userId, output_language } = await req.json();
@@ -59,10 +58,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(
-      `📦 [Frontend API] Full request body:`,
-      JSON.stringify(requestBody, null, 2)
-    );
+    console.log(`📦 [Frontend API] Full request body:`, JSON.stringify(requestBody, null, 2));
 
     // Call the FastAPI backend
     const response = await fetch(`${API_BASE_URL}/query/`, {
@@ -105,7 +101,7 @@ export async function POST(req: Request) {
           const chunk = `0:${JSON.stringify(char)}\n`;
           controller.enqueue(encoder.encode(chunk));
           // Small delay to simulate streaming
-          await new Promise((resolve) => setTimeout(resolve, 10));
+          await new Promise(resolve => setTimeout(resolve, 10));
         }
 
         // REMOVED: Sources are now included by the backend in the answer itself

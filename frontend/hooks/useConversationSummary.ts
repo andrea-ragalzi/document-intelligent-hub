@@ -42,9 +42,7 @@ export const useConversationSummary = ({
 
     const generateSummary = async () => {
       isSummarizingRef.current = true;
-      console.log(
-        `🧠 Generating conversation summary (${chatHistory.length} messages)`
-      );
+      console.log(`🧠 Generating conversation summary (${chatHistory.length} messages)`);
 
       try {
         // Get authentication token
@@ -55,8 +53,8 @@ export const useConversationSummary = ({
 
         // Prepare conversation history for summarization
         const conversationHistory = chatHistory
-          .filter((msg) => !msg.isThinking)
-          .map((msg) => ({
+          .filter(msg => !msg.isThinking)
+          .map(msg => ({
             role: msg.type === "user" ? "user" : "assistant",
             content: msg.text,
           }));
@@ -74,9 +72,7 @@ export const useConversationSummary = ({
 
         if (response.ok) {
           const data = await response.json();
-          console.log(
-            `✅ Summary generated: ${data.summary.substring(0, 100)}...`
-          );
+          console.log(`✅ Summary generated: ${data.summary.substring(0, 100)}...`);
 
           lastSummarizedCountRef.current = chatHistory.length;
 

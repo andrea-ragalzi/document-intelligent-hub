@@ -32,7 +32,9 @@ from sendgrid.helpers.mail import (
 CONTENT_TYPE_TEXT_PLAIN = "text/plain"
 CONTENT_TYPE_TEXT_HTML = "text/html"
 ERROR_NO_BODY = "No body"
-ERROR_SENDGRID_403_MESSAGE = "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
+ERROR_SENDGRID_403_MESSAGE = (
+    "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
+)
 
 
 class EmailService:
@@ -40,40 +42,42 @@ class EmailService:
     SendGrid Email Service.
     Handles bug reports and system notifications.
     """
-    
+
     client: Optional[SendGridAPIClient]
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         self.api_key = os.getenv("SENDGRID_API_KEY")
         self.from_email = os.getenv("SENDGRID_FROM_EMAIL", "noreply@yourdomain.com")
         self.support_email = os.getenv("SUPPORT_EMAIL", "support@yourdomain.com")
-        
+
         if not self.api_key:
-            logger.warning("⚠️ SENDGRID_API_KEY not found in environment. Email sending disabled.")
+            logger.warning(
+                "⚠️ SENDGRID_API_KEY not found in environment. Email sending disabled."
+            )
             self.client = None
         else:
             self.client = SendGridAPIClient(self.api_key)
             logger.info(f"✅ SendGrid initialized | From: {self.from_email}")
-    
+
     def _get_attachment_emoji(self, attachment_type: Optional[str]) -> str:
         """Get emoji for attachment type."""
         if not attachment_type:
             return "📎"
-        if attachment_type.startswith('video/'):
+        if attachment_type.startswith("video/"):
             return "🎥"
-        if attachment_type.startswith('image/'):
+        if attachment_type.startswith("image/"):
             return "📷"
-        if attachment_type == 'application/pdf':
+        if attachment_type == "application/pdf":
             return "📄"
-        if any(ext in attachment_type for ext in ['zip', 'rar', '7z', 'tar', 'gzip']):
+        if any(ext in attachment_type for ext in ["zip", "rar", "7z", "tar", "gzip"]):
             return "📦"
         return "📎"
-    
+
     def _build_bug_report_subject(
         self,
         conversation_id: Optional[str],
         attachment_filename: Optional[str],
-        attachment_type: Optional[str]
+        attachment_type: Optional[str],
     ) -> str:
         """Build email subject for bug report."""
         subject = "🐞 Bug Report"
@@ -83,7 +87,7 @@ class EmailService:
             emoji = self._get_attachment_emoji(attachment_type)
             subject += f" (with attachment {emoji})"
         return subject
-    
+
     def _build_bug_report_html(
         self,
         user_id: str,
@@ -92,13 +96,13 @@ class EmailService:
         timestamp: Optional[str],
         user_agent: Optional[str],
         attachment_filename: Optional[str],
-        attachment_type: Optional[str]
+        attachment_type: Optional[str],
     ) -> str:
         """Build HTML content for bug report email."""
         attachment_notice = ""
         if attachment_filename:
             attachment_notice = f'<div class="attachment-notice">📎 <strong>Attachment Included:</strong> {attachment_filename} ({attachment_type or "unknown type"})</div>'
-        
+
         return f"""
         <html>
         <head>
@@ -137,7 +141,7 @@ class EmailService:
                         </table>
                     </div>
                     <p style="margin-top: 20px; padding: 15px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
-                        <strong>Action Required:</strong> Review this bug report and investigate the issue. 
+                        <strong>Action Required:</strong> Review this bug report and investigate the issue.
                         Check Firestore for the conversation history if Conversation ID is provided.
                     </p>
                 </div>
@@ -145,7 +149,7 @@ class EmailService:
         </body>
         </html>
         """
-    
+
     def _build_bug_report_plaintext(
         self,
         user_id: str,
@@ -153,10 +157,12 @@ class EmailService:
         conversation_id: Optional[str],
         timestamp: Optional[str],
         user_agent: Optional[str],
-        attachment_filename: Optional[str]
+        attachment_filename: Optional[str],
     ) -> str:
         """Build plain text content for bug report email."""
-        attachment_notice = f"\n\nAttachment: {attachment_filename}" if attachment_filename else ""
+        attachment_notice = (
+            f"\n\nAttachment: {attachment_filename}" if attachment_filename else ""
+        )
         return f"""
 Bug Report
 
@@ -174,13 +180,13 @@ Technical Details:
 ---
 Action Required: Review this bug report and investigate the issue.
         """
-    
+
     def _add_attachment_to_message(
         self,
         message: Mail,
         attachment_data: bytes,
         attachment_filename: str,
-        attachment_type: Optional[str]
+        attachment_type: Optional[str],
     ):
         """Add file attachment to SendGrid message."""
         encoded_file = base64.b64encode(attachment_data).decode()
@@ -190,29 +196,30 @@ Action Required: Review this bug report and investigate the issue.
             FileType(attachment_type or "application/octet-stream"),
         )
         message.attachment = attached_file
-        logger.info(f"📎 Attachment added to email | Name: {attachment_filename} | Type: {attachment_type}")
-    
+        logger.info(
+            f"📎 Attachment added to email | Name: {attachment_filename} | Type: {attachment_type}"
+        )
+
     def _send_email_with_response_check(
-        self,
-        message: Mail,
-        email_type: str,
-        context: str = ""
+        self, message: Mail, email_type: str, context: str = ""
     ) -> bool:
         """Send email via SendGrid and check response status."""
         if not self.client:
             logger.warning("⚠️ SendGrid client not initialized. Email not sent.")
             return False
-        
+
         try:
             response = self.client.send(message)
-            
+
             if response.status_code in [200, 201, 202]:
                 logger.bind(EMAIL=True).info(
                     f"✅ {email_type} email sent | To: {self.support_email}{context}"
                 )
                 return True
-            
-            error_body = response.body.decode('utf-8') if response.body else ERROR_NO_BODY
+
+            error_body = (
+                response.body.decode("utf-8") if response.body else ERROR_NO_BODY
+            )
             logger.error(
                 f"❌ SendGrid error | Status: {response.status_code} | Body: {error_body}"
             )
@@ -220,9 +227,11 @@ Action Required: Review this bug report and investigate the issue.
                 logger.warning(ERROR_SENDGRID_403_MESSAGE)
             return False
         except Exception as e:
-            logger.error(f"❌ Failed to send {email_type} email: {str(e)} | Type: {type(e).__name__}")
+            logger.error(
+                f"❌ Failed to send {email_type} email: {str(e)} | Type: {type(e).__name__}"
+            )
             return False
-    
+
     def send_bug_report(
         self,
         user_id: str,
@@ -236,7 +245,7 @@ Action Required: Review this bug report and investigate the issue.
     ) -> bool:
         """
         Send bug report email to support team with optional file attachment.
-        
+
         Args:
             user_id: User who reported the bug
             description: Bug description from user
@@ -246,24 +255,36 @@ Action Required: Review this bug report and investigate the issue.
             attachment_data: Optional file content as bytes
             attachment_filename: Optional filename for attachment
             attachment_type: Optional MIME type (image/*, video/*, application/pdf, application/zip, etc.)
-        
+
         Returns:
             True if email sent successfully, False otherwise
         """
         if not self.client:
             logger.warning("📧 SendGrid not configured. Bug report not sent via email.")
             return False
-        
+
         # Build email components
-        subject = self._build_bug_report_subject(conversation_id, attachment_filename, attachment_type)
+        subject = self._build_bug_report_subject(
+            conversation_id, attachment_filename, attachment_type
+        )
         html_content = self._build_bug_report_html(
-            user_id, description, conversation_id, timestamp, user_agent,
-            attachment_filename, attachment_type
+            user_id,
+            description,
+            conversation_id,
+            timestamp,
+            user_agent,
+            attachment_filename,
+            attachment_type,
         )
         plain_text = self._build_bug_report_plaintext(
-            user_id, description, conversation_id, timestamp, user_agent, attachment_filename
+            user_id,
+            description,
+            conversation_id,
+            timestamp,
+            user_agent,
+            attachment_filename,
         )
-        
+
         # Create SendGrid message
         message = Mail(
             from_email=Email(self.from_email),
@@ -272,11 +293,13 @@ Action Required: Review this bug report and investigate the issue.
             plain_text_content=Content(CONTENT_TYPE_TEXT_PLAIN, plain_text),
             html_content=Content(CONTENT_TYPE_TEXT_HTML, html_content),
         )
-        
+
         # Add attachment if provided
         if attachment_data and attachment_filename:
-            self._add_attachment_to_message(message, attachment_data, attachment_filename, attachment_type)
-        
+            self._add_attachment_to_message(
+                message, attachment_data, attachment_filename, attachment_type
+            )
+
         # Send email with response check
         context = f" | Conv: {conversation_id or 'N/A'}"
         if attachment_filename:
@@ -290,14 +313,16 @@ Action Required: Review this bug report and investigate the issue.
         if rating >= 3:
             return "Neutral", "#eab308", "😐"
         return "Negative", "#dc2626", "😞"
-    
-    def _build_feedback_subject(self, rating: int, emoji: str, conversation_id: Optional[str]) -> str:
+
+    def _build_feedback_subject(
+        self, rating: int, emoji: str, conversation_id: Optional[str]
+    ) -> str:
         """Build email subject for feedback."""
         subject = f"{emoji} User Feedback: {rating}/5 stars"
         if conversation_id:
             subject += f" - Conv: {conversation_id[:8]}..."
         return subject
-    
+
     def _build_feedback_html(
         self,
         user_id: str,
@@ -309,7 +334,7 @@ Action Required: Review this bug report and investigate the issue.
         star_visual: str,
         sentiment: str,
         sentiment_color: str,
-        emoji: str
+        emoji: str,
     ) -> str:
         """Build HTML content for feedback email."""
         message_html = ""
@@ -317,7 +342,7 @@ Action Required: Review this bug report and investigate the issue.
             message_html = f'<h2>Feedback Message</h2><div class="feedback-message">{message.replace(chr(10), "<br>")}</div>'
         else:
             message_html = '<p style="text-align: center; color: #6b7280; font-style: italic;">No message provided</p>'
-        
+
         return f"""
         <html>
         <head>
@@ -364,7 +389,7 @@ Action Required: Review this bug report and investigate the issue.
         </body>
         </html>
         """
-    
+
     def _build_feedback_plaintext(
         self,
         user_id: str,
@@ -374,10 +399,14 @@ Action Required: Review this bug report and investigate the issue.
         timestamp: Optional[str],
         user_agent: Optional[str],
         star_visual: str,
-        sentiment: str
+        sentiment: str,
     ) -> str:
         """Build plain text content for feedback email."""
-        message_text = f"\n\nFeedback Message:\n{message}" if message else "\n(No message provided)"
+        message_text = (
+            f"\n\nFeedback Message:\n{message}"
+            if message
+            else "\n(No message provided)"
+        )
         return f"""
 User Feedback
 
@@ -396,7 +425,7 @@ User Details:
 ---
 Action: Review this feedback to improve user experience and system performance.
         """
-    
+
     def send_feedback(
         self,
         user_id: str,
@@ -408,7 +437,7 @@ Action: Review this feedback to improve user experience and system performance.
     ) -> bool:
         """
         Send user feedback email to support team with star rating.
-        
+
         Args:
             user_id: User who provided feedback
             rating: Star rating from 1 to 5
@@ -416,29 +445,43 @@ Action: Review this feedback to improve user experience and system performance.
             conversation_id: Optional conversation ID for context
             timestamp: Optional timestamp of the feedback
             user_agent: Optional browser user agent
-        
+
         Returns:
             True if email sent successfully, False otherwise
         """
         if not self.client:
             logger.warning("📧 SendGrid not configured. Feedback not sent via email.")
             return False
-        
+
         # Generate star rating visual and get sentiment
         star_visual = "⭐" * rating + "☆" * (5 - rating)
         sentiment, sentiment_color, emoji = self._get_feedback_sentiment(rating)
-        
+
         # Build email components
         subject = self._build_feedback_subject(rating, emoji, conversation_id)
         html_content = self._build_feedback_html(
-            user_id, rating, message, conversation_id, timestamp, user_agent,
-            star_visual, sentiment, sentiment_color, emoji
+            user_id,
+            rating,
+            message,
+            conversation_id,
+            timestamp,
+            user_agent,
+            star_visual,
+            sentiment,
+            sentiment_color,
+            emoji,
         )
         plain_text = self._build_feedback_plaintext(
-            user_id, rating, message, conversation_id, timestamp, user_agent,
-            star_visual, sentiment
+            user_id,
+            rating,
+            message,
+            conversation_id,
+            timestamp,
+            user_agent,
+            star_visual,
+            sentiment,
         )
-        
+
         # Create and send email
         email_message = Mail(
             from_email=Email(self.from_email),
@@ -447,7 +490,7 @@ Action: Review this feedback to improve user experience and system performance.
             plain_text_content=Content(CONTENT_TYPE_TEXT_PLAIN, plain_text),
             html_content=Content(CONTENT_TYPE_TEXT_HTML, html_content),
         )
-        
+
         # Send email with response check
         context = f" | Rating: {rating}/5 | Conv: {conversation_id or 'N/A'}"
         return self._send_email_with_response_check(email_message, "Feedback", context)
@@ -460,23 +503,25 @@ Action: Review this feedback to improve user experience and system performance.
     ) -> bool:
         """
         Send invitation code request email to support team.
-        
+
         Args:
             first_name: User's first name
             last_name: User's last name
             email: User's email address
-        
+
         Returns:
             True if email sent successfully, False otherwise
         """
         if not self.client:
-            logger.warning("📧 SendGrid not configured. Invitation request not sent via email.")
+            logger.warning(
+                "📧 SendGrid not configured. Invitation request not sent via email."
+            )
             return False
-        
+
         try:
             # Email subject
             subject = f"🎫 Invitation Code Request from {first_name} {last_name}"
-            
+
             # Plain text content
             plain_text = f"""
 Invitation Code Request
@@ -494,7 +539,7 @@ Please review this request and send an invitation code to the user if appropriat
 ---
 Automated email from Document Intelligent Hub
             """
-            
+
             # HTML content
             html_content = f"""
 <!DOCTYPE html>
@@ -519,7 +564,7 @@ Automated email from Document Intelligent Hub
         </div>
         <div class="content">
             <p>A user has requested an invitation code for Document Intelligent Hub.</p>
-            
+
             <div class="user-info">
                 <h3 style="margin-top: 0; color: #667eea;">User Details</h3>
                 <div class="info-row">
@@ -529,12 +574,12 @@ Automated email from Document Intelligent Hub
                     <span class="label">Email:</span> {email}
                 </div>
             </div>
-            
+
             <div class="action">
                 <h4 style="margin-top: 0; color: #f59e0b;">⚡ Action Required</h4>
                 <p style="margin: 0;">Please review this request and send an invitation code to the user if appropriate.</p>
             </div>
-            
+
             <div class="footer">
                 <p>Automated email from Document Intelligent Hub</p>
             </div>
@@ -543,7 +588,7 @@ Automated email from Document Intelligent Hub
 </body>
 </html>
             """
-            
+
             # Create SendGrid message
             email_message = Mail(
                 from_email=Email(self.from_email),
@@ -552,26 +597,30 @@ Automated email from Document Intelligent Hub
                 plain_text_content=Content(CONTENT_TYPE_TEXT_PLAIN, plain_text),
                 html_content=Content(CONTENT_TYPE_TEXT_HTML, html_content),
             )
-            
+
             # Send email
             response = self.client.send(email_message)
-            
+
             if response.status_code in [200, 201, 202]:
                 logger.bind(EMAIL=True).info(
                     f"✅ Invitation request email sent | To: {self.support_email} | User: {first_name} {last_name} ({email})"
                 )
                 return True
             else:
-                error_body = response.body.decode('utf-8') if response.body else ERROR_NO_BODY
+                error_body = (
+                    response.body.decode("utf-8") if response.body else ERROR_NO_BODY
+                )
                 logger.error(
                     f"❌ SendGrid error | Status: {response.status_code} | Body: {error_body}"
                 )
                 if response.status_code == 403:
                     logger.warning(ERROR_SENDGRID_403_MESSAGE)
                 return False
-                
+
         except Exception as e:
-            logger.error(f"❌ Failed to send invitation request email: {str(e)} | Type: {type(e).__name__}")
+            logger.error(
+                f"❌ Failed to send invitation request email: {str(e)} | Type: {type(e).__name__}"
+            )
             return False
 
 

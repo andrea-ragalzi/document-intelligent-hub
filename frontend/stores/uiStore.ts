@@ -83,8 +83,8 @@ export const useUIStore = create<UIStore>()(
       serverOfflineBannerDismissed: false,
 
       // Alert actions
-      setStatusAlert: (alert) => set({ statusAlert: alert }),
-      setUploadAlert: (alert) => set({ uploadAlert: alert }),
+      setStatusAlert: alert => set({ statusAlert: alert }),
+      setUploadAlert: alert => set({ uploadAlert: alert }),
 
       // Rename modal actions
       openRenameModal: (id, currentName) =>
@@ -119,8 +119,8 @@ export const useUIStore = create<UIStore>()(
       closeFeedbackModal: () => set({ feedbackModalOpen: false }),
 
       // Conversation tracking actions
-      setCurrentConversation: (id) => set({ currentConversationId: id }),
-      updateSavedMessageCount: (count) => set({ lastSavedMessageCount: count }),
+      setCurrentConversation: id => set({ currentConversationId: id }),
+      updateSavedMessageCount: count => set({ lastSavedMessageCount: count }),
       startSaving: () => set({ isSaving: true }),
       finishSaving: () => set({ isSaving: false }),
       resetConversation: () =>
@@ -130,18 +130,14 @@ export const useUIStore = create<UIStore>()(
         }),
 
       // Server status actions
-      setServerOnline: (online) =>
+      setServerOnline: online =>
         set({
           isServerOnline: online,
           // Show banner again when server goes offline
-          serverOfflineBannerDismissed: online
-            ? false
-            : get().serverOfflineBannerDismissed,
+          serverOfflineBannerDismissed: online ? false : get().serverOfflineBannerDismissed,
         }),
-      dismissServerOfflineBanner: () =>
-        set({ serverOfflineBannerDismissed: true }),
-      showServerOfflineBanner: () =>
-        set({ serverOfflineBannerDismissed: false }),
+      dismissServerOfflineBanner: () => set({ serverOfflineBannerDismissed: true }),
+      showServerOfflineBanner: () => set({ serverOfflineBannerDismissed: false }),
     }),
     { name: "UI Store" }
   )

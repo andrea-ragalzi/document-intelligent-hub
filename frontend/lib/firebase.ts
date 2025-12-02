@@ -15,20 +15,14 @@ import { envConfig } from "./env.config";
 const firebaseConfig = envConfig.firebase;
 
 // Validate configuration
-if (
-  !firebaseConfig.apiKey ||
-  !firebaseConfig.authDomain ||
-  !firebaseConfig.projectId
-) {
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
   throw new Error(
     "Firebase configuration is missing. Please ensure all required environment variables are set in .env.local"
   );
 }
 
 // Initialize Firebase (singleton pattern)
-const app: FirebaseApp = !getApps().length
-  ? initializeApp(firebaseConfig)
-  : getApps()[0];
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 
 const auth: Auth = getAuth(app);
 

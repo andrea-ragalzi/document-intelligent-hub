@@ -69,11 +69,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
       console.log("📨 Response received, status:", response.status);
 
       if (!response.ok) {
-        console.error(
-          "❌ Response not OK:",
-          response.status,
-          response.statusText
-        );
+        console.error("❌ Response not OK:", response.status, response.statusText);
         throw new Error(`Failed to fetch documents: ${response.statusText}`);
       }
 
@@ -83,16 +79,13 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
         `📄 [${timestamp}] Documents loaded:`,
         data.documents.length,
         "documents:",
-        data.documents.map((d) => d.filename)
+        data.documents.map(d => d.filename)
       );
       console.log("💾 Setting documents state...");
       // Ensure we always set an array, even if data.documents is null/undefined
       setDocuments(Array.isArray(data.documents) ? data.documents : []);
       console.log("✅ Documents state updated successfully");
-      console.log(
-        "🔍 Current documents in state:",
-        data.documents?.length || 0
-      );
+      console.log("🔍 Current documents in state:", data.documents?.length || 0);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       // Only log error if it's not a network/fetch error (server offline)
@@ -136,10 +129,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.detail ||
-            `Failed to delete document: ${response.statusText}`
-        );
+        throw new Error(errorData.detail || `Failed to delete document: ${response.statusText}`);
       }
 
       const result = await response.json();
@@ -167,22 +157,16 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
       throw new Error("No authentication token available");
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/documents/delete-all?user_id=${userId}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/documents/delete-all?user_id=${userId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.detail ||
-          `Failed to delete all documents: ${response.statusText}`
-      );
+      throw new Error(errorData.detail || `Failed to delete all documents: ${response.statusText}`);
     }
 
     const result = await response.json();

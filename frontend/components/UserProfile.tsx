@@ -37,9 +37,7 @@ export default function UserProfile() {
             {user.email?.[0].toUpperCase() || "?"}
           </div>
         )}
-        <span className="text-sm text-gray-700 dark:text-gray-300">
-          {displayName}
-        </span>
+        <span className="text-sm text-gray-700 dark:text-gray-300">{displayName}</span>
       </div>
       <button
         onClick={handleLogout}

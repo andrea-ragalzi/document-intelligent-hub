@@ -47,9 +47,7 @@ export default function SignupForm() {
       await signInWithGoogle();
       router.push("/");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to sign in with Google"
-      );
+      setError(err instanceof Error ? err.message : "Failed to sign in with Google");
     } finally {
       setLoading(false);
     }
@@ -79,7 +77,7 @@ export default function SignupForm() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={e => setEmail(e.target.value)}
             required
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             disabled={loading}
@@ -97,7 +95,7 @@ export default function SignupForm() {
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={e => setPassword(e.target.value)}
             required
             minLength={6}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -116,7 +114,7 @@ export default function SignupForm() {
             id="confirmPassword"
             type="password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={e => setConfirmPassword(e.target.value)}
             required
             minLength={6}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -139,9 +137,7 @@ export default function SignupForm() {
             <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
-              Or continue with
-            </span>
+            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Or continue with</span>
           </div>
         </div>
 

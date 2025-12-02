@@ -6,9 +6,7 @@ interface DocumentListSkeletonProps {
   count?: number;
 }
 
-export const DocumentListSkeleton: React.FC<DocumentListSkeletonProps> = ({
-  count = 3,
-}) => {
+export const DocumentListSkeleton: React.FC<DocumentListSkeletonProps> = ({ count = 3 }) => {
   return (
     <div className="space-y-2 max-h-72 overflow-y-hidden">
       {Array.from({ length: count }).map((_, i) => (

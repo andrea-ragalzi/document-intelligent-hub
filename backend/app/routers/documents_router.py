@@ -91,7 +91,7 @@ def _check_file_limits(user_id: str, rag_service: RAGService) -> Tuple[int, floa
             detail=(
                 f"Maximum file limit reached ({current_file_count}/{max_files}). "
                 f"Please delete some documents or upgrade your plan."
-            )
+            ),
         )
 
     max_upload_size_bytes = get_max_upload_size_bytes(user_id)
@@ -101,10 +101,7 @@ def _check_file_limits(user_id: str, rag_service: RAGService) -> Tuple[int, floa
 
 
 async def _read_and_validate_file_size(
-    file: UploadFile,
-    max_size_bytes: int,
-    max_size_mb: float,
-    user_id: str
+    file: UploadFile, max_size_bytes: int, max_size_mb: float, user_id: str
 ) -> bytes:
     """
     Read file in chunks and validate size limit.
@@ -139,7 +136,7 @@ async def _read_and_validate_file_size(
                     detail=(
                         f"File too large. Your plan allows maximum {max_size_mb}MB, "
                         f"got {size_mb}MB"
-                    )
+                    ),
                 )
 
             file_chunks.append(chunk)
@@ -156,7 +153,9 @@ async def _read_and_validate_file_size(
         ) from e
 
 
-@router.post("/upload/", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/upload/", response_model=UploadResponse, status_code=status.HTTP_201_CREATED
+)
 async def upload_document(
     _request: Request,
     file: UploadFile = File(..., description="The PDF document to be indexed."),
@@ -298,9 +297,7 @@ async def list_documents(
     try:
         documents = rag_service.get_user_documents(user_id)
         return DocumentListResponse(
-            documents=documents,
-            total_count=len(documents),
-            user_id=user_id
+            documents=documents, total_count=len(documents), user_id=user_id
         )
     except Exception as e:
         raise HTTPException(
@@ -354,7 +351,9 @@ async def delete_document(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Delete failed | User: {user_id} | File: {filename} | Error: {e}")
+        logger.error(
+            f"❌ Delete failed | User: {user_id} | File: {filename} | Error: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete document: {str(e)}",

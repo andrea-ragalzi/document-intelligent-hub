@@ -58,11 +58,11 @@ export const OutputLanguageSelector: React.FC<OutputLanguageSelectorProps> = ({
       <div
         aria-hidden="true"
         className="fixed inset-0 bg-black/90 dark:bg-indigo-950/95 z-[100]"
-        onClick={(e) => {
+        onClick={e => {
           e.stopPropagation();
           onClose();
         }}
-        onKeyDown={(e) => e.key === "Escape" && onClose()}
+        onKeyDown={e => e.key === "Escape" && onClose()}
       />
 
       {/* Mobile Bottom Sheet */}
@@ -98,9 +98,7 @@ export const OutputLanguageSelector: React.FC<OutputLanguageSelectorProps> = ({
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="text-gray-500 dark:text-gray-400">
-                  Loading languages...
-                </div>
+                <div className="text-gray-500 dark:text-gray-400">Loading languages...</div>
               </div>
             ) : (
               languages.map((language: Language) => {
@@ -117,9 +115,7 @@ export const OutputLanguageSelector: React.FC<OutputLanguageSelectorProps> = ({
                     }`}
                   >
                     {/* Flag */}
-                    <div className="flex-shrink-0 text-2xl">
-                      {language.flag}
-                    </div>
+                    <div className="flex-shrink-0 text-2xl">{language.flag}</div>
 
                     {/* Language Names */}
                     <div className="flex-1">

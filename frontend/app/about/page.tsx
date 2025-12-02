@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Info,
-  Code,
-  Shield,
-  MessageSquare,
-  AlertTriangle,
-  ArrowLeft,
-} from "lucide-react";
+import { Info, Code, Shield, MessageSquare, AlertTriangle, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -74,9 +67,8 @@ export default function AboutPage() {
                 <strong className="text-purple-600 dark:text-purple-400">
                   Minimum Viable Product (MVP)
                 </strong>{" "}
-                for the Document Intelligent Hub—a secure, AI-powered system
-                designed to analyze and synthesize information from your
-                uploaded files using advanced{" "}
+                for the Document Intelligent Hub—a secure, AI-powered system designed to analyze and
+                synthesize information from your uploaded files using advanced{" "}
                 <strong className="text-indigo-600 dark:text-indigo-400">
                   Retrieval-Augmented Generation (RAG)
                 </strong>{" "}
@@ -96,8 +88,8 @@ export default function AboutPage() {
               </div>
               <div className="space-y-6 text-base text-gray-700 dark:text-gray-200">
                 <p>
-                  <strong>Core Engine:</strong> The system uses a
-                  Retrieval-Augmented Generation (RAG) architecture, powered by{" "}
+                  <strong>Core Engine:</strong> The system uses a Retrieval-Augmented Generation
+                  (RAG) architecture, powered by{" "}
                   <code className="px-3 py-1 bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 rounded-lg text-sm font-mono border border-purple-200 dark:border-purple-700">
                     GPT-4o Mini
                   </code>
@@ -109,25 +101,19 @@ export default function AboutPage() {
                   </p>
                   <ul className="space-y-3 ml-4 text-base">
                     <li className="flex items-start gap-3">
-                      <span className="text-purple-600 dark:text-purple-400 font-bold">
-                        •
-                      </span>
+                      <span className="text-purple-600 dark:text-purple-400 font-bold">•</span>
                       <span>
                         <strong>Max Documents per User:</strong> 3 files
                       </span>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="text-purple-600 dark:text-purple-400 font-bold">
-                        •
-                      </span>
+                      <span className="text-purple-600 dark:text-purple-400 font-bold">•</span>
                       <span>
                         <strong>Max File Size:</strong> 15 MB per document
                       </span>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="text-purple-600 dark:text-purple-400 font-bold">
-                        •
-                      </span>
+                      <span className="text-purple-600 dark:text-purple-400 font-bold">•</span>
                       <span>
                         <strong>Max Queries per Day:</strong> 50 queries
                       </span>
@@ -149,13 +135,13 @@ export default function AboutPage() {
               </div>
               <div className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950 border-2 border-yellow-300 dark:border-yellow-800 rounded-xl">
                 <p className="text-base text-gray-700 dark:text-gray-200 leading-relaxed">
-                  ⚠️ As an MVP using advanced AI, the system may occasionally
-                  produce inaccurate or unfounded information(&ldquo;
+                  ⚠️ As an MVP using advanced AI, the system may occasionally produce inaccurate or
+                  unfounded information(&ldquo;
                   <strong className="text-yellow-700 dark:text-yellow-300">
                     Hallucinations
                   </strong>{" "}
-                  &rdquo;). Please <strong>verify all critical details</strong>{" "}
-                  against the source cited by the system in each response.
+                  &rdquo;). Please <strong>verify all critical details</strong> against the source
+                  cited by the system in each response.
                 </p>
               </div>
             </section>
@@ -172,8 +158,8 @@ export default function AboutPage() {
               </div>
               <div className="space-y-6">
                 <p className="text-base text-gray-700 dark:text-gray-200 leading-relaxed">
-                  We are committed to the security of your data. The following
-                  guarantees are critical to the system&apos;s architecture:
+                  We are committed to the security of your data. The following guarantees are
+                  critical to the system&apos;s architecture:
                 </p>
                 <div className="space-y-4">
                   <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-2 border-green-200 dark:border-green-800 rounded-xl shadow-sm hover:shadow-md transition-shadow">
@@ -185,9 +171,8 @@ export default function AboutPage() {
                       <strong className="text-green-600 dark:text-green-400">
                         NOT saved on the server
                       </strong>
-                      . Once processed into secure numerical representations
-                      (vectors), the original files are discarded from server
-                      memory.
+                      . Once processed into secure numerical representations (vectors), the original
+                      files are discarded from server memory.
                     </p>
                   </div>
                   <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-2 border-green-200 dark:border-green-800 rounded-xl shadow-sm hover:shadow-md transition-shadow">
@@ -199,9 +184,8 @@ export default function AboutPage() {
                       <strong className="text-green-600 dark:text-green-400">
                         NOT sent to OpenAI
                       </strong>
-                      . Only small, relevant sections (chunks) retrieved by the
-                      RAG system are sent to GPT-4o Mini for synthesis,
-                      protecting the overall integrity of your files.
+                      . Only small, relevant sections (chunks) retrieved by the RAG system are sent
+                      to GPT-4o Mini for synthesis, protecting the overall integrity of your files.
                     </p>
                   </div>
                 </div>
@@ -220,14 +204,12 @@ export default function AboutPage() {
               </div>
               <div className="p-6 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950 dark:to-indigo-950 border-2 border-purple-200 dark:border-purple-800 rounded-xl space-y-4 text-base">
                 <p className="text-gray-700 dark:text-gray-200">
-                  This project was built from the ground up to demonstrate
-                  proficiency in secure, scalable AI architecture.
+                  This project was built from the ground up to demonstrate proficiency in secure,
+                  scalable AI architecture.
                 </p>
                 <div className="space-y-3 text-base text-gray-700 dark:text-gray-200">
                   <p>
-                    <strong className="text-purple-600 dark:text-purple-400">
-                      Developed By:
-                    </strong>{" "}
+                    <strong className="text-purple-600 dark:text-purple-400">Developed By:</strong>{" "}
                     Andrea Ragalzi
                   </p>
                   <p>
@@ -244,9 +226,7 @@ export default function AboutPage() {
                     </a>
                   </p>
                   <p>
-                    <strong className="text-purple-600 dark:text-purple-400">
-                      Portfolio:
-                    </strong>{" "}
+                    <strong className="text-purple-600 dark:text-purple-400">Portfolio:</strong>{" "}
                     <a
                       href="https://andrearagalzi.netlify.app/"
                       target="_blank"
@@ -272,33 +252,24 @@ export default function AboutPage() {
               </div>
               <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 border-2 border-blue-200 dark:border-blue-800 rounded-xl">
                 <p className="text-base text-gray-700 dark:text-gray-200 mb-6 leading-relaxed">
-                  Please help us refine the system by reporting any issues you
-                  encounter or sharing your thoughts on the experience.
+                  Please help us refine the system by reporting any issues you encounter or sharing
+                  your thoughts on the experience.
                 </p>
                 <div className="space-y-4 text-base text-gray-700 dark:text-gray-200">
                   <div className="flex items-start gap-3">
-                    <span className="text-blue-600 dark:text-blue-400 text-xl">
-                      📋
-                    </span>
+                    <span className="text-blue-600 dark:text-blue-400 text-xl">📋</span>
                     <div>
-                      <strong className="text-blue-600 dark:text-blue-400">
-                        Report a Bug:
-                      </strong>{" "}
-                      Use the &ldquo;Report Bug&rdquo; button in the dashboard
-                      menu to submit detailed bug reports with optional
-                      attachments.
+                      <strong className="text-blue-600 dark:text-blue-400">Report a Bug:</strong>{" "}
+                      Use the &ldquo;Report Bug&rdquo; button in the dashboard menu to submit
+                      detailed bug reports with optional attachments.
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="text-blue-600 dark:text-blue-400 text-xl">
-                      ⭐
-                    </span>
+                    <span className="text-blue-600 dark:text-blue-400 text-xl">⭐</span>
                     <div>
-                      <strong className="text-blue-600 dark:text-blue-400">
-                        Give Feedback:
-                      </strong>{" "}
-                      Use the &ldquo;Give Feedback&rdquo; button to rate your
-                      experience and share comments.
+                      <strong className="text-blue-600 dark:text-blue-400">Give Feedback:</strong>{" "}
+                      Use the &ldquo;Give Feedback&rdquo; button to rate your experience and share
+                      comments.
                     </div>
                   </div>
                 </div>
@@ -317,8 +288,8 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 text-base text-gray-700 dark:text-gray-200">
                 <p>
-                  The RAG is an expert, professional assistant that follows
-                  strict operational rules:
+                  The RAG is an expert, professional assistant that follows strict operational
+                  rules:
                 </p>
                 <ul className="space-y-3 ml-2">
                   <li className="flex items-start gap-3">
@@ -329,8 +300,7 @@ export default function AboutPage() {
                       <strong className="text-purple-600 dark:text-purple-400">
                         Source Citation:
                       </strong>{" "}
-                      Every response includes a reference to the source
-                      document(s) used.
+                      Every response includes a reference to the source document(s) used.
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
@@ -341,8 +311,8 @@ export default function AboutPage() {
                       <strong className="text-purple-600 dark:text-purple-400">
                         Contextual Memory:
                       </strong>{" "}
-                      The system maintains conversation history to answer
-                      follow-up questions accurately.
+                      The system maintains conversation history to answer follow-up questions
+                      accurately.
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
@@ -353,8 +323,8 @@ export default function AboutPage() {
                       <strong className="text-purple-600 dark:text-purple-400">
                         Handling Gaps:
                       </strong>{" "}
-                      If information is not found in your documents, the system
-                      will clearly state this rather than fabricating answers.
+                      If information is not found in your documents, the system will clearly state
+                      this rather than fabricating answers.
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
@@ -362,11 +332,9 @@ export default function AboutPage() {
                       •
                     </span>
                     <div>
-                      <strong className="text-purple-600 dark:text-purple-400">
-                        Language:
-                      </strong>{" "}
-                      The system responds in the same language as your query
-                      (supports 20+ languages).
+                      <strong className="text-purple-600 dark:text-purple-400">Language:</strong>{" "}
+                      The system responds in the same language as your query (supports 20+
+                      languages).
                     </div>
                   </li>
                 </ul>

@@ -20,6 +20,7 @@ class TestClientWithContext(TestClient):
     Extended TestClient with test_user_context attribute for auth mocking.
     This allows type-safe access to the context dictionary in tests.
     """
+
     test_user_context: dict[str, str | None]
 
 
@@ -42,8 +43,9 @@ def mock_firebase_auth():
     Mock Firebase Admin SDK auth functions to avoid real auth calls in tests.
     This prevents tests from failing due to missing credentials or network issues.
     """
-    with patch("firebase_admin.auth.verify_id_token") as mock_verify_id_token, \
-         patch("firebase_admin.auth.get_user") as mock_get_user:
+    with patch("firebase_admin.auth.verify_id_token") as mock_verify_id_token, patch(
+        "firebase_admin.auth.get_user"
+    ) as mock_get_user:
 
         # Mock verify_id_token
         mock_verify_id_token.return_value = {"uid": "test-user-12345"}
@@ -54,11 +56,8 @@ def mock_firebase_auth():
         mock_user.email = "test@example.com"
         mock_user.custom_claims = {"tier": "FREE"}
         mock_get_user.return_value = mock_user
-        
-        yield {
-            "verify_id_token": mock_verify_id_token,
-            "get_user": mock_get_user
-        }
+
+        yield {"verify_id_token": mock_verify_id_token, "get_user": mock_get_user}
 
 
 @pytest.fixture(scope="module")
@@ -66,15 +65,15 @@ def client():
     """
     Create a TestClient instance for testing FastAPI endpoints.
     Mock Firebase auth to bypass token verification in tests.
-    
+
     The mock returns a test user ID that can be overridden per-test.
     """
     from app.core.auth import verify_firebase_token
     from fastapi import HTTPException, status
-    
+
     # Shared state for current test user ID (can be None for auth failure tests)
     test_user_context: dict[str, str | None] = {"user_id": "test-user-12345"}
-    
+
     def mock_verify_token():
         """
         Mock Firebase token verification for tests.
@@ -89,18 +88,18 @@ def client():
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return user_id
-    
+
     # Mock Firebase initialization to avoid requiring credentials in tests
     with patch("app.core.firebase.initialize_firebase"):
-        
+
         # Override the dependency in the app to bypass token verification
         app.dependency_overrides[verify_firebase_token] = mock_verify_token
-        
+
         with TestClientWithContext(app) as test_client:
             # Attach context to client for tests to modify
             test_client.test_user_context = test_user_context
             yield test_client
-        
+
         # Clean up dependency overrides after tests
         app.dependency_overrides.clear()
 
@@ -109,11 +108,11 @@ def client():
 def sample_pdf():
     """
     Create a temporary PDF file for testing uploads.
-    
+
     NOTE: This minimal PDF may not parse correctly with UnstructuredPDFLoader
     in production environment. Upload tests (test_upload_document, etc.) may fail
     with 500 errors due to PDF parsing issues, not code logic errors.
-    
+
     For real testing, use actual PDF files. The core CRUD operations
     (list, check, delete) work correctly as shown by passing tests.
     """
@@ -213,7 +212,7 @@ def cleanup_test_data():
 def mock_vector_store_repository():
     """
     Create a mock VectorStoreRepository for unit testing services.
-    
+
     This allows testing service layer logic without touching the database.
     Example usage:
         def test_my_service(mock_vector_store_repository):
@@ -221,9 +220,9 @@ def mock_vector_store_repository():
             # Test service logic here
     """
     from app.repositories.vector_store_repository import VectorStoreRepository
-    
+
     mock_repo = Mock(spec=VectorStoreRepository)
-    
+
     # Configure default behaviors
     mock_repo.add_documents.return_value = 10
     mock_repo.check_document_exists.return_value = False
@@ -232,12 +231,12 @@ def mock_vector_store_repository():
     mock_repo.similarity_search.return_value = []
     mock_repo.delete_document.return_value = 5
     mock_repo.delete_all_user_documents.return_value = 20
-    
+
     # Mock retriever
     mock_retriever = Mock()
     mock_retriever.invoke.return_value = []
     mock_repo.get_retriever.return_value = mock_retriever
-    
+
     return mock_repo
 
 
@@ -248,24 +247,27 @@ def mock_usage_service():
     This fixture will automatically be used in all tests.
     Patches both query_router and auth_router usage service imports.
     """
-    with patch("app.routers.query_router.get_usage_service") as mock_get_service_query, \
-         patch("app.routers.auth_router.get_usage_service") as mock_get_service_auth:
+    with patch(
+        "app.routers.query_router.get_usage_service"
+    ) as mock_get_service_query, patch(
+        "app.routers.auth_router.get_usage_service"
+    ) as mock_get_service_auth:
         # Create a mock for the service *instance*
         mock_service_instance = Mock()
 
         # check_query_limit is SYNCHRONOUS - returns tuple directly (not awaitable)
         mock_service_instance.check_query_limit = Mock(return_value=(True, 0))
-        
+
         # increment_user_queries is also SYNCHRONOUS
         mock_service_instance.increment_user_queries = Mock(return_value=1)
-        
+
         # get_user_queries_today is also SYNCHRONOUS
         mock_service_instance.get_user_queries_today = Mock(return_value=0)
 
         # The dependency-injected function `get_usage_service` should return this instance.
         mock_get_service_query.return_value = mock_service_instance
         mock_get_service_auth.return_value = mock_service_instance
-        
+
         yield mock_service_instance
 
 
@@ -275,19 +277,22 @@ def mock_email_service():
     Mock the email service to prevent sending real emails during tests.
     This fixture will automatically be used in all tests.
     """
-    with patch("app.routers.auth_router.get_email_service") as mock_get_service_auth, \
-         patch("app.services.email_service.get_email_service") as mock_get_service_global:
-        
+    with patch(
+        "app.routers.auth_router.get_email_service"
+    ) as mock_get_service_auth, patch(
+        "app.services.email_service.get_email_service"
+    ) as mock_get_service_global:
+
         # Create a mock for the service *instance*
         mock_service_instance = Mock()
-        
+
         # Configure default behaviors - return True (success) but do nothing
         mock_service_instance.send_bug_report.return_value = True
         mock_service_instance.send_feedback.return_value = True
         mock_service_instance.send_invitation_request.return_value = True
-        
+
         # The dependency-injected function `get_email_service` should return this instance.
         mock_get_service_auth.return_value = mock_service_instance
         mock_get_service_global.return_value = mock_service_instance
-        
+
         yield mock_service_instance

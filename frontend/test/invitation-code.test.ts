@@ -272,7 +272,7 @@ describe("useRegistration - Edge Cases", () => {
     let resolveFetch: (value: any) => void;
     (globalThis.fetch as any).mockImplementation(
       () =>
-        new Promise((resolve) => {
+        new Promise(resolve => {
           resolveFetch = resolve;
         })
     );
@@ -321,17 +321,14 @@ describe("Invitation Code Request", () => {
       }),
     });
 
-    const response = await fetch(
-      "http://localhost:8000/auth/request-invitation-code",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "newuser@example.com",
-          reason: "I want to try PRO features",
-        }),
-      }
-    );
+    const response = await fetch("http://localhost:8000/auth/request-invitation-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "newuser@example.com",
+        reason: "I want to try PRO features",
+      }),
+    });
 
     const data = await response.json();
     expect(response.ok).toBe(true);
@@ -347,17 +344,14 @@ describe("Invitation Code Request", () => {
       }),
     });
 
-    const response = await fetch(
-      "http://localhost:8000/auth/request-invitation-code",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "not-an-email",
-          reason: "Test",
-        }),
-      }
-    );
+    const response = await fetch("http://localhost:8000/auth/request-invitation-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "not-an-email",
+        reason: "Test",
+      }),
+    });
 
     expect(response.ok).toBe(false);
     expect(response.status).toBe(422);

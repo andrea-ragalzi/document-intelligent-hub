@@ -13,7 +13,7 @@ from app.core.logging import logger
 from firebase_admin import credentials
 
 
-def initialize_firebase():
+def initialize_firebase() -> None:
     """
     Initialize Firebase Admin SDK.
 
@@ -44,6 +44,7 @@ def initialize_firebase():
     if firebase_creds_json:
         try:
             import json  # pylint: disable=import-outside-toplevel
+
             cred_dict = json.loads(firebase_creds_json)
             cred = credentials.Certificate(cred_dict)
             app = firebase_admin.initialize_app(cred)
@@ -61,10 +62,14 @@ def initialize_firebase():
             logger.info(f"✅ Firebase initialized from file: {service_account_path}")
             return app
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Failed to load credentials from {service_account_path}: {e}")
+            logger.error(
+                f"❌ Failed to load credentials from {service_account_path}: {e}"
+            )
 
     # Try default service account file location
-    default_path = Path(__file__).parent.parent / "config" / "firebase-service-account.json"
+    default_path = (
+        Path(__file__).parent.parent / "config" / "firebase-service-account.json"
+    )
     if default_path.exists():
         try:
             cred = credentials.Certificate(str(default_path))
@@ -91,4 +96,6 @@ try:
     initialize_firebase()
 except ValueError as e:
     logger.warning(f"⚠️ Firebase not initialized: {e}")
-    logger.warning("⚠️ Authentication endpoints will not work without Firebase credentials")
+    logger.warning(
+        "⚠️ Authentication endpoints will not work without Firebase credentials"
+    )

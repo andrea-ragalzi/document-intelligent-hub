@@ -29,7 +29,7 @@ export const useRAGChat = (): UseChatResult => {
       const userQuery = query.trim();
       setQuery("");
 
-      setChatHistory((prev) => [
+      setChatHistory(prev => [
         ...prev,
         { type: "user", text: userQuery, sources: [] },
         {
@@ -52,8 +52,8 @@ export const useRAGChat = (): UseChatResult => {
         // Prepare conversation history: last 7 exchanges (14 messages max)
         const conversationHistory = chatHistory
           .slice(-14) // Last 14 messages = 7 user + 7 assistant exchanges
-          .filter((msg) => !msg.isThinking) // Exclude thinking placeholders
-          .map((msg) => ({
+          .filter(msg => !msg.isThinking) // Exclude thinking placeholders
+          .map(msg => ({
             role: msg.type === "user" ? "user" : "assistant",
             content: msg.text,
           }));
@@ -73,7 +73,7 @@ export const useRAGChat = (): UseChatResult => {
 
         const data = await response.json();
 
-        setChatHistory((prev) => {
+        setChatHistory(prev => {
           const newMessages = [...prev];
           const lastIndex = newMessages.length - 1;
 
@@ -99,7 +99,7 @@ export const useRAGChat = (): UseChatResult => {
       } catch (error) {
         console.error("Query Error:", error);
 
-        setChatHistory((prev) => {
+        setChatHistory(prev => {
           const newMessages = [...prev];
           const lastIndex = newMessages.length - 1;
           if (newMessages[lastIndex].isThinking) {

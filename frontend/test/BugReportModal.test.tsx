@@ -4,13 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  render,
-  screen,
-  waitFor,
-  fireEvent,
-  act,
-} from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { BugReportModal } from "@/components/BugReportModal";
 
@@ -37,9 +31,7 @@ describe("BugReportModal", () => {
 
   describe("Rendering", () => {
     it("should not render when isOpen is false", () => {
-      const { container } = render(
-        <BugReportModal {...defaultProps} isOpen={false} />
-      );
+      const { container } = render(<BugReportModal {...defaultProps} isOpen={false} />);
       expect(container.firstChild).toBeNull();
     });
 
@@ -56,16 +48,12 @@ describe("BugReportModal", () => {
 
     it("should show file upload section", () => {
       render(<BugReportModal {...defaultProps} />);
-      expect(
-        screen.getByText(/Attach File \(optional, max 10MB\)/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Attach File \(optional, max 10MB\)/)).toBeInTheDocument();
     });
 
     it("should show supported file types", () => {
       render(<BugReportModal {...defaultProps} />);
-      expect(
-        screen.getByText(/Images, PDF, Videos.*Archives/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Images, PDF, Videos.*Archives/)).toBeInTheDocument();
     });
   });
 
@@ -98,9 +86,7 @@ describe("BugReportModal", () => {
 
       // Less than 10 chars - should be red
       fireEvent.change(textarea, { target: { value: "Test" } });
-      const shortCount = screen.getByText((content) =>
-        content.includes("4 / 10 chars")
-      );
+      const shortCount = screen.getByText(content => content.includes("4 / 10 chars"));
       expect(shortCount).toHaveClass("text-red-600");
 
       // 10+ chars - should be green
@@ -108,9 +94,7 @@ describe("BugReportModal", () => {
         target: { value: "Valid description here" },
       });
       // "Valid description here" is 22 chars
-      const validCount = screen.getByText((content) =>
-        content.includes("22 / 10 chars")
-      );
+      const validCount = screen.getByText(content => content.includes("22 / 10 chars"));
       expect(validCount).toHaveClass("text-green-600");
     });
   });
@@ -118,9 +102,7 @@ describe("BugReportModal", () => {
   describe("File Upload", () => {
     it("should accept valid file types", () => {
       render(<BugReportModal {...defaultProps} />);
-      const fileInput = document.getElementById(
-        "bug-file-input"
-      ) as HTMLInputElement;
+      const fileInput = document.getElementById("bug-file-input") as HTMLInputElement;
 
       const validFile = new File(["test content"], "test.png", {
         type: "image/png",
@@ -140,9 +122,7 @@ describe("BugReportModal", () => {
 
     it("should show file size in MB", async () => {
       render(<BugReportModal {...defaultProps} />);
-      const fileInput = document.getElementById(
-        "bug-file-input"
-      ) as HTMLInputElement;
+      const fileInput = document.getElementById("bug-file-input") as HTMLInputElement;
 
       // Create a 2MB file
       const largeFile = new File(["x".repeat(2 * 1024 * 1024)], "large.jpg", {
@@ -163,16 +143,12 @@ describe("BugReportModal", () => {
 
     it("should show error message when file is too large", async () => {
       render(<BugReportModal {...defaultProps} />);
-      const fileInput = document.getElementById(
-        "bug-file-input"
-      ) as HTMLInputElement;
+      const fileInput = document.getElementById("bug-file-input") as HTMLInputElement;
 
       // Create an 11MB file
-      const tooLargeFile = new File(
-        ["x".repeat(11 * 1024 * 1024)],
-        "huge.mp4",
-        { type: "video/mp4" }
-      );
+      const tooLargeFile = new File(["x".repeat(11 * 1024 * 1024)], "huge.mp4", {
+        type: "video/mp4",
+      });
 
       Object.defineProperty(fileInput, "files", {
         value: [tooLargeFile],
@@ -189,9 +165,7 @@ describe("BugReportModal", () => {
     it("should NOT disable submit when file is too large (file is rejected)", async () => {
       render(<BugReportModal {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(/What went wrong/);
-      const fileInput = document.getElementById(
-        "bug-file-input"
-      ) as HTMLInputElement;
+      const fileInput = document.getElementById("bug-file-input") as HTMLInputElement;
 
       // Valid description
       fireEvent.change(textarea, {
@@ -199,11 +173,9 @@ describe("BugReportModal", () => {
       });
 
       // File too large
-      const tooLargeFile = new File(
-        ["x".repeat(11 * 1024 * 1024)],
-        "huge.zip",
-        { type: "application/zip" }
-      );
+      const tooLargeFile = new File(["x".repeat(11 * 1024 * 1024)], "huge.zip", {
+        type: "application/zip",
+      });
 
       Object.defineProperty(fileInput, "files", {
         value: [tooLargeFile],
@@ -223,15 +195,11 @@ describe("BugReportModal", () => {
 
     it('should show "Too large!" warning in error message for oversized files', async () => {
       render(<BugReportModal {...defaultProps} />);
-      const fileInput = document.getElementById(
-        "bug-file-input"
-      ) as HTMLInputElement;
+      const fileInput = document.getElementById("bug-file-input") as HTMLInputElement;
 
-      const tooLargeFile = new File(
-        ["x".repeat(12 * 1024 * 1024)],
-        "too-large.pdf",
-        { type: "application/pdf" }
-      );
+      const tooLargeFile = new File(["x".repeat(12 * 1024 * 1024)], "too-large.pdf", {
+        type: "application/pdf",
+      });
 
       Object.defineProperty(fileInput, "files", {
         value: [tooLargeFile],
@@ -247,9 +215,7 @@ describe("BugReportModal", () => {
 
     it("should allow removing attached file", async () => {
       render(<BugReportModal {...defaultProps} />);
-      const fileInput = document.getElementById(
-        "bug-file-input"
-      ) as HTMLInputElement;
+      const fileInput = document.getElementById("bug-file-input") as HTMLInputElement;
 
       const validFile = new File(["test"], "test.png", { type: "image/png" });
 
@@ -266,9 +232,7 @@ describe("BugReportModal", () => {
 
       // Click remove button
       const removeButtons = screen.getAllByRole("button");
-      const removeButton = removeButtons.find((btn) =>
-        btn.querySelector("svg")
-      ); // X icon
+      const removeButton = removeButtons.find(btn => btn.querySelector("svg")); // X icon
 
       if (removeButton) {
         fireEvent.click(removeButton);
@@ -281,9 +245,7 @@ describe("BugReportModal", () => {
 
     it("should reject invalid file types", async () => {
       render(<BugReportModal {...defaultProps} />);
-      const fileInput = document.getElementById(
-        "bug-file-input"
-      ) as HTMLInputElement;
+      const fileInput = document.getElementById("bug-file-input") as HTMLInputElement;
 
       const invalidFile = new File(["test"], "test.exe", {
         type: "application/x-msdownload",
@@ -351,9 +313,7 @@ describe("BugReportModal", () => {
 
       render(<BugReportModal {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(/What went wrong/);
-      const fileInput = document.getElementById(
-        "bug-file-input"
-      ) as HTMLInputElement;
+      const fileInput = document.getElementById("bug-file-input") as HTMLInputElement;
 
       fireEvent.change(textarea, {
         target: { value: "Bug with screenshot attached" },
@@ -396,9 +356,7 @@ describe("BugReportModal", () => {
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/File too large.*Maximum size is 10MB/)
-        ).toBeInTheDocument();
+        expect(screen.getByText(/File too large.*Maximum size is 10MB/)).toBeInTheDocument();
       });
     });
 
@@ -454,9 +412,7 @@ describe("BugReportModal", () => {
       expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
 
       // Execute the callback manually
-      const callback = setTimeoutSpy.mock.calls.find(
-        (call) => call[1] === 2000
-      )?.[0];
+      const callback = setTimeoutSpy.mock.calls.find(call => call[1] === 2000)?.[0];
       if (callback) {
         act(() => {
           callback();
@@ -470,9 +426,7 @@ describe("BugReportModal", () => {
   describe("User Experience", () => {
     it("should show technical details section", () => {
       render(<BugReportModal {...defaultProps} />);
-      expect(
-        screen.getByText(/Technical Details \(click to expand\)/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Technical Details \(click to expand\)/)).toBeInTheDocument();
     });
 
     it("should show info banner explaining what data is sent", () => {
@@ -483,7 +437,7 @@ describe("BugReportModal", () => {
     it("should disable all inputs while submitting", async () => {
       const mockResponse = { ok: true, json: async () => ({}) };
       let resolveFetch: (value: any) => void;
-      const pendingPromise = new Promise((resolve) => {
+      const pendingPromise = new Promise(resolve => {
         resolveFetch = resolve;
       });
       (globalThis.fetch as any).mockImplementation(() => pendingPromise);
@@ -511,7 +465,7 @@ describe("BugReportModal", () => {
     it("should prevent closing modal while submitting", async () => {
       const mockResponse = { ok: true, json: async () => ({}) };
       let resolveFetch: (value: any) => void;
-      const pendingPromise = new Promise((resolve) => {
+      const pendingPromise = new Promise(resolve => {
         resolveFetch = resolve;
       });
       (globalThis.fetch as any).mockImplementation(() => pendingPromise);

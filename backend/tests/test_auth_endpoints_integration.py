@@ -4,6 +4,7 @@ Integration Tests for Auth Endpoints
 Tests complete endpoint flows with FastAPI TestClient.
 Covers registration, invitation requests, tier limits, and usage tracking.
 """
+
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -20,8 +21,9 @@ class TestRegistrationEndpoint:
 
     def test_register_with_valid_free_code_full_flow(self):
         """Test complete registration flow with valid FREE invitation code"""
-        with patch("app.routers.auth_router.get_db") as mock_get_db, \
-             patch("app.routers.auth_router.auth") as mock_auth:
+        with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
+            "app.routers.auth_router.auth"
+        ) as mock_auth:
 
             # Mock Firebase Auth
             mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
@@ -36,7 +38,7 @@ class TestRegistrationEndpoint:
             code_doc.to_dict.return_value = {
                 "tier": "FREE",
                 "is_used": False,
-                "expires_at": datetime.now(timezone.utc) + timedelta(days=7)
+                "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
             }
             code_ref = MagicMock()
             code_ref.get.return_value = code_doc
@@ -48,8 +50,8 @@ class TestRegistrationEndpoint:
                 "unlimited_emails": [],
                 "limits": {
                     "FREE": {"max_queries_per_day": 20},
-                    "PRO": {"max_queries_per_day": 500}
-                }
+                    "PRO": {"max_queries_per_day": 500},
+                },
             }
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
@@ -61,7 +63,9 @@ class TestRegistrationEndpoint:
                     return config_ref
                 return MagicMock()
 
-            def mock_collection(_collection_name: str):  # pylint: disable=unused-argument
+            def mock_collection(
+                _collection_name: str,
+            ):  # pylint: disable=unused-argument
                 mock_coll = MagicMock()
                 mock_coll.document = mock_document
                 return mock_coll
@@ -72,14 +76,10 @@ class TestRegistrationEndpoint:
             # Clear cache
             clear_cache()
 
-
             # Make request
             response = client.post(
                 "/auth/register",
-                json={
-                    "id_token": "valid_token",
-                    "invitation_code": "TESTCODE123"
-                }
+                json={"id_token": "valid_token", "invitation_code": "TESTCODE123"},
             )
 
             assert response.status_code == 200
@@ -91,8 +91,7 @@ class TestRegistrationEndpoint:
 
             # Verify Firebase set_custom_user_claims was called
             mock_auth.set_custom_user_claims.assert_called_once_with(
-                "test_user_123",
-                {"tier": "FREE"}
+                "test_user_123", {"tier": "FREE"}
             )
 
             # Verify code was marked as used
@@ -100,8 +99,9 @@ class TestRegistrationEndpoint:
 
     def test_register_with_invalid_code(self):
         """Test registration with invalid invitation code"""
-        with patch("app.routers.auth_router.get_db") as mock_get_db, \
-             patch("app.routers.auth_router.auth") as mock_auth:
+        with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
+            "app.routers.auth_router.auth"
+        ) as mock_auth:
 
             mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
 
@@ -116,10 +116,7 @@ class TestRegistrationEndpoint:
             # Mock app_config
             config_doc = MagicMock()
             config_doc.exists = True
-            config_doc.to_dict.return_value = {
-                "unlimited_emails": [],
-                "limits": {}
-            }
+            config_doc.to_dict.return_value = {"unlimited_emails": [], "limits": {}}
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
 
@@ -130,7 +127,9 @@ class TestRegistrationEndpoint:
                     return config_ref
                 return MagicMock()
 
-            def mock_collection(_collection_name: str):  # pylint: disable=unused-argument
+            def mock_collection(
+                _collection_name: str,
+            ):  # pylint: disable=unused-argument
                 mock_coll = MagicMock()
                 mock_coll.document = mock_document
                 return mock_coll
@@ -141,13 +140,9 @@ class TestRegistrationEndpoint:
             # Clear cache
             clear_cache()
 
-
             response = client.post(
                 "/auth/register",
-                json={
-                    "id_token": "valid_token",
-                    "invitation_code": "INVALID123"
-                }
+                json={"id_token": "valid_token", "invitation_code": "INVALID123"},
             )
 
             assert response.status_code == 400
@@ -155,8 +150,9 @@ class TestRegistrationEndpoint:
 
     def test_register_with_expired_code(self):
         """Test registration with expired invitation code"""
-        with patch("app.routers.auth_router.get_db") as mock_get_db, \
-             patch("app.routers.auth_router.auth") as mock_auth:
+        with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
+            "app.routers.auth_router.auth"
+        ) as mock_auth:
 
             mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
 
@@ -168,7 +164,7 @@ class TestRegistrationEndpoint:
             code_doc.to_dict.return_value = {
                 "tier": "FREE",
                 "is_used": False,
-                "expires_at": datetime.now(timezone.utc) - timedelta(days=1)  # Expired
+                "expires_at": datetime.now(timezone.utc) - timedelta(days=1),  # Expired
             }
             code_ref = MagicMock()
             code_ref.get.return_value = code_doc
@@ -176,10 +172,7 @@ class TestRegistrationEndpoint:
             # Mock app_config
             config_doc = MagicMock()
             config_doc.exists = True
-            config_doc.to_dict.return_value = {
-                "unlimited_emails": [],
-                "limits": {}
-            }
+            config_doc.to_dict.return_value = {"unlimited_emails": [], "limits": {}}
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
 
@@ -190,7 +183,9 @@ class TestRegistrationEndpoint:
                     return config_ref
                 return MagicMock()
 
-            def mock_collection(_collection_name: str):  # pylint: disable=unused-argument
+            def mock_collection(
+                _collection_name: str,
+            ):  # pylint: disable=unused-argument
                 mock_coll = MagicMock()
                 mock_coll.document = mock_document
                 return mock_coll
@@ -201,13 +196,9 @@ class TestRegistrationEndpoint:
             # Clear cache
             clear_cache()
 
-
             response = client.post(
                 "/auth/register",
-                json={
-                    "id_token": "valid_token",
-                    "invitation_code": "EXPIRED123"
-                }
+                json={"id_token": "valid_token", "invitation_code": "EXPIRED123"},
             )
 
             assert response.status_code == 400
@@ -215,8 +206,9 @@ class TestRegistrationEndpoint:
 
     def test_register_with_used_code(self):
         """Test registration with already used invitation code"""
-        with patch("app.routers.auth_router.get_db") as mock_get_db, \
-             patch("app.routers.auth_router.auth") as mock_auth:
+        with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
+            "app.routers.auth_router.auth"
+        ) as mock_auth:
 
             mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
 
@@ -228,7 +220,7 @@ class TestRegistrationEndpoint:
             code_doc.to_dict.return_value = {
                 "tier": "FREE",
                 "is_used": True,  # Already used
-                "expires_at": datetime.now(timezone.utc) + timedelta(days=7)
+                "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
             }
             code_ref = MagicMock()
             code_ref.get.return_value = code_doc
@@ -236,10 +228,7 @@ class TestRegistrationEndpoint:
             # Mock app_config
             config_doc = MagicMock()
             config_doc.exists = True
-            config_doc.to_dict.return_value = {
-                "unlimited_emails": [],
-                "limits": {}
-            }
+            config_doc.to_dict.return_value = {"unlimited_emails": [], "limits": {}}
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
 
@@ -250,7 +239,9 @@ class TestRegistrationEndpoint:
                     return config_ref
                 return MagicMock()
 
-            def mock_collection(_collection_name: str):  # pylint: disable=unused-argument
+            def mock_collection(
+                _collection_name: str,
+            ):  # pylint: disable=unused-argument
                 mock_coll = MagicMock()
                 mock_coll.document = mock_document
                 return mock_coll
@@ -261,13 +252,9 @@ class TestRegistrationEndpoint:
             # Clear cache
             clear_cache()
 
-
             response = client.post(
                 "/auth/register",
-                json={
-                    "id_token": "valid_token",
-                    "invitation_code": "USED123"
-                }
+                json={"id_token": "valid_token", "invitation_code": "USED123"},
             )
 
             assert response.status_code == 400
@@ -277,10 +264,7 @@ class TestRegistrationEndpoint:
         """Test registration without authorization token"""
         response = client.post(
             "/auth/register",
-            json={
-                "invitation_code": "TESTCODE123",
-                "email": "test@example.com"
-            }
+            json={"invitation_code": "TESTCODE123", "email": "test@example.com"},
         )
 
         assert response.status_code == 422  # FastAPI validation error
@@ -292,14 +276,13 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={
-                    "id_token": "invalid_token",
-                    "invitation_code": "TESTCODE123"
-                }
+                json={"id_token": "invalid_token", "invitation_code": "TESTCODE123"},
             )
 
             assert response.status_code == 401
             assert "Invalid or expired ID token" in response.json()["detail"]
+
+
 class TestInvitationRequestEndpoint:
     """Test suite for /auth/request-invitation-code endpoint"""
 
@@ -314,7 +297,11 @@ class TestInvitationRequestEndpoint:
 
         response = client.post(
             "/auth/request-invitation-code",
-            json={"first_name": "Test", "last_name": "User", "email": "test@example.com"}
+            json={
+                "first_name": "Test",
+                "last_name": "User",
+                "email": "test@example.com",
+            },
         )
 
         assert response.status_code == 200
@@ -329,7 +316,7 @@ class TestInvitationRequestEndpoint:
         """Test invitation request with invalid email format"""
         response = client.post(
             "/auth/request-invitation-code",
-            json={"first_name": "Test", "last_name": "User", "email": "invalid-email"}
+            json={"first_name": "Test", "last_name": "User", "email": "invalid-email"},
         )
 
         assert response.status_code == 422  # Pydantic validation error
@@ -338,7 +325,7 @@ class TestInvitationRequestEndpoint:
         """Test invitation request without required fields"""
         response = client.post(
             "/auth/request-invitation-code",
-            json={"email": "test@example.com"}  # Missing first_name and last_name
+            json={"email": "test@example.com"},  # Missing first_name and last_name
         )
 
         assert response.status_code == 422  # Pydantic validation error
@@ -355,7 +342,11 @@ class TestInvitationRequestEndpoint:
 
         response = client.post(
             "/auth/request-invitation-code",
-            json={"first_name": "Test", "last_name": "User", "email": "test@example.com"}
+            json={
+                "first_name": "Test",
+                "last_name": "User",
+                "email": "test@example.com",
+            },
         )
 
         assert response.status_code == 500
@@ -378,14 +369,14 @@ class TestTierLimitsEndpoint:
                     "FREE": {
                         "max_queries_per_day": 20,
                         "max_files": 5,
-                        "max_file_size_mb": 10
+                        "max_file_size_mb": 10,
                     },
                     "PRO": {
                         "max_queries_per_day": 500,
                         "max_files": 50,
-                        "max_file_size_mb": 50
-                    }
-                }
+                        "max_file_size_mb": 50,
+                    },
+                },
             }
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
@@ -398,7 +389,6 @@ class TestTierLimitsEndpoint:
 
             # Clear cache
             clear_cache()
-
 
             response = client.get("/auth/tier-limits")
 
@@ -431,7 +421,6 @@ class TestTierLimitsEndpoint:
             # Clear cache
             clear_cache()
 
-
             response = client.get("/auth/tier-limits")
 
             assert response.status_code == 200
@@ -450,8 +439,9 @@ class TestUsageEndpoint:
 
     def test_get_usage_success(self):
         """Test successful usage retrieval"""
-        with patch("app.routers.auth_router.auth") as mock_auth, \
-             patch("app.routers.auth_router.get_usage_service") as mock_get_service:
+        with patch("app.routers.auth_router.auth") as mock_auth, patch(
+            "app.routers.auth_router.get_usage_service"
+        ) as mock_get_service:
 
             # Mock Firebase Auth
             mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
@@ -482,9 +472,7 @@ class TestUsageEndpoint:
                 config_doc.exists = True
                 config_doc.to_dict.return_value = {
                     "unlimited_emails": [],
-                    "limits": {
-                        "FREE": {"max_queries_per_day": 20}
-                    }
+                    "limits": {"FREE": {"max_queries_per_day": 20}},
                 }
                 config_ref = MagicMock()
                 config_ref.get.return_value = config_doc
@@ -496,7 +484,9 @@ class TestUsageEndpoint:
                         return config_ref
                     return MagicMock()
 
-                def mock_collection(_collection_name: str):  # pylint: disable=unused-argument
+                def mock_collection(
+                    _collection_name: str,
+                ):  # pylint: disable=unused-argument
                     mock_coll = MagicMock()
                     mock_coll.document = mock_document
                     return mock_coll
@@ -507,10 +497,8 @@ class TestUsageEndpoint:
                 # Clear cache
                 clear_cache()
 
-
                 response = client.get(
-                    "/auth/usage",
-                    headers={"Authorization": "Bearer valid_token"}
+                    "/auth/usage", headers={"Authorization": "Bearer valid_token"}
                 )
 
             assert response.status_code == 200
@@ -532,8 +520,7 @@ class TestUsageEndpoint:
             mock_auth.verify_id_token.side_effect = Exception("Invalid token")
 
             response = client.get(
-                "/auth/usage",
-                headers={"Authorization": "Bearer invalid_token"}
+                "/auth/usage", headers={"Authorization": "Bearer invalid_token"}
             )
 
             assert response.status_code == 401
@@ -541,8 +528,9 @@ class TestUsageEndpoint:
 
     def test_get_usage_unlimited_tier(self):
         """Test usage for UNLIMITED tier user"""
-        with patch("app.routers.auth_router.auth") as mock_auth, \
-             patch("app.routers.auth_router.get_usage_service") as mock_get_service:
+        with patch("app.routers.auth_router.auth") as mock_auth, patch(
+            "app.routers.auth_router.get_usage_service"
+        ) as mock_get_service:
 
             mock_auth.verify_id_token.return_value = {"uid": "unlimited_user"}
 
@@ -572,8 +560,8 @@ class TestUsageEndpoint:
                     "unlimited_emails": [],
                     "limits": {
                         "FREE": {"daily_limit": 20, "requests_per_hour": 10},
-                        "UNLIMITED": {"daily_limit": 9999, "requests_per_hour": 9999}
-                    }
+                        "UNLIMITED": {"daily_limit": 9999, "requests_per_hour": 9999},
+                    },
                 }
                 config_ref = MagicMock()
                 config_ref.get.return_value = config_doc
@@ -585,7 +573,9 @@ class TestUsageEndpoint:
                         return config_ref
                     return MagicMock()
 
-                def mock_collection(_collection_name: str):  # pylint: disable=unused-argument
+                def mock_collection(
+                    _collection_name: str,
+                ):  # pylint: disable=unused-argument
                     mock_coll = MagicMock()
                     mock_coll.document = mock_document
                     return mock_coll
@@ -596,23 +586,24 @@ class TestUsageEndpoint:
                 # Clear cache
                 clear_cache()
 
-
                 response = client.get(
-                    "/auth/usage",
-                    headers={"Authorization": "Bearer valid_token"}
+                    "/auth/usage", headers={"Authorization": "Bearer valid_token"}
                 )
 
                 assert response.status_code == 200
                 data = response.json()
                 assert data["queries_today"] == 1000
                 assert data["query_limit"] == 9999
-                assert data["remaining"] == -1  # UNLIMITED tier returns -1 for remaining
+                assert (
+                    data["remaining"] == -1
+                )  # UNLIMITED tier returns -1 for remaining
                 assert data["tier"] == "UNLIMITED"
 
     def test_get_usage_unlimited_tier_high_usage(self):
         """Test usage for UNLIMITED tier user with usage exceeding normal limits"""
-        with patch("app.routers.auth_router.auth") as mock_auth, \
-             patch("app.routers.auth_router.get_usage_service") as mock_get_service:
+        with patch("app.routers.auth_router.auth") as mock_auth, patch(
+            "app.routers.auth_router.get_usage_service"
+        ) as mock_get_service:
 
             mock_auth.verify_id_token.return_value = {"uid": "unlimited_user"}
 
@@ -643,8 +634,8 @@ class TestUsageEndpoint:
                     "unlimited_emails": [],
                     "limits": {
                         "FREE": {"daily_limit": 20, "requests_per_hour": 10},
-                        "UNLIMITED": {"daily_limit": 9999, "requests_per_hour": 9999}
-                    }
+                        "UNLIMITED": {"daily_limit": 9999, "requests_per_hour": 9999},
+                    },
                 }
                 config_ref = MagicMock()
                 config_ref.get.return_value = config_doc
@@ -656,7 +647,9 @@ class TestUsageEndpoint:
                         return config_ref
                     return MagicMock()
 
-                def mock_collection(_collection_name: str):  # pylint: disable=unused-argument
+                def mock_collection(
+                    _collection_name: str,
+                ):  # pylint: disable=unused-argument
                     mock_coll = MagicMock()
                     mock_coll.document = mock_document
                     return mock_coll
@@ -667,10 +660,8 @@ class TestUsageEndpoint:
                 # Clear cache
                 clear_cache()
 
-
                 response = client.get(
-                    "/auth/usage",
-                    headers={"Authorization": "Bearer valid_token"}
+                    "/auth/usage", headers={"Authorization": "Bearer valid_token"}
                 )
 
                 assert response.status_code == 200

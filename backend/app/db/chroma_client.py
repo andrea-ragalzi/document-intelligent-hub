@@ -28,43 +28,44 @@ _embedding_function_singleton: HuggingFaceEmbeddings | None = None
 
 # --- Embedding Function Configuration ---
 
+
 def get_embedding_function() -> HuggingFaceEmbeddings:
     """
     Returns the local HuggingFace embedding function optimized for speed and privacy.
-    
+
     Uses singleton pattern to ensure model is loaded only once at startup,
     avoiding "meta tensor" errors and improving performance.
-    
+
     Benefits:
     - FREE: No API costs
     - FAST: Internal parallelism optimized with batch_size=32
     - PRIVATE: Data never sent to third-party services
-    
+
     Model: sentence-transformers/all-MiniLM-L6-v2
     - 384 dimensions (compact and efficient)
     - Excellent for semantic search tasks
     - Well-balanced speed/accuracy tradeoff
-    
+
     Returns:
         HuggingFaceEmbeddings: Configured embedding function (singleton)
     """
     global _embedding_function_singleton
-    
+
     # Return cached instance if already initialized
     if _embedding_function_singleton is not None:
         return _embedding_function_singleton
-    
+
     # Initialize on first call
     try:
         logger.info("🔧 Initializing HuggingFace embedding model (first time)...")
         _embedding_function_singleton = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
             model_kwargs={
-                'device': 'cpu',  # Use CPU for compatibility
+                "device": "cpu",  # Use CPU for compatibility
             },
             encode_kwargs={
-                'normalize_embeddings': True,  # L2 normalization for cosine similarity
-                'batch_size': 32,  # Process 32 texts at a time for efficiency
+                "normalize_embeddings": True,  # L2 normalization for cosine similarity
+                "batch_size": 32,  # Process 32 texts at a time for efficiency
             },
         )
         logger.info("✅ HuggingFace embedding function initialized successfully")
@@ -76,13 +77,14 @@ def get_embedding_function() -> HuggingFaceEmbeddings:
 
 # --- ChromaDB Client Initialization ---
 
+
 def get_chroma_client() -> ClientAPI:
     """
     Initializes and returns the ChromaDB persistent client.
-    
+
     The client is configured with a persistent storage path from settings,
     ensuring data survives across application restarts.
-    
+
     Returns:
         ClientAPI: ChromaDB client instance with persistent storage
     """
@@ -94,13 +96,13 @@ def get_chroma_client() -> ClientAPI:
 def get_chroma_collection(client: ClientAPI) -> Collection:
     """
     Retrieves or creates the ChromaDB collection for document storage.
-    
+
     This function ensures the collection exists and returns a reference to it.
     The collection is created if it doesn't exist on first access.
-    
+
     Args:
         client: ChromaDB persistent client instance
-    
+
     Returns:
         Collection: ChromaDB collection for RAG operations
     """
@@ -114,25 +116,26 @@ def get_chroma_collection(client: ClientAPI) -> Collection:
 
 # --- FastAPI Dependency Functions (Dependency Injection) ---
 
+
 def get_vector_store() -> Generator[Chroma, None, None]:
     """
     FastAPI dependency that provides a LangChain Chroma vector store instance.
-    
+
     This is the primary dependency for service layer injection. It creates a
     fully configured vector store with:
     - ChromaDB client connection
     - HuggingFace embedding function
     - Proper resource management (generator pattern)
-    
+
     Architecture Benefits:
     - Services receive ready-to-use vector store via DI
     - No need for services to manage client lifecycle
     - Easy to mock for testing
     - Microservices-ready: can be replaced with remote vector store
-    
+
     Yields:
         Chroma: LangChain vector store wrapper around ChromaDB
-    
+
     Example:
         @router.post("/upload/")
         async def upload(
@@ -144,22 +147,22 @@ def get_vector_store() -> Generator[Chroma, None, None]:
     try:
         # Initialize ChromaDB client
         chroma_client = get_chroma_client()
-        
+
         # Get embedding function
         embedding_function = get_embedding_function()
-        
+
         # Create LangChain Chroma wrapper
         vector_store = Chroma(
             client=chroma_client,
             collection_name=COLLECTION_NAME,
             embedding_function=embedding_function,
         )
-        
+
         logger.debug("✅ Vector store dependency injected successfully")
-        
+
         # Yield the vector store to the requesting service
         yield vector_store
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to initialize vector store: {e}")
         raise
@@ -171,15 +174,15 @@ def get_vector_store() -> Generator[Chroma, None, None]:
 def get_chroma_collection_direct() -> Generator[Collection, None, None]:
     """
     FastAPI dependency that provides direct access to ChromaDB collection.
-    
+
     Use this when you need low-level ChromaDB operations that bypass
     the LangChain wrapper (e.g., metadata-only queries, bulk operations).
-    
+
     For most RAG operations, prefer get_vector_store() instead.
-    
+
     Yields:
         Collection: Direct ChromaDB collection instance
-    
+
     Example:
         @router.get("/documents/")
         def list_documents(
@@ -192,11 +195,11 @@ def get_chroma_collection_direct() -> Generator[Collection, None, None]:
     try:
         chroma_client = get_chroma_client()
         collection = get_chroma_collection(chroma_client)
-        
+
         logger.debug("✅ ChromaDB collection dependency injected successfully")
-        
+
         yield collection
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to get ChromaDB collection: {e}")
         raise

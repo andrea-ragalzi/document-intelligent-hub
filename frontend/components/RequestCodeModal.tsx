@@ -9,8 +9,7 @@ import { useState, useEffect } from "react";
 import { X, Send, Loader2, CheckCircle } from "lucide-react";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/rag", "") ||
-  "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/rag", "") || "http://localhost:8000";
 
 interface RequestCodeModalProps {
   readonly isOpen: boolean;
@@ -18,11 +17,7 @@ interface RequestCodeModalProps {
   readonly userEmail?: string;
 }
 
-export default function RequestCodeModal({
-  isOpen,
-  onClose,
-  userEmail,
-}: RequestCodeModalProps) {
+export default function RequestCodeModal({ isOpen, onClose, userEmail }: RequestCodeModalProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState(userEmail || "");
@@ -45,20 +40,17 @@ export default function RequestCodeModal({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/auth/request-invitation-code`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            first_name: firstName,
-            last_name: lastName,
-            email: email,
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/auth/request-invitation-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+        }),
+      });
 
       // parse response safely
       let data: unknown = null;
@@ -77,9 +69,7 @@ export default function RequestCodeModal({
       if (!response.ok) {
         const maybe = data as Record<string, unknown> | null;
         const errorMsg =
-          (maybe && (maybe.detail || maybe.message)) ||
-          rawText ||
-          "Failed to send request";
+          (maybe && (maybe.detail || maybe.message)) || rawText || "Failed to send request";
         setError(String(errorMsg));
         return;
       }
@@ -95,8 +85,7 @@ export default function RequestCodeModal({
         setSuccess(false);
       }, 3000);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to send request";
+      const errorMessage = err instanceof Error ? err.message : "Failed to send request";
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -145,16 +134,15 @@ export default function RequestCodeModal({
                 Request Sent!
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                Our support team will review your request and send you an
-                invitation code via email soon.
+                Our support team will review your request and send you an invitation code via email
+                soon.
               </p>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Fill in your details below and we&apos;ll send your request to our
-              support team.
+              Fill in your details below and we&apos;ll send your request to our support team.
             </p>
 
             <div className="grid grid-cols-2 gap-4">
@@ -169,7 +157,7 @@ export default function RequestCodeModal({
                   id="first-name"
                   type="text"
                   value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  onChange={e => setFirstName(e.target.value)}
                   required
                   disabled={isSubmitting}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
@@ -187,7 +175,7 @@ export default function RequestCodeModal({
                   id="last-name"
                   type="text"
                   value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  onChange={e => setLastName(e.target.value)}
                   required
                   disabled={isSubmitting}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
@@ -206,7 +194,7 @@ export default function RequestCodeModal({
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 required
                 disabled={isSubmitting || !!userEmail}
                 placeholder="your.email@example.com"
@@ -216,9 +204,7 @@ export default function RequestCodeModal({
 
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {error}
-                </p>
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
 
@@ -234,12 +220,7 @@ export default function RequestCodeModal({
               </button>
               <button
                 type="submit"
-                disabled={
-                  isSubmitting ||
-                  !firstName.trim() ||
-                  !lastName.trim() ||
-                  !email.trim()
-                }
+                disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !email.trim()}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (

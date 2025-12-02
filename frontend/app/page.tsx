@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  FileText,
-  MessageSquare,
-  Zap,
-  Shield,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import { FileText, MessageSquare, Zap, Shield, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function LandingPage() {
@@ -53,8 +46,7 @@ export default function LandingPage() {
     {
       icon: <Zap className="w-6 h-6" />,
       title: "Fast & Efficient",
-      description:
-        "Powered by ChromaDB vector storage and OpenAI for lightning-fast responses.",
+      description: "Powered by ChromaDB vector storage and OpenAI for lightning-fast responses.",
     },
     {
       icon: <Shield className="w-6 h-6" />,
@@ -135,8 +127,8 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-base sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 sm:mb-12 max-w-3xl mx-auto px-4">
-            Upload your PDFs, ask questions in natural language, and get
-            intelligent answers powered by advanced RAG technology.
+            Upload your PDFs, ask questions in natural language, and get intelligent answers powered
+            by advanced RAG technology.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
@@ -183,7 +175,7 @@ export default function LandingPage() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-          {features.map((feature) => (
+          {features.map(feature => (
             <div
               key={feature.title}
               className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 group hover:-translate-y-1"
@@ -231,7 +223,7 @@ export default function LandingPage() {
                 title: "Chat",
                 desc: "Ask questions and get instant, accurate answers",
               },
-            ].map((item) => (
+            ].map(item => (
               <div key={item.step} className="text-center">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl sm:text-3xl font-bold mx-auto mb-5 sm:mb-6 shadow-lg">
                   {item.step}
@@ -260,7 +252,7 @@ export default function LandingPage() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-          {technologies.map((tech) => (
+          {technologies.map(tech => (
             <div
               key={tech}
               className="px-4 sm:px-6 py-2 sm:py-3 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm sm:text-base font-medium hover:shadow-lg hover:-translate-y-0.5 transition-all"

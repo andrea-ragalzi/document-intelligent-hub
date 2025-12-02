@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Trash2, Loader, AlertCircle, MoreVertical, CheckCircle } from "lucide-react";
+import { Trash2, Loader, AlertCircle } from "lucide-react";
 import React, { useState } from "react";
 import { useDocumentMenu } from "./DocumentList/useDocumentMenu";
 import { useDocumentSelection } from "./DocumentList/useDocumentSelection";

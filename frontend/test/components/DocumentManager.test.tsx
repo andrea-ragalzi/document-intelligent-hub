@@ -62,9 +62,7 @@ describe("DocumentManager", () => {
     render(<DocumentManager {...defaultProps} />);
 
     expect(screen.getByText("Documents")).toBeInTheDocument();
-    expect(
-      screen.getByText("Drop PDF here or click to browse")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Drop PDF here or click to browse")).toBeInTheDocument();
     expect(
       screen.getByText("Document will be automatically indexed after upload")
     ).toBeInTheDocument();
@@ -96,9 +94,7 @@ describe("DocumentManager", () => {
   });
 
   it("should show uploading state", () => {
-    render(
-      <DocumentManager {...defaultProps} file={mockFile} isUploading={true} />
-    );
+    render(<DocumentManager {...defaultProps} file={mockFile} isUploading={true} />);
 
     expect(screen.getByText("Uploading & Indexing...")).toBeInTheDocument();
     const uploadButton = screen.getByRole("button", {
@@ -110,9 +106,7 @@ describe("DocumentManager", () => {
   it("should call onUpload when form is submitted", () => {
     render(<DocumentManager {...defaultProps} file={mockFile} />);
 
-    const form = screen
-      .getByRole("button", { name: /upload & index document/i })
-      .closest("form")!;
+    const form = screen.getByRole("button", { name: /upload & index document/i }).closest("form")!;
     fireEvent.submit(form);
 
     expect(mockOnUpload).toHaveBeenCalledTimes(1);
@@ -200,10 +194,10 @@ describe("DocumentManager", () => {
     // Check for skeleton loading placeholders (animate-pulse class)
     const skeletons = screen
       .getAllByRole("generic")
-      .filter((el) => el.className.includes("animate-pulse"));
+      .filter(el => el.className.includes("animate-pulse"));
     expect(skeletons.length).toBeGreaterThan(0);
   });
-  
+
   it("should call refreshDocuments when refresh button clicked", () => {
     render(<DocumentManager {...defaultProps} />);
 
@@ -253,9 +247,7 @@ describe("DocumentManager", () => {
     const cancelButton = screen.getByRole("button", { name: /cancel/i });
     fireEvent.click(cancelButton);
 
-    expect(
-      screen.queryByText('Delete "document1.pdf"?')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete "document1.pdf"?')).not.toBeInTheDocument();
   });
 
   it("should call deleteDocument when confirmed", async () => {
@@ -342,9 +334,7 @@ describe("DocumentManager", () => {
   });
 
   it("should handle delete error gracefully", async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockDeleteDocument.mockRejectedValue(new Error("Delete failed"));
 
     vi.mocked(useDocuments).mockReturnValue({
@@ -366,10 +356,7 @@ describe("DocumentManager", () => {
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "Error deleting document:",
-        expect.any(Error)
-      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith("Error deleting document:", expect.any(Error));
     });
 
     consoleErrorSpy.mockRestore();

@@ -16,10 +16,7 @@ interface InvitationCodeModalProps {
   readonly onSuccess: (tier: string) => void;
 }
 
-export default function InvitationCodeModal({
-  isOpen,
-  onSuccess,
-}: InvitationCodeModalProps) {
+export default function InvitationCodeModal({ isOpen, onSuccess }: InvitationCodeModalProps) {
   const [code, setCode] = useState("");
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const { register, isRegistering, error, clearError } = useRegistration();
@@ -74,14 +71,12 @@ export default function InvitationCodeModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              ⚠️ Registration required to continue. Please enter your invitation
-              code.
+              ⚠️ Registration required to continue. Please enter your invitation code.
             </p>
           </div>
 
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Enter your invitation code to activate your account and unlock
-            features.
+            Enter your invitation code to activate your account and unlock features.
           </p>
 
           <div>

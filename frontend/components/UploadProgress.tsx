@@ -98,16 +98,13 @@ export const UploadProgress: React.FC<UploadProgressProps> = ({
         <span>
           {chunksProcessed !== undefined && totalChunks !== undefined ? (
             <>
-              {chunksProcessed.toLocaleString()} /{" "}
-              {totalChunks.toLocaleString()} chunks
+              {chunksProcessed.toLocaleString()} / {totalChunks.toLocaleString()} chunks
             </>
           ) : (
             <>{progress}%</>
           )}
         </span>
-        {message && (
-          <span className="text-right max-w-xs truncate">{message}</span>
-        )}
+        {message && <span className="text-right max-w-xs truncate">{message}</span>}
       </div>
     </div>
   );

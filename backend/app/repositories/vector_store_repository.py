@@ -14,7 +14,7 @@ Architecture Pattern: Repository Pattern
 - Testable: can be mocked without real database
 """
 
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from chromadb import Collection
 from langchain_community.vectorstores import Chroma
@@ -36,7 +36,7 @@ class VectorStoreRepository:
     - Easy to test with mocks
     """
 
-    def __init__(self, vector_store: Chroma, collection: Collection):
+    def __init__(self, vector_store: Chroma, collection: Collection) -> None:
         """
         Initialize repository with injected dependencies.
 
@@ -214,7 +214,7 @@ class VectorStoreRepository:
             - If both provided: include takes precedence (exclude is ignored)
         """
         # Build metadata filter
-        filter_conditions = {"source": user_id}
+        filter_conditions: Dict[str, Any] = {"source": user_id}
 
         if include_files:
             # Restrict to specific files only

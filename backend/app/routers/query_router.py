@@ -59,10 +59,7 @@ def _get_user_tier_limits(user_id: str) -> Tuple[str, int]:
 
 
 def _check_and_enforce_query_limit(
-    usage_service: UsageTrackingService,
-    user_id: str,
-    tier: str,
-    max_queries: int
+    usage_service: UsageTrackingService, user_id: str, tier: str, max_queries: int
 ) -> int:
     """
     Check if user has exceeded query limit and raise exception if so.
@@ -95,7 +92,7 @@ def _check_and_enforce_query_limit(
             detail=(
                 f"Daily query limit exceeded ({queries_used}/{max_queries}). "
                 f"Please upgrade your plan or try again tomorrow."
-            )
+            ),
         )
 
     logger.info(f"✅ Query limit check passed: {queries_used}/{max_queries} ({tier})")
@@ -115,7 +112,9 @@ def _log_request_details(request: QueryRequest, user_id: str) -> None:
     logger.info(f"{'='*80}")
     logger.info(f"👤 User ID: {user_id}")
     logger.info(f"❓ Query: {request.query}")
-    logger.info(f"📜 Conversation History: {len(request.conversation_history)} messages")
+    logger.info(
+        f"📜 Conversation History: {len(request.conversation_history)} messages"
+    )
 
     if request.conversation_history:
         for idx, msg in enumerate(request.conversation_history[-3:], 1):
@@ -191,15 +190,20 @@ async def query_document(
         logger.info("🔍 Extracting file filters and optimizing query...")
 
         filter_result = query_parser_service.extract_file_filters(
-            query=request.query,
-            available_files=available_filenames
+            query=request.query, available_files=available_filenames
         )
 
         query_for_rag = filter_result.cleaned_query
-        include_files = filter_result.include_files if filter_result.include_files else None
-        exclude_files = filter_result.exclude_files if filter_result.exclude_files else None
+        include_files = (
+            filter_result.include_files if filter_result.include_files else None
+        )
+        exclude_files = (
+            filter_result.exclude_files if filter_result.exclude_files else None
+        )
 
-        logger.info(f"✅ File filters: include={include_files}, exclude={exclude_files}")
+        logger.info(
+            f"✅ File filters: include={include_files}, exclude={exclude_files}"
+        )
         logger.info(f"🧹 Optimized query: {query_for_rag}")
 
         # Call RAG service
@@ -209,7 +213,7 @@ async def query_document(
             request.conversation_history,
             request.output_language,
             include_files=include_files,
-            exclude_files=exclude_files
+            exclude_files=exclude_files,
         )
 
         # Increment query counter
@@ -249,7 +253,9 @@ def summarize_conversation(
     """
     try:
         logger.info(f"📝 Generating summary for user {user_id}")
-        summary = rag_service.generate_conversation_summary(request.conversation_history)
+        summary = rag_service.generate_conversation_summary(
+            request.conversation_history
+        )
         return SummarizeResponse(summary=summary)
     except Exception as e:
         logger.error(f"Summarization error: {e}")

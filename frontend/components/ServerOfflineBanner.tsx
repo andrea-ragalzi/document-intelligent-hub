@@ -24,18 +24,14 @@ export const ServerOfflineBanner: React.FC<ServerOfflineBannerProps> = ({
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1">
             <div className="flex-shrink-0">
-              <WifiOff
-                size={20}
-                className="text-yellow-600 dark:text-yellow-400"
-              />
+              <WifiOff size={20} className="text-yellow-600 dark:text-yellow-400" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
                 Server Unreachable
               </p>
               <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-0.5">
-                You can still read saved conversations. Upload and new queries
-                unavailable.
+                You can still read saved conversations. Upload and new queries unavailable.
               </p>
             </div>
           </div>
@@ -47,10 +43,7 @@ export const ServerOfflineBanner: React.FC<ServerOfflineBannerProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-yellow-800 dark:text-yellow-200 bg-yellow-100 dark:bg-yellow-900/40 hover:bg-yellow-200 dark:hover:bg-yellow-900/60 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Retry connection"
             >
-              <RefreshCw
-                size={14}
-                className={isRetrying ? "animate-spin" : ""}
-              />
+              <RefreshCw size={14} className={isRetrying ? "animate-spin" : ""} />
               Retry
             </button>
 

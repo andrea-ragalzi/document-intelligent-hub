@@ -23,9 +23,7 @@ interface UseUploadResult {
   setSelectedLanguage: (lang: string) => void;
 }
 
-export const useDocumentUpload = (
-  options?: UseUploadOptions
-): UseUploadResult => {
+export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult => {
   const { onSuccess } = options || {};
   const { getIdToken } = useAuth();
   const [file, setFile] = useState<File | null>(null);
@@ -121,7 +119,7 @@ export const useDocumentUpload = (
           });
           setFile(null);
           console.log("📁 File state cleared");
-          setDocumentsUploaded((prev) => prev + 1); // Increment upload counter
+          setDocumentsUploaded(prev => prev + 1); // Increment upload counter
 
           // Trigger document status refresh (for UI state updates)
           console.log("📡 Dispatching refreshDocumentStatus event");
@@ -137,9 +135,7 @@ export const useDocumentUpload = (
           }
 
           // Clear file input
-          const fileInput = document.getElementById(
-            "pdf-upload"
-          ) as HTMLInputElement;
+          const fileInput = document.getElementById("pdf-upload") as HTMLInputElement;
           if (fileInput) {
             fileInput.value = "";
             console.log("🔄 File input cleared");

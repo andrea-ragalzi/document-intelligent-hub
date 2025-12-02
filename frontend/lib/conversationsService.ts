@@ -114,9 +114,7 @@ export async function saveConversationToFirestore(
 /**
  * Load all conversations for a user from Firestore
  */
-export async function loadConversationsFromFirestore(
-  userId: string
-): Promise<SavedConversation[]> {
+export async function loadConversationsFromFirestore(userId: string): Promise<SavedConversation[]> {
   console.log("📥 Loading conversations from Firestore for user:", userId);
 
   try {
@@ -132,15 +130,13 @@ export async function loadConversationsFromFirestore(
     const querySnapshot = await getDocs(q);
     const conversations: SavedConversation[] = [];
 
-    querySnapshot.forEach((doc) => {
+    querySnapshot.forEach(doc => {
       const data = doc.data();
       const isPinned = data.isPinned || false;
       console.log(`  📄 Loading conversation ${doc.id}: isPinned=${isPinned}`);
 
       // Format timestamp without comma
-      const date = data.createdAt
-        ? (data.createdAt as Timestamp).toDate()
-        : new Date();
+      const date = data.createdAt ? (data.createdAt as Timestamp).toDate() : new Date();
       const formattedDate = date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "2-digit",
@@ -179,9 +175,7 @@ export async function loadConversationsFromFirestore(
 /**
  * Delete a conversation from Firestore
  */
-export async function deleteConversationFromFirestore(
-  conversationId: string
-): Promise<void> {
+export async function deleteConversationFromFirestore(conversationId: string): Promise<void> {
   try {
     await deleteDoc(doc(db, CONVERSATIONS_COLLECTION, conversationId));
   } catch (error) {
@@ -276,13 +270,11 @@ export async function migrateLocalStorageToFirestore(
   localConversations: SavedConversation[]
 ): Promise<void> {
   try {
-    const promises = localConversations.map((conv) =>
+    const promises = localConversations.map(conv =>
       saveConversationToFirestore(userId, conv.name, conv.history)
     );
     await Promise.all(promises);
-    console.log(
-      `Successfully migrated ${localConversations.length} conversations to Firestore`
-    );
+    console.log(`Successfully migrated ${localConversations.length} conversations to Firestore`);
   } catch (error) {
     console.error("Error migrating conversations to Firestore:", error);
     throw new Error("Failed to migrate conversations");

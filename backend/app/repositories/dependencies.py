@@ -17,21 +17,21 @@ from app.repositories.vector_store_repository import VectorStoreRepository
 
 def get_vector_store_repository(
     vector_store: Chroma = Depends(get_vector_store),
-    collection: Collection = Depends(get_chroma_collection_direct)
+    collection: Collection = Depends(get_chroma_collection_direct),
 ) -> Generator[VectorStoreRepository, None, None]:
     """
     FastAPI dependency for VectorStoreRepository.
-    
+
     Injects both LangChain Chroma wrapper and direct Collection access
     into the repository instance.
-    
+
     Args:
         vector_store: LangChain Chroma wrapper (injected)
         collection: Direct ChromaDB collection (injected)
-    
+
     Yields:
         VectorStoreRepository: Fully configured repository instance
-    
+
     Example:
         @router.post("/documents/")
         def create_document(

@@ -42,9 +42,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       <div
         className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-50 transition-opacity duration-300"
         onClick={isDeleting ? undefined : onClose}
-        onKeyDown={
-          isDeleting ? undefined : (e) => e.key === "Escape" && onClose()
-        }
+        onKeyDown={isDeleting ? undefined : e => e.key === "Escape" && onClose()}
       />
 
       {/* Modal */}
@@ -54,15 +52,10 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                <AlertTriangle
-                  size={24}
-                  className="text-red-600 dark:text-red-400"
-                />
+                <AlertTriangle size={24} className="text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Delete Account
-                </h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Delete Account</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   This action cannot be undone
                 </p>
@@ -96,14 +89,13 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                 htmlFor="confirmText"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
-                Type <span className="font-bold text-red-600">DELETE</span> to
-                confirm:
+                Type <span className="font-bold text-red-600">DELETE</span> to confirm:
               </label>
               <input
                 id="confirmText"
                 type="text"
                 value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
+                onChange={e => setConfirmText(e.target.value)}
                 disabled={isDeleting}
                 placeholder="DELETE"
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"

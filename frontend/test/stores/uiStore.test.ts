@@ -40,13 +40,9 @@ describe("useUIStore", () => {
     it("should handle different alert types", () => {
       const { result } = renderHook(() => useUIStore());
 
-      const alertTypes: Array<"success" | "error" | "info"> = [
-        "success",
-        "error",
-        "info",
-      ];
+      const alertTypes: Array<"success" | "error" | "info"> = ["success", "error", "info"];
 
-      alertTypes.forEach((type) => {
+      alertTypes.forEach(type => {
         act(() => {
           result.current.setStatusAlert({
             message: `${type} message`,

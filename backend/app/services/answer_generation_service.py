@@ -62,7 +62,7 @@ class AnswerGenerationService:
         *,  # Force keyword-only arguments below
         query_expansion_service: QueryExpansionService,
         reranking_service: RerankingService,
-    ):
+    ) -> None:
         """
         Initialize AnswerGenerationService with all required dependencies.
 

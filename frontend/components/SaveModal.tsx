@@ -53,16 +53,14 @@ export const SaveModal: React.FC<SaveModalProps> = ({
               size={18}
               className="text-red-600 dark:text-red-400 mr-2 flex-shrink-0 mt-0.5"
             />
-            <p className="text-sm text-red-600 dark:text-red-400">
-              {errorMessage}
-            </p>
+            <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
           </div>
         )}
 
         <input
           type="text"
           value={conversationName}
-          onChange={(e) => setConversationName(e.target.value)}
+          onChange={e => setConversationName(e.target.value)}
           placeholder="Conversation name (e.g. Q3 Report)"
           className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-inner dark:bg-gray-900 dark:border-gray-600 dark:text-white text-sm"
           required

@@ -36,8 +36,8 @@ class TestLoadAppConfig:
                 "unlimited_emails": ["admin@example.com"],
                 "limits": {
                     "FREE": {"max_queries_per_day": 20},
-                    "PRO": {"max_queries_per_day": 500}
-                }
+                    "PRO": {"max_queries_per_day": 500},
+                },
             }
 
             doc_ref = MagicMock()
@@ -65,10 +65,7 @@ class TestLoadAppConfig:
         with patch("app.routers.auth_router.get_db") as mock_get_db:
             config_doc = MagicMock()
             config_doc.exists = True
-            config_doc.to_dict.return_value = {
-                "unlimited_emails": [],
-                "limits": {}
-            }
+            config_doc.to_dict.return_value = {"unlimited_emails": [], "limits": {}}
 
             doc_ref = MagicMock()
             doc_ref.get.return_value = config_doc
@@ -172,7 +169,7 @@ class TestGetCurrentUserId:
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.return_value = {
                 "uid": "user123",
-                "email": "test@example.com"
+                "email": "test@example.com",
             }
 
             user_id = get_current_user_id("Bearer valid_token")
@@ -265,9 +262,7 @@ class TestGetCurrentUserId:
     async def test_get_current_user_id_multiple_spaces(self):
         """Test token with multiple spaces after Bearer"""
         with patch("app.routers.auth_router.auth") as mock_auth:
-            mock_auth.verify_id_token.return_value = {
-                "uid": "user123"
-            }
+            mock_auth.verify_id_token.return_value = {"uid": "user123"}
 
             # Should handle multiple spaces
             user_id = get_current_user_id("Bearer  token_with_spaces")

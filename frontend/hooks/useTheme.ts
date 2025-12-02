@@ -32,7 +32,7 @@ export const useTheme = () => {
   }, [theme, mounted]);
 
   const toggleTheme = () => {
-    setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
+    setTheme(currentTheme => (currentTheme === "light" ? "dark" : "light"));
   };
 
   return { theme, toggleTheme };

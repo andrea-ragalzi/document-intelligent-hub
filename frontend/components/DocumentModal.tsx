@@ -1,16 +1,13 @@
 "use client";
 
 import { FormEvent, ChangeEvent, useRef, useEffect } from "react";
-import { Upload, X, FileText, Trash2, RefreshCw, BookOpen, AlertCircle } from "lucide-react";
+import { X, FileText, RefreshCw, BookOpen } from "lucide-react";
 import type { AlertState } from "@/lib/types";
-import { AlertMessage } from "./AlertMessage";
 import { useDocuments } from "@/hooks/useDocuments";
-import { UploadProgress } from "./UploadProgress";
 import { DocumentListSkeleton } from "./DocumentListSkeleton";
 import { ConfirmModal } from "./ConfirmModal";
 import { useDragAndDrop } from "./DocumentModal/useDragAndDrop";
 import { useDocumentDeletion } from "./DocumentModal/useDocumentDeletion";
-import { formatDate } from "./DocumentModal/documentHelpers";
 import { IndexedDocumentsList } from "./DocumentModal/IndexedDocumentsList";
 import { EmptyDocumentsState } from "./DocumentModal/EmptyDocumentsState";
 import { DocumentUploadSection } from "./DocumentModal/DocumentUploadSection";

@@ -88,56 +88,11 @@ window.copyDetails = function (detailsId, button) {
   }
 };
 
-// Function to determine border color based on severity
-function getSeverityBorderClass(status, severity) {
-  // PENDING, SKIPPED, or no severity - use default status border
-  if (
-    status === "PENDING" ||
-    status === "SKIPPED" ||
-    !severity ||
-    severity === "N/A"
-  ) {
-    return null; // Will use default from getStatusVisuals
-  }
-
-  // Check severity text for errors, warnings, or info
-  const severityLower = severity.toLowerCase();
-
-  // Red border if contains errors
-  if (/\d+\s+errors?/i.test(severity)) {
-    return "border-2 border-red-500 shadow-red-500/50";
-  }
-
-  // Yellow border if contains warnings
-  if (/\d+\s+warnings?/i.test(severity)) {
-    return "border-2 border-yellow-500 shadow-yellow-500/50";
-  }
-
-  // Blue border if contains info/notes/violations/files
-  if (
-    /\d+\s+(info|notes?|conventions?|refactors?|violations?|files?)/i.test(
-      severity
-    )
-  ) {
-    return "border-2 border-blue-500 shadow-blue-500/50";
-  }
-
-  // Default to status border
-  return null;
-}
-
 // Function to create the HTML for a single standard
 function createStandardItem(standard) {
   const { icon, statusTextClass, cardBorder, bg } = getStatusVisuals(
     standard.status
   );
-
-  // Determine border based on severity (overrides status border if severity detected)
-  const severityBorder = getSeverityBorderClass(
-    standard.status,
-    standard.severity
-  );
-  const finalBorder = severityBorder || cardBorder;
 
   const detailsId = `details-${Math.random().toString(36).substr(2, 9)}`;
   const accordionId = `accordion-${Math.random().toString(36).substr(2, 9)}`;
@@ -151,11 +106,28 @@ function createStandardItem(standard) {
     standard.status !== "PENDING" &&
     standard.details.trim() !== ""
   ) {
+    const borderColor =
+      standard.status === "PASSED" ? "border-lime-500/20" : "border-red-900/30";
+    const textColor =
+      standard.status === "PASSED"
+        ? "text-lime-400 hover:text-lime-300"
+        : "text-red-400 hover:text-red-300";
+    const labelColor =
+      standard.status === "PASSED" ? "text-lime-500" : "text-red-400";
+    const buttonBg =
+      standard.status === "PASSED"
+        ? "bg-lime-600 hover:bg-lime-500"
+        : "bg-red-900 hover:bg-red-800";
+    const buttonText =
+      standard.status === "PASSED" ? "text-black" : "text-white";
+    const preColor =
+      standard.status === "PASSED" ? "text-lime-300" : "text-red-300";
+
     accordionSection = `
-      <div class="mt-2 border-t border-lime-500/20 pt-2">
+      <div class="mt-2 border-t ${borderColor} pt-2">
         <button
           onclick="toggleAccordion('${accordionId}')"
-          class="w-full flex items-center justify-between text-xs text-lime-400 hover:text-lime-300 transition"
+          class="w-full flex items-center justify-between text-xs ${textColor} transition"
         >
           <span>📋 Show Output Details</span>
           <svg id="${accordionId}-icon" class="w-4 h-4 transform transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -164,10 +136,10 @@ function createStandardItem(standard) {
         </button>
         <div id="${accordionId}" class="hidden mt-2 bg-black rounded p-3 max-h-64 overflow-y-auto matrix-pass-glow">
           <div class="flex justify-between items-center mb-2">
-            <span class="text-xs text-lime-500 font-semibold">Command Output:</span>
+            <span class="text-xs ${labelColor} font-semibold">Command Output:</span>
             <button
               onclick="copyDetails('${detailsId}', this)"
-              class="px-2 py-1 bg-lime-600 hover:bg-lime-500 text-black text-xs rounded flex items-center space-x-1 transition duration-150"
+              class="px-2 py-1 ${buttonBg} ${buttonText} text-xs rounded flex items-center space-x-1 transition duration-150"
               title="Copy output"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -177,7 +149,7 @@ function createStandardItem(standard) {
               <span class="copy-text">COPY</span>
             </button>
           </div>
-          <pre id="${detailsId}" class="text-xs text-lime-300 font-mono whitespace-pre-wrap">${
+          <pre id="${detailsId}" class="text-xs ${preColor} font-mono whitespace-pre-wrap">${
       standard.details || "No output - check passed with no issues."
     }</pre>
         </div>
@@ -186,34 +158,15 @@ function createStandardItem(standard) {
   }
 
   if (standard.status === "FAILED") {
-    // Color-code severity: errors in red, warnings in yellow, info/files/violations in blue
-    let coloredSeverity = standard.severity
-      .replace(/(\d+)\s+(errors?)/gi, '<span class="text-red-400">$1 $2</span>')
-      .replace(
-        /(\d+)\s+(warnings?)/gi,
-        '<span class="text-yellow-400">$1 $2</span>'
-      )
-      .replace(
-        /(\d+)\s+(info|notes?|conventions?|refactors?|violations?|files?)/gi,
-        '<span class="text-blue-400">$1 $2</span>'
-      );
-    severityContent = `<p class="text-xs font-medium pt-1">${coloredSeverity}</p>`;
+    // When FAILED, everything should be red
+    severityContent = `<p class="text-xs text-red-400 font-medium pt-1">${standard.severity}</p>`;
   } else if (standard.status === "SKIPPED") {
     severityContent = `<p class="text-xs text-orange-400/70 pt-1">${standard.severity}</p>`;
   } else if (standard.status === "PENDING") {
     severityContent = `<p class="text-xs pending-status-text pt-1">Waiting...</p>`;
   } else {
-    // PASSED: color-code as well for consistency
-    let coloredSeverity = standard.severity
-      .replace(
-        /(\d+)\s+(warnings?)/gi,
-        '<span class="text-yellow-400">$1 $2</span>'
-      )
-      .replace(
-        /(\d+)\s+(info|notes?|conventions?|refactors?|violations?|files?)/gi,
-        '<span class="text-blue-400">$1 $2</span>'
-      );
-    severityContent = `<p class="text-xs text-lime-600/70 pt-1">${coloredSeverity}</p>`;
+    // PASSED: green text
+    severityContent = `<p class="text-xs text-lime-600/70 pt-1">${standard.severity}</p>`;
   }
 
   const pendingClass = standard.status === "PENDING" ? "pending-card" : "";
@@ -221,17 +174,27 @@ function createStandardItem(standard) {
   const matrixRain = standard.status === "PENDING" ? createMatrixRain() : "";
 
   return `
-    <div class="p-4 rounded-md ${finalBorder} ${bg} ${pendingClass} shadow-lg transition duration-200" style="position: relative; overflow: hidden; min-height: 120px;">
+    <div class="p-4 rounded-md ${cardBorder} ${bg} ${pendingClass} shadow-lg transition duration-200" style="position: relative; overflow: hidden; min-height: 120px;">
       ${matrixRain}
       <div class="flex items-center" style="position: relative; z-index: 2;">
         <div class="mr-4 p-2 rounded-sm matrix-pass-glow ${iconClass}">
           ${icon}
         </div>
         <div class="flex-grow">
-          <p class="text-lg font-semibold text-lime-300 ${
-            standard.status === "PENDING" ? "pending-text" : ""
+          <p class="text-lg font-semibold ${
+            standard.status === "PASSED"
+              ? "text-lime-300"
+              : standard.status === "PENDING"
+              ? "text-gray-300 pending-text"
+              : "text-red-300"
           }">${standard.name}</p>
-          <p class="text-sm text-lime-500/70">${standard.role}</p>
+          <p class="text-sm ${
+            standard.status === "PASSED"
+              ? "text-lime-500/70"
+              : standard.status === "PENDING"
+              ? "text-gray-400/70"
+              : "text-red-400/70"
+          }">${standard.role}</p>
         </div>
         <div class="text-right flex flex-col items-end">
           <span class="font-bold uppercase text-sm ${statusTextClass}">${

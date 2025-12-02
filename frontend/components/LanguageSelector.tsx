@@ -59,7 +59,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         {isLoading ? (
           <option>Loading languages...</option>
         ) : (
-          languages.map((lang) => (
+          languages.map(lang => (
             <option key={lang.code} value={lang.code}>
               {getDisplayName(lang)}
             </option>

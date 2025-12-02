@@ -60,8 +60,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
       >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <Edit size={20} className="mr-2 text-indigo-600" /> Rename
-            Conversation
+            <Edit size={20} className="mr-2 text-indigo-600" /> Rename Conversation
           </h3>
           <button
             type="button"
@@ -89,7 +88,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
         <input
           type="text"
           value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          onChange={e => setNewName(e.target.value)}
           placeholder="New conversation name"
           className="w-full p-3 text-base border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
           required

@@ -74,8 +74,7 @@ def get_current_user_id(authorization: str = Header(...)) -> str:
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
-            status_code=401,
-            detail="Missing or invalid authorization header"
+            status_code=401, detail="Missing or invalid authorization header"
         )
 
     token = authorization.replace("Bearer ", "")
@@ -86,10 +85,7 @@ def get_current_user_id(authorization: str = Header(...)) -> str:
         return user_id
     except Exception as e:
         logger.error(f"❌ Token verification failed: {e}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token"
-        ) from e
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from e
 
 
 def clear_cache() -> None:
@@ -116,11 +112,12 @@ def load_app_config() -> dict[str, Any]:
     Results are cached to reduce Firestore reads.
     """
     # Return cached values if available
-    if hasattr(load_app_config, "unlimited_emails_cache") and \
-       hasattr(load_app_config, "tier_limits_cache"):
+    if hasattr(load_app_config, "unlimited_emails_cache") and hasattr(
+        load_app_config, "tier_limits_cache"
+    ):
         return {
             "unlimited_emails": load_app_config.unlimited_emails_cache,  # type: ignore
-            "limits": load_app_config.tier_limits_cache  # type: ignore[attr-defined]
+            "limits": load_app_config.tier_limits_cache,  # type: ignore[attr-defined]
         }
 
     try:
@@ -139,7 +136,7 @@ def load_app_config() -> dict[str, Any]:
                 tier_limits["UNLIMITED"] = {
                     "max_queries_per_day": 9999,
                     "max_files": 9999,
-                    "max_file_size_mb": 9999
+                    "max_file_size_mb": 9999,
                 }
 
                 # Cache results (using function attributes for singleton pattern)
@@ -151,37 +148,47 @@ def load_app_config() -> dict[str, Any]:
                     f"{len(unlimited_emails)} unlimited emails, "
                     f"{len(tier_limits)} tier limits"
                 )
-                return {
-                    "unlimited_emails": unlimited_emails,
-                    "limits": tier_limits
-                }
+                return {"unlimited_emails": unlimited_emails, "limits": tier_limits}
 
         # Document not found, use defaults
         logger.warning("⚠️ app_config/settings not found, using defaults")
-        default_unlimited = []
+        default_unlimited: List[str] = []
         default_limits = {
             "FREE": {"max_queries_per_day": 20, "max_files": 5, "max_file_size_mb": 10},
-            "PRO": {"max_queries_per_day": 500, "max_files": 50, "max_file_size_mb": 50},
-            "UNLIMITED": {"max_queries_per_day": 9999, "max_files": 9999, "max_file_size_mb": 9999}
+            "PRO": {
+                "max_queries_per_day": 500,
+                "max_files": 50,
+                "max_file_size_mb": 50,
+            },
+            "UNLIMITED": {
+                "max_queries_per_day": 9999,
+                "max_files": 9999,
+                "max_file_size_mb": 9999,
+            },
         }
-        return {
-            "unlimited_emails": default_unlimited,
-            "limits": default_limits
-        }
+        return {"unlimited_emails": default_unlimited, "limits": default_limits}
 
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error(f"❌ Error loading app config: {e}")
         return {
             "unlimited_emails": [],
             "limits": {
-                "FREE": {"max_queries_per_day": 20, "max_files": 5, "max_file_size_mb": 10},
-                "PRO": {"max_queries_per_day": 500, "max_files": 50, "max_file_size_mb": 50},
+                "FREE": {
+                    "max_queries_per_day": 20,
+                    "max_files": 5,
+                    "max_file_size_mb": 10,
+                },
+                "PRO": {
+                    "max_queries_per_day": 500,
+                    "max_files": 50,
+                    "max_file_size_mb": 50,
+                },
                 "UNLIMITED": {
                     "max_queries_per_day": 9999,
                     "max_files": 9999,
-                    "max_file_size_mb": 9999
-                }
-            }
+                    "max_file_size_mb": 9999,
+                },
+            },
         }
 
 
@@ -213,11 +220,15 @@ def get_unlimited_emails() -> List[str]:
                 # Validate that it's a list
                 if isinstance(unlimited_emails, list):
                     get_unlimited_emails.cache = unlimited_emails  # type: ignore[attr-defined]
-                    logger.info(f"✅ Loaded {len(unlimited_emails)} unlimited emails from Firestore")
+                    logger.info(
+                        f"✅ Loaded {len(unlimited_emails)} unlimited emails from Firestore"
+                    )
                     return unlimited_emails
 
         # Document not found or invalid format
-        logger.warning("⚠️ app_config/settings not found or invalid format, using empty list")
+        logger.warning(
+            "⚠️ app_config/settings not found or invalid format, using empty list"
+        )
         get_unlimited_emails.cache = []  # type: ignore[attr-defined]
         return []
 
@@ -249,8 +260,7 @@ def _verify_token_and_get_user_info(id_token: str) -> tuple[str, str | None]:
     except Exception as e:
         logger.error(f"❌ Token verification failed: {e}")
         raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired ID token"
+            status_code=401, detail="Invalid or expired ID token"
         ) from e
 
 
@@ -274,13 +284,12 @@ def _assign_tier_to_user(user_id: str, tier: str) -> RegistrationResponse:
         return RegistrationResponse(
             status="success",
             tier=tier,
-            message="Access to plan assigned successfully. You may need to refresh your token."
+            message="Access to plan assigned successfully. You may need to refresh your token.",
         )
     except Exception as e:
         logger.error(f"❌ Failed to set custom claims: {e}")
         raise HTTPException(
-            status_code=500,
-            detail="Failed to assign tier. Please try again."
+            status_code=500, detail="Failed to assign tier. Please try again."
         ) from e
 
 
@@ -305,31 +314,23 @@ def _validate_invitation_code(invitation_code: str, db: Any) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"❌ Firestore error fetching code: {e}")
         raise HTTPException(
-            status_code=500,
-            detail="Database error. Please try again."
+            status_code=500, detail="Database error. Please try again."
         ) from e
 
     if not code_doc.exists:
         logger.warning(f"❌ Invitation code not found: {invitation_code}")
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid invitation code"
-        )
+        raise HTTPException(status_code=400, detail="Invalid invitation code")
 
     code_data = code_doc.to_dict()
 
     if not code_data:
         logger.error(f"❌ Code document exists but returned None: {invitation_code}")
-        raise HTTPException(
-            status_code=500,
-            detail="Invalid code data"
-        )
+        raise HTTPException(status_code=500, detail="Invalid code data")
 
     if code_data.get("is_used", True):
         logger.warning(f"❌ Invitation code already used: {invitation_code}")
         raise HTTPException(
-            status_code=400,
-            detail="Invitation code has already been used"
+            status_code=400, detail="Invitation code has already been used"
         )
 
     _check_code_expiration(invitation_code, code_data.get("expires_at"))
@@ -366,10 +367,7 @@ def _check_code_expiration(invitation_code: str, expires_at: Any) -> None:
                 f"❌ Invitation code expired: {invitation_code} "
                 f"(expired: {expiration_date})"
             )
-            raise HTTPException(
-                status_code=400,
-                detail="Invitation code has expired"
-            )
+            raise HTTPException(status_code=400, detail="Invitation code has expired")
     except HTTPException:
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -386,11 +384,9 @@ def _mark_code_as_used(code_ref: Any, user_id: str, invitation_code: str) -> Non
         invitation_code: Code that was used
     """
     try:
-        code_ref.update({
-            "is_used": True,
-            "used_by_user_id": user_id,
-            "used_at": SERVER_TIMESTAMP
-        })
+        code_ref.update(
+            {"is_used": True, "used_by_user_id": user_id, "used_at": SERVER_TIMESTAMP}
+        )
         logger.info(f"✅ Invitation code marked as used: {invitation_code}")
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error(f"❌ Failed to mark code as used: {e}")
@@ -428,15 +424,18 @@ async def register_user(registration_data: RegistrationData):
     unlimited_emails = app_config["unlimited_emails"]
 
     if user_email and user_email in unlimited_emails:
-        logger.info(f"🌟 User {user_email} found in unlimited list - assigning UNLIMITED tier")
+        logger.info(
+            f"🌟 User {user_email} found in unlimited list - assigning UNLIMITED tier"
+        )
         return _assign_tier_to_user(user_id, "UNLIMITED")
 
     # Step 3: Validate invitation code (required if not in unlimited list)
     if not registration_data.invitation_code:
-        logger.warning(f"❌ User {user_email} not in unlimited list and no invitation code provided")
+        logger.warning(
+            f"❌ User {user_email} not in unlimited list and no invitation code provided"
+        )
         raise HTTPException(
-            status_code=400,
-            detail="Invitation code is required for registration"
+            status_code=400, detail="Invitation code is required for registration"
         )
 
     invitation_code = registration_data.invitation_code.strip()
@@ -484,21 +483,17 @@ def refresh_user_claims(id_token: str):
         return {
             "status": "success",
             "tier": claims.get("tier", "FREE"),
-            "claims": claims
+            "claims": claims,
         }
 
     except Exception as e:
         logger.error(f"❌ Failed to refresh claims: {e}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token"
-        ) from e
+        raise HTTPException(status_code=401, detail="Invalid token") from e
 
 
 @router.post("/request-invitation-code", response_model=InvitationCodeRequestResponse)
 async def request_invitation_code(
-    request: InvitationCodeRequest,
-    email_service: Any = Depends(get_email_service)
+    request: InvitationCodeRequest, email_service: Any = Depends(get_email_service)
 ) -> InvitationCodeRequestResponse:
     """
     Send invitation code request to support team.
@@ -530,22 +525,26 @@ async def request_invitation_code(
         )
 
         if success:
-            logger.info(f"✅ Invitation request email sent successfully for {request.email}")
+            logger.info(
+                f"✅ Invitation request email sent successfully for {request.email}"
+            )
             return InvitationCodeRequestResponse(
                 status="success",
                 message=(
                     "Your request has been sent to our support team. "
                     "You will receive an invitation code via email soon."
-                )
+                ),
             )
         else:
-            logger.error(f"❌ Failed to send invitation request email for {request.email}")
+            logger.error(
+                f"❌ Failed to send invitation request email for {request.email}"
+            )
             raise HTTPException(
                 status_code=500,
                 detail=(
                     "Failed to send your request. "
                     "Please try again later or contact support directly."
-                )
+                ),
             )
 
     except HTTPException:
@@ -554,7 +553,7 @@ async def request_invitation_code(
         logger.error(f"❌ Error processing invitation request: {e}")
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while processing your request. Please try again later."
+            detail="An error occurred while processing your request. Please try again later.",
         ) from e
 
 
@@ -574,15 +573,11 @@ def get_tier_limits():
         limits = app_config["limits"]
 
         logger.info("✅ Tier limits retrieved successfully")
-        return {
-            "status": "success",
-            "limits": limits
-        }
+        return {"status": "success", "limits": limits}
     except Exception as e:
         logger.error(f"❌ Error retrieving tier limits: {e}")
         raise HTTPException(
-            status_code=500,
-            detail="Failed to retrieve tier limits"
+            status_code=500, detail="Failed to retrieve tier limits"
         ) from e
 
 
@@ -624,28 +619,27 @@ async def get_user_usage(user_id: str = Depends(get_current_user_id)):
         # Calculate remaining queries using helper function
         remaining = calculate_remaining_queries(query_limit, queries_today)
 
-        logger.info(f"📊 Usage retrieved for user {user_id}: {queries_today}/{query_limit} ({tier})")
+        logger.info(
+            f"📊 Usage retrieved for user {user_id}: {queries_today}/{query_limit} ({tier})"
+        )
 
         return {
             "status": "success",
             "queries_today": queries_today,
             "query_limit": query_limit,
             "remaining": remaining,
-            "tier": tier
+            "tier": tier,
         }
     except Exception as e:
         logger.error(f"❌ Error retrieving user usage: {e}")
         raise HTTPException(
-            status_code=500,
-            detail="Failed to retrieve usage information"
+            status_code=500, detail="Failed to retrieve usage information"
         ) from e
 
 
 @router.post("/admin/set-tier")
 def set_user_tier_admin(
-    email: str,
-    tier: str,
-    _current_user_id: str = Depends(get_current_user_id)
+    email: str, tier: str, _current_user_id: str = Depends(get_current_user_id)
 ):
     """
     ADMIN ENDPOINT: Set tier for a user by email.
@@ -666,7 +660,7 @@ def set_user_tier_admin(
         if tier not in valid_tiers:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid tier. Must be one of: {', '.join(valid_tiers)}"
+                detail=f"Invalid tier. Must be one of: {', '.join(valid_tiers)}",
             )
 
         # Get user by email
@@ -684,18 +678,14 @@ def set_user_tier_admin(
             "user_id": user.uid,
             "email": email,
             "tier": tier,
-            "note": "User must log out and log back in for changes to take effect"
+            "note": "User must log out and log back in for changes to take effect",
         }
 
     except auth.UserNotFoundError as exc:
         logger.error(f"❌ User not found: {email}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"User not found: {email}"
-        ) from exc
+        raise HTTPException(status_code=404, detail=f"User not found: {email}") from exc
     except Exception as e:
         logger.error(f"❌ Error setting tier: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to set tier: {str(e)}"
+            status_code=500, detail=f"Failed to set tier: {str(e)}"
         ) from e

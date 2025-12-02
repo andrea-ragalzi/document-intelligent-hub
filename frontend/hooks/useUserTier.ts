@@ -49,10 +49,7 @@ const TIER_LIMITS: Record<UserTier, TierLimits> = {
  * @param refreshTrigger - Counter incremented on explicit refresh requests
  * @returns true if token should be force-refreshed
  */
-function shouldForceRefreshToken(
-  isFirstLoad: boolean,
-  refreshTrigger: number
-): boolean {
+function shouldForceRefreshToken(isFirstLoad: boolean, refreshTrigger: number): boolean {
   return isFirstLoad || refreshTrigger > 0;
 }
 
@@ -73,10 +70,7 @@ export function useUserTier() {
 
       try {
         // Force refresh on first load or explicit refresh to ensure latest tier
-        const forceRefresh = shouldForceRefreshToken(
-          isFirstLoad,
-          refreshTrigger
-        );
+        const forceRefresh = shouldForceRefreshToken(isFirstLoad, refreshTrigger);
 
         console.log(
           `🔄 Loading tier - forceRefresh: ${forceRefresh}, refreshTrigger: ${refreshTrigger}, isFirstLoad: ${isFirstLoad}`
@@ -124,7 +118,7 @@ export function useUserTier() {
   };
 
   const refreshTier = () => {
-    setRefreshTrigger((prev) => prev + 1);
+    setRefreshTrigger(prev => prev + 1);
   };
 
   return {

@@ -47,9 +47,7 @@ describe("RenameModal", () => {
       />
     );
 
-    const input = screen.getByDisplayValue(
-      "My Original Name"
-    ) as HTMLInputElement;
+    const input = screen.getByDisplayValue("My Original Name") as HTMLInputElement;
     expect(input).toBeInTheDocument();
     expect(input.value).toBe("My Original Name");
   });
@@ -73,12 +71,7 @@ describe("RenameModal", () => {
 
   it("should call onClose when X button is clicked", () => {
     render(
-      <RenameModal
-        isOpen={true}
-        currentName="Test"
-        onClose={mockOnClose}
-        onRename={mockOnRename}
-      />
+      <RenameModal isOpen={true} currentName="Test" onClose={mockOnClose} onRename={mockOnRename} />
     );
 
     const closeButton = screen.getByRole("button", { name: "" });
@@ -112,12 +105,7 @@ describe("RenameModal", () => {
 
   it("should not submit with empty name", async () => {
     render(
-      <RenameModal
-        isOpen={true}
-        currentName="Test"
-        onClose={mockOnClose}
-        onRename={mockOnRename}
-      />
+      <RenameModal isOpen={true} currentName="Test" onClose={mockOnClose} onRename={mockOnRename} />
     );
 
     const input = screen.getByDisplayValue("Test") as HTMLInputElement;
@@ -131,12 +119,7 @@ describe("RenameModal", () => {
 
   it("should not submit with whitespace-only name", async () => {
     render(
-      <RenameModal
-        isOpen={true}
-        currentName="Test"
-        onClose={mockOnClose}
-        onRename={mockOnRename}
-      />
+      <RenameModal isOpen={true} currentName="Test" onClose={mockOnClose} onRename={mockOnRename} />
     );
 
     const input = screen.getByDisplayValue("Test") as HTMLInputElement;
@@ -152,12 +135,7 @@ describe("RenameModal", () => {
     mockOnRename.mockResolvedValue(false);
 
     render(
-      <RenameModal
-        isOpen={true}
-        currentName="Test"
-        onClose={mockOnClose}
-        onRename={mockOnRename}
-      />
+      <RenameModal isOpen={true} currentName="Test" onClose={mockOnClose} onRename={mockOnRename} />
     );
 
     const input = screen.getByDisplayValue("Test") as HTMLInputElement;
@@ -178,12 +156,7 @@ describe("RenameModal", () => {
     mockOnRename.mockResolvedValue(true);
 
     render(
-      <RenameModal
-        isOpen={true}
-        currentName="Test"
-        onClose={mockOnClose}
-        onRename={mockOnRename}
-      />
+      <RenameModal isOpen={true} currentName="Test" onClose={mockOnClose} onRename={mockOnRename} />
     );
 
     const input = screen.getByDisplayValue("Test") as HTMLInputElement;

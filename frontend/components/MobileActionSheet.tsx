@@ -76,9 +76,7 @@ export const MobileActionSheet: React.FC<MobileActionSheetProps> = ({
         {/* Header with title and close button */}
         {title && (
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {title}
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
             <button
               onClick={onClose}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
@@ -90,7 +88,7 @@ export const MobileActionSheet: React.FC<MobileActionSheetProps> = ({
 
         {/* Options list */}
         <div className="py-2">
-          {options.map((option) => (
+          {options.map(option => (
             <button
               key={option.label}
               onClick={() => {

@@ -40,8 +40,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
     <>
       <section>
         <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center border-b border-gray-100 dark:border-gray-700 pb-2">
-          <Upload size={16} className="mr-2 text-blue-600" /> 1. Document
-          Indexing
+          <Upload size={16} className="mr-2 text-blue-600" /> 1. Document Indexing
         </h2>
         <form onSubmit={onUpload} className="space-y-4">
           <label
@@ -63,9 +62,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
               <Upload size={24} className="mx-auto text-blue-500" />
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                 {file ? (
-                  <span className="font-semibold text-blue-600 truncate block">
-                    {file.name}
-                  </span>
+                  <span className="font-semibold text-blue-600 truncate block">{file.name}</span>
                 ) : (
                   "Drag or click here to select a file (PDF only)"
                 )}

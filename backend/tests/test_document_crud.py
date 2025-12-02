@@ -3,6 +3,7 @@ Integration tests for Document CRUD operations.
 
 Tests document upload, listing, checking, and deletion endpoints.
 """
+
 import uuid
 from typing import Any
 
@@ -68,8 +69,7 @@ class TestDocumentCRUD:
 
         # Delete
         response = client.delete(
-            "/rag/documents/delete",
-            params={"filename": "to_delete.pdf"}
+            "/rag/documents/delete", params={"filename": "to_delete.pdf"}
         )
         assert response.status_code == 200
         data = response.json()

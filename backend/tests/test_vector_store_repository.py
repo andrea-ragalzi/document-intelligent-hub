@@ -33,10 +33,7 @@ def test_repository():  # pylint: disable=W0621
     vector_store = next(vector_store_gen)
 
     # Create repository
-    repository = VectorStoreRepository(
-        vector_store=vector_store,
-        collection=collection
-    )
+    repository = VectorStoreRepository(vector_store=vector_store, collection=collection)
 
     yield repository
 
@@ -69,17 +66,17 @@ class TestRepositoryBasicOperations:
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "test1.pdf",
-                    "chunk_index": 0
-                }
+                    "chunk_index": 0,
+                },
             ),
             Document(
                 page_content="This is the second test document.",
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "test1.pdf",
-                    "chunk_index": 1
-                }
-            )
+                    "chunk_index": 1,
+                },
+            ),
         ]
 
         total_indexed = test_repository.add_documents(documents, batch_size=100)
@@ -95,23 +92,21 @@ class TestRepositoryBasicOperations:
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "exists.pdf",
-                    "chunk_index": 0
-                }
+                    "chunk_index": 0,
+                },
             )
         ]
         test_repository.add_documents(documents)
 
         # Check if it exists
         exists = test_repository.check_document_exists(
-            user_id="test-repo-user-1",
-            filename="exists.pdf"
+            user_id="test-repo-user-1", filename="exists.pdf"
         )
         assert exists is True
 
         # Check non-existent document
         not_exists = test_repository.check_document_exists(
-            user_id="test-repo-user-1",
-            filename="nonexistent.pdf"
+            user_id="test-repo-user-1", filename="nonexistent.pdf"
         )
         assert not_exists is False
 
@@ -124,8 +119,8 @@ class TestRepositoryBasicOperations:
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "chunked.pdf",
-                    "chunk_index": i
-                }
+                    "chunk_index": i,
+                },
             )
             for i in range(5)
         ]
@@ -133,8 +128,7 @@ class TestRepositoryBasicOperations:
 
         # Count chunks
         count = test_repository.count_document_chunks(
-            user_id="test-repo-user-1",
-            filename="chunked.pdf"
+            user_id="test-repo-user-1", filename="chunked.pdf"
         )
 
         assert count == 5
@@ -148,8 +142,8 @@ class TestRepositoryBasicOperations:
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": f"doc{i}.pdf",
-                    "chunk_index": 0
-                }
+                    "chunk_index": 0,
+                },
             )
             for i in range(3)
         ]
@@ -157,8 +151,7 @@ class TestRepositoryBasicOperations:
 
         # Get sample
         metadatas, ids = test_repository.get_user_chunks_sample(
-            user_id="test-repo-user-1",
-            sample_size=10
+            user_id="test-repo-user-1", sample_size=10
         )
 
         assert len(metadatas) >= 3
@@ -174,25 +167,23 @@ class TestRepositoryBasicOperations:
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "python.pdf",
-                    "chunk_index": 0
-                }
+                    "chunk_index": 0,
+                },
             ),
             Document(
                 page_content="JavaScript is used for web development.",
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "javascript.pdf",
-                    "chunk_index": 0
-                }
-            )
+                    "chunk_index": 0,
+                },
+            ),
         ]
         test_repository.add_documents(documents)
 
         # Search for Python-related content
         results = test_repository.similarity_search(
-            query="programming language for data",
-            user_id="test-repo-user-1",
-            k=2
+            query="programming language for data", user_id="test-repo-user-1", k=2
         )
 
         assert len(results) > 0
@@ -208,25 +199,28 @@ class TestRepositoryBasicOperations:
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "delete_me.pdf",
-                    "chunk_index": 0
-                }
+                    "chunk_index": 0,
+                },
             )
         ]
         test_repository.add_documents(documents)
 
         # Verify it exists
-        assert test_repository.check_document_exists("test-repo-user-1", "delete_me.pdf")
+        assert test_repository.check_document_exists(
+            "test-repo-user-1", "delete_me.pdf"
+        )
 
         # Delete it
         deleted_count = test_repository.delete_document(
-            user_id="test-repo-user-1",
-            filename="delete_me.pdf"
+            user_id="test-repo-user-1", filename="delete_me.pdf"
         )
 
         assert deleted_count >= 1
 
         # Verify it's gone
-        assert not test_repository.check_document_exists("test-repo-user-1", "delete_me.pdf")
+        assert not test_repository.check_document_exists(
+            "test-repo-user-1", "delete_me.pdf"
+        )
 
     def test_delete_all_user_documents(self, test_repository: Any):
         """Test deleting all documents for a user"""
@@ -237,8 +231,8 @@ class TestRepositoryBasicOperations:
                 metadata={
                     "source": "test-repo-user-2",
                     "original_filename": f"doc{i}.pdf",
-                    "chunk_index": 0
-                }
+                    "chunk_index": 0,
+                },
             )
             for i in range(3)
         ]
@@ -267,8 +261,8 @@ class TestMultiTenancyIsolation:
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "user1_secret.pdf",
-                    "chunk_index": 0
-                }
+                    "chunk_index": 0,
+                },
             )
         ]
         test_repository.add_documents(user1_docs)
@@ -280,17 +274,15 @@ class TestMultiTenancyIsolation:
                 metadata={
                     "source": "test-repo-user-2",
                     "original_filename": "user2_info.pdf",
-                    "chunk_index": 0
-                }
+                    "chunk_index": 0,
+                },
             )
         ]
         test_repository.add_documents(user2_docs)
 
         # User 2 searches for "Alpha" (User 1's content)
         results = test_repository.similarity_search(
-            query="Project Alpha",
-            user_id="test-repo-user-2",  # User 2's ID
-            k=10
+            query="Project Alpha", user_id="test-repo-user-2", k=10  # User 2's ID
         )
 
         # Should NOT return User 1's documents
@@ -308,8 +300,8 @@ class TestMultiTenancyIsolation:
                     metadata={
                         "source": user_id,
                         "original_filename": f"{user_id}_doc.pdf",
-                        "chunk_index": 0
-                    }
+                        "chunk_index": 0,
+                    },
                 )
             ]
             test_repository.add_documents(docs)
@@ -330,8 +322,8 @@ class TestMultiTenancyIsolation:
                     metadata={
                         "source": user_id,
                         "original_filename": "shared_name.pdf",
-                        "chunk_index": 0
-                    }
+                        "chunk_index": 0,
+                    },
                 )
             ]
             test_repository.add_documents(docs)
@@ -340,8 +332,12 @@ class TestMultiTenancyIsolation:
         test_repository.delete_document("test-repo-user-1", "shared_name.pdf")
 
         # Verify User 1's is gone but User 2's remains
-        assert not test_repository.check_document_exists("test-repo-user-1", "shared_name.pdf")
-        assert test_repository.check_document_exists("test-repo-user-2", "shared_name.pdf")
+        assert not test_repository.check_document_exists(
+            "test-repo-user-1", "shared_name.pdf"
+        )
+        assert test_repository.check_document_exists(
+            "test-repo-user-2", "shared_name.pdf"
+        )
 
 
 # pylint: disable=W0621  # test_repository fixture redefines name from outer scope (pytest pattern)
@@ -356,17 +352,14 @@ class TestRepositoryEdgeCases:
     def test_search_with_no_documents(self, test_repository: Any):
         """Test similarity search when user has no documents"""
         results = test_repository.similarity_search(
-            query="anything",
-            user_id="nonexistent-user-999",
-            k=10
+            query="anything", user_id="nonexistent-user-999", k=10
         )
         assert results == []
 
     def test_delete_nonexistent_document(self, test_repository: Any):
         """Test deleting a document that doesn't exist"""
         deleted_count = test_repository.delete_document(
-            user_id="test-repo-user-3",
-            filename="nonexistent.pdf"
+            user_id="test-repo-user-3", filename="nonexistent.pdf"
         )
         # Should return 0 (no documents deleted)
         assert deleted_count == 0
@@ -379,8 +372,8 @@ class TestRepositoryEdgeCases:
                 metadata={
                     "source": "test-repo-user-1",
                     "original_filename": "batch.pdf",
-                    "chunk_index": i
-                }
+                    "chunk_index": i,
+                },
             )
             for i in range(10)
         ]
@@ -391,11 +384,10 @@ class TestRepositoryEdgeCases:
 
     def test_retriever_factory(self, test_repository: Any):
         """Test get_retriever() returns valid LangChain retriever"""
-        retriever = test_repository.get_retriever(
-            user_id="test-repo-user-1",
-            k=5
-        )
+        retriever = test_repository.get_retriever(user_id="test-repo-user-1", k=5)
 
         # Should be callable
         assert retriever is not None
-        assert hasattr(retriever, "invoke") or hasattr(retriever, "get_relevant_documents")
+        assert hasattr(retriever, "invoke") or hasattr(
+            retriever, "get_relevant_documents"
+        )

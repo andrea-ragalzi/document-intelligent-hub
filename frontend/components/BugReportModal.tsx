@@ -1,5 +1,4 @@
-import { Bug, Paperclip, X } from "lucide-react";
-import Image from "next/image";
+// Removed unused imports
 import { useBugReportForm } from "./BugReportModal/useBugReportForm";
 import {
   validateDescription,

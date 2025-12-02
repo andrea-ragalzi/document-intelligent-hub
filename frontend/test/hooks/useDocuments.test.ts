@@ -285,10 +285,9 @@ describe("useDocuments", () => {
   });
 
   it("should reload documents when userId changes", async () => {
-    const { result, rerender } = renderHook(
-      ({ userId }) => useDocuments(userId),
-      { initialProps: { userId: mockUserId } }
-    );
+    const { result, rerender } = renderHook(({ userId }) => useDocuments(userId), {
+      initialProps: { userId: mockUserId },
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -310,9 +309,7 @@ describe("useDocuments", () => {
     rerender({ userId: newUserId });
 
     await waitFor(() => {
-      expect(vi.mocked(fetch).mock.calls.length).toBeGreaterThan(
-        initialCallCount
-      );
+      expect(vi.mocked(fetch).mock.calls.length).toBeGreaterThan(initialCallCount);
     });
 
     expect(fetch).toHaveBeenLastCalledWith(

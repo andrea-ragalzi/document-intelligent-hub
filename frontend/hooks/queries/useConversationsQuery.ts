@@ -54,43 +54,34 @@ export function useCreateConversation(userId: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      name,
-      history,
-    }: {
-      name: string;
-      history: ChatMessage[];
-    }) => {
+    mutationFn: ({ name, history }: { name: string; history: ChatMessage[] }) => {
       if (!userId) throw new Error("User ID required");
       return saveConversationToFirestore(userId, name, history);
     },
 
     // Optimistic update: aggiungi subito alla cache
-    onMutate: async (newConversation) => {
+    onMutate: async newConversation => {
       // Cancella refetch in corso
       await queryClient.cancelQueries({
         queryKey: conversationKeys.byUser(userId || ""),
       });
 
       // Snapshot del valore precedente
-      const previousConversations = queryClient.getQueryData<
-        SavedConversation[]
-      >(conversationKeys.byUser(userId || ""));
+      const previousConversations = queryClient.getQueryData<SavedConversation[]>(
+        conversationKeys.byUser(userId || "")
+      );
 
       // Optimistic update: add temporary conversation
-      queryClient.setQueryData<SavedConversation[]>(
-        conversationKeys.byUser(userId || ""),
-        (old) => {
-          const tempConv: SavedConversation = {
-            id: "temp-" + Date.now(),
-            userId: userId || "",
-            name: newConversation.name,
-            timestamp: new Date().toLocaleString("en-US"),
-            history: newConversation.history,
-          };
-          return [tempConv, ...(old || [])];
-        }
-      );
+      queryClient.setQueryData<SavedConversation[]>(conversationKeys.byUser(userId || ""), old => {
+        const tempConv: SavedConversation = {
+          id: "temp-" + Date.now(),
+          userId: userId || "",
+          name: newConversation.name,
+          timestamp: new Date().toLocaleString("en-US"),
+          history: newConversation.history,
+        };
+        return [tempConv, ...(old || [])];
+      });
 
       return { previousConversations };
     },
@@ -107,7 +98,7 @@ export function useCreateConversation(userId: string | null) {
     },
 
     // Refetch after success
-    onSuccess: (data) => {
+    onSuccess: data => {
       console.log("✅ Conversation created:", data.id);
       queryClient.invalidateQueries({
         queryKey: conversationKeys.byUser(userId || ""),
@@ -132,16 +123,13 @@ export function useUpdateConversationName(userId: string | null) {
         queryKey: conversationKeys.byUser(userId || ""),
       });
 
-      const previousConversations = queryClient.getQueryData<
-        SavedConversation[]
-      >(conversationKeys.byUser(userId || ""));
+      const previousConversations = queryClient.getQueryData<SavedConversation[]>(
+        conversationKeys.byUser(userId || "")
+      );
 
       queryClient.setQueryData<SavedConversation[]>(
         conversationKeys.byUser(userId || ""),
-        (old) =>
-          old?.map((conv) =>
-            conv.id === id ? { ...conv, name: newName } : conv
-          ) || []
+        old => old?.map(conv => (conv.id === id ? { ...conv, name: newName } : conv)) || []
       );
 
       return { previousConversations };
@@ -189,14 +177,14 @@ export function useUpdateConversationHistory(userId: string | null) {
         queryKey: conversationKeys.byUser(userId || ""),
       });
 
-      const previousConversations = queryClient.getQueryData<
-        SavedConversation[]
-      >(conversationKeys.byUser(userId || ""));
+      const previousConversations = queryClient.getQueryData<SavedConversation[]>(
+        conversationKeys.byUser(userId || "")
+      );
 
       queryClient.setQueryData<SavedConversation[]>(
         conversationKeys.byUser(userId || ""),
-        (old) =>
-          old?.map((conv) =>
+        old =>
+          old?.map(conv =>
             conv.id === id
               ? {
                   ...conv,
@@ -243,18 +231,18 @@ export function useDeleteConversation(userId: string | null) {
     mutationFn: (id: string) => deleteConversationFromFirestore(id),
 
     // Optimistic update
-    onMutate: async (id) => {
+    onMutate: async id => {
       await queryClient.cancelQueries({
         queryKey: conversationKeys.byUser(userId || ""),
       });
 
-      const previousConversations = queryClient.getQueryData<
-        SavedConversation[]
-      >(conversationKeys.byUser(userId || ""));
+      const previousConversations = queryClient.getQueryData<SavedConversation[]>(
+        conversationKeys.byUser(userId || "")
+      );
 
       queryClient.setQueryData<SavedConversation[]>(
         conversationKeys.byUser(userId || ""),
-        (old) => old?.filter((conv) => conv.id !== id) || []
+        old => old?.filter(conv => conv.id !== id) || []
       );
 
       return { previousConversations };

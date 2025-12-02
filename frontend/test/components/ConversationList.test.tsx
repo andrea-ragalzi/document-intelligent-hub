@@ -78,9 +78,7 @@ describe("ConversationList", () => {
       />
     );
 
-    const firstConversationCard = screen
-      .getByText("First Conversation")
-      .closest("div");
+    const firstConversationCard = screen.getByText("First Conversation").closest("div");
     fireEvent.click(firstConversationCard!);
 
     expect(mockOnLoad).toHaveBeenCalledWith(mockConversations[0]);
@@ -129,9 +127,7 @@ describe("ConversationList", () => {
     const deleteAction = screen.getByRole("button", { name: /^delete$/i });
     fireEvent.mouseDown(deleteAction);
 
-    expect(
-      screen.getByRole("button", { name: /^delete$/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
   });
 
   it("should call onRename when rename action is taken from the menu", () => {
@@ -196,9 +192,7 @@ describe("ConversationList", () => {
       />
     );
 
-    const nameElement = screen.getByText(
-      /this is a very long conversation name/i
-    );
+    const nameElement = screen.getByText(/this is a very long conversation name/i);
     expect(nameElement).toBeInTheDocument();
     expect(nameElement.className).toContain("truncate");
   });
@@ -245,7 +239,7 @@ describe("ConversationList", () => {
 
     const names = screen
       .getAllByText(/conversation/i)
-      .filter((el) => el.className.includes("font-semibold"));
+      .filter(el => el.className.includes("font-semibold"));
 
     expect(names[0]).toHaveTextContent("Second Conversation");
     expect(names[1]).toHaveTextContent("First Conversation");
@@ -262,9 +256,7 @@ describe("ConversationList", () => {
       />
     );
 
-    const conversationCards = container.querySelectorAll(
-      '[class*="cursor-pointer"]'
-    );
+    const conversationCards = container.querySelectorAll('[class*="cursor-pointer"]');
     expect(conversationCards.length).toBe(2); // One for each conversation
   });
 

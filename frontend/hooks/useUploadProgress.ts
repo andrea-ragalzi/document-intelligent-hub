@@ -68,10 +68,7 @@ export const useUploadProgress = ({
     // Update progress every 500ms
     progressInterval.current = setInterval(() => {
       const elapsed = (Date.now() - startTime.current) / 1000; // seconds
-      const progressPercent = Math.min(
-        95,
-        (elapsed / estimatedTotalTime) * 100
-      );
+      const progressPercent = Math.min(95, (elapsed / estimatedTotalTime) * 100);
 
       // Determine status and message based on progress
       let status: UploadProgressState["status"] = "uploading";
@@ -92,11 +89,9 @@ export const useUploadProgress = ({
 
         // Simulate chunks processing
         const estimatedTotalChunks = Math.floor((estimatedTotalTime / 5) * 95); // ~95 chunks/sec estimate
-        const chunksProcessed = Math.floor(
-          (progressPercent / 95) * estimatedTotalChunks
-        );
+        const chunksProcessed = Math.floor((progressPercent / 95) * estimatedTotalChunks);
 
-        setState((prev) => ({
+        setState(prev => ({
           ...prev,
           progress: progressPercent,
           status,
@@ -113,7 +108,7 @@ export const useUploadProgress = ({
 
       const remaining = Math.max(0, estimatedTotalTime - elapsed);
 
-      setState((prev) => ({
+      setState(prev => ({
         ...prev,
         progress: progressPercent,
         status,
@@ -133,7 +128,7 @@ export const useUploadProgress = ({
   // Mark as complete when upload finishes
   useEffect(() => {
     if (!isUploading && state.progress > 0 && state.status !== "complete") {
-      setState((prev) => ({
+      setState(prev => ({
         ...prev,
         progress: 100,
         status: "complete",

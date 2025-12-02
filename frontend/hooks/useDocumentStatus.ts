@@ -24,10 +24,9 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
   // Expose refresh function
   useEffect(() => {
     // Listen for custom event to refresh document status
-    const handleRefresh = () => setRefreshKey((prev) => prev + 1);
+    const handleRefresh = () => setRefreshKey(prev => prev + 1);
     globalThis.window.addEventListener("refreshDocumentStatus", handleRefresh);
-    return () =>
-      globalThis.window.removeEventListener("refreshDocumentStatus", handleRefresh);
+    return () => globalThis.window.removeEventListener("refreshDocumentStatus", handleRefresh);
   }, []);
 
   useEffect(() => {
@@ -49,14 +48,11 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
         }
 
         // Check if there are indexed documents for this user
-        const response = await fetch(
-          `${API_BASE_URL}/documents/check?user_id=${userId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}/documents/check?user_id=${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (response.ok) {
           const data = await response.json();
@@ -64,10 +60,7 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
           setHasDocuments(data.has_documents || false);
           setDocumentCount(data.document_count || 0);
         } else {
-          console.warn(
-            "⚠️ Document check failed with status:",
-            response.status
-          );
+          console.warn("⚠️ Document check failed with status:", response.status);
           setHasDocuments(false);
           setDocumentCount(0);
         }

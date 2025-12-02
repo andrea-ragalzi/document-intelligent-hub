@@ -53,7 +53,7 @@ class RAGService:
     - ConversationService (82 lines)
     """
 
-    def __init__(self, repository: VectorStoreRepository):
+    def __init__(self, repository: VectorStoreRepository) -> None:
         """
         Initialize RAG service with repository and specialized services.
 
@@ -66,13 +66,13 @@ class RAGService:
         self.llm = ChatOpenAI(
             model=settings.LLM_MODEL,
             temperature=0.0,
-            api_key=SecretStr(settings.OPENAI_API_KEY)
+            api_key=SecretStr(settings.OPENAI_API_KEY),
         )
 
         self.query_gen_llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.0,
-            api_key=SecretStr(settings.OPENAI_API_KEY)
+            api_key=SecretStr(settings.OPENAI_API_KEY),
         )
 
         # Initialize shared services
@@ -82,12 +82,11 @@ class RAGService:
         self.indexing_service = DocumentIndexingService(
             repository=repository,
             language_service=self.language_service,
-            classifier_service=document_classifier_service
+            classifier_service=document_classifier_service,
         )
 
         self.query_processing_service = QueryProcessingService(
-            llm=self.llm,
-            query_gen_llm=self.query_gen_llm
+            llm=self.llm, query_gen_llm=self.query_gen_llm
         )
 
         self.answer_generation_service = AnswerGenerationService(
@@ -96,7 +95,7 @@ class RAGService:
             language_service=self.language_service,
             translation_service=translation_service,
             query_expansion_service=query_expansion_service,
-            reranking_service=reranking_service
+            reranking_service=reranking_service,
         )
 
         self.document_management_service = DocumentManagementService(
@@ -112,10 +111,7 @@ class RAGService:
     # === DOCUMENT INDEXING OPERATIONS ===
 
     async def index_document(
-        self,
-        file: UploadFile,
-        user_id: str,
-        document_language: Optional[str] = None
+        self, file: UploadFile, user_id: str, document_language: Optional[str] = None
     ) -> Tuple[int, str]:
         """
         Delegate to DocumentIndexingService.
@@ -128,11 +124,12 @@ class RAGService:
         Returns:
             Tuple of (chunks_indexed, detected_language)
         """
-        return await self.indexing_service.index_document(file, user_id, document_language)
+        return await self.indexing_service.index_document(
+            file, user_id, document_language
+        )
 
     async def detect_document_language_preview(
-        self,
-        file: UploadFile
+        self, file: UploadFile
     ) -> Tuple[str, float]:
         """
         Delegate to DocumentIndexingService.
@@ -154,7 +151,7 @@ class RAGService:
         conversation_history: Optional[List[ConversationMessage]] = None,
         output_language: Optional[str] = None,
         include_files: Optional[List[str]] = None,
-        exclude_files: Optional[List[str]] = None
+        exclude_files: Optional[List[str]] = None,
     ) -> Tuple[str, List[str]]:
         """
         Process query and generate answer using RAG pipeline.
@@ -193,7 +190,7 @@ class RAGService:
             conversation_history=conversation_history,
             output_language=output_language,
             include_files=include_files,
-            exclude_files=exclude_files
+            exclude_files=exclude_files,
         )
 
     # === DOCUMENT MANAGEMENT OPERATIONS ===
@@ -250,8 +247,7 @@ class RAGService:
     # === CONVERSATION OPERATIONS ===
 
     def generate_conversation_summary(
-        self,
-        conversation_history: List[ConversationMessage]
+        self, conversation_history: List[ConversationMessage]
     ) -> str:
         """
         Delegate to ConversationService.
@@ -262,7 +258,9 @@ class RAGService:
         Returns:
             Concise summary string
         """
-        return self.conversation_service.generate_conversation_summary(conversation_history)
+        return self.conversation_service.generate_conversation_summary(
+            conversation_history
+        )
 
 
 # Dependency injector for FastAPI

@@ -1,14 +1,7 @@
 "use client";
 
 import { FormEvent, ChangeEvent, useState, useRef, useEffect } from "react";
-import {
-  Upload,
-  Loader,
-  FileText,
-  Trash2,
-  AlertCircle,
-  RefreshCw,
-} from "lucide-react";
+import { Upload, Loader, FileText, Trash2, AlertCircle, RefreshCw } from "lucide-react";
 import type { AlertState } from "@/lib/types";
 import { AlertMessage } from "./AlertMessage";
 import { useDocuments } from "@/hooks/useDocuments";
@@ -45,9 +38,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   const prevUploadingRef = useRef(isUploading);
 
   // Estimate upload time based on file size (if available)
-  const estimatedTime = file
-    ? Math.max(60, Math.min(300, (file.size / (1024 * 1024)) * 30))
-    : 180;
+  const estimatedTime = file ? Math.max(60, Math.min(300, (file.size / (1024 * 1024)) * 30)) : 180;
 
   // Track upload progress
   const progressState = useUploadProgress({
@@ -74,20 +65,14 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
     console.log(
       "📝 Documents state changed:",
       documents.length,
-      documents.map((d) => d.filename)
+      documents.map(d => d.filename)
     );
   }, [documents]);
 
-  console.log(
-    "📋 DocumentManager render - documents:",
-    documents?.length || 0,
-    documents
-  );
+  console.log("📋 DocumentManager render - documents:", documents?.length || 0, documents);
 
   const [deletingDoc, setDeletingDoc] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(
-    null
-  );
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   const handleDelete = async (filename: string) => {
     setDeletingDoc(filename);
@@ -201,10 +186,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
             className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition disabled:opacity-50"
             title="Refresh list"
           >
-            <RefreshCw
-              size={14}
-              className={isLoadingDocs ? "animate-spin" : ""}
-            />
+            <RefreshCw size={14} className={isLoadingDocs ? "animate-spin" : ""} />
           </button>
         </div>
 
@@ -214,17 +196,12 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
         ) : documents.length === 0 ? (
           // Show empty state when not loading and no documents
           <div className="text-center py-6 bg-gray-50 dark:bg-gray-900/30 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
-            <FileText
-              size={32}
-              className="mx-auto mb-2 text-gray-300 dark:text-gray-600"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              No documents uploaded yet
-            </p>
+            <FileText size={32} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+            <p className="text-xs text-gray-500 dark:text-gray-400">No documents uploaded yet</p>
           </div>
         ) : (
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-            {documents.map((doc) => (
+            {documents.map(doc => (
               <div
                 key={doc.filename}
                 className="group relative bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all"
@@ -233,10 +210,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                 {showDeleteConfirm === doc.filename && (
                   <div className="absolute inset-0 bg-white/98 dark:bg-gray-900/98 rounded-lg flex items-center justify-center z-10 backdrop-blur-sm">
                     <div className="text-center px-4">
-                      <AlertCircle
-                        size={24}
-                        className="mx-auto mb-2 text-red-600"
-                      />
+                      <AlertCircle size={24} className="mx-auto mb-2 text-red-600" />
                       <p className="text-xs font-semibold text-gray-800 dark:text-white mb-3">
                         Delete &quot;{doc.filename}&quot;?
                       </p>
@@ -275,8 +249,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                     </p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-800 px-2 py-0.5 rounded-full">
-                        <span className="font-medium">{doc.chunks_count}</span>{" "}
-                        chunks
+                        <span className="font-medium">{doc.chunks_count}</span> chunks
                       </span>
                       {doc.language && doc.language !== "unknown" && (
                         <span className="inline-flex items-center text-xs text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-800 px-2 py-0.5 rounded-full uppercase font-medium">

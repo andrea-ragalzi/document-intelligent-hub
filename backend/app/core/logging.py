@@ -2,10 +2,11 @@
 """
 Logging configuration using Loguru with best practices.
 """
+import logging
 import sys
 from pathlib import Path
 
-from loguru import logger
+from loguru import Logger, logger
 
 # Constants
 LOG_ROTATION_SIZE = "10 MB"
@@ -61,13 +62,13 @@ logger.add(
 )
 
 
-def get_logger(name: str = __name__):
+def get_logger(name: str = __name__) -> Logger:
     """
     Get a logger instance with a specific name.
-    
+
     Args:
         name: Logger name (usually __name__ from calling module)
-        
+
     Returns:
         Configured logger instance
     """

@@ -1,20 +1,10 @@
 import type { SavedConversation } from "@/lib/types";
-import {
-  Trash2,
-  Edit,
-  AlertCircle,
-  MoreVertical,
-  Pin,
-  CheckCircle,
-} from "lucide-react";
+import { Trash2, Edit, AlertCircle, MoreVertical, Pin, CheckCircle } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useMobileGestures } from "@/hooks/useMobileGestures";
 
-const getConversationItemClassName = (
-  isSelected: boolean,
-  isActive: boolean
-): string => {
+const getConversationItemClassName = (isSelected: boolean, isActive: boolean): string => {
   if (isSelected) {
     return "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-500";
   }
@@ -36,12 +26,10 @@ interface ConversationListProps {
 // Function to generate conversation preview
 const _getConversationPreview = (conv: SavedConversation): string => {
   if (conv.history.length > 0) {
-    const firstUserMessage = conv.history.find((msg) => msg.type === "user");
+    const firstUserMessage = conv.history.find(msg => msg.type === "user");
     if (firstUserMessage) {
       const preview = firstUserMessage.text.substring(0, 60);
-      return preview.length < firstUserMessage.text.length
-        ? `${preview}...`
-        : preview;
+      return preview.length < firstUserMessage.text.length ? `${preview}...` : preview;
     }
   }
   return "No messages yet";
@@ -58,9 +46,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   const [selectedConvs, setSelectedConvs] = useState<string[]>([]);
   const [deleteMultipleModalOpen, setDeleteMultipleModalOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<SavedConversation | null>(
-    null
-  );
+  const [pendingDelete, setPendingDelete] = useState<SavedConversation | null>(null);
 
   // Auto-enable selection mode when items are selected
   const isSelectionMode = selectedConvs.length > 0;
@@ -88,8 +74,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   });
 
   const handleSelect = (id: string) => {
-    setSelectedConvs((prev) =>
-      prev.includes(id) ? prev.filter((convId) => convId !== id) : [...prev, id]
+    setSelectedConvs(prev =>
+      prev.includes(id) ? prev.filter(convId => convId !== id) : [...prev, id]
     );
   };
 
@@ -97,7 +83,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     if (selectedConvs.length === conversations.length) {
       setSelectedConvs([]);
     } else {
-      setSelectedConvs(conversations.map((c) => c.id));
+      setSelectedConvs(conversations.map(c => c.id));
     }
   };
 
@@ -125,8 +111,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
   const confirmDeleteSelected = () => {
     // Delete all selected conversations
-    selectedConvs.forEach((id) => {
-      const conv = conversations.find((c) => c.id === id);
+    selectedConvs.forEach(id => {
+      const conv = conversations.find(c => c.id === id);
       if (conv) {
         onDelete(conv.id, conv.name);
       }
@@ -159,9 +145,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               onClick={handleSelectAll}
               className="text-sm text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-indigo-100 transition font-semibold focus:outline-none focus:ring-3 focus:ring-focus"
             >
-              {selectedConvs.length === conversations.length
-                ? "Deselect All"
-                : "Select All"}
+              {selectedConvs.length === conversations.length ? "Deselect All" : "Select All"}
             </button>
             <button
               onClick={handleDeleteSelected}
@@ -181,7 +165,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             No saved conversations
           </p>
         ) : (
-          sortedConversations.map((conv) => {
+          sortedConversations.map(conv => {
             const isActive = currentConversationId === conv.id;
             const isSelected = selectedConvs.includes(conv.id);
 
@@ -203,7 +187,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     onLoad(conv);
                   }
                 }}
-                onKeyDown={(e) => {
+                onKeyDown={e => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     if (isSelectionMode) {
@@ -213,9 +197,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     }
                   }
                 }}
-                onTouchStart={(e) => handleTouchStart(e, conv.id)}
+                onTouchStart={e => handleTouchStart(e, conv.id)}
                 onTouchEnd={handleTouchEnd}
-                onContextMenu={(e) => {
+                onContextMenu={e => {
                   if (!isSelectionMode) {
                     e.preventDefault();
                     handleKebabClick(e as unknown as React.MouseEvent, conv.id);
@@ -251,24 +235,20 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   {!isSelectionMode && (
                     <div
                       className="relative flex-shrink-0 h-7 w-7"
-                      ref={(el) => {
+                      ref={el => {
                         kebabRef.current[conv.id] = el;
                       }}
                     >
                       {/* Indicatore Pin - Visibile di default, nascosto all'hover */}
                       {!isSelected && conv.isPinned && (
                         <div className="absolute inset-0 flex items-center justify-center md:group-hover:hidden">
-                          <Pin
-                            size={14}
-                            className="text-indigo-500"
-                            fill="currentColor"
-                          />
+                          <Pin size={14} className="text-indigo-500" fill="currentColor" />
                         </div>
                       )}
 
                       {/* Menu Kebab - Desktop only: visible on hover */}
                       <button
-                        onClick={(e) => handleKebabClick(e, conv.id)}
+                        onClick={e => handleKebabClick(e, conv.id)}
                         className="absolute inset-0 items-center justify-center text-indigo-700 hover:text-indigo-900 dark:text-indigo-200 dark:hover:text-indigo-100 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded transition-all duration-200 ease-in-out opacity-0 group-hover:opacity-100 hidden md:flex focus:outline-none focus:ring-3 focus:ring-focus"
                         title="Options"
                       >
@@ -292,11 +272,11 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             <div
               aria-hidden="true"
               className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
-              onClick={(e) => {
+              onClick={e => {
                 e.stopPropagation();
                 closeContextMenu();
               }}
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
                   e.preventDefault();
                   closeContextMenu();
@@ -306,20 +286,14 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}
             <div
               className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-gradient-to-b from-indigo-900 to-indigo-950 dark:from-slate-900 dark:to-black rounded-t-3xl md:rounded-lg shadow-2xl border-0 z-[110] transition-transform overflow-hidden"
-              ref={(node) => {
+              ref={node => {
                 menuRef.current = node;
               }}
               style={{
                 bottom: window.innerWidth < 768 ? `${-dragY}px` : undefined,
                 height: window.innerWidth < 768 ? "35vh" : undefined,
-                top:
-                  window.innerWidth >= 768
-                    ? `${menuPosition.top}px`
-                    : undefined,
-                right:
-                  window.innerWidth >= 768
-                    ? `${menuPosition.right}px`
-                    : undefined,
+                top: window.innerWidth >= 768 ? `${menuPosition.top}px` : undefined,
+                right: window.innerWidth >= 768 ? `${menuPosition.right}px` : undefined,
                 width: window.innerWidth >= 768 ? "12rem" : undefined,
               }}
             >
@@ -334,25 +308,21 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               </div>
 
               {(() => {
-                const conv = conversations.find((c) => c.id === openKebabId);
+                const conv = conversations.find(c => c.id === openKebabId);
                 if (!conv) return null;
 
                 return (
                   <div className="flex flex-col gap-1 pt-3 pb-4">
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
-                        runActionAndCloseMenu(() =>
-                          onPin(conv.id, !conv.isPinned)
-                        );
+                        runActionAndCloseMenu(() => onPin(conv.id, !conv.isPinned));
                       }}
                       className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200"
                     >
                       <Pin
                         size={18}
-                        className={
-                          conv.isPinned ? "text-indigo-300" : "text-white/80"
-                        }
+                        className={conv.isPinned ? "text-indigo-300" : "text-white/80"}
                         fill={conv.isPinned ? "currentColor" : "none"}
                       />
                       <span className="font-semibold tracking-wide">
@@ -360,30 +330,24 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                       </span>
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
-                        runActionAndCloseMenu(() =>
-                          onRename(conv.id, conv.name)
-                        );
+                        runActionAndCloseMenu(() => onRename(conv.id, conv.name));
                       }}
                       className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200"
                     >
                       <Edit size={18} className="text-white/80" />
-                      <span className="font-semibold tracking-wide">
-                        Rename
-                      </span>
+                      <span className="font-semibold tracking-wide">Rename</span>
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         runActionAndCloseMenu(() => openDeleteModal(conv));
                       }}
                       className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200"
                     >
                       <Trash2 size={18} className="text-white/80" />
-                      <span className="font-semibold tracking-wide">
-                        Delete
-                      </span>
+                      <span className="font-semibold tracking-wide">Delete</span>
                     </button>
 
                     {/* Safe area padding for iOS */}
@@ -439,8 +403,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               </p>
               <div className="w-full max-h-48 overflow-y-auto mb-4 bg-indigo-100 dark:bg-indigo-900 rounded-lg p-3">
                 <ul className="text-left">
-                  {selectedConvs.map((id) => {
-                    const conv = conversations.find((c) => c.id === id);
+                  {selectedConvs.map(id => {
+                    const conv = conversations.find(c => c.id === id);
                     return conv ? (
                       <li
                         key={id}

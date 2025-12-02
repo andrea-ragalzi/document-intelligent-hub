@@ -31,10 +31,7 @@ export async function signInAnonymous(): Promise<User> {
 /**
  * Sign in with email and password
  */
-export async function signInWithEmail(
-  email: string,
-  password: string
-): Promise<User> {
+export async function signInWithEmail(email: string, password: string): Promise<User> {
   try {
     console.log("🔐 Signing in with email...");
     const result = await signInWithEmailAndPassword(auth, email, password);
@@ -49,10 +46,7 @@ export async function signInWithEmail(
 /**
  * Create new user with email and password
  */
-export async function signUpWithEmail(
-  email: string,
-  password: string
-): Promise<User> {
+export async function signUpWithEmail(email: string, password: string): Promise<User> {
   try {
     console.log("🔐 Creating new user...");
     const result = await createUserWithEmailAndPassword(auth, email, password);
@@ -88,9 +82,7 @@ export function getCurrentUser(): User | null {
 /**
  * Listen to authentication state changes
  */
-export function onAuthChange(
-  callback: (user: User | null) => void
-): () => void {
+export function onAuthChange(callback: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, callback);
 }
 
@@ -99,7 +91,7 @@ export function onAuthChange(
  */
 export async function getCurrentUserId(): Promise<string> {
   return new Promise((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, user => {
       unsubscribe();
       if (user) {
         resolve(user.uid);

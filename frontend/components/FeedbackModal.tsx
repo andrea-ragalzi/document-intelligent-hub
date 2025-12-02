@@ -18,9 +18,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<
-    "idle" | "success" | "error"
-  >("idle");
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
   if (!isOpen) return null;
@@ -93,26 +91,17 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
       console.log("Sending feedback:", payload);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/feedback`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
       if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ detail: "Unknown error" }));
-        console.error(
-          "Feedback submission failed:",
-          response.status,
-          errorData
-        );
+        const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+        console.error("Feedback submission failed:", response.status, errorData);
         throw new Error(errorData.detail || "Failed to submit feedback");
       }
 
@@ -127,9 +116,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
       }, 2000);
     } catch (error) {
       console.error("Error submitting feedback:", error);
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to submit feedback"
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Failed to submit feedback");
       setSubmitStatus("error");
     } finally {
       setIsSubmitting(false);
@@ -168,16 +155,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
           className="bg-white dark:bg-indigo-900 rounded-xl shadow-2xl w-full max-w-lg border-2 border-indigo-200 dark:border-indigo-700"
-          onClick={(e) => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b-2 border-indigo-200 dark:border-indigo-700">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                <Star
-                  size={24}
-                  className="text-yellow-600 dark:text-yellow-400 fill-current"
-                />
+                <Star size={24} className="text-yellow-600 dark:text-yellow-400 fill-current" />
               </div>
               <h2 className="text-xl font-semibold text-indigo-900 dark:text-indigo-50">
                 Rate Your Experience
@@ -197,8 +181,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             {/* Info Banner */}
             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-900 dark:text-blue-200">
-                <strong>ℹ️ Your feedback matters:</strong> Help us improve by
-                rating your experience and sharing your thoughts.
+                <strong>ℹ️ Your feedback matters:</strong> Help us improve by rating your experience
+                and sharing your thoughts.
               </p>
             </div>
 
@@ -206,9 +190,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             {conversationId && (
               <div className="p-3 bg-indigo-50 dark:bg-indigo-950 rounded-lg border border-indigo-200 dark:border-indigo-800">
                 <p className="text-sm text-indigo-700 dark:text-indigo-300">
-                  <span className="font-semibold">
-                    📍 Current Conversation:
-                  </span>{" "}
+                  <span className="font-semibold">📍 Current Conversation:</span>{" "}
                   <code className="text-xs break-all">{conversationId}</code>
                 </p>
               </div>
@@ -220,17 +202,17 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                 How would you rate your experience? *
               </label>
               <div className="flex justify-center gap-2 my-4">
-                {[1, 2, 3, 4, 5].map((star) => renderStar(star))}
+                {[1, 2, 3, 4, 5].map(star => renderStar(star))}
               </div>
               <p
                 className={`text-lg font-semibold ${
                   displayRating === 0
                     ? "text-gray-500 dark:text-gray-400"
                     : displayRating <= 2
-                    ? "text-red-600 dark:text-red-400"
-                    : displayRating === 3
-                    ? "text-yellow-600 dark:text-yellow-400"
-                    : "text-green-600 dark:text-green-400"
+                      ? "text-red-600 dark:text-red-400"
+                      : displayRating === 3
+                        ? "text-yellow-600 dark:text-yellow-400"
+                        : "text-green-600 dark:text-green-400"
                 }`}
               >
                 {getRatingLabel(displayRating)}
@@ -249,7 +231,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
               <textarea
                 id="feedback-message"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={e => setMessage(e.target.value)}
                 disabled={isSubmitting}
                 placeholder="Tell us more about your experience..."
                 rows={4}
@@ -264,8 +246,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             {submitStatus === "success" && (
               <div className="p-3 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-lg">
                 <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                  ✓ Thank you for your feedback! Your response has been
-                  submitted.
+                  ✓ Thank you for your feedback! Your response has been submitted.
                 </p>
               </div>
             )}
@@ -273,9 +254,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             {submitStatus === "error" && (
               <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg">
                 <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                  ✗{" "}
-                  {errorMessage ||
-                    "Failed to submit feedback. Please select a rating."}
+                  ✗ {errorMessage || "Failed to submit feedback. Please select a rating."}
                 </p>
               </div>
             )}

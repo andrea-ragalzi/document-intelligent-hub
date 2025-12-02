@@ -16,7 +16,7 @@ from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 class UsageTrackingService:
     """Service for tracking user query usage and enforcing limits."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.db = firestore.client()
 
     def _get_today_key(self) -> str:
@@ -69,6 +69,7 @@ class UsageTrackingService:
 
             # Use transaction to ensure atomic increment
             transaction = self.db.transaction()
+
             @firestore_transactional
             def update_in_transaction(transaction: Any, ref: Any):
                 snapshot = ref.get(transaction=transaction)
@@ -79,18 +80,21 @@ class UsageTrackingService:
                     current_count = queries.get(today, 0)
                     new_count = current_count + 1
                     queries[today] = new_count
-                    transaction.update(ref, {
-                        "queries": queries,
-                        "last_query_at": SERVER_TIMESTAMP,
-                        "updated_at": SERVER_TIMESTAMP
-                    })
+                    transaction.update(
+                        ref,
+                        {
+                            "queries": queries,
+                            "last_query_at": SERVER_TIMESTAMP,
+                            "updated_at": SERVER_TIMESTAMP,
+                        },
+                    )
                     return new_count
                 else:
                     new_data = {
                         "queries": {today: 1},
                         "last_query_at": SERVER_TIMESTAMP,
                         "created_at": SERVER_TIMESTAMP,
-                        "updated_at": SERVER_TIMESTAMP
+                        "updated_at": SERVER_TIMESTAMP,
                     }
                     transaction.set(ref, new_data)
                     return 1
@@ -136,7 +140,9 @@ class UsageTrackingService:
             # On error, allow the query but log it
             return True, 0
 
-    def _should_keep_date(self, date_key: str, cutoff_date: datetime, days_to_keep: int) -> bool:
+    def _should_keep_date(
+        self, date_key: str, cutoff_date: datetime, days_to_keep: int
+    ) -> bool:
         """Check if a date entry should be kept based on retention policy."""
         try:
             date_obj = datetime.strptime(date_key, "%Y-%m-%d")
@@ -146,7 +152,7 @@ class UsageTrackingService:
             # Invalid date format, don't keep
             return False
 
-    def cleanup_old_usage(self, days_to_keep: int = 30):
+    def cleanup_old_usage(self, days_to_keep: int = 30) -> None:
         """
         Clean up old usage data (keep last N days).
 

@@ -32,20 +32,15 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     console.log("🔐 Setting up auth state listener...");
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log(
-        "🔐 Auth state changed:",
-        user ? user.uid : "No user - auth required"
-      );
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      console.log("🔐 Auth state changed:", user ? user.uid : "No user - auth required");
       setUser(user);
       setLoading(false);
     });

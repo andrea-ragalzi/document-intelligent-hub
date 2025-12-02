@@ -39,7 +39,7 @@ export const useServerStatus = (): UseServerStatusResult => {
         setConsecutiveFailures(0); // Reset failure count on success
       } else {
         setIsOnline(false);
-        setConsecutiveFailures((prev) => prev + 1);
+        setConsecutiveFailures(prev => prev + 1);
       }
     } catch {
       // Only log on first failure to avoid console spam
@@ -47,7 +47,7 @@ export const useServerStatus = (): UseServerStatusResult => {
         console.log("⚠️ Server offline - switched to read-only mode");
       }
       setIsOnline(false);
-      setConsecutiveFailures((prev) => prev + 1);
+      setConsecutiveFailures(prev => prev + 1);
     } finally {
       setLastChecked(new Date());
       setIsChecking(false);

@@ -23,42 +23,33 @@ export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
   }, [getIdToken]);
 
   // Log output language selection
-  console.log(
-    `🌍 [useChatAI] Output language: ${selectedOutputLanguage || "auto"}`
-  );
+  console.log(`🌍 [useChatAI] Output language: ${selectedOutputLanguage || "auto"}`);
 
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    error,
-    setMessages,
-  } = useChat({
-    api: "/api/chat",
-    headers: authToken
-      ? {
-          Authorization: `Bearer ${authToken}`,
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages } =
+    useChat({
+      api: "/api/chat",
+      headers: authToken
+        ? {
+            Authorization: `Bearer ${authToken}`,
+          }
+        : undefined,
+      body: {
+        userId,
+        output_language: selectedOutputLanguage?.toUpperCase(),
+      },
+      onError: (error: Error) => {
+        // Silently handle rate limit errors (429) - they're expected
+        if (error.message.includes("Daily query limit exceeded")) {
+          console.log("⚠️ Query limit reached");
+        } else {
+          console.error("Chat error:", error);
         }
-      : undefined,
-    body: {
-      userId,
-      output_language: selectedOutputLanguage?.toUpperCase(),
-    },
-    onError: (error: Error) => {
-      // Silently handle rate limit errors (429) - they're expected
-      if (error.message.includes("Daily query limit exceeded")) {
-        console.log("⚠️ Query limit reached");
-      } else {
-        console.error("Chat error:", error);
-      }
-    },
-  });
+      },
+    });
 
   // Converti i messaggi dal formato Vercel AI al formato ChatMessage
   const chatHistory: ChatMessage[] = messages
-    .filter((msg) => msg.role !== "data")
+    .filter(msg => msg.role !== "data")
     .map((msg: Message) => ({
       type: msg.role === "user" ? ("user" as const) : ("assistant" as const),
       text: msg.content,

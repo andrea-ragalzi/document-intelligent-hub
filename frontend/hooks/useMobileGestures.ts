@@ -92,9 +92,7 @@ export function useMobileGestures({
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   // Long press tracking for mobile
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(
-    null
-  );
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Drag state for mobile menu
   const [dragY, setDragY] = useState(0);
@@ -113,9 +111,7 @@ export function useMobileGestures({
     try {
       const result = action();
       if (result instanceof Promise) {
-        result.catch((error) =>
-          console.error("Context menu action failed:", error)
-        );
+        result.catch(error => console.error("Context menu action failed:", error));
       }
     } finally {
       closeContextMenu();

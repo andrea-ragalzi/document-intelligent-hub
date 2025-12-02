@@ -210,9 +210,7 @@ describe("ConfirmModal", () => {
       />
     );
 
-    const modalContent = container.querySelector(
-      '[data-testid="modal-content"]'
-    );
+    const modalContent = container.querySelector('[data-testid="modal-content"]');
     if (modalContent) {
       fireEvent.click(modalContent);
       expect(mockOnCancel).not.toHaveBeenCalled();

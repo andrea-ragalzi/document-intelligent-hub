@@ -45,7 +45,7 @@ class QueryProcessingService:
     Part of RAGService refactoring to maintain 200-300 lines per service.
     """
 
-    def __init__(self, llm: BaseChatModel, query_gen_llm: BaseChatModel):
+    def __init__(self, llm: BaseChatModel, query_gen_llm: BaseChatModel) -> None:
         """
         Initialize QueryProcessingService with LLM dependencies.
 

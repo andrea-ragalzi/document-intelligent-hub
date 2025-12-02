@@ -49,7 +49,9 @@ for idx, test in enumerate(test_cases, 1):
     print(f"  History: {len(test['history'])} messages")
 
     # Use public method from query_processing_service
-    reformulated = rag_service.query_processing_service.reformulate_query(test["query"], test["history"])
+    reformulated = rag_service.query_processing_service.reformulate_query(
+        test["query"], test["history"]
+    )
 
     print(f"  Reformulated: {reformulated}")
     print(f"  Expected: {test['expected']}")

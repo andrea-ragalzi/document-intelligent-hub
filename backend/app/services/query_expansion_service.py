@@ -32,7 +32,7 @@ class QueryExpansionService:
     and semantic angles.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the query expansion service with LLM."""
         # Extract API key securely
         api_key_value = (

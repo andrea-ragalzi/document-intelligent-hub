@@ -12,8 +12,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/rag", "") ||
-  "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/rag", "") || "http://localhost:8000";
 
 export type UserTier = "FREE" | "PRO" | "UNLIMITED";
 
@@ -22,9 +21,7 @@ export function useRegistration() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const register = async (
-    invitationCode?: string
-  ): Promise<UserTier | null> => {
+  const register = async (invitationCode?: string): Promise<UserTier | null> => {
     if (!user) {
       setError("User not authenticated");
       return null;
@@ -69,9 +66,7 @@ export function useRegistration() {
         // Backend returns {detail: "error message"} or plain text
         const maybe = data as Record<string, unknown> | null;
         const errorMsg =
-          (maybe && (maybe.detail || maybe.message)) ||
-          rawText ||
-          "Registration failed";
+          (maybe && (maybe.detail || maybe.message)) || rawText || "Registration failed";
         // Don't throw (avoid uncaught), set local error and return null
         setError(String(errorMsg));
         return null;
@@ -84,8 +79,7 @@ export function useRegistration() {
       console.log("✅ Registration successful:", successData.tier);
       return successData.tier;
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Registration failed";
+      const errorMessage = err instanceof Error ? err.message : "Registration failed";
       console.error("❌ Registration error:", errorMessage);
       setError(errorMessage);
       return null;

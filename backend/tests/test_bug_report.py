@@ -43,12 +43,14 @@ class TestBugReportEndpoint:
         """Test bug report with image attachment."""
         # Create a minimal PNG image (1x1 pixel)
         png_data = (
-            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
-            b'\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\x00\x01'
-            b'\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\x00\x01"
+            b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
         )
-        
-        files = {"attachment": ("test_screenshot.png", io.BytesIO(png_data), "image/png")}
+
+        files = {
+            "attachment": ("test_screenshot.png", io.BytesIO(png_data), "image/png")
+        }
         data = {
             "user_id": "test_user_image",
             "description": "Bug report with screenshot attachment",
@@ -65,8 +67,10 @@ class TestBugReportEndpoint:
         """Test bug report with PDF attachment."""
         # Minimal PDF file
         pdf_data = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000101 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF"
-        
-        files = {"attachment": ("error_report.pdf", io.BytesIO(pdf_data), "application/pdf")}
+
+        files = {
+            "attachment": ("error_report.pdf", io.BytesIO(pdf_data), "application/pdf")
+        }
         data = {
             "user_id": "test_user_pdf",
             "description": "Bug report with PDF documentation",
@@ -83,7 +87,7 @@ class TestBugReportEndpoint:
         """Test bug report with video attachment (small dummy file)."""
         # Create dummy video data (not a real video, just for testing)
         video_data = b"DUMMY_VIDEO_DATA_FOR_TESTING" * 100
-        
+
         files = {"attachment": ("bug_video.mp4", io.BytesIO(video_data), "video/mp4")}
         data = {
             "user_id": "test_user_video",
@@ -100,14 +104,14 @@ class TestBugReportEndpoint:
     def test_bug_report_with_zip_attachment(self):
         """Test bug report with ZIP archive attachment."""
         import zipfile
-        
+
         zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            zip_file.writestr('logs.txt', 'Error log content here')
-            zip_file.writestr('config.json', '{"debug": true}')
-        
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr("logs.txt", "Error log content here")
+            zip_file.writestr("config.json", '{"debug": true}')
+
         zip_buffer.seek(0)
-        
+
         files = {"attachment": ("diagnostic_data.zip", zip_buffer, "application/zip")}
         data = {
             "user_id": "test_user_archive",
@@ -125,8 +129,14 @@ class TestBugReportEndpoint:
         """Test that files larger than 10MB are rejected."""
         # Create a file larger than 10MB (10 * 1024 * 1024 bytes)
         large_data = b"X" * (11 * 1024 * 1024)  # 11MB
-        
-        files = {"attachment": ("large_file.bin", io.BytesIO(large_data), "application/octet-stream")}
+
+        files = {
+            "attachment": (
+                "large_file.bin",
+                io.BytesIO(large_data),
+                "application/octet-stream",
+            )
+        }
         data = {
             "user_id": "test_user_large",
             "description": "Attempting to upload a file that is too large",
@@ -167,11 +177,11 @@ class TestBugReportEndpoint:
     def test_bug_report_with_all_optional_fields(self):
         """Test bug report with all optional fields provided."""
         png_data = (
-            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
-            b'\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\x00\x01'
-            b'\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\x00\x01"
+            b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
         )
-        
+
         files = {"attachment": ("full_report.png", io.BytesIO(png_data), "image/png")}
         data = {
             "user_id": "test_user_full",
@@ -200,13 +210,13 @@ class TestBugReportEndpoint:
         response = client.post("/rag/report-bug/", data=data)
 
         assert response.status_code == status.HTTP_201_CREATED
-        
+
         # Check that log file exists and contains the report
         log_path = Path("logs/bug_reports.log")
         assert log_path.exists()
-        
+
         # Read the last line of the log file
-        with open(log_path, 'r', encoding='utf-8') as f:
+        with open(log_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
             last_log = json.loads(lines[-1])
             assert last_log["user_id"] == "test_user_logs"
@@ -235,7 +245,9 @@ class TestBugReportEndpoint:
 
             response = client.post("/rag/report-bug/", data=data, files=files)
 
-            assert response.status_code == status.HTTP_201_CREATED, f"Failed for {mime_type}"
+            assert (
+                response.status_code == status.HTTP_201_CREATED
+            ), f"Failed for {mime_type}"
             result = response.json()
             assert result["attachment_included"] is True
 
@@ -243,8 +255,14 @@ class TestBugReportEndpoint:
         """Test file exactly at the 10MB limit."""
         # Create file exactly 10MB
         data_10mb = b"X" * (10 * 1024 * 1024)
-        
-        files = {"attachment": ("max_size.bin", io.BytesIO(data_10mb), "application/octet-stream")}
+
+        files = {
+            "attachment": (
+                "max_size.bin",
+                io.BytesIO(data_10mb),
+                "application/octet-stream",
+            )
+        }
         data = {
             "user_id": "test_user_max_size",
             "description": "Testing file at exact 10MB limit",
@@ -280,14 +298,14 @@ class TestBugReportEmailService:
     def test_email_service_initialization(self):
         """Test that email service initializes correctly."""
         from app.services.email_service import get_email_service
-        
+
         email_service = get_email_service()
         assert email_service is not None
 
     def test_email_service_singleton(self):
         """Test that email service is a singleton."""
         from app.services.email_service import get_email_service
-        
+
         service1 = get_email_service()
         service2 = get_email_service()
         assert service1 is service2

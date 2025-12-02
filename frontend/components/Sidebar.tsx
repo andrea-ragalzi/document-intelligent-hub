@@ -30,7 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
 
   // Filter conversations based on search query
-  const filteredConversations = savedConversations.filter((conv) =>
+  const filteredConversations = savedConversations.filter(conv =>
     conv.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           aria-hidden="true"
           className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 lg:hidden"
           onClick={onClose}
-          onKeyDown={(e) => {
+          onKeyDown={e => {
             if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
               e.preventDefault();
               onClose();
@@ -96,23 +96,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Search Input */}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search
-                size={18}
-                className="text-indigo-700 dark:text-indigo-200"
-              />
+              <Search size={18} className="text-indigo-700 dark:text-indigo-200" />
             </div>
             <input
               type="text"
               placeholder="Search conversations..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-3 py-3 text-base bg-white dark:bg-indigo-900 border-2 border-indigo-300 dark:border-indigo-700 rounded-lg focus:outline-none focus:ring-3 focus:ring-focus focus:border-indigo-500 text-indigo-900 dark:text-indigo-50 placeholder-indigo-700 dark:placeholder-indigo-300 transition-colors"
             />
           </div>
 
           {/* New Chat Button */}
           <button
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               e.preventDefault();
               console.log("🆕 New Chat button clicked");
@@ -131,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <ConversationList
             conversations={filteredConversations}
             currentConversationId={currentConversationId}
-            onLoad={(conv) => {
+            onLoad={conv => {
               onLoadConversation(conv);
               onClose();
             }}

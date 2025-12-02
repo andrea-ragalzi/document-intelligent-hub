@@ -107,7 +107,7 @@ echo ""
     # Count files with formatting issues by counting [warn] lines
     PRETTIER_COUNT=$(echo "$PRETTIER_OUTPUT" | grep -c "^\[warn\]" 2>/dev/null | tr -d '\n' || echo "0")
     [ -z "$PRETTIER_COUNT" ] && PRETTIER_COUNT=0
-
+    
     if [ "$PRETTIER_COUNT" -gt 0 ]; then
         echo "FAILED" > "${TEMP_RESULTS_DIR}/prettier_status"
     else
@@ -191,7 +191,7 @@ FRONTEND_PID=$!
 
         # Phase 7: MyPy (Swapped with Pylint)
         if command -v mypy &> /dev/null; then
-            MYPY_OUTPUT=$(mypy app/ --config-file=pyproject.toml 2>&1 || true)
+            MYPY_OUTPUT=$(mypy app/ --ignore-missing-imports 2>&1 || true)
             MYPY_ERROR_COUNT=$(echo "$MYPY_OUTPUT" | grep -c ": error:" || echo "0")
             MYPY_WARNING_COUNT=$(echo "$MYPY_OUTPUT" | grep -c ": note:" || echo "0")
 
@@ -217,7 +217,7 @@ FRONTEND_PID=$!
         # Phase 8: Pylint (Swapped with MyPy)
         if command -v pylint &> /dev/null; then
             # Get all issues (not just errors)
-            PYLINT_OUTPUT=$(pylint app/ --ignore=chroma_db 2>&1 || true)
+            PYLINT_OUTPUT=$(pylint app/ 2>&1 || true)
             PYLINT_ERROR_COUNT=$(echo "$PYLINT_OUTPUT" | grep -cE ": [EF][0-9]+:" 2>/dev/null | tr -d '\n' || echo "0")
             PYLINT_WARNING_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": W[0-9]*:" 2>/dev/null | tr -d '\n' || echo "0")
             PYLINT_CONVENTION_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": C[0-9]*:" 2>/dev/null | tr -d '\n' || echo "0")
@@ -254,7 +254,7 @@ FRONTEND_PID=$!
 
         # Phase 9: Lizard
         if command -v lizard &> /dev/null; then
-            LIZARD_OUTPUT=$(lizard app/ -C 15 --exclude "*/chroma_db/*" 2>&1 || true)
+            LIZARD_OUTPUT=$(lizard app/ -C 15 2>&1 || true)
             # Count functions in the warning section (between header and === separator)
             LIZARD_COUNT=$(echo "$LIZARD_OUTPUT" | sed -n '/!!!! Warnings/,/^Total nloc/p' | grep -c '@app/' 2>/dev/null | tr -d '\n' || echo "0")
             [ -z "$LIZARD_COUNT" ] && LIZARD_COUNT=0

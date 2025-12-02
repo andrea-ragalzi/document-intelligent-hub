@@ -41,10 +41,7 @@ export async function fetchSupportedLanguages(): Promise<Language[]> {
   }
 
   try {
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(
-      "/rag",
-      ""
-    );
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/rag", "");
     const response = await fetch(`${apiBaseUrl}/rag/languages/`, {
       cache: "force-cache", // Cache indefinitely (languages rarely change)
     });
@@ -87,11 +84,9 @@ export async function fetchSupportedLanguages(): Promise<Language[]> {
 /**
  * Get language by code (requires languages to be fetched first)
  */
-export async function getLanguageByCode(
-  code: string
-): Promise<Language | undefined> {
+export async function getLanguageByCode(code: string): Promise<Language | undefined> {
   const languages = await fetchSupportedLanguages();
-  return languages.find((lang) => lang.code === code.toLowerCase());
+  return languages.find(lang => lang.code === code.toLowerCase());
 }
 
 /**

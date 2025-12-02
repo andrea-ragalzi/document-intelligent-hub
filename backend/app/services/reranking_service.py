@@ -28,7 +28,7 @@ class RerankingService:
     - 40% Logarithmic Term Frequency Score (keyword coverage + frequency boost)
     """
 
-    def __init__(self, vector_weight: float = 0.6, keyword_weight: float = 0.4):
+    def __init__(self, vector_weight: float = 0.6, keyword_weight: float = 0.4) -> None:
         """
         Initialize the reranking service.
         """
@@ -161,7 +161,9 @@ class RerankingService:
         top_docs = [doc for _, doc in scored_docs[:top_n]]
 
         print(f"DEBUG [Reranking]: Reranked {total_docs} → {len(top_docs)} documents")
-        top_3_scores = [round(scored_docs[i][0], 3) for i in range(min(3, len(scored_docs)))]
+        top_3_scores = [
+            round(scored_docs[i][0], 3) for i in range(min(3, len(scored_docs)))
+        ]
         print(f"DEBUG [Reranking]: Top 3 scores: {top_3_scores}")
 
         return top_docs

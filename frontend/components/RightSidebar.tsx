@@ -1,24 +1,9 @@
 "use client";
 
-import {
-  X,
-  LogOut,
-  Sun,
-  Moon,
-  FileText,
-  ChevronRight,
-  ChevronLeft,
-  Settings,
-  Bug,
-  Star,
-  Info,
-} from "lucide-react";
+import { Sun, Moon, FileText, ChevronRight, Settings, Bug, Star, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import DocumentList from "./DocumentList";
-import TierLimitsDisplay from "./TierLimitsDisplay";
 import type { Document } from "./DocumentList";
 import { SettingsView } from "./RightSidebar/SettingsView";
 import { DocumentsView } from "./RightSidebar/DocumentsView";
