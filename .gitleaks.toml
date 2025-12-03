@@ -12,45 +12,42 @@ description = "Global allowlist for false positives"
 
 # Pattern da ignorare (es. test keys, examples)
 regexes = [
-  # Ignore example/placeholder values
-  '''your[-_]?api[-_]?key[-_]?here''',
-  '''your[-_]?secret[-_]?here''',
-  '''example[-_]?key''',
-  '''sk-proj-XXXXXXX''',
-  '''AIza[a-zA-Z0-9_-]{35}EXAMPLE''',
-  # Ignore Firebase config in .env.local.example (template files)
-  '''AIzaSy[a-zA-Z0-9_-]{33}.*\.example''',
+    # Ignore example/placeholder values
+    '''your[-_]?api[-_]?key[-_]?here''',
+    '''your[-_]?secret[-_]?here''',
+    '''example[-_]?key''',
+    '''sk-proj-XXXXXXX''',
+    '''AIza[a-zA-Z0-9_-]{35}EXAMPLE''',
+    # Ignore Firebase config in .env.local.example (template files)
+    '''AIzaSy[a-zA-Z0-9_-]{33}.*\.example''',
 ]
 
 # File da ignorare completamente
 paths = [
-  '''\.env\.example$''',
-  '''\.env\.local\.example$''',
-  '''\.env\.mcp\.example$''',
-  '''\.gitleaks\.toml$''',
-  '''\.pre-commit-config\.yaml$''',
-  '''node_modules/''',
-  '''\.venv/''',
-  '''venv/''',
-  '''\.git/''',
-  '''\.next/''',
-  '''__pycache__/''',
-  '''\.pytest_cache/''',
-  '''\.mypy_cache/''',
-  '''coverage/''',
-  '''htmlcov/''',
-  '''dist/''',
-  '''build/''',
-  '''\.DS_Store''',
-  '''chroma_db/''',
-  '''logs/''',
+    '''\.env\.example$''',
+    '''\.env\.local\.example$''',
+    '''\.env\.mcp\.example$''',
+    '''\.gitleaks\.toml$''',
+    '''\.pre-commit-config\.yaml$''',
+    '''node_modules/''',
+    '''\.venv/''',
+    '''venv/''',
+    '''\.git/''',
+    '''\.next/''',
+    '''__pycache__/''',
+    '''\.pytest_cache/''',
+    '''\.mypy_cache/''',
+    '''coverage/''',
+    '''htmlcov/''',
+    '''dist/''',
+    '''build/''',
+    '''\.DS_Store''',
+    '''chroma_db/''',
+    '''logs/''',
 ]
 
 # Stopwords - se uno di questi è nel commit message, salta la scansione
-stopwords = [
-  '''gitleaks:allow''',
-  '''NOCOMMIT''',
-]
+stopwords = ['''gitleaks:allow''', '''NOCOMMIT''']
 
 # Exceptions for legitimate use cases
 [[rules]]

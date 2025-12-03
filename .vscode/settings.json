@@ -7,31 +7,42 @@
   "python.testing.cwd": "${workspaceFolder}/backend",
   "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
 
-  // Python Quality Gate Enforcement
-  "python.analysis.typeCheckingMode": "strict",
-  "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.diagnosticSeverityOverrides": {
-    "reportMissingImports": "none",
-    "reportMissingTypeStubs": "none",
-    "reportUnknownParameterType": "none",
-    "reportUnknownArgumentType": "none",
-    "reportUnknownMemberType": "none",
-    "reportUnknownVariableType": "none",
-    "reportMissingTypeArgument": "warning"
-  },
-  "python.analysis.ignore": ["**/site-packages/**", "**/.venv/**"],
+  // ============================================================================
+  // Python Code Quality Strategy:
+  // - Pylance: DISABLED (type checking via MyPy in quality gate)
+  // - Pylint: ENABLED (real-time linting in VS Code, same config as quality gate)
+  // - MyPy: DISABLED in VS Code (run via quality gate only)
+  // This prevents duplicate/conflicting warnings between VS Code and quality gate
+  // ============================================================================
+
+  // Disable Pylance type checking (use MyPy instead via quality gate)
+  "python.analysis.typeCheckingMode": "off",
+  "python.analysis.diagnosticMode": "openFilesOnly",
+  "python.analysis.ignore": [
+    "**/site-packages/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/chroma_db/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**",
+    "**/htmlcov/**",
+    "**/logs/**"
+  ],
+
+  // Python Linting - Use Pylint only (same config as quality gate)
+  // Analyzes entire workspace, not just backend
   "python.linting.enabled": true,
   "python.linting.pylintEnabled": true,
   "python.linting.pylintPath": "${workspaceFolder}/backend/.venv/bin/pylint",
-  "python.linting.pylintArgs": ["--rcfile=${workspaceFolder}/backend/.pylintrc"],
-  "python.linting.cwd": "${workspaceFolder}/backend",
-  "python.linting.lintOnSave": true,
-  "python.linting.mypyEnabled": true,
-  "python.linting.mypyPath": "${workspaceFolder}/backend/.venv/bin/mypy",
-  "python.linting.mypyArgs": [
-    "--config-file=${workspaceFolder}/backend/mypy.ini",
-    "--show-column-numbers"
+  "python.linting.pylintArgs": [
+    "--rcfile=${workspaceFolder}/backend/.pylintrc",
+    "--ignore=chroma_db,logs,.venv,venv,__pycache__,.pytest_cache,htmlcov,node_modules,frontend"
   ],
+  "python.linting.cwd": "${workspaceFolder}",
+  "python.linting.lintOnSave": true,
+
+  // Disable MyPy in VS Code (run it via quality gate instead)
+  "python.linting.mypyEnabled": false,
 
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",

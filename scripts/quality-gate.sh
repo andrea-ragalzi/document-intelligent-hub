@@ -43,9 +43,12 @@ echo ""
 
 # Start HTTP server for live updates (required for auto-refresh to work)
 cd "${SCRIPTS_DIR}"
-echo -e "${BLUE}🌐 Starting HTTP server on port 8000...${NC}"
-python3 -m http.server 8000 > /dev/null 2>&1 &
+echo -e "${BLUE}🌐 Starting HTTP server on port 8001...${NC}"
+python3 -m http.server 8001 > /dev/null 2>&1 &
 HTTP_SERVER_PID=$!
+
+# Save server PID for browser lock verification
+echo "$HTTP_SERVER_PID" > /tmp/.quality_gate_server_pid
 
 # Wait a moment for server to start
 sleep 1
@@ -77,6 +80,16 @@ update_html_report "RUNNING"
 open_browser_once() {
     local url="$1"
     local lock_file="/tmp/.quality_gate_browser_lock"
+    local server_pid_file="/tmp/.quality_gate_server_pid"
+
+    # Check if server is still running
+    if [ -f "$server_pid_file" ]; then
+        local old_pid=$(cat "$server_pid_file")
+        if ! kill -0 "$old_pid" 2>/dev/null; then
+            # Server is dead, remove stale lock
+            rm -f "$lock_file" "$server_pid_file"
+        fi
+    fi
 
     if [ -f "$lock_file" ]; then
         echo -e "${BLUE}📊 Browser already open - use existing tab for live updates${NC}"
@@ -84,7 +97,7 @@ open_browser_once() {
         return
     fi
 
-    echo -e "${BLUE}📊 First run: Opening browser${NC}"
+    echo -e "${BLUE}📊 Opening browser...${NC}"
 
     # Try browsers in order of preference
     for browser_cmd in \
@@ -100,17 +113,19 @@ open_browser_once() {
         if command -v "$browser" &> /dev/null; then
             $browser_cmd "$url" 2>/dev/null &
             touch "$lock_file"
-            echo -e "${BLUE}   Report opened in browser: ${url}${NC}"
+            echo -e "${BLUE}   ✓ Report opened: ${url}${NC}"
             return
         fi
     done
+
+    echo -e "${YELLOW}   ⚠ No browser found, open manually: ${url}${NC}"
 }
 
 # Open report in browser
-REPORT_URL="http://localhost:8000/quality-gate-index.html"
+REPORT_URL="http://localhost:8001/quality-gate-index.html"
 open_browser_once "${REPORT_URL}"
 
-echo -e "${BLUE}   (Server running on http://localhost:8000)${NC}"
+echo -e "${BLUE}   (Server running on http://localhost:8001)${NC}"
 echo ""
 
 # Temporary directory for parallel execution results
@@ -133,7 +148,8 @@ echo ""
     # Phase 1: Prettier
     PRETTIER_OUTPUT=$(npx prettier --check "**/*.{ts,tsx,js,jsx,json,css}" 2>&1 || true)
     # Count files with formatting issues by counting [warn] lines
-    PRETTIER_COUNT=$(echo "$PRETTIER_OUTPUT" | grep -c "^\[warn\]" || echo "0")
+    PRETTIER_COUNT=$(echo "$PRETTIER_OUTPUT" | grep -c "^\[warn\]" || true)
+    PRETTIER_COUNT=${PRETTIER_COUNT:-0}
 
     if [ "$PRETTIER_COUNT" -gt 0 ]; then
         echo "FAILED" > "${TEMP_RESULTS_DIR}/prettier_status"
@@ -151,9 +167,11 @@ echo ""
         TS_ERROR_COUNT=0
         TS_WARNING_COUNT=0
     else
-        TS_ERROR_COUNT=$(echo "$TS_OUTPUT" | grep -c "error TS" || echo "0")
-        # TypeScript warnings are typically suggestions or deprecation notices
-        TS_WARNING_COUNT=$(echo "$TS_OUTPUT" | grep -cE "warning TS|deprecated" || echo "0")
+        TS_ERROR_COUNT=$(echo "$TS_OUTPUT" | grep -c "error TS" || true)
+        TS_WARNING_COUNT=$(echo "$TS_OUTPUT" | grep -cE "warning TS|deprecated" || true)
+        # Ensure numeric values
+        TS_ERROR_COUNT=${TS_ERROR_COUNT:-0}
+        TS_WARNING_COUNT=${TS_WARNING_COUNT:-0}
     fi
 
     if [ "$TS_ERROR_COUNT" -eq 0 ]; then
@@ -248,8 +266,8 @@ FRONTEND_PID=$!
 
         # Phase 8: Pylint (Swapped with MyPy)
         if command -v pylint &> /dev/null; then
-            # Get all issues (not just errors)
-            PYLINT_OUTPUT=$(pylint app/ --ignore=chroma_db 2>&1 || true)
+            # Analyze entire backend (app, scripts, tests) with parallel jobs
+            PYLINT_OUTPUT=$(pylint app/ scripts/ tests/ --ignore=chroma_db,__pycache__,htmlcov,.venv,logs --jobs=0 2>&1 || true)
             PYLINT_ERROR_COUNT=$(echo "$PYLINT_OUTPUT" | grep -cE ": [EF][0-9]+:" || true)
             PYLINT_WARNING_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": W[0-9]*:" || true)
             PYLINT_CONVENTION_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": C[0-9]*:" || true)
@@ -283,7 +301,8 @@ FRONTEND_PID=$!
 
         # Phase 9: Lizard
         if command -v lizard &> /dev/null; then
-            LIZARD_OUTPUT=$(lizard app/ -C 15 --exclude "*/chroma_db/*" 2>&1 || true)
+            # Analyze entire backend with thread parallelism
+            LIZARD_OUTPUT=$(lizard app/ scripts/ tests/ -C 15 --exclude "*/chroma_db/*" --exclude "*/__pycache__/*" --exclude "*/htmlcov/*" --threads 4 2>&1 || true)
             # Count functions in the warning section (between header and === separator)
             LIZARD_COUNT=$(echo "$LIZARD_OUTPUT" | sed -n '/!!!! Warnings/,/^Total nloc/p' | grep -c '@app/' || true)
 
@@ -399,6 +418,7 @@ sleep 2
 # Close HTTP server now that browser has received final update
 echo -e "${BLUE}🛑 Closing HTTP server (PID: ${HTTP_SERVER_PID})...${NC}"
 kill ${HTTP_SERVER_PID} 2>/dev/null || true
+rm -f /tmp/.quality_gate_server_pid /tmp/.quality_gate_browser_lock
 echo -e "${GREEN}✓ Server closed${NC}"
 
 # Exit with appropriate code
