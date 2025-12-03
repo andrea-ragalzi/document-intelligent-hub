@@ -7,11 +7,10 @@ Tracks user queries per day in Firestore and enforces tier limits.
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.logging import logger
 from firebase_admin import firestore
 from google.cloud.firestore import transactional as firestore_transactional
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-
-from app.core.logging import logger
 
 
 class UsageTrackingService:

@@ -8,9 +8,8 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from langchain_core.output_parsers import StrOutputParser
-
 from app.services.query_parser_service import FileFilterResponse, QueryParserService
+from langchain_core.output_parsers import StrOutputParser
 
 
 @pytest.fixture

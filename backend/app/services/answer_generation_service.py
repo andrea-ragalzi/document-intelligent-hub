@@ -14,8 +14,6 @@ Responsibilities:
 
 from typing import Any, List, Optional, Tuple
 
-from langchain_core.language_models import BaseChatModel
-
 from app.core.config import settings
 from app.core.constants import QueryConstants
 from app.core.logging import logger
@@ -25,6 +23,7 @@ from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.reranking_service import RerankingService
 from app.services.translation_service import TranslationService
+from langchain_core.language_models import BaseChatModel
 
 
 def _build_rag_prompt(context: str, question: str) -> str:
