@@ -5,6 +5,7 @@ Tests the /rag/report-bug endpoint with a sample image.
 """
 
 import io
+from io import BytesIO
 
 import requests
 from PIL import Image
@@ -15,13 +16,13 @@ USER_ID = "test_user_123"
 CONVERSATION_ID = "test_conversation_456"
 
 
-def create_test_image():
+def create_test_image() -> BytesIO:
     """Create a simple test image in memory."""
     # Create a 400x300 red rectangle
     img = Image.new("RGB", (400, 300), color="red")
 
     # Add some text using draw (optional)
-    from PIL import ImageDraw, ImageFont
+    from PIL import ImageDraw, ImageFont  # pylint: disable=import-outside-toplevel
 
     draw = ImageDraw.Draw(img)
     try:
@@ -40,7 +41,7 @@ def create_test_image():
     return img_bytes
 
 
-def test_bug_report_with_attachment():
+def test_bug_report_with_attachment() -> None:
     """Test bug report submission with file attachment."""
 
     print("🧪 Testing bug report with attachment...")
@@ -54,7 +55,10 @@ def test_bug_report_with_attachment():
     data = {
         "user_id": USER_ID,
         "conversation_id": CONVERSATION_ID,
-        "description": "This is a test bug report with an attached screenshot. Testing the multipart form upload functionality.",
+        "description": (
+            "This is a test bug report with an attached screenshot. "
+            "Testing the multipart form upload functionality."
+        ),
         "timestamp": "2025-11-23T16:45:00Z",
         "user_agent": "Python Test Script/1.0",
     }
@@ -65,7 +69,7 @@ def test_bug_report_with_attachment():
         print(f"   Conversation ID: {CONVERSATION_ID}")
         print("   Attachment: test_screenshot.png (PNG image)")
 
-        response = requests.post(API_URL, data=data, files=files)
+        response = requests.post(API_URL, data=data, files=files, timeout=30)
 
         print(f"\n📥 Response Status: {response.status_code}")
 
@@ -87,11 +91,11 @@ def test_bug_report_with_attachment():
             print("❌ FAILED!")
             print(f"   Error: {response.text}")
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Exception occurred: {str(e)}")
 
 
-def test_bug_report_without_attachment():
+def test_bug_report_without_attachment() -> None:
     """Test bug report submission without file attachment."""
 
     print("\n\n🧪 Testing bug report WITHOUT attachment...")
@@ -109,7 +113,7 @@ def test_bug_report_without_attachment():
         print(f"   User ID: {USER_ID}")
         print("   No attachment")
 
-        response = requests.post(API_URL, data=data)
+        response = requests.post(API_URL, data=data, timeout=30)
 
         print(f"\n📥 Response Status: {response.status_code}")
 
@@ -124,7 +128,7 @@ def test_bug_report_without_attachment():
             print("❌ FAILED!")
             print(f"   Error: {response.text}")
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Exception occurred: {str(e)}")
 
 

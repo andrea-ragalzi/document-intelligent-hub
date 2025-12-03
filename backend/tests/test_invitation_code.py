@@ -10,15 +10,15 @@ Tests cover:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
-from unittest.mock import MagicMock, patch
+from typing import Any, Generator
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def mock_firebase_auth():  # pylint: disable=W0621
+def mock_firebase_auth() -> Generator[Mock, None, None]:  # pylint: disable=W0621
     """Mock Firebase Auth for testing"""
     with patch("app.routers.auth_router.auth") as mock_auth:
         # Mock user creation
@@ -35,7 +35,7 @@ def mock_firebase_auth():  # pylint: disable=W0621
 
 
 @pytest.fixture
-def mock_firestore():  # pylint: disable=W0621
+def mock_firestore() -> Generator[Mock, None, None]:  # pylint: disable=W0621
     """Mock Firestore database for testing"""
     with patch("app.routers.auth_router.get_db") as mock_db:
         db_instance = MagicMock()
@@ -44,7 +44,7 @@ def mock_firestore():  # pylint: disable=W0621
 
 
 @pytest.fixture
-def mock_email_service():  # pylint: disable=W0621
+def mock_email_service() -> Generator[Mock, None, None]:  # pylint: disable=W0621
     """Mock email service for testing"""
     with patch("app.routers.auth_router.get_email_service") as mock_service:
         service_instance = MagicMock()
@@ -59,7 +59,7 @@ class TestRegistrationWithInvitationCode:
 
     def test_register_with_valid_free_code(
         self, client: TestClient, mock_firebase_auth: Any, mock_firestore: Any
-    ):
+    ) -> Any:
         """Test registration with valid FREE tier invitation code"""
         # Mock invitation code document
         code_doc = MagicMock()
@@ -102,7 +102,7 @@ class TestRegistrationWithInvitationCode:
 
     def test_register_with_valid_pro_code(
         self, client: TestClient, mock_firebase_auth: Any, mock_firestore: Any
-    ):
+    ) -> Any:
         """Test registration with valid PRO tier invitation code"""
         code_doc = MagicMock()
         code_doc.exists = True
@@ -136,7 +136,7 @@ class TestRegistrationWithInvitationCode:
     )
     def test_register_with_unlimited_email(  # pylint: disable=W0613
         self, client: TestClient, mock_firebase_auth: Any, mock_firestore: Any
-    ):
+    ) -> Any:
         """Test registration with email in unlimited list (no code required)"""
         # Mock app_config document
         config_doc = MagicMock()
@@ -168,7 +168,7 @@ class TestRegistrationWithInvitationCode:
     )
     def test_register_without_code_default_free(  # pylint: disable=W0613
         self, client: TestClient, mock_firebase_auth: Any, mock_firestore: Any
-    ):
+    ) -> Any:
         """Test registration without code defaults to FREE tier"""
         # Mock app_config with empty unlimited_emails
         config_doc = MagicMock()
@@ -190,7 +190,7 @@ class TestRegistrationWithInvitationCode:
 
     def test_register_with_invalid_code(  # pylint: disable=W0613
         self, client: TestClient, mock_firebase_auth: Any, mock_firestore: Any
-    ):
+    ) -> Any:
         """Test registration with non-existent invitation code"""
         code_doc = MagicMock()
         code_doc.exists = False
@@ -211,7 +211,7 @@ class TestRegistrationWithInvitationCode:
 
     def test_register_with_used_code(  # pylint: disable=W0613
         self, client: TestClient, mock_firebase_auth: Any, mock_firestore: Any
-    ):
+    ) -> Any:
         """Test registration with already used invitation code"""
         code_doc = MagicMock()
         code_doc.exists = True
@@ -237,7 +237,7 @@ class TestRegistrationWithInvitationCode:
 
     def test_register_with_expired_code(  # pylint: disable=W0613
         self, client: TestClient, mock_firebase_auth: Any, mock_firestore: Any
-    ):
+    ) -> Any:
         """Test registration with expired invitation code"""
         # Create expired timestamp
         expired_date = datetime.now(timezone.utc) - timedelta(days=1)
@@ -264,7 +264,7 @@ class TestRegistrationWithInvitationCode:
         data = response.json()
         assert "expired" in data["detail"].lower()
 
-    def test_register_missing_token(self, client: TestClient):
+    def test_register_missing_token(self, client: TestClient) -> None:
         """Test registration without Firebase token"""
         response = client.post("/auth/register", json={"invitation_code": "SOME_CODE"})
 
@@ -272,7 +272,7 @@ class TestRegistrationWithInvitationCode:
 
     def test_register_invalid_token(  # pylint: disable=W0613
         self, client: TestClient, mock_firestore: Any
-    ):
+    ) -> Any:
         """Test registration with invalid Firebase token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Invalid token")
@@ -293,7 +293,7 @@ class TestInvitationCodeRequest:
     @pytest.mark.skip(reason="Requires mock email service configuration")
     def test_request_invitation_code_success(
         self, client: TestClient, mock_email_service: Any
-    ):
+    ) -> Any:
         """Test successful invitation code request"""
         response = client.post(
             "/auth/request-invitation-code",
@@ -311,7 +311,7 @@ class TestInvitationCodeRequest:
         # Verify email was sent
         mock_email_service.send_invitation_request_notification.assert_called_once()
 
-    def test_request_invitation_code_missing_email(self, client: TestClient):
+    def test_request_invitation_code_missing_email(self, client: TestClient) -> None:
         """Test request without email"""
         response = client.post(
             "/auth/request-invitation-code", json={"reason": "I want to try it"}
@@ -319,7 +319,7 @@ class TestInvitationCodeRequest:
 
         assert response.status_code == 422  # Validation error
 
-    def test_request_invitation_code_invalid_email(self, client: TestClient):
+    def test_request_invitation_code_invalid_email(self, client: TestClient) -> None:
         """Test request with invalid email format"""
         response = client.post(
             "/auth/request-invitation-code",
@@ -331,7 +331,7 @@ class TestInvitationCodeRequest:
     @pytest.mark.skip(reason="Requires mock email service configuration")
     def test_request_invitation_code_email_failure(
         self, client: TestClient, mock_email_service: Any
-    ):
+    ) -> Any:
         """Test request when email service fails"""
         mock_email_service.send_invitation_request_notification.return_value = False
 
@@ -350,7 +350,9 @@ class TestTierLimitsEndpoint:
     """Test tier limits configuration endpoint"""
 
     @pytest.mark.skip(reason="Test uses real Firestore data - limits may vary")
-    def test_get_tier_limits_success(self, client: TestClient, mock_firestore: Any):
+    def test_get_tier_limits_success(
+        self, client: TestClient, mock_firestore: Any
+    ) -> None:
         """Test successful retrieval of tier limits"""
         # Mock app_config document
         config_doc = MagicMock()
@@ -399,7 +401,9 @@ class TestUsageEndpoint:
     """Test usage tracking endpoint"""
 
     @pytest.mark.skip(reason="Requires async mock setup for load_app_config")
-    def test_get_usage_success(self, client: TestClient, mock_firebase_auth: Any):
+    def test_get_usage_success(
+        self, client: TestClient, mock_firebase_auth: Any
+    ) -> None:
         """Test successful usage retrieval"""
         # Mock user with tier
         mock_user = MagicMock()
@@ -431,7 +435,7 @@ class TestUsageEndpoint:
     @pytest.mark.skip(reason="Requires async mock setup for load_app_config")
     def test_get_usage_unlimited_tier(
         self, client: TestClient, mock_firebase_auth: Any
-    ):
+    ) -> Any:
         """Test usage for UNLIMITED tier"""
         mock_user = MagicMock()
         mock_user.custom_claims = {"tier": "UNLIMITED"}
@@ -455,13 +459,13 @@ class TestUsageEndpoint:
                 data = response.json()
                 assert data["remaining"] == -1  # Unlimited
 
-    def test_get_usage_missing_token(self, client: TestClient):
+    def test_get_usage_missing_token(self, client: TestClient) -> None:
         """Test usage endpoint without auth token"""
         response = client.get("/auth/usage")
 
         assert response.status_code == 422  # Missing required header
 
-    def test_get_usage_invalid_token(self, client: TestClient):
+    def test_get_usage_invalid_token(self, client: TestClient) -> None:
         """Test usage endpoint with invalid token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Invalid token")

@@ -34,7 +34,7 @@ def _load_prompt_from_file(
         if path.exists() and path.is_file():
             try:
                 return path.read_text(encoding="utf-8").strip()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 print(f"⚠️  [CONFIG] Failed to read {file_path}: {e}")
 
     # Return fallback if file not found
@@ -97,10 +97,10 @@ class Settings(BaseSettings):
     )
 
 
-# Istanza globale dei settings accessibile da tutta l'applicazione
-settings = Settings()  # type: ignore
+# Global settings instance accessible from the entire application
+settings = Settings()
 
-# Log del modello caricato per conferma immediata all'avvio
+# Log loaded model for immediate confirmation at startup
 print(f"🤖 [CONFIG] Loaded LLM Model: {settings.LLM_MODEL}")
 
 # Security check: Warn if using fallback prompts (not production-ready)

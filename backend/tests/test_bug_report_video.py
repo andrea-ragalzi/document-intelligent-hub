@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+# pylint: disable=no-member  # cv2 attributes are dynamically loaded
 """
 Test script for bug report endpoint with VIDEO attachment.
 Tests the /rag/report-bug endpoint with a sample video file.
 """
 
 import io
+from io import BytesIO
 
 import numpy as np
 import requests
@@ -15,13 +17,13 @@ USER_ID = "test_user_video"
 CONVERSATION_ID = "test_conversation_video_789"
 
 
-def create_test_video():
+def create_test_video() -> BytesIO:
     """
     Create a minimal test video using OpenCV.
     Falls back to a dummy binary if OpenCV is not available.
     """
     try:
-        import cv2
+        import cv2  # pylint: disable=import-outside-toplevel
 
         # Create a 2-second video at 10 fps (20 frames)
         fps = 10
@@ -34,7 +36,7 @@ def create_test_video():
         video_bytes = io.BytesIO()
 
         # Create temporary file path
-        import tempfile
+        import tempfile  # pylint: disable=import-outside-toplevel
 
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
             tmp_path = tmp.name
@@ -77,7 +79,7 @@ def create_test_video():
             video_data = f.read()
 
         # Clean up
-        import os
+        import os  # pylint: disable=import-outside-toplevel
 
         os.unlink(tmp_path)
 
@@ -95,7 +97,7 @@ def create_test_video():
         return video_bytes
 
 
-def test_bug_report_with_video():
+def test_bug_report_with_video() -> None:
     """Test bug report submission with video attachment."""
 
     print("🧪 Testing bug report with VIDEO attachment...")
@@ -120,7 +122,7 @@ def test_bug_report_with_video():
         print(f"   Conversation ID: {CONVERSATION_ID}")
         print("   Attachment: test_bug_video.mp4 (video/mp4) 🎥")
 
-        response = requests.post(API_URL, data=data, files=files)
+        response = requests.post(API_URL, data=data, files=files, timeout=30)
 
         print(f"\n📥 Response Status: {response.status_code}")
 
@@ -147,9 +149,9 @@ def test_bug_report_with_video():
             if response.status_code == 413:
                 print("   💡 Video file is too large (max 10MB)")
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Exception occurred: {str(e)}")
-        import traceback
+        import traceback  # pylint: disable=import-outside-toplevel
 
         traceback.print_exc()
 

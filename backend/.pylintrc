@@ -1,120 +1,120 @@
+# Standard Pylint configuration file (.pylintrc)
+# This configuration balances code quality, readability,
+# and compatibility with modern Python development (monorepo).
+
 [MASTER]
-# Use multiple processes to speed up Pylint
-jobs=0
+# Modules that Pylint should skip (typically generated or third-party)
+# Add your virtual environment folders (.venv) and configuration files here
+ignore = .venv, node_modules, setup.py, __init__.py, manage.py, chroma_db, htmlcov, __pycache__, logs
 
-# Pickle collected data for later comparisons
-persistent=yes
-
-# List of plugins
-load-plugins=
+# Maximum number of threads to use (speeds up analysis on large projects)
+jobs = 0
 
 [MESSAGES CONTROL]
-# Disable specific warnings/errors (customize as needed)
+# Disable error or warning IDs that you want to specifically ignore.
+# Codes are categorized (R=Refactoring, C=Conventions, W=Warnings, E=Errors)
 disable=
-    C0111,  # missing-docstring
-    R0903,  # too-few-public-methods
-    W0212,  # protected-access (allow in tests)
-    C0103,  # invalid-name (allow short variable names in some contexts)
-    R0913,  # too-many-arguments
-    R0914,  # too-many-locals
-    W0511,  # fixme/todo comments
-    R0912,  # too-many-branches (use Lizard for complexity)
-    R0915,  # too-many-statements (use Lizard for complexity)
-    R1702,  # too-many-nested-blocks (use Lizard for complexity)
-    C0302,  # too-many-lines (use Lizard for complexity)
-    # W0718,  # broad-exception-caught (uncomment to allow catching Exception)
+    # CONVENTION (C): Style rules that are often too rigid or enforce non-standard style
+    C0103,  # Invalid name: (Allows more flexible names like 'e' for exceptions)
+    C0114,  # Missing module docstring: (Often unnecessary for small monorepo modules)
+    C0115,  # Missing class docstring: (Not always needed for simple classes)
+    C0116,  # Missing function or method docstring: (Not always needed for trivial methods)
+    C0201,  # Consider using 'enumerate' instead of 'range(len(x))' (Sometimes range(len) is clearer)
 
-# Enable specific checks
+    # REFACTORING (R): Rules suggesting code structure changes
+    R0901,  # Too many ancestor classes
+    R0902,  # Too many instance attributes
+    R0904,  # Too many public methods (R904)
+    R0912,  # Too many branches (complexity)
+    R0914,  # Too many local variables
+    R0915,  # Too many statements (too long)
+
+    # WARNING (W): Warnings that can be ignored or are handled by other tools
+    W0511,  # fixme/todo (left for user)
+    W0613,  # Unused argument (often in callbacks or interfaces)
+    W1203,  # Use f-string (sometimes logging doesn't support them, but it's a good rule)
+
+    # PROJECT-SPECIFIC: Acceptable patterns in our codebase
+    duplicate-code,           # Normal patterns in test suites
+    too-few-public-methods,   # Test helper classes don't need many methods
+    too-many-locals,          # Integration tests with many setup variables
+    import-outside-toplevel,  # Intentional lazy imports
+    redefined-outer-name,     # Pytest fixture parameter pattern
+    stop-iteration-return     # False positive in cleanup code
+
+# Enable checks that Pylint sometimes disables by default
 enable=
-    c-extension-no-member
-
-[REPORTS]
-# Set the output format
-output-format=colorized
-
-# Display a full report or only the messages
-reports=yes
-
-# Score evaluation expression
-evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)
-
-[BASIC]
-# Good variable names
-good-names=i,j,k,ex,Run,_,id,db,pk,qa
-
-# Regular expressions for valid names
-function-rgx=[a-z_][a-z0-9_]{2,50}$
-variable-rgx=[a-z_][a-z0-9_]{2,50}$
-const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
-attr-rgx=[a-z_][a-z0-9_]{2,50}$
-argument-rgx=[a-z_][a-z0-9_]{2,50}$
-class-attribute-rgx=([A-Za-z_][A-Za-z0-9_]{2,50}|(__.*__))$
-inlinevar-rgx=[A-Za-z_][A-Za-z0-9_]*$
-class-rgx=[A-Z_][a-zA-Z0-9]+$
-module-rgx=(([a-z_][a-z0-9_]*)|([A-Z][a-zA-Z0-9]+))$
-method-rgx=[a-z_][a-z0-9_]{2,50}$
-
-[FORMAT]
-# Maximum number of characters on a single line (aligned with VS Code ruler)
-max-line-length=120
-
-# Maximum number of lines in a module
-max-module-lines=1000
-
-# String used as indentation unit (4 spaces per PEP 8)
-indent-string='    '
-
-# Expected format of line ending
-expected-line-ending-format=LF
+    W0614,  # Unused import from wildcard 'from x import *'
+    R0401,  # Cyclic import
+    W0105   # String statement has no effect (common docstring misplacement error)
 
 [DESIGN]
-# Maximum number of arguments for function/method
-max-args=10
+# ----------------------------------------------------------------------
+# Design and Complexity Limitations (R09xx Rules)
+# ----------------------------------------------------------------------
 
-# Maximum number of attributes for a class
-max-attributes=15
+# Maximum number of statements in a code block (default: 50)
+max-statements = 60
 
-# Maximum number of boolean expressions in an if statement
-max-bool-expr=5
+# Maximum number of branches (if/elif/else) allowed per function (default: 12)
+max-branches = 13
 
-# Maximum number of branch for function/method body
-max-branches=15
+# Maximum number of local variables allowed per function (default: 15)
+max-locals = 20
 
-# Maximum number of locals for function/method body
-max-locals=20
+# Maximum number of arguments allowed per function (default: 5)
+max-args = 6
 
-# Maximum number of parents for a class
-max-parents=7
+# Maximum number of class or instance attributes
+max-attributes = 10
 
-# Maximum number of public methods for a class
-max-public-methods=25
+# Maximum number of public methods per class
+max-public-methods = 20
 
-# Maximum number of return/yield for function/method body
-max-returns=8
+# Allow some code duplication in tests
+min-similarity-lines = 10
 
-# Maximum number of statements in function/method body
-max-statements=60
+[FORMAT]
+# ----------------------------------------------------------------------
+# Formatting and Style (C03xx Rules)
+# ----------------------------------------------------------------------
 
-# Minimum number of public methods for a class
-min-public-methods=0
+# Maximum line length (typically 88 for Black compatibility, 120 for wider displays)
+max-line-length = 120
 
-[CLASSES]
-# List of method names used to declare instance attributes
-defining-attr-methods=__init__,__new__,setUp
+[BASIC]
+# ----------------------------------------------------------------------
+# Naming Conventions
+# ----------------------------------------------------------------------
 
-# List of valid names for the first argument in a class method
-valid-classmethod-first-arg=cls
+# Good variable names (single character or short names that are acceptable)
+good-names = i, j, k, e, db, id, _
 
-# List of valid names for the first argument in a metaclass class method
-valid-metaclass-classmethod-first-arg=mcs
+[SIMILARITIES]
+# ----------------------------------------------------------------------
+# Code Duplication Detection
+# ----------------------------------------------------------------------
+
+# Ignore test files for duplication checks
+ignore-imports = yes
+ignore-docstrings = yes
+ignore-comments = yes
+
+[TYPECHECK]
+# ----------------------------------------------------------------------
+# Type Checking (E11xx)
+# ----------------------------------------------------------------------
+
+# Attempt to follow import paths in __init__.py for type resolution
+ignored-classes = optparse.Values, threading._Event, types.ModuleType, types.SimpleNamespace
 
 [IMPORTS]
-# Allow wildcard imports from modules that define __all__
-allow-wildcard-with-all=no
+# ----------------------------------------------------------------------
+# Imports (E04xx, W06xx)
+# ----------------------------------------------------------------------
 
-# Analyse import fallback blocks
-analyse-fallback-blocks=no
-
-[EXCEPTIONS]
-# Exceptions that will emit a warning when being caught
-overgeneral-exceptions=builtins.Exception
+[MISCELLANEOUS]
+# ----------------------------------------------------------------------
+# Miscellaneous (W05xx)
+# ----------------------------------------------------------------------
+notes = FIXME, XXX, TODO

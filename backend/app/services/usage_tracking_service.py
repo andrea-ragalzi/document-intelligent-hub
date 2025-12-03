@@ -47,7 +47,7 @@ class UsageTrackingService:
 
             # Get today's query count
             queries_today = data.get("queries", {}).get(today, 0)
-            return int(queries_today)  # type: ignore[no-any-return]
+            return int(queries_today)
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error getting user queries: {e}")
@@ -70,7 +70,7 @@ class UsageTrackingService:
             # Use transaction to ensure atomic increment
             transaction = self.db.transaction()
 
-            @firestore_transactional
+            @firestore_transactional  # type: ignore[untyped-decorator]
             def update_in_transaction(transaction: Any, ref: Any) -> None:
                 snapshot = ref.get(transaction=transaction)
 
@@ -99,7 +99,7 @@ class UsageTrackingService:
 
             new_count = update_in_transaction(transaction, usage_ref)
             logger.info(f"📊 User {user_id} queries today: {new_count}")
-            return int(new_count)  # type: ignore[no-any-return]
+            return int(new_count)
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error incrementing user queries: {e}")

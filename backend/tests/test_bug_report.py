@@ -18,7 +18,7 @@ client = TestClient(app)
 class TestBugReportEndpoint:
     """Test cases for the bug report endpoint."""
 
-    def test_bug_report_without_attachment(self):
+    def test_bug_report_without_attachment(self) -> None:
         """Test bug report submission without file attachment."""
         data = {
             "user_id": "test_user_123",
@@ -39,7 +39,7 @@ class TestBugReportEndpoint:
         # Email sending depends on SendGrid configuration
         assert "email_sent" in result
 
-    def test_bug_report_with_image_attachment(self):
+    def test_bug_report_with_image_attachment(self) -> None:
         """Test bug report with image attachment."""
         # Create a minimal PNG image (1x1 pixel)
         png_data = (
@@ -63,10 +63,17 @@ class TestBugReportEndpoint:
         result = response.json()
         assert result["attachment_included"] is True
 
-    def test_bug_report_with_pdf_attachment(self):
+    def test_bug_report_with_pdf_attachment(self) -> None:
         """Test bug report with PDF attachment."""
         # Minimal PDF file
-        pdf_data = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000101 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF"
+        pdf_data = (
+            b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj "
+            b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj "
+            b"3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\n"
+            b"xref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n"
+            b"0000000052 00000 n\n0000000101 00000 n\n"
+            b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF"
+        )
 
         files = {
             "attachment": ("error_report.pdf", io.BytesIO(pdf_data), "application/pdf")
@@ -83,7 +90,7 @@ class TestBugReportEndpoint:
         result = response.json()
         assert result["attachment_included"] is True
 
-    def test_bug_report_with_video_attachment(self):
+    def test_bug_report_with_video_attachment(self) -> None:
         """Test bug report with video attachment (small dummy file)."""
         # Create dummy video data (not a real video, just for testing)
         video_data = b"DUMMY_VIDEO_DATA_FOR_TESTING" * 100
@@ -101,9 +108,9 @@ class TestBugReportEndpoint:
         result = response.json()
         assert result["attachment_included"] is True
 
-    def test_bug_report_with_zip_attachment(self):
+    def test_bug_report_with_zip_attachment(self) -> None:
         """Test bug report with ZIP archive attachment."""
-        import zipfile
+        import zipfile  # pylint: disable=import-outside-toplevel
 
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -125,7 +132,7 @@ class TestBugReportEndpoint:
         result = response.json()
         assert result["attachment_included"] is True
 
-    def test_bug_report_file_too_large(self):
+    def test_bug_report_file_too_large(self) -> None:
         """Test that files larger than 10MB are rejected."""
         # Create a file larger than 10MB (10 * 1024 * 1024 bytes)
         large_data = b"X" * (11 * 1024 * 1024)  # 11MB
@@ -150,7 +157,7 @@ class TestBugReportEndpoint:
         assert "detail" in result
         assert "10MB" in result["detail"]
 
-    def test_bug_report_description_too_short(self):
+    def test_bug_report_description_too_short(self) -> None:
         """Test that descriptions shorter than 10 characters are rejected."""
         data = {
             "user_id": "test_user_short",
@@ -162,7 +169,7 @@ class TestBugReportEndpoint:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_bug_report_missing_required_fields(self):
+    def test_bug_report_missing_required_fields(self) -> None:
         """Test that missing required fields are rejected."""
         # Missing description
         data = {
@@ -174,7 +181,7 @@ class TestBugReportEndpoint:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_bug_report_with_all_optional_fields(self):
+    def test_bug_report_with_all_optional_fields(self) -> None:
         """Test bug report with all optional fields provided."""
         png_data = (
             b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -199,7 +206,7 @@ class TestBugReportEndpoint:
         assert "report_id" in result
         assert "test_user_full" in result["report_id"]
 
-    def test_bug_report_logs_written(self):
+    def test_bug_report_logs_written(self) -> None:
         """Test that bug reports are logged to file."""
         data = {
             "user_id": "test_user_logs",
@@ -222,7 +229,7 @@ class TestBugReportEndpoint:
             assert last_log["user_id"] == "test_user_logs"
             assert last_log["description"] == "Testing that logs are written correctly"
 
-    def test_bug_report_multiple_file_types(self):
+    def test_bug_report_multiple_file_types(self) -> None:
         """Test that various file types are accepted."""
         file_types = [
             ("test.png", b"PNG_DATA", "image/png"),
@@ -251,7 +258,7 @@ class TestBugReportEndpoint:
             result = response.json()
             assert result["attachment_included"] is True
 
-    def test_bug_report_at_size_limit(self):
+    def test_bug_report_at_size_limit(self) -> None:
         """Test file exactly at the 10MB limit."""
         # Create file exactly 10MB
         data_10mb = b"X" * (10 * 1024 * 1024)
@@ -276,7 +283,7 @@ class TestBugReportEndpoint:
         result = response.json()
         assert result["attachment_included"] is True
 
-    def test_bug_report_special_characters_in_description(self):
+    def test_bug_report_special_characters_in_description(self) -> None:
         """Test bug report with special characters in description."""
         data = {
             "user_id": "test_user_special",
@@ -295,16 +302,20 @@ class TestBugReportEndpoint:
 class TestBugReportEmailService:
     """Test cases for email service (requires SendGrid config)."""
 
-    def test_email_service_initialization(self):
+    def test_email_service_initialization(self) -> None:
         """Test that email service initializes correctly."""
-        from app.services.email_service import get_email_service
+        from app.services.email_service import (
+            get_email_service,
+        )  # pylint: disable=import-outside-toplevel
 
         email_service = get_email_service()
         assert email_service is not None
 
-    def test_email_service_singleton(self):
+    def test_email_service_singleton(self) -> None:
         """Test that email service is a singleton."""
-        from app.services.email_service import get_email_service
+        from app.services.email_service import (
+            get_email_service,
+        )  # pylint: disable=import-outside-toplevel
 
         service1 = get_email_service()
         service2 = get_email_service()

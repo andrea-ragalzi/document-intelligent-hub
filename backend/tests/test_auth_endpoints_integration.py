@@ -19,7 +19,7 @@ client = TestClient(app)
 class TestRegistrationEndpoint:
     """Integration tests for POST /auth/register endpoint"""
 
-    def test_register_with_valid_free_code_full_flow(self):
+    def test_register_with_valid_free_code_full_flow(self) -> None:
         """Test complete registration flow with valid FREE invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
             "app.routers.auth_router.auth"
@@ -56,16 +56,16 @@ class TestRegistrationEndpoint:
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
 
-            def mock_document(doc_id: str):
+            def mock_document(doc_id: str) -> MagicMock:
                 if doc_id == "EXPIREDCODE123":
                     return code_ref
-                elif doc_id == "settings":
+                if doc_id == "settings":
                     return config_ref
                 return MagicMock()
 
             def mock_collection(
                 _collection_name: str,
-            ):  # pylint: disable=unused-argument
+            ) -> MagicMock:  # pylint: disable=unused-argument
                 mock_coll = MagicMock()
                 mock_coll.document = mock_document
                 return mock_coll
@@ -97,7 +97,7 @@ class TestRegistrationEndpoint:
             # Verify code was marked as used
             code_ref.update.assert_called_once()
 
-    def test_register_with_invalid_code(self):
+    def test_register_with_invalid_code(self) -> None:
         """Test registration with invalid invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
             "app.routers.auth_router.auth"
@@ -120,16 +120,16 @@ class TestRegistrationEndpoint:
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
 
-            def mock_document(doc_id: str):
+            def mock_document(doc_id: str) -> MagicMock:
                 if doc_id == "INVALID123":
                     return code_ref
-                elif doc_id == "settings":
+                if doc_id == "settings":
                     return config_ref
                 return MagicMock()
 
             def mock_collection(
                 _collection_name: str,
-            ):  # pylint: disable=unused-argument
+            ) -> MagicMock:  # pylint: disable=unused-argument
                 mock_coll = MagicMock()
                 mock_coll.document = mock_document
                 return mock_coll
@@ -148,7 +148,7 @@ class TestRegistrationEndpoint:
             assert response.status_code == 400
             assert "Invalid invitation code" in response.json()["detail"]
 
-    def test_register_with_expired_code(self):
+    def test_register_with_expired_code(self) -> None:
         """Test registration with expired invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
             "app.routers.auth_router.auth"
@@ -176,16 +176,16 @@ class TestRegistrationEndpoint:
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
 
-            def mock_document(doc_id: str):
+            def mock_document(doc_id: str) -> MagicMock:
                 if doc_id == "EXPIRED123":
                     return code_ref
-                elif doc_id == "settings":
+                if doc_id == "settings":
                     return config_ref
                 return MagicMock()
 
             def mock_collection(
                 _collection_name: str,
-            ):  # pylint: disable=unused-argument
+            ) -> MagicMock:  # pylint: disable=unused-argument
                 mock_coll = MagicMock()
                 mock_coll.document = mock_document
                 return mock_coll
@@ -204,7 +204,7 @@ class TestRegistrationEndpoint:
             assert response.status_code == 400
             assert "expired" in response.json()["detail"].lower()
 
-    def test_register_with_used_code(self):
+    def test_register_with_used_code(self) -> None:
         """Test registration with already used invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
             "app.routers.auth_router.auth"
@@ -232,16 +232,16 @@ class TestRegistrationEndpoint:
             config_ref = MagicMock()
             config_ref.get.return_value = config_doc
 
-            def mock_document(doc_id: str):
+            def mock_document(doc_id: str) -> MagicMock:
                 if doc_id == "USED123":
                     return code_ref
-                elif doc_id == "settings":
+                if doc_id == "settings":
                     return config_ref
                 return MagicMock()
 
             def mock_collection(
                 _collection_name: str,
-            ):  # pylint: disable=unused-argument
+            ) -> MagicMock:  # pylint: disable=unused-argument
                 mock_coll = MagicMock()
                 mock_coll.document = mock_document
                 return mock_coll
@@ -260,7 +260,7 @@ class TestRegistrationEndpoint:
             assert response.status_code == 400
             assert "already been used" in response.json()["detail"]
 
-    def test_register_without_token(self):
+    def test_register_without_token(self) -> None:
         """Test registration without authorization token"""
         response = client.post(
             "/auth/register",
@@ -269,7 +269,7 @@ class TestRegistrationEndpoint:
 
         assert response.status_code == 422  # FastAPI validation error
 
-    def test_register_with_invalid_token(self):
+    def test_register_with_invalid_token(self) -> None:
         """Test registration with invalid authorization token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Invalid token")
@@ -288,7 +288,7 @@ class TestInvitationRequestEndpoint:
 
     @pytest.mark.xfail(reason="Email sending requires a valid SendGrid API key")
     @patch("app.routers.auth_router.get_email_service")
-    def test_request_invitation_success(self, mock_get_email_service: Mock):
+    def test_request_invitation_success(self, mock_get_email_service: Mock) -> None:
         """Test successful invitation code request"""
         # Mock email service
         mock_email_service = MagicMock()
@@ -312,7 +312,7 @@ class TestInvitationRequestEndpoint:
     @pytest.mark.xfail(
         reason="Pydantic validation should catch this, but email service is failing first"
     )
-    def test_request_invitation_invalid_email(self):
+    def test_request_invitation_invalid_email(self) -> None:
         """Test invitation request with invalid email format"""
         response = client.post(
             "/auth/request-invitation-code",
@@ -321,7 +321,7 @@ class TestInvitationRequestEndpoint:
 
         assert response.status_code == 422  # Pydantic validation error
 
-    def test_request_invitation_missing_fields(self):
+    def test_request_invitation_missing_fields(self) -> None:
         """Test invitation request without required fields"""
         response = client.post(
             "/auth/request-invitation-code",
@@ -331,7 +331,9 @@ class TestInvitationRequestEndpoint:
         assert response.status_code == 422  # Pydantic validation error
 
     @patch("app.routers.auth_router.get_email_service")
-    def test_request_invitation_email_failure(self, mock_get_email_service: Mock):
+    def test_request_invitation_email_failure(
+        self, mock_get_email_service: Mock
+    ) -> None:
         """Test invitation request when email service fails"""
         # Mock email service failure
         mock_email_service = MagicMock()
@@ -355,7 +357,7 @@ class TestInvitationRequestEndpoint:
 class TestTierLimitsEndpoint:
     """Integration tests for GET /auth/tier-limits endpoint"""
 
-    def test_get_tier_limits_success(self):
+    def test_get_tier_limits_success(self) -> None:
         """Test successful tier limits retrieval"""
         with patch("app.routers.auth_router.get_db") as mock_get_db:
             db_instance = MagicMock()
@@ -401,7 +403,7 @@ class TestTierLimitsEndpoint:
             assert data["limits"]["FREE"]["max_queries_per_day"] == 20
             assert data["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
 
-    def test_get_tier_limits_with_defaults(self):
+    def test_get_tier_limits_with_defaults(self) -> None:
         """Test tier limits retrieval when config doesn't exist"""
         with patch("app.routers.auth_router.get_db") as mock_get_db:
             db_instance = MagicMock()
@@ -437,7 +439,7 @@ class TestTierLimitsEndpoint:
 class TestUsageEndpoint:
     """Integration tests for GET /auth/usage endpoint"""
 
-    def test_get_usage_success(self):
+    def test_get_usage_success(self) -> None:
         """Test successful usage retrieval"""
         with patch("app.routers.auth_router.auth") as mock_auth, patch(
             "app.routers.auth_router.get_usage_service"
@@ -477,16 +479,16 @@ class TestUsageEndpoint:
                 config_ref = MagicMock()
                 config_ref.get.return_value = config_doc
 
-                def mock_document(doc_id: str):
+                def mock_document(doc_id: str) -> MagicMock:
                     if doc_id == "test_user_123":
                         return user_ref
-                    elif doc_id == "settings":
+                    if doc_id == "settings":
                         return config_ref
                     return MagicMock()
 
                 def mock_collection(
                     _collection_name: str,
-                ):  # pylint: disable=unused-argument
+                ) -> MagicMock:  # pylint: disable=unused-argument
                     mock_coll = MagicMock()
                     mock_coll.document = mock_document
                     return mock_coll
@@ -508,13 +510,13 @@ class TestUsageEndpoint:
             assert data["remaining"] == 5
             assert data["tier"] == "FREE"
 
-    def test_get_usage_without_token(self):
+    def test_get_usage_without_token(self) -> None:
         """Test usage endpoint without authorization token"""
         response = client.get("/auth/usage")
 
         assert response.status_code == 422  # FastAPI validation error
 
-    def test_get_usage_with_invalid_token(self):
+    def test_get_usage_with_invalid_token(self) -> None:
         """Test usage endpoint with invalid token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Invalid token")
@@ -526,7 +528,7 @@ class TestUsageEndpoint:
             assert response.status_code == 401
             assert "Invalid or expired token" in response.json()["detail"]
 
-    def test_get_usage_unlimited_tier(self):
+    def test_get_usage_unlimited_tier(self) -> None:
         """Test usage for UNLIMITED tier user"""
         with patch("app.routers.auth_router.auth") as mock_auth, patch(
             "app.routers.auth_router.get_usage_service"
@@ -566,16 +568,16 @@ class TestUsageEndpoint:
                 config_ref = MagicMock()
                 config_ref.get.return_value = config_doc
 
-                def mock_document(doc_id: str):
+                def mock_document(doc_id: str) -> MagicMock:
                     if doc_id == "unlimited_user":
                         return user_ref
-                    elif doc_id == "settings":
+                    if doc_id == "settings":
                         return config_ref
                     return MagicMock()
 
                 def mock_collection(
                     _collection_name: str,
-                ):  # pylint: disable=unused-argument
+                ) -> MagicMock:  # pylint: disable=unused-argument
                     mock_coll = MagicMock()
                     mock_coll.document = mock_document
                     return mock_coll
@@ -599,7 +601,7 @@ class TestUsageEndpoint:
                 )  # UNLIMITED tier returns -1 for remaining
                 assert data["tier"] == "UNLIMITED"
 
-    def test_get_usage_unlimited_tier_high_usage(self):
+    def test_get_usage_unlimited_tier_high_usage(self) -> None:
         """Test usage for UNLIMITED tier user with usage exceeding normal limits"""
         with patch("app.routers.auth_router.auth") as mock_auth, patch(
             "app.routers.auth_router.get_usage_service"
@@ -640,16 +642,16 @@ class TestUsageEndpoint:
                 config_ref = MagicMock()
                 config_ref.get.return_value = config_doc
 
-                def mock_document(doc_id: str):
+                def mock_document(doc_id: str) -> MagicMock:
                     if doc_id == "unlimited_user":
                         return user_ref
-                    elif doc_id == "settings":
+                    if doc_id == "settings":
                         return config_ref
                     return MagicMock()
 
                 def mock_collection(
                     _collection_name: str,
-                ):  # pylint: disable=unused-argument
+                ) -> MagicMock:  # pylint: disable=unused-argument
                     mock_coll = MagicMock()
                     mock_coll.document = mock_document
                     return mock_coll

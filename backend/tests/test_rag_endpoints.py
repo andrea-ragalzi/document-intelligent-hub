@@ -9,7 +9,7 @@ from typing import Any
 class TestHealthEndpoint:
     """Test the root health check endpoint"""
 
-    def test_health_check(self, client: Any):
+    def test_health_check(self, client: Any) -> None:
         """Test that the API is running"""
         response = client.get("/")
         assert response.status_code == 200
@@ -21,7 +21,9 @@ class TestHealthEndpoint:
 class TestUploadEndpoint:
     """Test suite for /rag/upload/ endpoint"""
 
-    def test_upload_valid_pdf(self, client: Any, sample_pdf: Any, test_user_id: str):
+    def test_upload_valid_pdf(
+        self, client: Any, sample_pdf: Any, test_user_id: str
+    ) -> None:
         """Test uploading a valid PDF file"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
@@ -38,7 +40,7 @@ class TestUploadEndpoint:
         assert isinstance(json_response["chunks_indexed"], int)
         assert json_response["chunks_indexed"] > 0
 
-    def test_upload_missing_user_id(self, client: Any, sample_pdf: Any):
+    def test_upload_missing_user_id(self, client: Any, sample_pdf: Any) -> None:
         """Test upload without auth token returns 401"""
         # Don't set user_id context - simulate missing auth
         client.test_user_context["user_id"] = None
@@ -50,7 +52,7 @@ class TestUploadEndpoint:
 
         assert response.status_code == 401  # Unauthorized
 
-    def test_upload_invalid_file_type(self, client: Any, test_user_id: str):
+    def test_upload_invalid_file_type(self, client: Any, test_user_id: str) -> None:
         """Test uploading non-PDF file returns 400"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
@@ -63,7 +65,7 @@ class TestUploadEndpoint:
         assert response.status_code == 400
         assert "PDF" in response.json()["detail"]
 
-    def test_upload_missing_file(self, client: Any, test_user_id: str):
+    def test_upload_missing_file(self, client: Any, test_user_id: str) -> None:
         """Test upload without file returns 422"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
@@ -76,7 +78,7 @@ class TestUploadEndpoint:
 class TestQueryEndpoint:
     """Test suite for /rag/query/ endpoint"""
 
-    def test_query_basic(self, client: Any, test_user_id: str):
+    def test_query_basic(self, client: Any, test_user_id: str) -> None:
         """Test basic query functionality"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
@@ -94,7 +96,7 @@ class TestQueryEndpoint:
         assert isinstance(json_response["answer"], str)
         assert isinstance(json_response["source_documents"], list)
 
-    def test_query_long_text(self, client: Any, test_user_id: str):
+    def test_query_long_text(self, client: Any, test_user_id: str) -> None:
         """Test query with longer question"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
@@ -113,7 +115,7 @@ class TestQueryEndpoint:
         assert "answer" in json_response
         assert len(json_response["answer"]) > 0
 
-    def test_query_missing_user_id(self, client: Any):
+    def test_query_missing_user_id(self, client: Any) -> None:
         """Test query without auth token returns 401"""
         # Don't set user_id context - simulate missing auth
         client.test_user_context["user_id"] = None
@@ -124,7 +126,7 @@ class TestQueryEndpoint:
 
         assert response.status_code == 401  # Unauthorized
 
-    def test_query_empty_query(self, client: Any, test_user_id: str):
+    def test_query_empty_query(self, client: Any, test_user_id: str) -> None:
         """Test query with empty string"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
@@ -136,7 +138,7 @@ class TestQueryEndpoint:
         # Should still return 200 but may have generic response
         assert response.status_code == 200
 
-    def test_query_with_extra_fields(self, client: Any, test_user_id: str):
+    def test_query_with_extra_fields(self, client: Any, test_user_id: str) -> None:
         """Test query with extra fields (should be ignored by Pydantic)"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
@@ -156,7 +158,9 @@ class TestQueryEndpoint:
 class TestEndToEndFlow:
     """Test complete upload -> query workflow"""
 
-    def test_upload_then_query(self, client: Any, sample_pdf: Any, test_user_id: str):
+    def test_upload_then_query(
+        self, client: Any, sample_pdf: Any, test_user_id: str
+    ) -> None:
         """Test uploading a document and then querying it"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
@@ -183,7 +187,7 @@ class TestEndToEndFlow:
         assert len(json_response["answer"]) > 0
         assert len(json_response["source_documents"]) > 0
 
-    def test_multi_tenant_isolation(self, client: Any, sample_pdf: Any):
+    def test_multi_tenant_isolation(self, client: Any, sample_pdf: Any) -> None:
         """Test that different users have isolated data"""
         user1_id = "user-1-test"
         user2_id = "user-2-test"

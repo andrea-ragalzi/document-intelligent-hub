@@ -31,6 +31,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, SecretStr
 
+__all__ = ["FileFilterResponse", "QueryParserService"]
+
 
 class FileFilterExtraction(BaseModel):
     """Structured output for file filter extraction."""
@@ -168,7 +170,7 @@ class QueryParserService:
                 cleaned_query=cleaned_query,
             )
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ File filter extraction failed: {e}")
             logger.info("   Falling back to no filtering")
 
@@ -316,7 +318,7 @@ Now extract from the user query above and apply all rules.
 
             return None
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"   Error computing similarity: {e}")
             return None
 

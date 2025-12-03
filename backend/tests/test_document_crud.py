@@ -14,11 +14,11 @@ class TestDocumentCRUD:
     """Test suite for document CRUD operations via RAG endpoints"""
 
     @pytest.fixture
-    def unique_user_id(self):
+    def unique_user_id(self) -> str:
         """Generate a unique user ID for test isolation"""
         return f"test-user-{uuid.uuid4()}"
 
-    def test_check_documents_empty(self, client: Any, unique_user_id: str):
+    def test_check_documents_empty(self, client: Any, unique_user_id: str) -> None:
         """Test checking documents when none exist"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = unique_user_id
@@ -31,7 +31,7 @@ class TestDocumentCRUD:
 
     def test_upload_and_list_documents(
         self, client: Any, sample_pdf: Any, unique_user_id: str
-    ):
+    ) -> Any:
         """Test uploading a document and then listing it"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = unique_user_id
@@ -57,7 +57,9 @@ class TestDocumentCRUD:
         docs = data["documents"]
         assert any(d["filename"] == "test_crud.pdf" for d in docs)
 
-    def test_delete_document(self, client: Any, sample_pdf: Any, unique_user_id: str):
+    def test_delete_document(
+        self, client: Any, sample_pdf: Any, unique_user_id: str
+    ) -> None:
         """Test deleting a specific document"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = unique_user_id
@@ -82,7 +84,7 @@ class TestDocumentCRUD:
 
     def test_delete_all_documents(
         self, client: Any, sample_pdf: Any, unique_user_id: str
-    ):
+    ) -> Any:
         """Test deleting all documents for a user"""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = unique_user_id

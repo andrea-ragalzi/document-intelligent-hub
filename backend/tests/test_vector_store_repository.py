@@ -18,7 +18,7 @@ from langchain_core.documents import Document
 
 
 @pytest.fixture(scope="function")
-def test_repository():  # pylint: disable=W0621
+def test_repository() -> Any:  # pylint: disable=W0621
     """
     Create a real VectorStoreRepository for integration testing.
 
@@ -58,7 +58,7 @@ def test_repository():  # pylint: disable=W0621
 class TestRepositoryBasicOperations:
     """Test basic CRUD operations"""
 
-    def test_add_documents(self, test_repository: Any):
+    def test_add_documents(self, test_repository: Any) -> None:
         """Test adding documents to vector store"""
         documents = [
             Document(
@@ -83,7 +83,7 @@ class TestRepositoryBasicOperations:
 
         assert total_indexed == 2
 
-    def test_check_document_exists(self, test_repository: Any):
+    def test_check_document_exists(self, test_repository: Any) -> None:
         """Test checking if document exists"""
         # First add a document
         documents = [
@@ -110,7 +110,7 @@ class TestRepositoryBasicOperations:
         )
         assert not_exists is False
 
-    def test_count_document_chunks(self, test_repository: Any):
+    def test_count_document_chunks(self, test_repository: Any) -> None:
         """Test counting chunks for a specific document"""
         # Add multiple chunks
         documents = [
@@ -133,7 +133,7 @@ class TestRepositoryBasicOperations:
 
         assert count == 5
 
-    def test_get_user_chunks_sample(self, test_repository: Any):
+    def test_get_user_chunks_sample(self, test_repository: Any) -> None:
         """Test getting a sample of user chunks"""
         # Add documents
         documents = [
@@ -158,7 +158,7 @@ class TestRepositoryBasicOperations:
         assert len(ids) >= 3
         assert all(meta["source"] == "test-repo-user-1" for meta in metadatas)
 
-    def test_similarity_search(self, test_repository: Any):
+    def test_similarity_search(self, test_repository: Any) -> None:
         """Test similarity search functionality"""
         # Add documents with specific content
         documents = [
@@ -190,7 +190,7 @@ class TestRepositoryBasicOperations:
         # Should find the Python document as most relevant
         assert any("Python" in doc.page_content for doc in results)
 
-    def test_delete_document(self, test_repository: Any):
+    def test_delete_document(self, test_repository: Any) -> None:
         """Test deleting a specific document"""
         # Add document
         documents = [
@@ -222,7 +222,7 @@ class TestRepositoryBasicOperations:
             "test-repo-user-1", "delete_me.pdf"
         )
 
-    def test_delete_all_user_documents(self, test_repository: Any):
+    def test_delete_all_user_documents(self, test_repository: Any) -> None:
         """Test deleting all documents for a user"""
         # Add multiple documents
         documents = [
@@ -252,7 +252,7 @@ class TestRepositoryBasicOperations:
 class TestMultiTenancyIsolation:
     """Test that users can only access their own data"""
 
-    def test_user_isolation_in_similarity_search(self, test_repository: Any):
+    def test_user_isolation_in_similarity_search(self, test_repository: Any) -> None:
         """Test that similarity search respects user_id filtering"""
         # Add documents for User 1
         user1_docs = [
@@ -290,7 +290,7 @@ class TestMultiTenancyIsolation:
             assert doc.metadata["source"] == "test-repo-user-2"
             assert "Alpha" not in doc.page_content
 
-    def test_user_isolation_in_chunk_sample(self, test_repository: Any):
+    def test_user_isolation_in_chunk_sample(self, test_repository: Any) -> None:
         """Test that chunk samples are user-specific"""
         # Add documents for multiple users
         for user_id in ["test-repo-user-1", "test-repo-user-2"]:
@@ -312,7 +312,7 @@ class TestMultiTenancyIsolation:
         # Should only contain User 1's data
         assert all(meta["source"] == "test-repo-user-1" for meta in metadatas)
 
-    def test_user_isolation_in_delete(self, test_repository: Any):
+    def test_user_isolation_in_delete(self, test_repository: Any) -> None:
         """Test that delete operations respect user boundaries"""
         # Add same-named document for two users
         for user_id in ["test-repo-user-1", "test-repo-user-2"]:
@@ -344,19 +344,19 @@ class TestMultiTenancyIsolation:
 class TestRepositoryEdgeCases:
     """Test edge cases and error handling"""
 
-    def test_add_empty_document_list(self, test_repository: Any):
+    def test_add_empty_document_list(self, test_repository: Any) -> None:
         """Test adding empty list of documents"""
         total_indexed = test_repository.add_documents([])
         assert total_indexed == 0
 
-    def test_search_with_no_documents(self, test_repository: Any):
+    def test_search_with_no_documents(self, test_repository: Any) -> None:
         """Test similarity search when user has no documents"""
         results = test_repository.similarity_search(
             query="anything", user_id="nonexistent-user-999", k=10
         )
         assert results == []
 
-    def test_delete_nonexistent_document(self, test_repository: Any):
+    def test_delete_nonexistent_document(self, test_repository: Any) -> None:
         """Test deleting a document that doesn't exist"""
         deleted_count = test_repository.delete_document(
             user_id="test-repo-user-3", filename="nonexistent.pdf"
@@ -364,7 +364,7 @@ class TestRepositoryEdgeCases:
         # Should return 0 (no documents deleted)
         assert deleted_count == 0
 
-    def test_large_batch_size(self, test_repository: Any):
+    def test_large_batch_size(self, test_repository: Any) -> None:
         """Test adding documents with large batch size"""
         documents = [
             Document(
@@ -382,7 +382,7 @@ class TestRepositoryEdgeCases:
         total_indexed = test_repository.add_documents(documents, batch_size=1000)
         assert total_indexed == 10
 
-    def test_retriever_factory(self, test_repository: Any):
+    def test_retriever_factory(self, test_repository: Any) -> None:
         """Test get_retriever() returns valid LangChain retriever"""
         retriever = test_repository.get_retriever(user_id="test-repo-user-1", k=5)
 

@@ -8,6 +8,7 @@ Tests cover:
 - Error handling
 """
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,7 +24,7 @@ class TestLoadAppConfig:
     """Test load_app_config helper function"""
 
     @pytest.mark.asyncio
-    async def test_load_app_config_success(self):
+    async def test_load_app_config_success(self) -> Any:
         """Test successful loading of app config"""
         # Clear cache before test
         clear_cache()
@@ -57,7 +58,7 @@ class TestLoadAppConfig:
             assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
 
     @pytest.mark.asyncio
-    async def test_load_app_config_caching(self):
+    async def test_load_app_config_caching(self) -> Any:
         """Test that app config is cached after first load"""
         # Clear cache
         clear_cache()
@@ -87,7 +88,7 @@ class TestLoadAppConfig:
             assert doc_ref.get.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_load_app_config_document_not_exists(self):
+    async def test_load_app_config_document_not_exists(self) -> Any:
         """Test when config document doesn't exist"""
         # Clear cache
         clear_cache()
@@ -111,7 +112,7 @@ class TestLoadAppConfig:
             assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
 
     @pytest.mark.asyncio
-    async def test_load_app_config_firestore_error(self):
+    async def test_load_app_config_firestore_error(self) -> Any:
         """Test error handling when Firestore fails"""
         # Clear cache
         clear_cache()
@@ -132,7 +133,7 @@ class TestLoadAppConfig:
             assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
 
     @pytest.mark.asyncio
-    async def test_load_app_config_missing_fields(self):
+    async def test_load_app_config_missing_fields(self) -> Any:
         """Test handling when config document has missing fields"""
         # Clear cache
         clear_cache()
@@ -164,7 +165,7 @@ class TestGetCurrentUserId:
     """Test get_current_user_id dependency"""
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_success(self):
+    async def test_get_current_user_id_success(self) -> Any:
         """Test successful user ID extraction from valid token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.return_value = {
@@ -178,7 +179,7 @@ class TestGetCurrentUserId:
             mock_auth.verify_id_token.assert_called_once_with("valid_token")
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_missing_header(self):
+    async def test_get_current_user_id_missing_header(self) -> Any:
         """Test with missing authorization header"""
         with pytest.raises(HTTPException) as exc_info:
             get_current_user_id("")  # Empty string instead of None
@@ -187,7 +188,7 @@ class TestGetCurrentUserId:
         assert "Missing or invalid" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_invalid_format(self):
+    async def test_get_current_user_id_invalid_format(self) -> Any:
         """Test with invalid authorization header format (no Bearer)"""
         with pytest.raises(HTTPException) as exc_info:
             get_current_user_id("InvalidToken")
@@ -196,11 +197,11 @@ class TestGetCurrentUserId:
         assert "Missing or invalid" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_empty_bearer(self):
+    async def test_get_current_user_id_empty_bearer(self) -> Any:
         """Test with empty Bearer token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             # Mock the call to verify_id_token to raise an exception for an empty string
-            def verify_token_side_effect(t: str):
+            def verify_token_side_effect(t: str) -> dict[str, str]:
                 if t:
                     return {"uid": "user123"}
                 raise ValueError("Empty token")
@@ -216,7 +217,7 @@ class TestGetCurrentUserId:
             mock_auth.verify_id_token.assert_called_once_with("")
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_invalid_token(self):
+    async def test_get_current_user_id_invalid_token(self) -> Any:
         """Test with invalid token that fails verification"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Invalid token")
@@ -228,7 +229,7 @@ class TestGetCurrentUserId:
             assert "Invalid or expired token" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_expired_token(self):
+    async def test_get_current_user_id_expired_token(self) -> Any:
         """Test with expired token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Token expired")
@@ -239,7 +240,7 @@ class TestGetCurrentUserId:
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_malformed_token(self):
+    async def test_get_current_user_id_malformed_token(self) -> Any:
         """Test with malformed token"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.side_effect = Exception("Malformed token")
@@ -250,7 +251,7 @@ class TestGetCurrentUserId:
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_bearer_case_sensitive(self):
+    async def test_get_current_user_id_bearer_case_sensitive(self) -> Any:
         """Test that Bearer prefix is case-sensitive"""
         # Should only accept "Bearer" not "bearer" or "BEARER"
         with pytest.raises(HTTPException) as exc_info:
@@ -259,7 +260,7 @@ class TestGetCurrentUserId:
         assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_multiple_spaces(self):
+    async def test_get_current_user_id_multiple_spaces(self) -> Any:
         """Test token with multiple spaces after Bearer"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.return_value = {"uid": "user123"}
@@ -271,7 +272,7 @@ class TestGetCurrentUserId:
             assert user_id == "user123"
 
     @pytest.mark.asyncio
-    async def test_get_current_user_id_token_without_uid(self):
+    async def test_get_current_user_id_token_without_uid(self) -> Any:
         """Test valid token but missing uid field"""
         with patch("app.routers.auth_router.auth") as mock_auth:
             mock_auth.verify_id_token.return_value = {

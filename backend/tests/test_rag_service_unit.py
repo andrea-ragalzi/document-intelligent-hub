@@ -20,7 +20,7 @@ from langchain_core.documents import Document
 
 
 @pytest.fixture
-def mock_repository():  # pylint: disable=W0621
+def mock_repository() -> Mock:  # pylint: disable=W0621
     """
     Create a mock VectorStoreRepository for unit testing.
 
@@ -46,7 +46,7 @@ def mock_repository():  # pylint: disable=W0621
 
 
 @pytest.fixture
-def rag_service(mock_repository: Any):  # pylint: disable=W0621
+def rag_service(mock_repository: Any) -> Any:  # pylint: disable=W0621
     """
     Create a RAGService instance with mock repository injected.
 
@@ -60,7 +60,7 @@ def rag_service(mock_repository: Any):  # pylint: disable=W0621
 class TestRAGServiceInitialization:
     """Test RAGService initialization and dependency injection"""
 
-    def test_service_accepts_repository(self, mock_repository: Any):
+    def test_service_accepts_repository(self, mock_repository: Any) -> None:
         """Test that RAGService can be initialized with repository"""
         service = RAGService(repository=mock_repository)
 
@@ -68,7 +68,7 @@ class TestRAGServiceInitialization:
         assert service.llm is not None
         assert service.language_service is not None
 
-    def test_service_requires_repository(self):
+    def test_service_requires_repository(self) -> None:
         """Test that RAGService requires repository parameter"""
         with pytest.raises(TypeError):
             # Should fail because repository is required
@@ -86,7 +86,7 @@ class TestDocumentIndexing:
     @pytest.mark.asyncio
     async def test_index_document_success(
         self, mock_pdf_loader: Any, rag_service: Any, mock_repository: Any
-    ):
+    ) -> Any:
         """Test successful document indexing"""
         # Mock PDF loader
         mock_loader_instance = Mock()
@@ -126,7 +126,7 @@ class TestDocumentIndexing:
     @pytest.mark.asyncio
     async def test_index_document_already_exists(
         self, rag_service: Any, mock_repository: Any
-    ):
+    ) -> Any:
         """Test indexing fails when document already exists"""
         # Mock async file
         mock_file = Mock()
@@ -146,7 +146,7 @@ class TestDocumentIndexing:
 
     def test_index_document_uses_language_detection(
         self, rag_service: Any, mock_repository: Any
-    ):
+    ) -> Any:
         """Test that indexing includes language detection in metadata.
 
         This test verifies business logic includes language detection
@@ -160,7 +160,9 @@ class TestQueryProcessing:
     """Test query processing and answer generation"""
 
     @patch("app.services.rag_orchestrator_service.ChatOpenAI")
-    def test_answer_query_basic(self, mock_llm_class: Any, mock_repository: Any):
+    def test_answer_query_basic(
+        self, mock_llm_class: Any, mock_repository: Any
+    ) -> None:
         """Test basic query processing"""
         # Mock LLM response
         mock_llm_instance = Mock()
@@ -199,7 +201,7 @@ class TestQueryProcessing:
 
     def test_answer_query_with_conversation_history(
         self, rag_service: Any, mock_repository: Any
-    ):
+    ) -> Any:
         """Test query processing with conversation history"""
         # Mock retriever
         mock_retriever = Mock()
@@ -228,7 +230,7 @@ class TestQueryProcessing:
 
     def test_answer_query_no_relevant_documents(
         self, rag_service: Any, mock_repository: Any
-    ):
+    ) -> Any:
         """Test query when no relevant documents found"""
         # Mock retriever returns empty list
         mock_retriever = Mock()
@@ -252,7 +254,7 @@ class TestQueryProcessing:
 class TestDocumentManagement:
     """Test document listing and deletion"""
 
-    def test_get_user_documents(self, rag_service: Any, mock_repository: Any):
+    def test_get_user_documents(self, rag_service: Any, mock_repository: Any) -> None:
         """Test getting list of user documents"""
         # Mock repository response
         mock_metadatas = [
@@ -276,7 +278,9 @@ class TestDocumentManagement:
         # Verify repository was called
         mock_repository.get_user_chunks_sample.assert_called_once()
 
-    def test_get_user_documents_empty(self, rag_service: Any, mock_repository: Any):
+    def test_get_user_documents_empty(
+        self, rag_service: Any, mock_repository: Any
+    ) -> None:
         """Test getting documents when user has none"""
         mock_repository.get_user_chunks_sample.return_value = ([], [])
 
@@ -284,7 +288,7 @@ class TestDocumentManagement:
 
         assert documents == []
 
-    def test_delete_user_document(self, rag_service: Any, mock_repository: Any):
+    def test_delete_user_document(self, rag_service: Any, mock_repository: Any) -> None:
         """Test deleting a specific user document"""
         mock_repository.delete_document.return_value = 5
 
@@ -300,7 +304,9 @@ class TestDocumentManagement:
         # Verify business logic returns result
         assert result == 5
 
-    def test_delete_all_user_documents(self, rag_service: Any, mock_repository: Any):
+    def test_delete_all_user_documents(
+        self, rag_service: Any, mock_repository: Any
+    ) -> None:
         """Test deleting all documents for a user"""
         mock_repository.delete_all_user_documents.return_value = 15
 
@@ -317,7 +323,9 @@ class TestDocumentManagement:
 class TestDocumentCount:
     """Test document counting functionality"""
 
-    def test_get_user_document_count(self, rag_service: Any, mock_repository: Any):
+    def test_get_user_document_count(
+        self, rag_service: Any, mock_repository: Any
+    ) -> None:
         """Test counting user's documents"""
         # Mock repository response
         mock_metadatas = [
@@ -333,7 +341,9 @@ class TestDocumentCount:
         # Should count unique documents (3 in this case)
         assert count == 3
 
-    def test_get_user_document_count_zero(self, rag_service: Any, mock_repository: Any):
+    def test_get_user_document_count_zero(
+        self, rag_service: Any, mock_repository: Any
+    ) -> None:
         """Test counting when user has no documents"""
         mock_repository.get_user_chunks_sample.return_value = ([], [])
 
@@ -346,7 +356,7 @@ class TestDocumentCount:
 class TestServiceIsolation:
     """Test that RAGService is properly isolated from database implementation"""
 
-    def test_service_has_no_direct_database_references(self):
+    def test_service_has_no_direct_database_references(self) -> None:
         """Verify RAGService doesn't import ChromaDB directly"""
         source = inspect.getsource(app.services.rag_orchestrator_service)
 
@@ -357,7 +367,7 @@ class TestServiceIsolation:
         # Should have repository import
         assert "VectorStoreRepository" in source
 
-    def test_service_only_calls_repository_methods(self, mock_repository: Any):
+    def test_service_only_calls_repository_methods(self, mock_repository: Any) -> None:
         """Verify service only interacts through repository interface"""
         # After any operation, service should only have called repository methods
         # This test documents the expected interface
@@ -382,7 +392,9 @@ class TestServiceIsolation:
 class TestEdgeCases:
     """Test edge cases and error conditions"""
 
-    def test_query_with_empty_string(self, rag_service: Any, mock_repository: Any):
+    def test_query_with_empty_string(
+        self, rag_service: Any, mock_repository: Any
+    ) -> None:
         """Test query with empty string"""
         mock_retriever = Mock()
         mock_retriever.invoke.return_value = []
@@ -396,7 +408,9 @@ class TestEdgeCases:
             # Some implementations may raise validation error
             assert "query" in str(e).lower() or "empty" in str(e).lower()
 
-    def test_operations_with_special_characters_in_filename(self, mock_repository: Any):
+    def test_operations_with_special_characters_in_filename(
+        self, mock_repository: Any
+    ) -> None:
         """Test handling filenames with special characters"""
         special_filename = "document (1) [copy].pdf"
 
@@ -419,7 +433,7 @@ class TestMockingBestPractices:
 
     def test_example_verify_method_called_with_args(
         self, rag_service: Any, mock_repository: Any
-    ):
+    ) -> Any:
         """Example: Verify specific method calls with arguments"""
         mock_repository.delete_document.return_value = 1
 
@@ -434,13 +448,13 @@ class TestMockingBestPractices:
     @pytest.mark.asyncio
     async def test_example_mock_return_values(
         self, rag_service: Any, mock_repository: Any
-    ):
+    ) -> Any:
         """Example: Configure mock return values"""
 
         # Different return value based on input
         def mock_check_exists(
-            user_id: str, filename: str
-        ):  # pylint: disable=unused-argument
+            user_id: str, filename: str  # pylint: disable=unused-argument
+        ) -> bool:
             return filename == "exists.pdf"
 
         mock_repository.check_document_exists.side_effect = mock_check_exists
@@ -456,7 +470,9 @@ class TestMockingBestPractices:
         except Exception as e:  # pylint: disable=broad-exception-caught
             assert "exists" in str(e)
 
-    def test_example_count_method_calls(self, rag_service: Any, mock_repository: Any):
+    def test_example_count_method_calls(
+        self, rag_service: Any, mock_repository: Any
+    ) -> None:
         """Example: Count how many times a method was called"""
         mock_repository.get_user_chunks_sample.return_value = ([], [])
 

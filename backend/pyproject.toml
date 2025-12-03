@@ -53,13 +53,68 @@ reportUnknownArgumentType = false
 reportGeneralTypeIssues = false
 
 # MyPy configuration
+# Standard MyPy configuration file
+# Goal: Enable strict checking for maximum type safety
+
 [tool.mypy]
+# ----------------------------------------------------------------------
+# GLOBAL SETTINGS
+# ----------------------------------------------------------------------
+
+# Python version target
 python_version = "3.12"
-warn_return_any = true
+
+# 1. ENABLE STRICT MODE (Recommended for modern projects)
+# Enabling this option is equivalent to enabling almost all "questionable" flags
+# ensuring maximum rigor in type checking
+strict = true
+
+# 2. PATH DEFINITIONS AND FILES TO EXCLUDE
+# Directories and files to ignore. Crucial to ignore virtual environments and external dependencies
+exclude = [
+    "^.venv/",
+    "^node_modules/",
+    "^chroma_db/",
+    "^__pycache__/",
+    "^htmlcov/",
+]
+
+# 3. REPORTING SETTINGS
+# Show columns and error message names
+show_column_numbers = true
+show_error_codes = true
+pretty = true
 warn_unused_configs = true
+
+# ----------------------------------------------------------------------
+# STRICT RULES (Enabled by strict mode, but explicit here for clarity)
+# ----------------------------------------------------------------------
+
+# Working without type hints is prohibited, except for functions decorated with @no_type_check
 disallow_untyped_defs = true
-disallow_any_unimported = false
-exclude = ["chroma_db", "__pycache__", ".venv"]
+
+# All functions must specify return type
+warn_return_any = true
+
+# Ensures input and output types are consistent (covariance and contravariance)
+strict_equality = true
+
+# Checks correctness of raised exceptions
+check_untyped_defs = true
+
+# Prohibits use of 'Any' type unless explicit and justified
+disallow_any_unimported = false  # Set to false for greater tolerance on external libraries
+disallow_any_expr = false        # Kept False for tolerance on external libraries
+disallow_any_decorated = false   # Adjusted for decorator compatibility
+disallow_any_generics = true
+
+# Treat files without type hints as an error
+implicit_reexport = false
+no_implicit_optional = true
+
+# ----------------------------------------------------------------------
+# THIRD-PARTY MODULES (For libraries without stub types)
+# ----------------------------------------------------------------------
 
 # Ignore missing imports for third-party libraries without stubs
 [[tool.mypy.overrides]]

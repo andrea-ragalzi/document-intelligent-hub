@@ -1,7 +1,9 @@
+"""Tests for structural fallback functionality."""
+
 from app.services.document_classifier_service import document_classifier_service
 
 
-def test_structural_density_check():
+def test_structural_density_check() -> None:
     """Test the heuristic structural density check."""
 
     # Case 1: High density (numbered list) - 1.1, 1.2, etc.

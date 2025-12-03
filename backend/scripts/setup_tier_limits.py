@@ -10,7 +10,7 @@ from firebase_admin import firestore
 from google.cloud.firestore import SERVER_TIMESTAMP
 
 
-def setup_tier_limits():
+def setup_tier_limits() -> None:
     """Create/update app_config/settings document with tier limits."""
 
     # Initialize Firebase
@@ -60,8 +60,10 @@ def setup_tier_limits():
 
 
 if __name__ == "__main__":
+    import sys
+
     try:
         setup_tier_limits()
     except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Error setting up tier limits: {e}")
-        exit(1)
+        sys.exit(1)

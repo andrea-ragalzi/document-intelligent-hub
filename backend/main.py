@@ -34,7 +34,7 @@ from app.routers import (  # noqa: E402
 @asynccontextmanager
 async def lifespan(
     app: FastAPI,
-):  # pylint: disable=unused-argument,redefined-outer-name
+) -> Any:  # pylint: disable=unused-argument,redefined-outer-name
     """Application lifespan manager - handles startup and shutdown."""
     # STARTUP
     logger.info(f"🚀 Starting {settings.PROJECT_NAME} v{settings.PROJECT_VERSION}")
@@ -95,7 +95,7 @@ app.add_middleware(
 
 # --- Logging Middleware ---
 @app.middleware("http")
-async def log_requests(request: Request, call_next: Callable[[Request], Any]):
+async def log_requests(request: Request, call_next: Callable[[Request], Any]) -> Any:
     """Log all HTTP requests with timing information."""
     start_time = time.time()
     client_host = request.client.host if request.client else "unknown"
@@ -147,7 +147,7 @@ except (ImportError, AttributeError):
 
 # --- Root Endpoint (Health Check) ---
 @app.get("/", tags=["Root"])
-def read_root():
+def read_root() -> dict[str, str]:
     """Health check endpoint to verify the API is running."""
     return {
         "message": f"Welcome to the {settings.PROJECT_NAME} API!",

@@ -3,6 +3,8 @@ Quick test for query reformulation functionality.
 Run with: poetry run python test_reformulation.py
 """
 
+from typing import Any
+
 from app.repositories.dependencies import get_vector_store_repository
 from app.schemas.rag_schema import ConversationMessage
 from app.services.rag_orchestrator_service import RAGService
@@ -13,7 +15,7 @@ repository = next(repository_dependency)
 rag_service = RAGService(repository=repository)
 
 # Test cases
-test_cases = [
+test_cases: list[dict[str, Any]] = [
     {
         "query": "intendo la guerra delle 5 nazioni",
         "history": [

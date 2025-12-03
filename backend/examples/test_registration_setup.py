@@ -32,7 +32,7 @@ except ValueError:
 db = firestore.client()
 
 
-def setup_test_data():
+def setup_test_data() -> None:
     """
     Create test data in Firestore for registration testing.
 
@@ -101,7 +101,7 @@ def setup_test_data():
     print("6. Register without code and not in unlimited list -> Should fail")
 
 
-def test_registration_flow():
+def test_registration_flow() -> None:
     """
     Example of how to call the registration endpoint.
 

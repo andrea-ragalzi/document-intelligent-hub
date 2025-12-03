@@ -6,6 +6,7 @@ Tests the /rag/report-bug endpoint with a sample ZIP file.
 
 import io
 import zipfile
+from io import BytesIO
 
 import requests
 
@@ -15,7 +16,7 @@ USER_ID = "test_user_archive"
 CONVERSATION_ID = "test_conversation_archive_999"
 
 
-def create_test_zip():
+def create_test_zip() -> BytesIO:
     """Create a minimal test ZIP file in memory."""
     zip_buffer = io.BytesIO()
 
@@ -55,7 +56,7 @@ def create_test_zip():
     return zip_buffer
 
 
-def test_bug_report_with_zip():
+def test_bug_report_with_zip() -> None:
     """Test bug report submission with ZIP archive attachment."""
 
     print("🧪 Testing bug report with ZIP ARCHIVE attachment...")
@@ -69,7 +70,10 @@ def test_bug_report_with_zip():
     data = {
         "user_id": USER_ID,
         "conversation_id": CONVERSATION_ID,
-        "description": "This is a test bug report with an attached ZIP archive containing logs, config, and other diagnostic files.",
+        "description": (
+            "This is a test bug report with an attached ZIP archive "
+            "containing logs, config, and other diagnostic files."
+        ),
         "timestamp": "2025-11-23T17:12:00Z",
         "user_agent": "Python Test Script Archive/1.0",
     }
@@ -80,7 +84,7 @@ def test_bug_report_with_zip():
         print(f"   Conversation ID: {CONVERSATION_ID}")
         print("   Attachment: bug_report_archive.zip (application/zip) 📦")
 
-        response = requests.post(API_URL, data=data, files=files)
+        response = requests.post(API_URL, data=data, files=files, timeout=30)
 
         print(f"\n📥 Response Status: {response.status_code}")
 
@@ -107,9 +111,9 @@ def test_bug_report_with_zip():
             if response.status_code == 413:
                 print("   💡 ZIP file is too large (max 10MB)")
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Exception occurred: {str(e)}")
-        import traceback
+        import traceback  # pylint: disable=import-outside-toplevel
 
         traceback.print_exc()
 

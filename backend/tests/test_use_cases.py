@@ -19,7 +19,7 @@ from app.services.prompt_template_service import prompt_template_service
 class TestUseCaseDefinitions:
     """Test suite for use case definitions and schemas."""
 
-    def test_all_use_cases_defined(self):
+    def test_all_use_cases_defined(self) -> None:
         """Verify all 6 use cases are properly defined."""
         use_cases = [
             UseCaseType.PROFESSIONAL_CONTENT,
@@ -38,7 +38,7 @@ class TestUseCaseDefinitions:
             assert definition.description
             assert definition.role_persona
 
-    def test_output_format_descriptions(self):
+    def test_output_format_descriptions(self) -> None:
         """Verify all output formats have descriptions."""
         formats = [
             OutputFormat.MARKDOWN_TEXT,
@@ -59,7 +59,7 @@ class TestUseCaseDefinitions:
 class TestPromptTemplateService:
     """Test suite for prompt template generation."""
 
-    def test_extract_quantity_from_query_italian(self):
+    def test_extract_quantity_from_query_italian(self) -> None:
         """Test quantity extraction from Italian queries."""
         queries = [
             ("voglio una lista di 10 persone", 10),
@@ -73,7 +73,7 @@ class TestPromptTemplateService:
             result = prompt_template_service.extract_quantity_from_query(query)
             assert result == expected, f"Failed for query: {query}"
 
-    def test_extract_quantity_from_query_english(self):
+    def test_extract_quantity_from_query_english(self) -> None:
         """Test quantity extraction from English queries."""
         queries = [
             ("give me a list of 10 people", 10),
@@ -87,7 +87,7 @@ class TestPromptTemplateService:
             result = prompt_template_service.extract_quantity_from_query(query)
             assert result == expected, f"Failed for query: {query}"
 
-    def test_create_constraints_for_creative_brainstorming(self):
+    def test_create_constraints_for_creative_brainstorming(self) -> None:
         """Test constraint creation for CU4 (Creative Brainstorming)."""
         constraints = prompt_template_service.create_constraints_for_use_case(
             use_case=UseCaseType.CREATIVE_BRAINSTORMING, quantity=5
@@ -99,7 +99,7 @@ class TestPromptTemplateService:
         assert constraints.data_type_constraint is None
         assert constraints.format_constraint
 
-    def test_create_constraints_for_business_strategy(self):
+    def test_create_constraints_for_business_strategy(self) -> None:
         """Test constraint creation for CU6 (Business Strategy)."""
         constraints = prompt_template_service.create_constraints_for_use_case(
             use_case=UseCaseType.BUSINESS_STRATEGY, quantity=4
@@ -108,9 +108,11 @@ class TestPromptTemplateService:
         assert constraints.quantity_constraint
         assert "4" in constraints.quantity_constraint
         assert constraints.data_type_constraint is None
-        assert "business analysis framework" in constraints.format_constraint.lower()
+        assert (
+            "business analysis framework" in str(constraints.format_constraint).lower()
+        )  # pylint: disable=no-member
 
-    def test_build_modular_prompt_structure(self):
+    def test_build_modular_prompt_structure(self) -> None:
         """Test that modular prompts follow the 4-section structure."""
         constraints = PromptConstraints(
             quantity_constraint="The response MUST contain EXACTLY 5 items.",
@@ -135,7 +137,7 @@ class TestPromptTemplateService:
         assert "EXACTLY 5" in prompt  # Quantity constraint
         assert "accessibility and inclusivity" in prompt  # Additional context
 
-    def test_build_modular_prompt_with_retrieved_context(self):
+    def test_build_modular_prompt_with_retrieved_context(self) -> None:
         """Test prompt building with RAG-retrieved context."""
         constraints = PromptConstraints(
             quantity_constraint="The response MUST contain EXACTLY 10 items.",
@@ -168,7 +170,7 @@ class TestPromptTemplateService:
         # Check for environment-based prompt rules (updated with config.py refactor)
         assert "ONLY use the information provided in the Context" in prompt
 
-    def test_build_prompt_without_optional_sections(self):
+    def test_build_prompt_without_optional_sections(self) -> None:
         """Test prompt building without optional sections (history, context)."""
         constraints = prompt_template_service.create_constraints_for_use_case(
             use_case=UseCaseType.CODE_DEVELOPMENT, quantity=1
@@ -185,7 +187,7 @@ class TestPromptTemplateService:
         assert "CONSTRAINTS AND REQUIREMENTS" in prompt
         assert "ADDITIONAL CONTEXT" not in prompt
 
-    def test_all_use_cases_generate_valid_prompts(self):
+    def test_all_use_cases_generate_valid_prompts(self) -> None:
         """Test that all 6 use cases can generate valid prompts."""
         use_cases = [
             (
@@ -235,7 +237,7 @@ class TestPromptTemplateService:
 class TestConstraintEnforcement:
     """Test suite for constraint enforcement in prompts."""
 
-    def test_quantity_constraint_emphasis(self):
+    def test_quantity_constraint_emphasis(self) -> None:
         """Test that quantity constraints are properly emphasized."""
         constraints = PromptConstraints(
             quantity_constraint="The response MUST contain EXACTLY 10 items.",
@@ -252,7 +254,7 @@ class TestConstraintEnforcement:
         assert "NON-NEGOTIABLE" in prompt
         assert "Count your output items before responding" in prompt
 
-    def test_format_constraint_specification(self):
+    def test_format_constraint_specification(self) -> None:
         """Test that format constraints are clearly specified."""
         constraints = prompt_template_service.create_constraints_for_use_case(
             use_case=UseCaseType.STRUCTURED_PLANNING, quantity=None
@@ -267,7 +269,7 @@ class TestConstraintEnforcement:
         assert "FORMAT CONSTRAINT" in prompt
         assert "PRIORITY" in prompt
 
-    def test_additional_constraints_inclusion(self):
+    def test_additional_constraints_inclusion(self) -> None:
         """Test that additional constraints are properly included."""
         constraints = PromptConstraints(
             quantity_constraint="EXACTLY 3 items",

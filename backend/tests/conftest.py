@@ -7,6 +7,7 @@ import os
 # New imports for ChromaDB cleanup
 import shutil
 import tempfile
+from typing import Generator
 from unittest.mock import Mock, patch
 
 import pytest
@@ -25,7 +26,7 @@ class TestClientWithContext(TestClient):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def cleanup_chroma_db_after_session():
+def cleanup_chroma_db_after_session() -> Generator[None, None, None]:
     """
     Fixture to clean up the ChromaDB test directory after the test session.
     This runs once per session, after all tests are complete.
@@ -38,7 +39,7 @@ def cleanup_chroma_db_after_session():
 
 
 @pytest.fixture(scope="module", autouse=True)
-def mock_firebase_auth():
+def mock_firebase_auth() -> Generator[dict[str, Mock], None, None]:
     """
     Mock Firebase Admin SDK auth functions to avoid real auth calls in tests.
     This prevents tests from failing due to missing credentials or network issues.
@@ -61,20 +62,22 @@ def mock_firebase_auth():
 
 
 @pytest.fixture(scope="module")
-def client():
+def client() -> Generator[TestClientWithContext, None, None]:
     """
     Create a TestClient instance for testing FastAPI endpoints.
     Mock Firebase auth to bypass token verification in tests.
 
     The mock returns a test user ID that can be overridden per-test.
     """
-    from app.core.auth import verify_firebase_token
-    from fastapi import HTTPException, status
+    from app.core.auth import (
+        verify_firebase_token,
+    )  # pylint: disable=import-outside-toplevel
+    from fastapi import HTTPException, status  # pylint: disable=import-outside-toplevel
 
     # Shared state for current test user ID (can be None for auth failure tests)
     test_user_context: dict[str, str | None] = {"user_id": "test-user-12345"}
 
-    def mock_verify_token():
+    def mock_verify_token() -> str:
         """
         Mock Firebase token verification for tests.
         Returns the current test user ID without verifying any token.
@@ -105,7 +108,7 @@ def client():
 
 
 @pytest.fixture(scope="function")
-def sample_pdf():
+def sample_pdf() -> Generator[str, None, None]:
     """
     Create a temporary PDF file for testing uploads.
 
@@ -177,21 +180,21 @@ startxref
 %%EOF"""
 
     # Create temporary file
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    temp_file.write(pdf_content)
-    temp_file.close()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+        temp_file.write(pdf_content)
+        temp_file_name = temp_file.name
 
-    yield temp_file.name
+    yield temp_file_name
 
     # Cleanup
     try:
-        os.unlink(temp_file.name)
-    except Exception:
+        os.unlink(temp_file_name)
+    except Exception:  # pylint: disable=broad-exception-caught
         pass
 
 
 @pytest.fixture(scope="function")
-def test_user_id():
+def test_user_id() -> str:
     """
     Provide a consistent test user ID.
     """
@@ -199,7 +202,7 @@ def test_user_id():
 
 
 @pytest.fixture(scope="function")
-def cleanup_test_data():
+def cleanup_test_data() -> Generator[None, None, None]:
     """
     Cleanup test data after tests run.
     """
@@ -209,17 +212,19 @@ def cleanup_test_data():
 
 
 @pytest.fixture(scope="function")
-def mock_vector_store_repository():
+def mock_vector_store_repository() -> Generator[Mock, None, None]:
     """
     Create a mock VectorStoreRepository for unit testing services.
 
     This allows testing service layer logic without touching the database.
     Example usage:
-        def test_my_service(mock_vector_store_repository):
+        def test_my_service(mock_vector_store_repository) -> None:
             service = RAGService(repository=mock_vector_store_repository)
             # Test service logic here
     """
-    from app.repositories.vector_store_repository import VectorStoreRepository
+    from app.repositories.vector_store_repository import (  # pylint: disable=import-outside-toplevel
+        VectorStoreRepository,
+    )
 
     mock_repo = Mock(spec=VectorStoreRepository)
 
@@ -241,7 +246,7 @@ def mock_vector_store_repository():
 
 
 @pytest.fixture(scope="function", autouse=True)
-def mock_usage_service():
+def mock_usage_service() -> Generator[Mock, None, None]:
     """
     Mock the usage tracking service to prevent hitting rate limits in tests.
     This fixture will automatically be used in all tests.
@@ -272,7 +277,7 @@ def mock_usage_service():
 
 
 @pytest.fixture(scope="function", autouse=True)
-def mock_email_service():
+def mock_email_service() -> Generator[Mock, None, None]:
     """
     Mock the email service to prevent sending real emails during tests.
     This fixture will automatically be used in all tests.

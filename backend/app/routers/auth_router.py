@@ -116,8 +116,8 @@ def load_app_config() -> dict[str, Any]:
         load_app_config, "tier_limits_cache"
     ):
         return {
-            "unlimited_emails": load_app_config.unlimited_emails_cache,  # type: ignore
-            "limits": load_app_config.tier_limits_cache,  # type: ignore[attr-defined]
+            "unlimited_emails": load_app_config.unlimited_emails_cache,
+            "limits": load_app_config.tier_limits_cache,
         }
 
     try:
@@ -204,7 +204,7 @@ def get_unlimited_emails() -> List[str]:
     """
     # Return cached value if available
     if hasattr(get_unlimited_emails, "cache"):
-        return list(get_unlimited_emails.cache)  # type: ignore[attr-defined,no-any-return]
+        return list(get_unlimited_emails.cache)
 
     try:
         # Fetch settings document from Firestore
@@ -335,7 +335,7 @@ def _validate_invitation_code(invitation_code: str, db: Any) -> dict[str, Any]:
 
     _check_code_expiration(invitation_code, code_data.get("expires_at"))
 
-    return dict(code_data)  # type: ignore[no-any-return]
+    return dict(code_data)
 
 
 def _check_code_expiration(invitation_code: str, expires_at: Any) -> None:
@@ -535,17 +535,15 @@ async def request_invitation_code(
                     "You will receive an invitation code via email soon."
                 ),
             )
-        else:
-            logger.error(
-                f"❌ Failed to send invitation request email for {request.email}"
-            )
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    "Failed to send your request. "
-                    "Please try again later or contact support directly."
-                ),
-            )
+
+        logger.error(f"❌ Failed to send invitation request email for {request.email}")
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to send your request. "
+                "Please try again later or contact support directly."
+            ),
+        )
 
     except HTTPException:
         raise
