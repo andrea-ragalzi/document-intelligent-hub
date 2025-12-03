@@ -135,7 +135,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
             disabled={!file || isUploading || !userId}
             className="w-full py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2
               bg-gradient-to-r from-blue-600 to-purple-600 text-white
-              hover:from-blue-700 hover:to-purple-700 
+              hover:from-blue-700 hover:to-purple-700
               disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed
               shadow-lg hover:shadow-xl disabled:shadow-none"
           >

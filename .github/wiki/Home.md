@@ -5,17 +5,20 @@ Welcome to the **Document Intelligent Hub** Wiki! This is a comprehensive RAG (R
 ## 📚 Table of Contents
 
 ### Getting Started
+
 - [Installation Guide](Installation-Guide)
 - [Quick Start](Quick-Start)
 - [Configuration](Configuration)
 
 ### Architecture
+
 - [Project Structure](Project-Structure)
 - [Frontend Architecture](Frontend-Architecture)
 - [Backend Architecture](Backend-Architecture)
 - [State Management](State-Management)
 
 ### Features
+
 - [Document Upload & Processing](Document-Upload)
 - [RAG Chat System](RAG-Chat-System)
 - [Conversation Management](Conversation-Management)
@@ -23,23 +26,27 @@ Welcome to the **Document Intelligent Hub** Wiki! This is a comprehensive RAG (R
 - [Multi-language Support](Multi-language-Support)
 
 ### Development
+
 - [Development Workflow](Development-Workflow)
 - [Testing Guide](Testing-Guide)
 - [Contributing Guidelines](Contributing-Guidelines)
 - [Code Standards](Code-Standards)
 
 ### Deployment
+
 - [Docker Deployment](Docker-Deployment)
 - [Production Deployment](Production-Deployment)
 - [Environment Variables](Environment-Variables)
 
 ### API Reference
+
 - [Backend API Endpoints](API-Endpoints)
 - [Frontend Components](Frontend-Components)
 - [Hooks Reference](Hooks-Reference)
 - [Store Reference](Store-Reference)
 
 ### Troubleshooting
+
 - [Common Issues](Common-Issues)
 - [FAQ](FAQ)
 - [Performance Optimization](Performance-Optimization)
@@ -55,6 +62,7 @@ Welcome to the **Document Intelligent Hub** Wiki! This is a comprehensive RAG (R
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **Framework**: Next.js 16 with Turbopack
 - **Language**: TypeScript
 - **State Management**: Zustand + TanStack Query
@@ -63,6 +71,7 @@ Welcome to the **Document Intelligent Hub** Wiki! This is a comprehensive RAG (R
 - **Database**: Firebase (Auth + Firestore)
 
 ### Backend
+
 - **Framework**: FastAPI (Python)
 - **Vector DB**: ChromaDB
 - **Embeddings**: Multi-language support
@@ -82,6 +91,6 @@ Welcome to the **Document Intelligent Hub** Wiki! This is a comprehensive RAG (R
 
 ---
 
-**Last Updated**: November 2025  
-**Version**: 1.0.0  
+**Last Updated**: November 2025
+**Version**: 1.0.0
 **License**: See [LICENSE](../LICENSE)

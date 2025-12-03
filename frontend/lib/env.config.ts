@@ -23,12 +23,12 @@ const getEnvConfig = () => {
   const missing: string[] = [];
   Object.entries(config.firebase).forEach(([key, value]) => {
     if (!value) {
-      missing.push(
-        `NEXT_PUBLIC_FIREBASE_${key
-          .toUpperCase()
-          .replace(/([A-Z])/g, "_$1")
-          .replace(/^_/, "")}`
-      );
+      // Convert camelCase to UPPER_SNAKE_CASE properly
+      const envVarName = `NEXT_PUBLIC_FIREBASE_${key
+        .replace(/([A-Z])/g, "_$1")
+        .toUpperCase()
+        .replace(/^_/, "")}`;
+      missing.push(envVarName);
     }
   });
 

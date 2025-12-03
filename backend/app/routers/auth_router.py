@@ -5,7 +5,7 @@ Handles user registration and tier assignment via Firebase Custom Claims.
 """
 
 from datetime import datetime, timezone
-from typing import Any, List
+from typing import Any, Dict, List
 
 from app.core.logging import logger
 from app.schemas.auth_schema import (
@@ -23,7 +23,7 @@ from google.cloud.firestore import SERVER_TIMESTAMP
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-def get_db():
+def get_db() -> Any:
     """Get or initialize Firestore client (lazy initialization using function attribute)."""
     if not hasattr(get_db, "client"):
         get_db.client = firestore.client()  # type: ignore[attr-defined]
@@ -81,7 +81,7 @@ def get_current_user_id(authorization: str = Header(...)) -> str:
 
     try:
         decoded_token = auth.verify_id_token(token)
-        user_id = decoded_token["uid"]
+        user_id = str(decoded_token["uid"])
         return user_id
     except Exception as e:
         logger.error(f"❌ Token verification failed: {e}")
@@ -204,7 +204,7 @@ def get_unlimited_emails() -> List[str]:
     """
     # Return cached value if available
     if hasattr(get_unlimited_emails, "cache"):
-        return get_unlimited_emails.cache  # type: ignore[attr-defined]
+        return list(get_unlimited_emails.cache)  # type: ignore[attr-defined,no-any-return]
 
     try:
         # Fetch settings document from Firestore
@@ -335,7 +335,7 @@ def _validate_invitation_code(invitation_code: str, db: Any) -> dict[str, Any]:
 
     _check_code_expiration(invitation_code, code_data.get("expires_at"))
 
-    return code_data
+    return dict(code_data)  # type: ignore[no-any-return]
 
 
 def _check_code_expiration(invitation_code: str, expires_at: Any) -> None:
@@ -393,7 +393,7 @@ def _mark_code_as_used(code_ref: Any, user_id: str, invitation_code: str) -> Non
 
 
 @router.post("/register", response_model=RegistrationResponse)
-async def register_user(registration_data: RegistrationData):
+async def register_user(registration_data: RegistrationData) -> RegistrationResponse:
     """
     Register user and assign tier based on invitation code or unlimited email list.
 
@@ -457,7 +457,7 @@ async def register_user(registration_data: RegistrationData):
 
 
 @router.post("/refresh-claims")
-def refresh_user_claims(id_token: str):
+def refresh_user_claims(id_token: str) -> Dict[str, Any]:
     """
     Retrieve current user claims from Firebase token.
 
@@ -558,7 +558,7 @@ async def request_invitation_code(
 
 
 @router.get("/tier-limits")
-def get_tier_limits():
+def get_tier_limits() -> Dict[str, Any]:
     """
     Get tier limits configuration from Firestore.
 
@@ -582,7 +582,7 @@ def get_tier_limits():
 
 
 @router.get("/usage")
-async def get_user_usage(user_id: str = Depends(get_current_user_id)):
+async def get_user_usage(user_id: str = Depends(get_current_user_id)) -> Dict[str, Any]:
     """
     Get current user's query usage for today.
 
@@ -640,7 +640,7 @@ async def get_user_usage(user_id: str = Depends(get_current_user_id)):
 @router.post("/admin/set-tier")
 def set_user_tier_admin(
     email: str, tier: str, _current_user_id: str = Depends(get_current_user_id)
-):
+) -> Dict[str, str]:
     """
     ADMIN ENDPOINT: Set tier for a user by email.
 

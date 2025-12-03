@@ -23,9 +23,7 @@
   "python.linting.enabled": true,
   "python.linting.pylintEnabled": true,
   "python.linting.pylintPath": "${workspaceFolder}/backend/.venv/bin/pylint",
-  "python.linting.pylintArgs": [
-    "--rcfile=${workspaceFolder}/backend/.pylintrc"
-  ],
+  "python.linting.pylintArgs": ["--rcfile=${workspaceFolder}/backend/.pylintrc"],
   "python.linting.cwd": "${workspaceFolder}/backend",
   "python.linting.lintOnSave": true,
   "python.linting.mypyEnabled": true,
@@ -54,12 +52,7 @@
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "eslint.enable": true,
   "eslint.workingDirectories": ["frontend"],
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
   "eslint.lintTask.enable": true,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
@@ -107,9 +100,7 @@
   "coverage-gutters.highlightdark": "rgba(0, 128, 0, 0.3)",
   "coverage-gutters.noHighlightDark": "rgba(255, 0, 0, 0.3)",
   "coverage-gutters.partialHighlightDark": "rgba(255, 255, 0, 0.3)",
-  "coverage-gutters.manualCoverageFilePaths": [
-    "${workspaceFolder}/backend/coverage.lcov"
-  ],
+  "coverage-gutters.manualCoverageFilePaths": ["${workspaceFolder}/backend/coverage.lcov"],
 
   // Editor Configuration
   "files.trimTrailingWhitespace": true,

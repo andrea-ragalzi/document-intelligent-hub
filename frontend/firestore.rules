@@ -2,25 +2,25 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Conversations: only authenticated users (NO anonymous)
     match /conversations/{conversationId} {
       // Requires NON-anonymous authentication
-      allow read: if request.auth != null 
+      allow read: if request.auth != null
                   && !request.auth.token.firebase.sign_in_provider.matches('anonymous')
                   && request.auth.uid == resource.data.userId;
-      
+
       // Allow update and delete only to authenticated owner
-      allow update, delete: if request.auth != null 
+      allow update, delete: if request.auth != null
                             && !request.auth.token.firebase.sign_in_provider.matches('anonymous')
                             && request.auth.uid == resource.data.userId;
-      
+
       // Allow creation only if userId matches authenticated user
-      allow create: if request.auth != null 
+      allow create: if request.auth != null
                     && !request.auth.token.firebase.sign_in_provider.matches('anonymous')
                     && request.auth.uid == request.resource.data.userId;
     }
-    
+
     // Deny access to all other collections for security
     match /{document=**} {
       allow read, write: if false;

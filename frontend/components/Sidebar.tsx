@@ -78,15 +78,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         className={`
           h-full w-72
-          bg-indigo-50 dark:bg-indigo-950 
+          bg-indigo-50 dark:bg-indigo-950
           shadow-lg
           transform transition-all duration-200 ease-in-out
           flex flex-col
           border-r-2 border-indigo-100 dark:border-indigo-800
           font-[Inter]
-          
+
           lg:relative lg:translate-x-0 lg:z-0
-          
+
           fixed top-0 left-0 z-50
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}

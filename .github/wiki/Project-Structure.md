@@ -76,14 +76,14 @@ app/
 
 ### Key Backend Files
 
-| File | Purpose |
-|------|---------|
-| `main.py` | FastAPI app initialization, CORS, middleware |
-| `app/core/config.py` | Environment variables and configuration |
-| `app/db/chroma_client.py` | ChromaDB setup and collection management |
-| `app/routers/rag_router.py` | `/upload`, `/query` endpoints |
+| File                                       | Purpose                                              |
+| ------------------------------------------ | ---------------------------------------------------- |
+| `main.py`                                  | FastAPI app initialization, CORS, middleware         |
+| `app/core/config.py`                       | Environment variables and configuration              |
+| `app/db/chroma_client.py`                  | ChromaDB setup and collection management             |
+| `app/routers/rag_router.py`                | `/upload`, `/query` endpoints                        |
 | `app/services/rag_orchestrator_service.py` | RAG orchestrator - delegates to specialized services |
-| `app/services/language_service.py` | Language detection and switching |
+| `app/services/language_service.py`         | Language detection and switching                     |
 
 ## Frontend Structure
 
@@ -186,31 +186,31 @@ contexts/
 
 ### Frontend Configuration
 
-| File | Purpose |
-|------|---------|
-| `package.json` | Node.js dependencies and scripts |
-| `tsconfig.json` | TypeScript compiler options |
-| `next.config.ts` | Next.js configuration |
-| `tailwind.config.js` | Tailwind CSS customization |
-| `postcss.config.js` | PostCSS plugins |
-| `vitest.config.ts` | Vitest testing configuration |
-| `.env.local` | Environment variables (not in git) |
+| File                 | Purpose                            |
+| -------------------- | ---------------------------------- |
+| `package.json`       | Node.js dependencies and scripts   |
+| `tsconfig.json`      | TypeScript compiler options        |
+| `next.config.ts`     | Next.js configuration              |
+| `tailwind.config.js` | Tailwind CSS customization         |
+| `postcss.config.js`  | PostCSS plugins                    |
+| `vitest.config.ts`   | Vitest testing configuration       |
+| `.env.local`         | Environment variables (not in git) |
 
 ### Backend Configuration
 
-| File | Purpose |
-|------|---------|
+| File             | Purpose                                  |
+| ---------------- | ---------------------------------------- |
 | `pyproject.toml` | Poetry dependencies and project metadata |
-| `pytest.ini` | Pytest configuration |
-| `.env` | Environment variables (not in git) |
+| `pytest.ini`     | Pytest configuration                     |
+| `.env`           | Environment variables (not in git)       |
 
 ### Root Configuration
 
-| File | Purpose |
-|------|---------|
-| `docker-compose.yml` | Multi-container Docker setup |
-| `Makefile` | Build and deployment commands |
-| `.gitignore` | Git ignore patterns |
+| File                 | Purpose                       |
+| -------------------- | ----------------------------- |
+| `docker-compose.yml` | Multi-container Docker setup  |
+| `Makefile`           | Build and deployment commands |
+| `.gitignore`         | Git ignore patterns           |
 
 ## Data Directories
 
@@ -262,12 +262,14 @@ frontend/test/
 ### Backend Patterns
 
 1. **Layered Architecture**
+
    - Routers (API layer)
    - Services (Business logic)
    - Schemas (Data validation)
    - DB clients (Data access)
 
 2. **Dependency Injection**
+
    - FastAPI dependency system
    - Shared ChromaDB client
 
@@ -278,16 +280,19 @@ frontend/test/
 ### Frontend Patterns
 
 1. **Component Composition**
+
    - Small, reusable components
    - Props-based communication
    - Container/Presentational split
 
 2. **Custom Hooks**
+
    - Reusable logic
    - Separation of concerns
    - Easy testing
 
 3. **State Management**
+
    - Zustand for UI state
    - TanStack Query for server state
    - Context for auth
@@ -346,6 +351,7 @@ npm run build
 ```
 
 Output: `.next/` directory
+
 - Static pages
 - Server components
 - API routes
@@ -358,6 +364,7 @@ poetry build
 ```
 
 Output: `dist/` directory
+
 - Wheel package
 - Source distribution
 

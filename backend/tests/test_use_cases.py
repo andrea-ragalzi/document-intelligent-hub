@@ -148,7 +148,7 @@ class TestPromptTemplateService:
         Section: Chapter 3
         ---
         The council includes Mayor Solirion Torralyn d'Sivis...
-        
+
         [DOCUMENT 2]
         Section: Chapter 5
         ---

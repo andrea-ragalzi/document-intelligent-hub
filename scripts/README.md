@@ -5,11 +5,13 @@ Script automatico per eseguire l'analisi della complessità ciclomatica e genera
 ## Utilizzo
 
 ### Metodo 1: Make (consigliato)
+
 ```bash
 make quality-gate
 ```
 
 ### Metodo 2: Esecuzione diretta
+
 ```bash
 ./scripts/quality-gate.sh
 ```
@@ -34,6 +36,7 @@ make quality-gate
 ## Output
 
 I report vengono salvati in:
+
 ```
 frontend/quality-gate-report/
 ├── report_2025-12-01_18-45-39.html  # Report con timestamp
@@ -95,6 +98,7 @@ REPORT_DIR="..."         # Directory per i report
 ### Exit Code
 
 Lo script restituisce:
+
 - `0` se Quality Gate passa (nessuna violazione di complessità)
 - `1` se Quality Gate fallisce (una o più violazioni)
 
@@ -137,6 +141,7 @@ quality-gate:
 ### Lo script non si avvia
 
 Verifica i permessi:
+
 ```bash
 chmod +x scripts/quality-gate.sh
 ```
@@ -144,6 +149,7 @@ chmod +x scripts/quality-gate.sh
 ### Il report non si apre nel browser
 
 Apri manualmente:
+
 ```bash
 xdg-open frontend/quality-gate-report/latest.html
 ```
@@ -151,6 +157,7 @@ xdg-open frontend/quality-gate-report/latest.html
 ### ESLint non trovato
 
 Installa le dipendenze:
+
 ```bash
 cd frontend && npm install
 ```
@@ -168,6 +175,7 @@ cd frontend && npm install
 ## Esempi di output
 
 ### Quality Gate PASSED
+
 ```
 ========================================
   Quality Gate - Complexity Analysis
@@ -190,6 +198,7 @@ Latest report: .../latest.html
 ```
 
 ### Quality Gate FAILED
+
 ```
 ========================================
   Quality Gate - Complexity Analysis

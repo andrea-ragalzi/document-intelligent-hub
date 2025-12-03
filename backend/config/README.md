@@ -5,6 +5,7 @@
 ## Setup Instructions
 
 1. **Copy example files** to create your production prompts:
+
    ```bash
    cp rag_system_prompt.txt.example rag_system_prompt.txt
    cp classification_prompt.txt.example classification_prompt.txt
@@ -12,6 +13,7 @@
    ```
 
 2. **Customize prompts** for your specific use case
+
    - Edit the `.txt` files directly (multi-line, no escaping needed)
    - Files are automatically loaded at startup
    - Changes require application restart
@@ -29,12 +31,14 @@
 ## Why Files Instead of Environment Variables?
 
 ✅ **Advantages:**
+
 - Clean, readable multi-line prompts (no escaping)
 - Easy editing without env var syntax issues
 - Version control friendly (`.example` files show structure)
 - Same security (git-ignored like `.env`)
 
 ❌ **Don't commit:**
+
 - Never commit `*.txt` files to git
 - They contain proprietary prompt engineering
 - Exposure enables jailbreaking attacks
@@ -42,13 +46,16 @@
 ## Deployment
 
 ### Local Development
+
 - Prompts automatically load from `./config/*.txt`
 
 ### Docker
+
 ```dockerfile
 COPY config/rag_system_prompt.txt /app/config/
 ```
 
 ### Railway / Cloud
+
 - Upload files via dashboard secrets manager
 - Or set `RAG_SYSTEM_PROMPT_PATH` to mounted volume path

@@ -30,7 +30,7 @@ CATEGORIES = [
 ]
 
 
-def _build_classification_prompt():
+def _build_classification_prompt() -> PromptTemplate:
     """Build classification prompt from settings."""
     return PromptTemplate(
         input_variables=["categories", "format_instructions", "query"],
@@ -83,13 +83,13 @@ class QueryProcessingService:
             # Handle both 'category_tag' (correct) and 'category' (LLM mistake)
             if isinstance(result, dict):
                 if "category_tag" in result:
-                    return result["category_tag"].upper()
+                    return str(result["category_tag"]).upper()
                 elif "category" in result:
                     # Fallback: LLM used wrong key name
                     logger.warning(
                         f"⚠️ LLM returned 'category' instead of 'category_tag': {result}"
                     )
-                    return result["category"].upper()
+                    return str(result["category"]).upper()
                 else:
                     logger.error(
                         f"❌ Classification parsing failed - missing both keys. Result: {result}"

@@ -40,6 +40,7 @@ Frontend will be available at: http://localhost:3000
 5. Wait for processing to complete
 
 **Supported formats:**
+
 - ✅ PDF documents
 - 📄 Text content extraction
 - 🌐 Multi-language support
@@ -47,11 +48,12 @@ Frontend will be available at: http://localhost:3000
 ## Step 5: Chat with Your Document
 
 1. Once the document is uploaded, type a question in the chat input
-2. Example: *"What is the main topic of this document?"*
+2. Example: _"What is the main topic of this document?"_
 3. Press **Enter** or click the send button
 4. Watch the AI stream its response in real-time
 
 **Features:**
+
 - 🔄 Streaming responses
 - 📚 Context from your documents
 - 💡 Source citations
@@ -60,6 +62,7 @@ Frontend will be available at: http://localhost:3000
 ## Step 6: Save Your Conversation
 
 Conversations are **automatically saved** after each response:
+
 - ✅ Auto-save every 500ms after assistant finishes
 - 💾 Stored in Firebase Firestore
 - 📱 Access from any device
@@ -117,30 +120,30 @@ Conversations are **automatically saved** after each response:
 ```
 1. Upload → document1.pdf (financial report)
 2. Ask questions about document1
-3. Upload → document2.pdf (market analysis)  
+3. Upload → document2.pdf (market analysis)
 4. Ask questions that combine both documents
 5. System retrieves relevant context from both
 ```
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Enter` | Send message |
-| `Shift + Enter` | New line in input |
-| `Ctrl/Cmd + K` | Focus on chat input |
-| `Esc` | Close modal |
+| Shortcut        | Action              |
+| --------------- | ------------------- |
+| `Enter`         | Send message        |
+| `Shift + Enter` | New line in input   |
+| `Ctrl/Cmd + K`  | Focus on chat input |
+| `Esc`           | Close modal         |
 
 ## Tips & Tricks
 
 ### 1. Better Questions Get Better Answers
 
-❌ **Bad**: "Tell me about it"  
+❌ **Bad**: "Tell me about it"
 ✅ **Good**: "What are the main conclusions about climate change in section 3?"
 
 ### 2. Use Specific References
 
-❌ **Bad**: "What does it say?"  
+❌ **Bad**: "What does it say?"
 ✅ **Good**: "According to the introduction, what is the research objective?"
 
 ### 3. Follow-up Questions Work Great
@@ -155,6 +158,7 @@ AI: [Provides specific details]
 ### 4. Multi-turn Conversations
 
 The system maintains context, so you can:
+
 - Ask clarifying questions
 - Request elaboration
 - Compare different sections
@@ -165,6 +169,7 @@ The system maintains context, so you can:
 ### Document Upload Fails
 
 **Solution:**
+
 - Check file is PDF format
 - Ensure file size is reasonable (< 50MB)
 - Verify backend is running
@@ -172,6 +177,7 @@ The system maintains context, so you can:
 ### No Response from Chat
 
 **Solution:**
+
 - Check backend is running (`http://localhost:8000/health`)
 - Verify document was uploaded successfully
 - Check browser console for errors
@@ -179,6 +185,7 @@ The system maintains context, so you can:
 ### Conversation Not Saving
 
 **Solution:**
+
 - Ensure you're logged in
 - Check Firebase connection in console
 - Wait for auto-save (500ms after AI finishes)
@@ -186,6 +193,7 @@ The system maintains context, so you can:
 ### Can't See Previous Conversations
 
 **Solution:**
+
 - Ensure you're logged in with the same account
 - Check Firestore rules are published
 - Refresh the page

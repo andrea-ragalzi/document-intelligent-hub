@@ -30,9 +30,9 @@ def initialize_firebase() -> None:
     """
     # Check if already initialized
     try:
-        app = firebase_admin.get_app()
+        firebase_admin.get_app()
         logger.info("✅ Firebase Admin SDK already initialized")
-        return app
+        return
     except ValueError:
         # App not initialized yet, continue with initialization
         pass
@@ -47,9 +47,9 @@ def initialize_firebase() -> None:
 
             cred_dict = json.loads(firebase_creds_json)
             cred = credentials.Certificate(cred_dict)
-            app = firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred)
             logger.info("✅ Firebase initialized from FIREBASE_CREDENTIALS env var")
-            return app
+            return
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Failed to parse FIREBASE_CREDENTIALS: {e}")
 
@@ -58,9 +58,9 @@ def initialize_firebase() -> None:
     if service_account_path and os.path.exists(service_account_path):
         try:
             cred = credentials.Certificate(service_account_path)
-            app = firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred)
             logger.info(f"✅ Firebase initialized from file: {service_account_path}")
-            return app
+            return
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(
                 f"❌ Failed to load credentials from {service_account_path}: {e}"
@@ -73,9 +73,9 @@ def initialize_firebase() -> None:
     if default_path.exists():
         try:
             cred = credentials.Certificate(str(default_path))
-            app = firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred)
             logger.info(f"✅ Firebase initialized from default path: {default_path}")
-            return app
+            return
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Failed to load credentials from {default_path}: {e}")
 

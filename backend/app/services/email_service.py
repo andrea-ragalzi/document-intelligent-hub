@@ -187,7 +187,7 @@ Action Required: Review this bug report and investigate the issue.
         attachment_data: bytes,
         attachment_filename: str,
         attachment_type: Optional[str],
-    ):
+    ) -> None:
         """Add file attachment to SendGrid message."""
         encoded_file = base64.b64encode(attachment_data).decode()
         attached_file = Attachment(

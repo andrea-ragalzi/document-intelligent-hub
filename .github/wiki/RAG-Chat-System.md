@@ -78,6 +78,7 @@ CHUNK_OVERLAP = 200        # Overlap between chunks
 ```
 
 **Why overlap?**
+
 - Preserves context across chunk boundaries
 - Ensures no information loss
 - Better retrieval accuracy
@@ -97,6 +98,7 @@ Chunk 2: "lazy dog. The dog was sleeping."
 **Provider**: HuggingFace `all-MiniLM-L6-v2` (local model)
 
 **Process:**
+
 ```python
 from langchain_huggingface import HuggingFaceEmbeddings
 
@@ -107,6 +109,7 @@ vector = embeddings.embed_query("What is machine learning?")
 ```
 
 **Properties:**
+
 - **Dimensions**: 384
 - **Max input**: 256 word pieces
 - **Output**: Normalized vector
@@ -150,6 +153,7 @@ results = collection.query(
 ```
 
 **Distance Metrics:**
+
 - **Cosine**: Default, measures angle between vectors
 - **L2**: Euclidean distance
 - **IP**: Inner product
@@ -161,20 +165,20 @@ results = collection.query(
 ```python
 def build_context(query_results):
     chunks = []
-    for doc, metadata in zip(query_results['documents'][0], 
+    for doc, metadata in zip(query_results['documents'][0],
                              query_results['metadatas'][0]):
         chunks.append({
             'text': doc,
             'source': metadata['source'],
             'page': metadata.get('page', 'N/A')
         })
-    
+
     # Format context
     context = "\n\n---\n\n".join([
         f"Source: {chunk['source']} (Page {chunk['page']})\n{chunk['text']}"
         for chunk in chunks
     ])
-    
+
     return context, chunks
 ```
 
@@ -238,6 +242,7 @@ def detect_language(text: str) -> str:
 ### Language-Specific Prompts
 
 **Italian:**
+
 ```python
 system_prompt_it = """Sei un assistente AI utile che risponde a domande basandosi sul contesto fornito dai documenti.
 
@@ -251,6 +256,7 @@ Istruzioni:
 ```
 
 **English:**
+
 ```python
 system_prompt_en = """You are a helpful AI assistant that answers questions based on provided document context.
 
@@ -274,13 +280,13 @@ Instructions:
 async def query_documents(request: QueryRequest):
     # 1. Detect language
     language = detect_language(request.query)
-    
+
     # 2. Retrieve context from ChromaDB
     context, sources = retrieve_context(request.query)
-    
+
     # 3. Build prompt
     messages = build_messages(request.query, context, language)
-    
+
     # 4. Stream response
     return StreamingResponse(
         stream_llm_response(messages),
@@ -295,24 +301,24 @@ async def query_documents(request: QueryRequest):
 ```typescript
 export async function POST(req: Request) {
   const { messages, userId } = await req.json();
-  
+
   // Call backend RAG endpoint
   const response = await fetch(`${API_URL}/api/query`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query: messages[messages.length - 1].content,
-      user_id: userId
-    })
+      user_id: userId,
+    }),
   });
-  
+
   // Stream response to frontend
   return new Response(response.body, {
     headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
-    }
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
   });
 }
 ```
@@ -331,37 +337,30 @@ export async function POST(req: Request) {
 **Location**: `frontend/hooks/useChatAI.ts`
 
 ```typescript
-import { useChat } from 'ai/react';
+import { useChat } from "ai/react";
 
 export function useChatAI({ userId }: { userId: string }) {
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    setMessages
-  } = useChat({
-    api: '/api/chat',
+  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
+    api: "/api/chat",
     body: { userId },
-    onResponse: (response) => {
-      console.log('Stream started');
+    onResponse: response => {
+      console.log("Stream started");
     },
-    onFinish: (message) => {
-      console.log('Stream completed');
+    onFinish: message => {
+      console.log("Stream completed");
     },
-    onError: (error) => {
-      console.error('Stream error:', error);
-    }
+    onError: error => {
+      console.error("Stream error:", error);
+    },
   });
-  
+
   return {
     chatHistory: messages,
     input,
     handleInputChange,
     handleSubmit,
     isLoading,
-    setMessages
+    setMessages,
   };
 }
 ```
@@ -433,10 +432,10 @@ def hybrid_search(query: str):
         query_embeddings=[embed(query)],
         n_results=10
     )
-    
+
     # Keyword search (BM25)
     keyword_results = bm25_search(query, top_k=10)
-    
+
     # Combine and deduplicate
     combined = merge_results(vector_results, keyword_results)
     return combined
@@ -453,28 +452,29 @@ logger = logging.getLogger(__name__)
 
 async def process_query(query: str):
     logger.info(f"Query received: {query}")
-    
+
     # Embedding
     start = time.time()
     embedding = await get_embedding(query)
     logger.info(f"Embedding generated in {time.time() - start:.2f}s")
-    
+
     # Retrieval
     start = time.time()
     results = search_chromadb(embedding)
     logger.info(f"Retrieved {len(results)} chunks in {time.time() - start:.2f}s")
-    
+
     # Generation
     start = time.time()
     response = await generate_response(query, results)
     logger.info(f"Response generated in {time.time() - start:.2f}s")
-    
+
     return response
 ```
 
 ### Response Quality Metrics
 
 Track metrics:
+
 - Query latency
 - Number of retrieved chunks
 - Token usage

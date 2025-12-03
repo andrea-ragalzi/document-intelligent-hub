@@ -21,34 +21,26 @@ def setup_tier_limits():
 
     # Define tier limits
     tier_limits = {
-        "FREE": {
-            "max_queries_per_day": 20,
-            "max_files": 5,
-            "max_file_size_mb": 10
-        },
-        "PRO": {
-            "max_queries_per_day": 500,
-            "max_files": 50,
-            "max_file_size_mb": 50
-        },
+        "FREE": {"max_queries_per_day": 20, "max_files": 5, "max_file_size_mb": 10},
+        "PRO": {"max_queries_per_day": 500, "max_files": 50, "max_file_size_mb": 50},
         "UNLIMITED": {
             "max_queries_per_day": 9999,
             "max_files": 9999,
-            "max_file_size_mb": 9999
-        }
+            "max_file_size_mb": 9999,
+        },
     }
 
     # Define unlimited emails list
     unlimited_emails = [
         "andrea.ragalzi.social@gmail.com",
-        "andrea.ragalzi.code@gmail.com"
+        "andrea.ragalzi.code@gmail.com",
     ]
 
     # Create settings document
     settings_data = {
         "limits": tier_limits,
         "unlimited_emails": unlimited_emails,
-        "updated_at": SERVER_TIMESTAMP
+        "updated_at": SERVER_TIMESTAMP,
     }
 
     # Update or create the document

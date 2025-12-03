@@ -173,7 +173,7 @@ class DocumentIndexingService:
             Final language code (defaults to EN)
         """
         if doc_language is None and chunks:
-            return chunks[0].metadata.get("original_language_code", "EN")
+            return str(chunks[0].metadata.get("original_language_code", "EN"))
         return doc_language if doc_language else "EN"
 
     @staticmethod

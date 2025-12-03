@@ -113,6 +113,7 @@ curl http://localhost:8000/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -123,6 +124,7 @@ Expected response:
 ### Frontend Access
 
 Open your browser and navigate to:
+
 ```
 http://localhost:3000
 ```
@@ -147,9 +149,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /conversations/{conversationId} {
-      allow read, write: if request.auth != null && 
+      allow read, write: if request.auth != null &&
                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && 
+      allow create: if request.auth != null &&
                        request.auth.uid == request.resource.data.userId;
     }
   }
@@ -179,6 +181,7 @@ docker-compose down
 ```
 
 Services will be available at:
+
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000`
 
@@ -189,11 +192,13 @@ Services will be available at:
 If port 3000 or 8000 is already in use:
 
 **Frontend:**
+
 ```bash
 PORT=3001 npm run dev
 ```
 
 **Backend:**
+
 ```bash
 uvicorn main:app --reload --port 8001
 ```
@@ -201,12 +206,14 @@ uvicorn main:app --reload --port 8001
 ### Module Not Found Errors
 
 **Frontend:**
+
 ```bash
 rm -rf node_modules package-lock.json
 npm install
 ```
 
 **Backend:**
+
 ```bash
 poetry install --no-root
 ```

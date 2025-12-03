@@ -47,7 +47,7 @@ class UsageTrackingService:
 
             # Get today's query count
             queries_today = data.get("queries", {}).get(today, 0)
-            return queries_today
+            return int(queries_today)  # type: ignore[no-any-return]
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error getting user queries: {e}")
@@ -71,7 +71,7 @@ class UsageTrackingService:
             transaction = self.db.transaction()
 
             @firestore_transactional
-            def update_in_transaction(transaction: Any, ref: Any):
+            def update_in_transaction(transaction: Any, ref: Any) -> None:
                 snapshot = ref.get(transaction=transaction)
 
                 if snapshot.exists:
@@ -88,7 +88,6 @@ class UsageTrackingService:
                             "updated_at": SERVER_TIMESTAMP,
                         },
                     )
-                    return new_count
                 else:
                     new_data = {
                         "queries": {today: 1},
@@ -97,11 +96,10 @@ class UsageTrackingService:
                         "updated_at": SERVER_TIMESTAMP,
                     }
                     transaction.set(ref, new_data)
-                    return 1
 
             new_count = update_in_transaction(transaction, usage_ref)
             logger.info(f"📊 User {user_id} queries today: {new_count}")
-            return new_count
+            return int(new_count)  # type: ignore[no-any-return]
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error incrementing user queries: {e}")
@@ -204,4 +202,4 @@ def get_usage_service() -> UsageTrackingService:
     """
     if not hasattr(get_usage_service, "instance"):
         get_usage_service.instance = UsageTrackingService()  # type: ignore[attr-defined]
-    return get_usage_service.instance  # type: ignore[attr-defined]
+    return get_usage_service.instance  # type: ignore[attr-defined,no-any-return]

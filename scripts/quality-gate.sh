@@ -73,15 +73,43 @@ update_html_report() {
 # Generate initial report
 update_html_report "RUNNING"
 
-# Open report in browser immediately for live viewing
-REPORT_URL="http://localhost:8000/quality-gate-index.html"
-if command -v xdg-open &> /dev/null; then
-    xdg-open "${REPORT_URL}" 2>/dev/null &
-elif command -v open &> /dev/null; then
-    open "${REPORT_URL}" 2>/dev/null &
-fi
+# Function to open browser (only once per session)
+open_browser_once() {
+    local url="$1"
+    local lock_file="/tmp/.quality_gate_browser_lock"
 
-echo -e "${BLUE}📊 Report opened in browser: ${REPORT_URL}${NC}"
+    if [ -f "$lock_file" ]; then
+        echo -e "${BLUE}📊 Browser already open - use existing tab for live updates${NC}"
+        echo -e "${BLUE}   Tip: To force reopen, run: rm ${lock_file}${NC}"
+        return
+    fi
+
+    echo -e "${BLUE}📊 First run: Opening browser${NC}"
+
+    # Try browsers in order of preference
+    for browser_cmd in \
+        "firefox-developer-edition --new-tab" \
+        "firefox --new-tab" \
+        "google-chrome --new-window" \
+        "chromium-browser --new-window" \
+        "chromium --new-window" \
+        "xdg-open" \
+        "open"; do
+
+        local browser=$(echo "$browser_cmd" | awk '{print $1}')
+        if command -v "$browser" &> /dev/null; then
+            $browser_cmd "$url" 2>/dev/null &
+            touch "$lock_file"
+            echo -e "${BLUE}   Report opened in browser: ${url}${NC}"
+            return
+        fi
+    done
+}
+
+# Open report in browser
+REPORT_URL="http://localhost:8000/quality-gate-index.html"
+open_browser_once "${REPORT_URL}"
+
 echo -e "${BLUE}   (Server running on http://localhost:8000)${NC}"
 echo ""
 
@@ -105,8 +133,7 @@ echo ""
     # Phase 1: Prettier
     PRETTIER_OUTPUT=$(npx prettier --check "**/*.{ts,tsx,js,jsx,json,css}" 2>&1 || true)
     # Count files with formatting issues by counting [warn] lines
-    PRETTIER_COUNT=$(echo "$PRETTIER_OUTPUT" | grep -c "^\[warn\]" 2>/dev/null | tr -d '\n' || echo "0")
-    [ -z "$PRETTIER_COUNT" ] && PRETTIER_COUNT=0
+    PRETTIER_COUNT=$(echo "$PRETTIER_OUTPUT" | grep -c "^\[warn\]" || echo "0")
 
     if [ "$PRETTIER_COUNT" -gt 0 ]; then
         echo "FAILED" > "${TEMP_RESULTS_DIR}/prettier_status"
@@ -190,15 +217,20 @@ FRONTEND_PID=$!
         fi
 
         # Phase 7: MyPy (Swapped with Pylint)
-        if command -v mypy &> /dev/null; then
-            MYPY_OUTPUT=$(mypy app/ --config-file=pyproject.toml 2>&1 || true)
-            MYPY_ERROR_COUNT=$(echo "$MYPY_OUTPUT" | grep -c ": error:" || echo "0")
-            MYPY_WARNING_COUNT=$(echo "$MYPY_OUTPUT" | grep -c ": note:" || echo "0")
+        if [ -x ".venv/bin/mypy" ] || command -v mypy &> /dev/null; then
+            if [ -x ".venv/bin/mypy" ]; then
+                MYPY_OUTPUT=$(.venv/bin/mypy app/ --config-file=pyproject.toml 2>&1 || true)
+            else
+                MYPY_OUTPUT=$(mypy app/ --config-file=pyproject.toml 2>&1 || true)
+            fi
+            MYPY_ERROR_COUNT=$(echo "$MYPY_OUTPUT" | grep -c ": error:" || true)
+            MYPY_WARNING_COUNT=$(echo "$MYPY_OUTPUT" | grep -c ": note:" || true)
 
-            [ -z "$MYPY_ERROR_COUNT" ] && MYPY_ERROR_COUNT=0
-            [ -z "$MYPY_WARNING_COUNT" ] && MYPY_WARNING_COUNT=0
+            # Ensure numeric values (grep -c returns 0 on no match, which is valid)
+            MYPY_ERROR_COUNT=${MYPY_ERROR_COUNT:-0}
+            MYPY_WARNING_COUNT=${MYPY_WARNING_COUNT:-0}
 
-            if [ "$MYPY_ERROR_COUNT" -eq 0 ]; then
+            if [ "${MYPY_ERROR_COUNT}" -eq 0 ]; then
                 echo "PASSED" > "${TEMP_RESULTS_DIR}/mypy_status"
             else
                 echo "FAILED" > "${TEMP_RESULTS_DIR}/mypy_status"
@@ -218,17 +250,14 @@ FRONTEND_PID=$!
         if command -v pylint &> /dev/null; then
             # Get all issues (not just errors)
             PYLINT_OUTPUT=$(pylint app/ --ignore=chroma_db 2>&1 || true)
-            PYLINT_ERROR_COUNT=$(echo "$PYLINT_OUTPUT" | grep -cE ": [EF][0-9]+:" 2>/dev/null | tr -d '\n' || echo "0")
-            PYLINT_WARNING_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": W[0-9]*:" 2>/dev/null | tr -d '\n' || echo "0")
-            PYLINT_CONVENTION_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": C[0-9]*:" 2>/dev/null | tr -d '\n' || echo "0")
-            PYLINT_REFACTOR_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": R[0-9]*:" 2>/dev/null | tr -d '\n' || echo "0")
-            PYLINT_INFO_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": I[0-9]*:" 2>/dev/null | tr -d '\n' || echo "0")
+            PYLINT_ERROR_COUNT=$(echo "$PYLINT_OUTPUT" | grep -cE ": [EF][0-9]+:" || true)
+            PYLINT_WARNING_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": W[0-9]*:" || true)
+            PYLINT_CONVENTION_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": C[0-9]*:" || true)
+            PYLINT_REFACTOR_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": R[0-9]*:" || true)
+            PYLINT_INFO_COUNT=$(echo "$PYLINT_OUTPUT" | grep -c ": I[0-9]*:" || true)
 
-            [ -z "$PYLINT_ERROR_COUNT" ] && PYLINT_ERROR_COUNT=0
-            [ -z "$PYLINT_WARNING_COUNT" ] && PYLINT_WARNING_COUNT=0
-            [ -z "$PYLINT_CONVENTION_COUNT" ] && PYLINT_CONVENTION_COUNT=0
-            [ -z "$PYLINT_REFACTOR_COUNT" ] && PYLINT_REFACTOR_COUNT=0
-            [ -z "$PYLINT_INFO_COUNT" ] && PYLINT_INFO_COUNT=0
+            # Ensure numeric values with default fallback
+            PYLINT_ERROR_COUNT=${PYLINT_ERROR_COUNT:-0}
 
             if [ "$PYLINT_ERROR_COUNT" -eq 0 ]; then
                 echo "PASSED" > "${TEMP_RESULTS_DIR}/pylint_status"
@@ -256,8 +285,10 @@ FRONTEND_PID=$!
         if command -v lizard &> /dev/null; then
             LIZARD_OUTPUT=$(lizard app/ -C 15 --exclude "*/chroma_db/*" 2>&1 || true)
             # Count functions in the warning section (between header and === separator)
-            LIZARD_COUNT=$(echo "$LIZARD_OUTPUT" | sed -n '/!!!! Warnings/,/^Total nloc/p' | grep -c '@app/' 2>/dev/null | tr -d '\n' || echo "0")
-            [ -z "$LIZARD_COUNT" ] && LIZARD_COUNT=0
+            LIZARD_COUNT=$(echo "$LIZARD_OUTPUT" | sed -n '/!!!! Warnings/,/^Total nloc/p' | grep -c '@app/' || true)
+
+            # Ensure numeric value with default fallback
+            LIZARD_COUNT=${LIZARD_COUNT:-0}
 
             if [ "$LIZARD_COUNT" -eq 0 ]; then
                 echo "PASSED" > "${TEMP_RESULTS_DIR}/lizard_status"

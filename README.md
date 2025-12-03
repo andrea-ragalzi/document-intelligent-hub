@@ -28,6 +28,7 @@ docker-compose up -d --build
 ```
 
 **Access:**
+
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
@@ -35,6 +36,10 @@ docker-compose up -d --build
 ### Local Development
 
 ```bash
+# Install pre-commit hooks (first time only)
+pip install pre-commit
+pre-commit install
+
 # Backend
 cd backend
 python -m venv venv && source venv/bin/activate
@@ -45,6 +50,8 @@ uvicorn main:app --reload
 cd frontend
 npm install && npm run dev
 ```
+
+> **Note:** Pre-commit hooks will automatically check for secrets and code quality issues before each commit.
 
 ---
 
@@ -71,27 +78,32 @@ npm install && npm run dev
 ### Quick Links
 
 - **Getting Started**
+
   - [Installation Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Installation-Guide)
   - [Quick Start Tutorial](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Quick-Start)
   - [Configuration Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Configuration)
 
 - **Architecture**
+
   - [Project Structure](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Project-Structure)
   - [Backend Architecture](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Backend-Architecture)
   - [Frontend Architecture](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Frontend-Architecture)
   - [State Management](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/State-Management)
 
 - **Features**
+
   - [RAG Chat System](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/RAG-Chat-System)
   - [Document Upload](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Document-Upload)
   - [Conversation Management](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Conversation-Management)
 
 - **Development**
+
   - [Development Workflow](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Development-Workflow)
   - [Testing Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Testing-Guide)
   - [Contributing Guidelines](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Contributing-Guidelines)
 
 - **Deployment**
+
   - [Docker Deployment](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Docker-Deployment)
   - [Production Deployment](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Production-Deployment)
 
@@ -134,6 +146,7 @@ npm install && npm run dev
 ## 🛠️ Tech Stack
 
 ### Backend
+
 - **FastAPI** - Modern Python web framework
 - **LangChain** - LLM orchestration
 - **OpenAI** - GPT models for generation
@@ -141,6 +154,7 @@ npm install && npm run dev
 - **PyPDF** - PDF text extraction
 
 ### Frontend
+
 - **Next.js 16** - React framework with App Router & Turbopack
 - **TypeScript** - Type-safe JavaScript
 - **Zustand** - Lightweight state management
@@ -150,6 +164,7 @@ npm install && npm run dev
 - **Firebase** - Authentication & Firestore database
 
 ### DevOps
+
 - **Docker** - Containerization
 - **Docker Compose** - Multi-container orchestration
 - **pytest** - Python testing
@@ -177,12 +192,14 @@ npm run test
 ## 📖 API Documentation
 
 Interactive API documentation available when running:
+
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
 ### Main Endpoints
 
 **Upload Document**
+
 ```bash
 POST /rag/upload/
 Content-Type: multipart/form-data
@@ -190,6 +207,7 @@ Body: { file: PDF, user_id: string }
 ```
 
 **Query Document**
+
 ```bash
 POST /rag/query/
 Content-Type: application/json
@@ -219,6 +237,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👤 Author
 
 **Andrea Ragalzi**
+
 - Email: andrea.ragalzi.code@gmail.com
 - GitHub: [@andrea-ragalzi](https://github.com/andrea-ragalzi)
 

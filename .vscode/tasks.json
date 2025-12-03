@@ -55,10 +55,7 @@
     },
     {
       "label": "Run All Tests with Coverage",
-      "dependsOn": [
-        "Backend: Run Tests with Coverage",
-        "Frontend: Run Tests with Coverage"
-      ],
+      "dependsOn": ["Backend: Run Tests with Coverage", "Frontend: Run Tests with Coverage"],
       "group": {
         "kind": "test",
         "isDefault": true

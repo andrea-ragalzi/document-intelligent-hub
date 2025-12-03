@@ -76,6 +76,7 @@ LLM_MODEL=gpt-4  # or gpt-3.5-turbo, gpt-4-turbo
 ```
 
 **Models:**
+
 - `gpt-4`: Best quality, slower
 - `gpt-4-turbo`: Fast GPT-4
 - `gpt-3.5-turbo`: Fastest, cheaper
@@ -89,6 +90,7 @@ LLM_MODEL=claude-3-opus-20240229
 ```
 
 **Models:**
+
 - `claude-3-opus`: Highest capability
 - `claude-3-sonnet`: Balanced
 - `claude-3-haiku`: Fastest
@@ -172,11 +174,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Conversations collection
     match /conversations/{conversationId} {
-      allow read: if request.auth != null && 
+      allow read: if request.auth != null &&
                      request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && 
+      allow create: if request.auth != null &&
                        request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && 
+      allow update, delete: if request.auth != null &&
                                request.auth.uid == resource.data.userId;
     }
   }
@@ -196,17 +198,17 @@ class Settings(BaseSettings):
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    
+
     # LLM
     llm_provider: str = "openai"
     llm_api_key: str
     llm_model: str = "gpt-4"
     llm_temperature: float = 0.7
-    
+
     # Custom settings
     max_upload_size: int = 50_000_000  # 50MB
     allowed_file_types: list[str] = [".pdf", ".txt"]
-    
+
     class Config:
         env_file = ".env"
 
@@ -223,23 +225,23 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // React strict mode
   reactStrictMode: true,
-  
+
   // Image optimization
   images: {
-    domains: ['yourdomain.com'],
+    domains: ["yourdomain.com"],
   },
-  
+
   // Environment variables
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
-  
+
   // Redirects
   async redirects() {
     return [
       {
-        source: '/old-path',
-        destination: '/new-path',
+        source: "/old-path",
+        destination: "/new-path",
         permanent: true,
       },
     ];
@@ -257,8 +259,8 @@ Edit `frontend/providers/QueryProvider.tsx`:
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000,      // 30 seconds
-      gcTime: 5 * 60 * 1000,     // 5 minutes
+      staleTime: 30 * 1000, // 30 seconds
+      gcTime: 5 * 60 * 1000, // 5 minutes
       retry: 1,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
@@ -268,6 +270,7 @@ const queryClient = new QueryClient({
 ```
 
 **Options:**
+
 - `staleTime`: How long data is considered fresh
 - `gcTime`: How long inactive data stays in cache
 - `retry`: Number of retry attempts on failure
@@ -280,12 +283,12 @@ Edit `frontend/stores/uiStore.ts`:
 ```typescript
 export const useUIStore = create<UIStore>()(
   devtools(
-    (set) => ({
+    set => ({
       // ... store implementation
     }),
     {
       name: "UI Store",
-      enabled: process.env.NODE_ENV === 'development',
+      enabled: process.env.NODE_ENV === "development",
     }
   )
 );
@@ -328,7 +331,7 @@ CHROMA_CACHE_SIZE=1000  # Number of embeddings to cache
 Edit `docker-compose.yml`:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   backend:
@@ -340,7 +343,7 @@ services:
       - CHROMA_PERSIST_DIR=/data
     volumes:
       - ./backend/chroma_db:/data
-    
+
   frontend:
     build: ./frontend
     ports:
@@ -425,8 +428,8 @@ logging.basicConfig(
 Use `console` methods:
 
 ```typescript
-if (process.env.NODE_ENV === 'development') {
-  console.log('Debug info');
+if (process.env.NODE_ENV === "development") {
+  console.log("Debug info");
 }
 ```
 
@@ -442,7 +445,7 @@ testpaths = tests
 python_files = test_*.py
 python_classes = Test*
 python_functions = test_*
-addopts = 
+addopts =
     -v
     --cov=app
     --cov-report=html
@@ -454,14 +457,14 @@ addopts =
 Edit `vitest.config.ts`:
 
 ```typescript
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    environment: 'jsdom',
+    environment: "jsdom",
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html'],
+      provider: "v8",
+      reporter: ["text", "html"],
     },
   },
 });

@@ -75,17 +75,20 @@ Next.js 16 App Router with server and client components.
 The primary application orchestrator that brings together all features.
 
 **Key Responsibilities**:
+
 - Coordinate all custom hooks
 - Manage application-wide state
 - Handle user interactions
 - Orchestrate data flow between components
 
 **State Management**:
+
 - Zustand for UI state (modals, alerts, conversation tracking)
 - TanStack Query for server state (Firestore conversations)
 - Vercel AI SDK for chat streaming
 
 **Hooks Used**:
+
 ```typescript
 const { theme, toggleTheme } = useTheme();
 const { userId, isAuthReady } = useUserId();
@@ -100,16 +103,18 @@ const { data: savedConversations } = useConversationsQuery(userId);
 Edge function that proxies chat requests to the FastAPI backend.
 
 **Features**:
+
 - Server-side API proxy
 - Streaming response handling
 - Vercel AI SDK compatible format
 - Error handling
 
 **Flow**:
+
 ```
-Frontend useChatAI() 
-  → POST /api/chat 
-  → FastAPI /rag/query/ 
+Frontend useChatAI()
+  → POST /api/chat
+  → FastAPI /rag/query/
   → Stream response back
   → Vercel AI SDK processes stream
 ```
@@ -121,11 +126,13 @@ Reusable React components organized by functionality.
 #### **Layout Components**
 
 **Sidebar.tsx**
+
 - Container for upload section and conversations list
 - Displays user ID
 - Responsive collapsible design
 
 **ChatSection.tsx**
+
 - Main chat interface
 - Message display with auto-scroll
 - Input field and submit button
@@ -134,18 +141,21 @@ Reusable React components organized by functionality.
 #### **Feature Components**
 
 **UploadSection.tsx**
+
 - Drag-and-drop file upload
 - File type validation (PDF only)
 - Upload progress indicator
 - Success/error alerts
 
 **ConversationList.tsx**
+
 - Display saved conversations
 - Load, rename, delete actions
 - Timestamp display
 - Empty state message
 
 **ChatMessageDisplay.tsx**
+
 - Render individual chat messages
 - User vs assistant styling
 - Source documents display
@@ -154,16 +164,19 @@ Reusable React components organized by functionality.
 #### **Modal Components**
 
 **SaveModal.tsx**
+
 - Name input for saving conversations
 - Form validation
 - Error display
 
 **RenameModal.tsx**
+
 - Edit conversation name
 - Current name display
 - Validation
 
 **ConfirmModal.tsx**
+
 - Generic confirmation dialog
 - Variant support (danger, warning, info)
 - Customizable buttons
@@ -171,16 +184,19 @@ Reusable React components organized by functionality.
 #### **Auth Components**
 
 **ProtectedRoute.tsx**
+
 - Authentication guard wrapper
 - Redirect to login if not authenticated
 - Loading state
 
 **LoginForm.tsx / SignupForm.tsx**
+
 - Firebase authentication forms
 - Email/password validation
 - Error handling
 
 **UserProfile.tsx**
+
 - User info dropdown
 - Sign out button
 - Profile display
@@ -192,22 +208,23 @@ Reusable React components organized by functionality.
 Lightweight client-side state management.
 
 **State**:
+
 ```typescript
 interface UIStore {
   // Alerts
   statusAlert: AlertState | null;
-  
+
   // Modals
   renameModalOpen: boolean;
   confirmDeleteOpen: boolean;
-  
+
   // Conversation tracking
   conversationToRename: { id: string; currentName: string } | null;
   conversationToDelete: { id: string; name: string } | null;
   currentConversationId: string | null;
   lastSavedMessageCount: number;
   isSaving: boolean;
-  
+
   // Actions (15+ methods)
   setStatusAlert: (alert: AlertState | null) => void;
   openRenameModal: (id: string, name: string) => void;
@@ -217,6 +234,7 @@ interface UIStore {
 ```
 
 **Features**:
+
 - Redux DevTools integration
 - Time-travel debugging
 - Persist to localStorage (optional)
@@ -227,12 +245,13 @@ interface UIStore {
 Server state management with automatic caching and refetching.
 
 **Configuration**:
+
 ```typescript
 new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000,      // 30 seconds
-      gcTime: 5 * 60 * 1000,     // 5 minutes
+      staleTime: 30 * 1000, // 30 seconds
+      gcTime: 5 * 60 * 1000, // 5 minutes
       retry: 1,
       refetchOnWindowFocus: false,
     },
@@ -240,10 +259,11 @@ new QueryClient({
       retry: 1,
     },
   },
-})
+});
 ```
 
 **Query Hooks** (`hooks/queries/useConversationsQuery.ts`):
+
 - `useConversationsQuery()` - Fetch conversations
 - `useCreateConversation()` - Create new conversation
 - `useUpdateConversationName()` - Rename conversation
@@ -251,6 +271,7 @@ new QueryClient({
 - `useDeleteConversation()` - Delete conversation
 
 **Features**:
+
 - Automatic background refetching
 - Optimistic updates
 - Automatic rollback on error
@@ -266,20 +287,22 @@ Reusable logic encapsulated in hooks.
 Integrates Vercel AI SDK for streaming chat.
 
 **Features**:
+
 - Real-time streaming responses
 - Message history management
 - Automatic message formatting
 - Error handling
 
 **API**:
+
 ```typescript
 const {
-  chatHistory,      // Message[] - All messages
-  input,            // string - Current input
+  chatHistory, // Message[] - All messages
+  input, // string - Current input
   handleInputChange, // Update input
-  handleSubmit,     // Send message
-  isLoading,        // Streaming in progress
-  setMessages,      // Load conversation
+  handleSubmit, // Send message
+  isLoading, // Streaming in progress
+  setMessages, // Load conversation
 } = useChatAI({ userId });
 ```
 
@@ -288,19 +311,21 @@ const {
 Handles PDF upload to backend.
 
 **Features**:
+
 - File validation
 - FormData construction
 - Upload progress
 - Alert management
 
 **API**:
+
 ```typescript
 const {
-  file,             // File | null
-  isUploading,      // boolean
-  uploadAlert,      // AlertState
+  file, // File | null
+  isUploading, // boolean
+  uploadAlert, // AlertState
   handleFileChange, // (e: ChangeEvent<HTMLInputElement>) => void
-  handleUpload,     // (e: FormEvent, userId: string) => Promise<void>
+  handleUpload, // (e: FormEvent, userId: string) => Promise<void>
 } = useDocumentUpload();
 ```
 
@@ -309,11 +334,13 @@ const {
 Dark/light mode toggle with persistence.
 
 **Features**:
+
 - System preference detection
 - localStorage persistence
 - CSS class toggle on `<html>`
 
 **API**:
+
 ```typescript
 const { theme, toggleTheme } = useTheme();
 // theme: 'light' | 'dark'
@@ -324,11 +351,13 @@ const { theme, toggleTheme } = useTheme();
 Firebase authenticated user ID.
 
 **Features**:
+
 - Firebase auth state listener
 - User ID extraction
 - Auth ready state
 
 **API**:
+
 ```typescript
 const { userId, isAuthReady } = useUserId();
 ```
@@ -340,6 +369,7 @@ const { userId, isAuthReady } = useUserId();
 Firestore CRUD operations for conversations.
 
 **Functions**:
+
 - `saveConversationToFirestore()` - Create conversation
 - `loadConversationsFromFirestore()` - Fetch all conversations
 - `updateConversationNameInFirestore()` - Rename
@@ -348,6 +378,7 @@ Firestore CRUD operations for conversations.
 - `migrateLocalStorageToFirestore()` - Migration utility
 
 **Multi-Tenant**:
+
 - All operations filtered by `userId`
 - Automatic user-specific queries
 - Timestamp management
@@ -357,6 +388,7 @@ Firestore CRUD operations for conversations.
 Firebase configuration and initialization.
 
 **Exports**:
+
 ```typescript
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -370,6 +402,7 @@ export const db = getFirestore(app);
 Firebase authentication context.
 
 **Features**:
+
 - Current user state
 - Auth loading state
 - Signin/signup methods
@@ -377,6 +410,7 @@ Firebase authentication context.
 - Auth state persistence
 
 **Usage**:
+
 ```typescript
 const { user, loading, signin, signup, signout } = useAuth();
 ```
@@ -435,6 +469,7 @@ const { user, loading, signin, signup, signout } = useAuth();
 **Framework**: Tailwind CSS 3.x
 
 **Features**:
+
 - Utility-first CSS
 - Dark mode support via `dark:` prefix
 - Responsive design with breakpoints
@@ -442,6 +477,7 @@ const { user, loading, signin, signup, signout } = useAuth();
 - Animation classes
 
 **Dark Mode Implementation**:
+
 ```typescript
 // useTheme hook adds 'dark' class to <html>
 document.documentElement.classList.add('dark');
@@ -455,6 +491,7 @@ document.documentElement.classList.add('dark');
 **Framework**: Vitest + React Testing Library
 
 **Test Structure**:
+
 ```
 test/
 ├── setup.ts              # Test environment setup
@@ -467,6 +504,7 @@ test/
 ```
 
 **Run Tests**:
+
 ```bash
 # Run all tests
 npm run test
@@ -484,33 +522,40 @@ npm run test:ui
 ## 📦 Key Dependencies
 
 **Core**:
+
 - `next@16.0` - React framework
 - `react@19.0` - UI library
 - `typescript@5.x` - Type safety
 - `tailwindcss@3.x` - Styling
 
 **State Management**:
+
 - `zustand@5.0` - Client state
 - `@tanstack/react-query@5.x` - Server state
 
 **AI & Chat**:
+
 - `ai@3.x` - Vercel AI SDK
 - `openai@4.x` - OpenAI integration
 
 **Firebase**:
+
 - `firebase@11.x` - Auth & Firestore
 
 **UI**:
+
 - `lucide-react@0.x` - Icons
 - `react-markdown@9.x` - Markdown rendering
 
 **Testing**:
+
 - `vitest@2.x` - Test runner
 - `@testing-library/react@16.x` - Component testing
 
 ## 🚀 Performance Optimizations
 
 **Current**:
+
 - TanStack Query caching (30s stale time)
 - Automatic request deduplication
 - Optimistic UI updates
@@ -518,6 +563,7 @@ npm run test:ui
 - Image optimization (next/image)
 
 **Future**:
+
 - [ ] Virtual scrolling for long conversations
 - [ ] Service Worker for offline support
 - [ ] Request batching
@@ -526,6 +572,7 @@ npm run test:ui
 ## 🔐 Security
 
 **Implemented**:
+
 - Firebase Authentication
 - Protected routes
 - Environment variables for secrets
@@ -534,6 +581,7 @@ npm run test:ui
 - XSS prevention (React escaping)
 
 **Future**:
+
 - [ ] Rate limiting
 - [ ] CSRF protection
 - [ ] Content Security Policy
@@ -542,6 +590,7 @@ npm run test:ui
 ## 📱 Responsive Design
 
 **Breakpoints** (Tailwind default):
+
 - `sm`: 640px
 - `md`: 768px
 - `lg`: 1024px
@@ -549,6 +598,7 @@ npm run test:ui
 - `2xl`: 1536px
 
 **Mobile-First**:
+
 - Base styles for mobile
 - Progressive enhancement for larger screens
 - Touch-friendly UI elements
@@ -556,17 +606,17 @@ npm run test:ui
 
 ## 🎯 Key Features
 
-✅ Real-time chat streaming  
-✅ Dark mode support  
-✅ Conversation persistence (Firestore)  
-✅ Auto-save conversations  
-✅ Multi-tenant support  
-✅ Responsive design  
-✅ Type-safe with TypeScript  
-✅ Modern state management  
-✅ Authentication & authorization  
-✅ Optimistic UI updates  
-✅ Error handling & recovery  
+✅ Real-time chat streaming
+✅ Dark mode support
+✅ Conversation persistence (Firestore)
+✅ Auto-save conversations
+✅ Multi-tenant support
+✅ Responsive design
+✅ Type-safe with TypeScript
+✅ Modern state management
+✅ Authentication & authorization
+✅ Optimistic UI updates
+✅ Error handling & recovery
 
 ## 📚 Additional Resources
 

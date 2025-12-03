@@ -12,14 +12,14 @@ The application uses a modern, scalable state management architecture that separ
 
 ### Why This Architecture?
 
-| Problem | Solution |
-|---------|----------|
-| Prop drilling through multiple components | Direct store access |
-| State scattered across components | Centralized stores |
-| Manual cache management | Automatic with TanStack Query |
-| Complex async state handling | Built-in loading/error states |
-| No optimistic updates | Built-in optimistic updates |
-| Difficult debugging | Redux DevTools + React Query DevTools |
+| Problem                                   | Solution                              |
+| ----------------------------------------- | ------------------------------------- |
+| Prop drilling through multiple components | Direct store access                   |
+| State scattered across components         | Centralized stores                    |
+| Manual cache management                   | Automatic with TanStack Query         |
+| Complex async state handling              | Built-in loading/error states         |
+| No optimistic updates                     | Built-in optimistic updates           |
+| Difficult debugging                       | Redux DevTools + React Query DevTools |
 
 ## Architecture Diagram
 
@@ -49,9 +49,11 @@ The application uses a modern, scalable state management architecture that separ
 ## Zustand Store (UI State)
 
 ### Location
+
 `frontend/stores/uiStore.ts`
 
 ### Responsibilities
+
 - Modal state management (open/close)
 - Alert messages (success/error/info)
 - Current conversation tracking
@@ -64,18 +66,18 @@ interface UIStore {
   // Alerts
   statusAlert: AlertState | null;
   uploadAlert: AlertState | null;
-  
+
   // Modals
   renameModalOpen: boolean;
   confirmDeleteOpen: boolean;
   conversationToRename: { id: string; currentName: string } | null;
   conversationToDelete: { id: string; name: string } | null;
-  
+
   // Conversation tracking
   currentConversationId: string | null;
   lastSavedMessageCount: number;
   isSaving: boolean;
-  
+
   // Actions
   setStatusAlert: (alert: AlertState | null) => void;
   openRenameModal: (id: string, currentName: string) => void;
@@ -98,14 +100,14 @@ import { useUIStore } from "@/stores/uiStore";
 function MyComponent() {
   // Subscribe only to what you need (prevents unnecessary re-renders)
   const { statusAlert, setStatusAlert } = useUIStore();
-  
+
   const handleAction = () => {
-    setStatusAlert({ 
-      message: "Operation successful!", 
-      type: "success" 
+    setStatusAlert({
+      message: "Operation successful!",
+      type: "success"
     });
   };
-  
+
   return (
     <div>
       {statusAlert && <Alert {...statusAlert} />}
@@ -125,6 +127,7 @@ Zustand integrates with **Redux DevTools**:
 4. View all actions and state changes in real-time
 
 **Features:**
+
 - ⏮️ Time-travel debugging
 - 📊 Action history
 - 🔍 State inspection
@@ -133,9 +136,11 @@ Zustand integrates with **Redux DevTools**:
 ## TanStack Query (Server State)
 
 ### Location
+
 `frontend/hooks/queries/useConversationsQuery.ts`
 
 ### Responsibilities
+
 - Fetching conversations from Firestore
 - Creating new conversations
 - Updating conversation names and history
@@ -162,15 +167,16 @@ export const conversationKeys = {
 Fetches all conversations for a user.
 
 ```typescript
-const { 
-  data: conversations,      // Conversation[]
-  isLoading,                // boolean
-  error,                    // Error | null
-  refetch                   // () => Promise<void>
+const {
+  data: conversations, // Conversation[]
+  isLoading, // boolean
+  error, // Error | null
+  refetch, // () => Promise<void>
 } = useConversationsQuery(userId);
 ```
 
 **Features:**
+
 - ✅ Automatic caching (30s stale time)
 - ✅ Background refetch
 - ✅ Error handling
@@ -185,11 +191,12 @@ const createConversation = useCreateConversation(userId);
 
 await createConversation.mutateAsync({
   name: "New Conversation",
-  history: chatHistory
+  history: chatHistory,
 });
 ```
 
 **Flow:**
+
 1. 🔄 Optimistic update: Adds temporary conversation to UI
 2. 📤 Sends request to Firestore
 3. ✅ On success: Replaces temp with real data
@@ -204,7 +211,7 @@ const updateName = useUpdateConversationName(userId);
 
 await updateName.mutateAsync({
   id: "conv-123",
-  newName: "Updated Name"
+  newName: "Updated Name",
 });
 ```
 
@@ -217,7 +224,7 @@ const updateHistory = useUpdateConversationHistory(userId);
 
 await updateHistory.mutateAsync({
   id: "conv-123",
-  history: updatedMessages
+  history: updatedMessages,
 });
 ```
 
@@ -241,15 +248,15 @@ All mutations implement optimistic updates for instant UI feedback:
 onMutate: async (newData) => {
   // 1. Cancel ongoing queries
   await queryClient.cancelQueries({ queryKey });
-  
+
   // 2. Snapshot current data
   const previousData = queryClient.getQueryData(queryKey);
-  
+
   // 3. Optimistically update UI
   queryClient.setQueryData(queryKey, (old) => {
     // Update logic
   });
-  
+
   // 4. Return context for rollback
   return { previousData };
 },
@@ -273,10 +280,10 @@ Located in `providers/QueryProvider.tsx`:
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000,        // 30 seconds
-      gcTime: 5 * 60 * 1000,       // 5 minutes (garbage collection)
-      retry: 1,                     // Retry once on failure
-      refetchOnWindowFocus: false,  // Don't refetch on window focus
+      staleTime: 30 * 1000, // 30 seconds
+      gcTime: 5 * 60 * 1000, // 5 minutes (garbage collection)
+      retry: 1, // Retry once on failure
+      refetchOnWindowFocus: false, // Don't refetch on window focus
     },
     mutations: {
       retry: 1,
@@ -287,12 +294,12 @@ const queryClient = new QueryClient({
 
 **Configuration Guide:**
 
-| Option | Value | Reason |
-|--------|-------|--------|
-| `staleTime` | 30s | Data stays "fresh" for 30 seconds |
-| `gcTime` | 5min | Cache cleaned after 5 minutes of inactivity |
-| `retry` | 1 | Retry once on network failure |
-| `refetchOnWindowFocus` | false | Prevents excessive refetching |
+| Option                 | Value | Reason                                      |
+| ---------------------- | ----- | ------------------------------------------- |
+| `staleTime`            | 30s   | Data stays "fresh" for 30 seconds           |
+| `gcTime`               | 5min  | Cache cleaned after 5 minutes of inactivity |
+| `retry`                | 1     | Retry once on network failure               |
+| `refetchOnWindowFocus` | false | Prevents excessive refetching               |
 
 ### DevTools Integration
 
@@ -308,6 +315,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 ```
 
 **Features:**
+
 - 📊 Query status visualization
 - ⚡ Active/inactive queries
 - 🔄 Mutation tracking
@@ -324,7 +332,7 @@ function Page() {
   const [modalOpen, setModalOpen] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(false);
-  
+
   useEffect(() => {
     const fetchConversations = async () => {
       setLoading(true);
@@ -334,8 +342,8 @@ function Page() {
     };
     fetchConversations();
   }, []);
-  
-  const handleDelete = async (id) => {
+
+  const handleDelete = async id => {
     await deleteFromFirestore(id);
     // Manual refetch needed
     const data = await loadFromFirestore();
@@ -345,6 +353,7 @@ function Page() {
 ```
 
 **Problems:**
+
 - ❌ 10+ useState declarations
 - ❌ Manual loading states
 - ❌ Manual error handling
@@ -358,12 +367,12 @@ function Page() {
 function Page() {
   // UI State (1 line)
   const { statusAlert, setStatusAlert, modalOpen, openModal } = useUIStore();
-  
+
   // Server State (1 line)
   const { data: conversations = [], isLoading } = useConversationsQuery(userId);
   const deleteConversation = useDeleteConversation(userId);
-  
-  const handleDelete = async (id) => {
+
+  const handleDelete = async id => {
     // Automatic optimistic update + refetch
     await deleteConversation.mutateAsync(id);
   };
@@ -371,6 +380,7 @@ function Page() {
 ```
 
 **Benefits:**
+
 - ✅ 2 lines instead of 10+
 - ✅ Automatic loading states
 - ✅ Automatic error handling
@@ -386,29 +396,29 @@ The auto-save feature demonstrates the power of this architecture:
 useEffect(() => {
   // Only save when assistant finishes responding
   if (isLoading || !userId || chatHistory.length < 2) return;
-  
+
   const autoSave = async () => {
     startSaving(); // UI store flag
-    
+
     if (currentConversationId) {
       // Update existing conversation
       await updateHistory.mutateAsync({
         id: currentConversationId,
-        history: chatHistory
+        history: chatHistory,
       });
       updateSavedMessageCount(chatHistory.length);
     } else {
       // Create new conversation
       await createConversation.mutateAsync({
         name: generateName(),
-        history: chatHistory
+        history: chatHistory,
       });
       // ID will be set by separate useEffect
     }
-    
+
     finishSaving();
   };
-  
+
   // Debounce for 500ms
   const timeoutId = setTimeout(autoSave, 500);
   return () => clearTimeout(timeoutId);
@@ -416,6 +426,7 @@ useEffect(() => {
 ```
 
 **Features:**
+
 1. ⏰ Debounced (500ms)
 2. 🎯 Saves only when assistant finishes
 3. 🆕 Creates new conversation on first save
@@ -430,11 +441,11 @@ useEffect(() => {
 ```typescript
 // ❌ BAD: Mixing concerns
 const [conversations, setConversations] = useState([]); // Server state
-const [modalOpen, setModalOpen] = useState(false);      // UI state
+const [modalOpen, setModalOpen] = useState(false); // UI state
 
 // ✅ GOOD: Clear separation
 const { data: conversations } = useConversationsQuery(userId); // Server state
-const { modalOpen } = useUIStore();                             // UI state
+const { modalOpen } = useUIStore(); // UI state
 ```
 
 ### 2. Use Granular Selectors
@@ -451,7 +462,7 @@ const statusAlert = useUIStore(state => state.statusAlert);
 
 ```typescript
 // ❌ BAD: Wait for server response
-const handleDelete = async (id) => {
+const handleDelete = async id => {
   await deleteFromServer(id);
   refetch(); // Wait for confirmation
 };
@@ -467,12 +478,12 @@ await deleteConversation.mutateAsync(id); // Optimistic update
 // ✅ Centralized query keys
 export const conversationKeys = {
   all: ["conversations"],
-  byUser: (userId) => ["conversations", userId],
+  byUser: userId => ["conversations", userId],
 };
 
 // Easy invalidation
-queryClient.invalidateQueries({ 
-  queryKey: conversationKeys.byUser(userId) 
+queryClient.invalidateQueries({
+  queryKey: conversationKeys.byUser(userId),
 });
 ```
 
@@ -481,21 +492,21 @@ queryClient.invalidateQueries({
 ### Testing Zustand Stores
 
 ```typescript
-import { renderHook, act } from '@testing-library/react';
-import { useUIStore } from '@/stores/uiStore';
+import { renderHook, act } from "@testing-library/react";
+import { useUIStore } from "@/stores/uiStore";
 
-describe('UIStore', () => {
-  it('should open and close modal', () => {
+describe("UIStore", () => {
+  it("should open and close modal", () => {
     const { result } = renderHook(() => useUIStore());
-    
+
     act(() => {
-      result.current.openRenameModal('conv-1', 'Old Name');
+      result.current.openRenameModal("conv-1", "Old Name");
     });
-    
+
     expect(result.current.renameModalOpen).toBe(true);
     expect(result.current.conversationToRename).toEqual({
-      id: 'conv-1',
-      currentName: 'Old Name'
+      id: "conv-1",
+      currentName: "Old Name",
     });
   });
 });
@@ -512,7 +523,7 @@ const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } }
   });
-  
+
   return ({ children }) => (
     <QueryClientProvider client={queryClient}>
       {children}
@@ -526,7 +537,7 @@ describe('useConversationsQuery', () => {
       () => useConversationsQuery('user-123'),
       { wrapper: createWrapper() }
     );
-    
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toHaveLength(3);
   });

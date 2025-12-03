@@ -12,7 +12,7 @@ All endpoints require valid Firebase Auth token in Authorization header.
 """
 
 from io import BytesIO
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 from app.config.security_constants import FILE_READ_CHUNK_SIZE
 from app.core.auth import verify_firebase_token
@@ -161,7 +161,7 @@ async def upload_document(
     file: UploadFile = File(..., description="The PDF document to be indexed."),
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-):
+) -> UploadResponse:
     """
     **Upload and index a PDF document.**
 
@@ -222,7 +222,7 @@ async def detect_document_language(
     file: UploadFile = File(..., description="The PDF document to analyze."),
     _user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-):
+) -> DetectLanguageResponse:
     """
     **Detect the language of a PDF document (preview before upload).**
 
@@ -267,7 +267,7 @@ async def detect_document_language(
 async def check_documents(
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-):
+) -> Dict[str, Any]:
     """
     **Check if user has any documents uploaded.**
 
@@ -288,7 +288,7 @@ async def check_documents(
 async def list_documents(
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-):
+) -> DocumentListResponse:
     """
     **List all documents uploaded by a user.**
 
@@ -312,7 +312,7 @@ async def delete_document(
     filename: str,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-):
+) -> DocumentDeleteResponse:
     """
     **Delete a specific document by filename.**
 
@@ -365,7 +365,7 @@ async def delete_all_documents(
     request: Request,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-):
+) -> Dict[str, Any]:
     """
     **Delete ALL documents for a user.**
 

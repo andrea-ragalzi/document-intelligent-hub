@@ -54,6 +54,7 @@ backend/
 Handles HTTP requests and responses. Defines all API endpoints.
 
 **Endpoints**:
+
 - `GET /` - Health check
 - `POST /upload/` - Upload and index PDF documents
   - **New**: Optional `document_language` parameter (IT, EN, FR, DE, ES, etc.)
@@ -65,6 +66,7 @@ Handles HTTP requests and responses. Defines all API endpoints.
   - Returns answer in the original query language
 
 **Key Features**:
+
 - FastAPI automatic validation via Pydantic schemas
 - CORS middleware for frontend communication
 - Error handling with HTTP exceptions
@@ -79,6 +81,7 @@ The service layer uses an **orchestrator pattern** with specialized services for
 **Architecture**: Thin orchestration layer (274 lines) that delegates to 5 specialized services.
 
 **Specialized Services**:
+
 1. **DocumentIndexingService** (340 lines) - PDF processing, chunking, language detection, embedding generation
 2. **QueryProcessingService** (181 lines) - Query classification and reformulation with conversation history
 3. **AnswerGenerationService** (332 lines) - Full RAG pipeline: retrieval, reranking, LLM invocation, translation
@@ -86,6 +89,7 @@ The service layer uses an **orchestrator pattern** with specialized services for
 5. **ConversationService** (82 lines) - Conversation history summarization
 
 **Key Responsibilities**:
+
 - Initializes all specialized services with dependency injection
 - Delegates operations to appropriate services
 - Maintains backward compatibility with original API
@@ -134,6 +138,7 @@ def get_language_name(language_code: str) -> str
 ```
 
 **Supported Languages**:
+
 - Italian (IT), English (EN), French (FR)
 - German (DE), Spanish (ES), Portuguese (PT)
 - Dutch (NL), Polish (PL), Russian (RU)
@@ -156,6 +161,7 @@ def get_language_distribution(user_id: str, sample_size: int = 100) -> Dict[str,
 ```
 
 **How It Works**:
+
 1. Samples user's documents from ChromaDB
 2. Analyzes `original_language_code` metadata field
 3. Returns most frequent language code
@@ -178,6 +184,7 @@ def expand_query_pool(original_query: str) -> List[str]
 ```
 
 **Strategy**:
+
 - Uses LLM with temperature=0.7 for creativity
 - Generates 3 diverse query variations
 - Ensures different keywords and phrasing
@@ -210,6 +217,7 @@ def calculate_relevance_score(
 ```
 
 **Hybrid Scoring Algorithm**:
+
 ```
 Combined Score = (0.6 × Vector Similarity) + (0.4 × Keyword Density)
 
@@ -219,6 +227,7 @@ Where:
 ```
 
 **Performance**:
+
 - No LLM calls required
 - Execution time: < 100ms
 - Reduces ~20 documents → 7 optimal chunks
@@ -229,6 +238,7 @@ Where:
 Legacy service for answer translation back to user's language.
 
 **Key Functions**:
+
 - `detect_language()` - Detect language of text
 - `translate_answer_back()` - Translate LLM response to user's language
 
@@ -239,18 +249,21 @@ Legacy service for answer translation back to user's language.
 Vector database management.
 
 **Features**:
+
 - Persistent storage with disk-based database
 - Per-user filtering for multi-tenancy
 - Metadata filtering for data isolation
 - Automatic collection creation
 
 **Key Methods**:
+
 - `get_chroma_client()` - Get singleton client instance
 - `get_embedding_function()` - Get OpenAI embedding function
 - Semantic similarity search
 - Document storage with rich metadata
 
 **Metadata Schema**:
+
 ```python
 {
     "source": user_id,                    # Multi-tenancy filtering
@@ -305,6 +318,7 @@ class QueryResponse(BaseModel):
 Centralized configuration using Pydantic Settings.
 
 **Settings**:
+
 - OpenAI API key
 - Model names (embeddings, LLM)
 - ChromaDB path
@@ -312,13 +326,14 @@ Centralized configuration using Pydantic Settings.
 - Chunk size and overlap
 
 **Example**:
+
 ```python
 class Settings(BaseSettings):
     openai_api_key: str
     embedding_model: str = "text-embedding-ada-002"
     llm_model: str = "gpt-3.5-turbo"
     chroma_db_path: str = "chroma_db"
-    
+
     class Config:
         env_file = ".env"
 
@@ -432,16 +447,19 @@ Phase 3: Context Shaping & Generation
 ### Performance Characteristics
 
 **Token Efficiency**:
+
 - Original: ~25 chunks × 200 tokens = 5,000 tokens
 - Optimized: 7 chunks × 200 tokens = 1,400 tokens
 - **Reduction: 72%**
 
 **Retrieval Quality**:
+
 - Multi-query expansion: +30% recall
 - Keyword reranking: +15% precision
 - Language matching: +25% relevance
 
 **Speed**:
+
 - Query expansion: ~500ms (LLM call)
 - Parallel retrieval: ~300ms (4 concurrent searches)
 - Reranking: <100ms (no LLM, pure computation)
@@ -452,11 +470,13 @@ Phase 3: Context Shaping & Generation
 **Data Isolation Strategy**:
 
 Single collection with per-user filtering:
+
 - Collection name: `rag_documents` (shared)
 - Filtering: `where={"source": user_id}` on all queries
 - Metadata-based isolation ensures no cross-user leakage
 
 **Security Features**:
+
 - User ID required for all operations
 - ChromaDB metadata filtering at query time
 - No shared context between users
@@ -465,6 +485,7 @@ Single collection with per-user filtering:
 ## 🎯 Service Responsibilities
 
 ### Translation Service
+
 - **Purpose**: Query translation for optimal retrieval
 - **Dependencies**: OpenAI API
 - **Caching**: None (stateless)
@@ -472,27 +493,31 @@ Single collection with per-user filtering:
 - **Proper Noun Protection**: YES - preserves names, places, brands
 
 ### Language Detection Service
+
 - **Purpose**: Quick document language sampling
 - **Dependencies**: ChromaDB client
 - **Usage**: Initial sampling for language detection
 - **Sample Size**: 5 documents (fast detection)
 
 ### Query Expansion Service
+
 - **Purpose**: Multi-query generation
 - **Dependencies**: OpenAI LLM (temperature=0.7)
 - **Output**: 3 alternative queries
 - **Creativity**: Higher temperature for diversity
 
 ### Reranking Service
+
 - **Purpose**: Context size optimization
 - **Dependencies**: None (pure computation)
 - **Algorithm**: Hybrid scoring (60/40 split)
 - **Performance**: Sub-100ms execution
 
 ### RAG Service (Orchestrator)
+
 - **Purpose**: Coordinate all services
 - **Dependencies**: All specialized services
-- **Responsibilities**: 
+- **Responsibilities**:
   - Document indexing with optional language
   - Language detection from retrieved chunks
   - Query orchestration with language matching
@@ -534,6 +559,7 @@ POST /rag/upload/
 ### Language Detection Logic
 
 1. **Upload Time**:
+
    - User specifies language → use it
    - No language specified → auto-detect from content
    - Single language per document
@@ -547,6 +573,7 @@ POST /rag/upload/
 ### Proper Noun Preservation
 
 Translation service explicitly preserves:
+
 - Person names (Mario, Alessandro, etc.)
 - Place names (Roma, New York, etc.)
 - Company names (Google, Microsoft, etc.)
@@ -554,6 +581,7 @@ Translation service explicitly preserves:
 - Product names
 
 Example:
+
 ```
 Query: "Where is Mario Rossi located?"
 Document Language: Italian
@@ -567,6 +595,7 @@ Translated Query: "Dove si trova Mario Rossi?"
 **Rule**: Answer is ALWAYS returned in the language of the query.
 
 Examples:
+
 - Italian query + English docs → Italian answer
 - English query + Italian docs → English answer
 - French query + German docs → French answer
@@ -579,6 +608,7 @@ regardless of document language.
 **Framework**: pytest with fixtures
 
 **Test Coverage**:
+
 - ✅ Health check endpoint
 - ✅ PDF upload (valid files)
 - ✅ Invalid file type rejection
@@ -588,6 +618,7 @@ regardless of document language.
 - ✅ Error handling (missing user_id, invalid data)
 
 **Run Tests**:
+
 ```bash
 # All tests
 pytest
@@ -602,6 +633,7 @@ pytest tests/test_rag_endpoints.py::test_upload_pdf -v
 ## 📦 Dependencies
 
 **Core**:
+
 - `fastapi` - Web framework
 - `uvicorn` - ASGI server
 - `langchain` - LLM orchestration
@@ -611,6 +643,7 @@ pytest tests/test_rag_endpoints.py::test_upload_pdf -v
 - `pydantic` - Data validation
 
 **Dev**:
+
 - `pytest` - Testing framework
 - `pytest-cov` - Coverage reporting
 - `httpx` - HTTP client for testing
@@ -618,6 +651,7 @@ pytest tests/test_rag_endpoints.py::test_upload_pdf -v
 ## 🚀 Deployment
 
 ### Local Development
+
 ```bash
 cd backend
 python -m venv venv
@@ -627,12 +661,14 @@ uvicorn main:app --reload
 ```
 
 ### Docker
+
 ```bash
 docker build -t rag-backend .
 docker run -p 8000:8000 --env-file .env rag-backend
 ```
 
 ### Production Considerations
+
 - Use Gunicorn with Uvicorn workers
 - Set up reverse proxy (Nginx)
 - Configure proper CORS origins
@@ -644,12 +680,14 @@ docker run -p 8000:8000 --env-file .env rag-backend
 ## 📊 Performance Optimization
 
 **Current Optimizations**:
+
 - Persistent ChromaDB (disk-based)
 - Efficient text chunking with overlap
 - Limited context window (top 4 chunks)
 - Async FastAPI handlers
 
 **Future Improvements**:
+
 - [ ] Caching layer for frequent queries
 - [ ] Batch embedding generation
 - [ ] Connection pooling
@@ -660,16 +698,19 @@ docker run -p 8000:8000 --env-file .env rag-backend
 ## 🔍 Monitoring & Debugging
 
 **Logging**:
+
 - Console logging enabled
 - Log requests/responses in development
 - Error tracing with stack traces
 
 **Debug Endpoints**:
+
 - `GET /` - Health check with timestamp
 - `GET /docs` - Swagger UI
 - `GET /redoc` - ReDoc documentation
 
 **Useful Commands**:
+
 ```bash
 # Check logs
 docker-compose logs -f backend

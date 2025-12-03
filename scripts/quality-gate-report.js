@@ -90,9 +90,7 @@ window.copyDetails = function (detailsId, button) {
 
 // Function to create the HTML for a single standard
 function createStandardItem(standard) {
-  const { icon, statusTextClass, cardBorder, bg } = getStatusVisuals(
-    standard.status
-  );
+  const { icon, statusTextClass, cardBorder, bg } = getStatusVisuals(standard.status);
 
   const detailsId = `details-${Math.random().toString(36).substr(2, 9)}`;
   const accordionId = `accordion-${Math.random().toString(36).substr(2, 9)}`;
@@ -101,27 +99,19 @@ function createStandardItem(standard) {
   let accordionSection = "";
 
   // Add accordion for details if available (show for all statuses except PENDING)
-  if (
-    standard.details &&
-    standard.status !== "PENDING" &&
-    standard.details.trim() !== ""
-  ) {
-    const borderColor =
-      standard.status === "PASSED" ? "border-lime-500/20" : "border-red-900/30";
+  if (standard.details && standard.status !== "PENDING" && standard.details.trim() !== "") {
+    const borderColor = standard.status === "PASSED" ? "border-lime-500/20" : "border-red-900/30";
     const textColor =
       standard.status === "PASSED"
         ? "text-lime-400 hover:text-lime-300"
         : "text-red-400 hover:text-red-300";
-    const labelColor =
-      standard.status === "PASSED" ? "text-lime-500" : "text-red-400";
+    const labelColor = standard.status === "PASSED" ? "text-lime-500" : "text-red-400";
     const buttonBg =
       standard.status === "PASSED"
         ? "bg-lime-600 hover:bg-lime-500"
         : "bg-red-900 hover:bg-red-800";
-    const buttonText =
-      standard.status === "PASSED" ? "text-black" : "text-white";
-    const preColor =
-      standard.status === "PASSED" ? "text-lime-300" : "text-red-300";
+    const buttonText = standard.status === "PASSED" ? "text-black" : "text-white";
+    const preColor = standard.status === "PASSED" ? "text-lime-300" : "text-red-300";
 
     accordionSection = `
       <div class="mt-2 border-t ${borderColor} pt-2">
@@ -150,8 +140,8 @@ function createStandardItem(standard) {
             </button>
           </div>
           <pre id="${detailsId}" class="text-xs ${preColor} font-mono whitespace-pre-wrap">${
-      standard.details || "No output - check passed with no issues."
-    }</pre>
+            standard.details || "No output - check passed with no issues."
+          }</pre>
         </div>
       </div>
     `;
@@ -185,30 +175,24 @@ function createStandardItem(standard) {
             standard.status === "PASSED"
               ? "text-lime-300"
               : standard.status === "PENDING"
-              ? "text-gray-300 pending-text"
-              : "text-red-300"
+                ? "text-gray-300 pending-text"
+                : "text-red-300"
           }">${standard.name}</p>
           <p class="text-sm ${
             standard.status === "PASSED"
               ? "text-lime-500/70"
               : standard.status === "PENDING"
-              ? "text-gray-400/70"
-              : "text-red-400/70"
+                ? "text-gray-400/70"
+                : "text-red-400/70"
           }">${standard.role}</p>
         </div>
         <div class="text-right flex flex-col items-end">
-          <span class="font-bold uppercase text-sm ${statusTextClass}">${
-    standard.status
-  }</span>
+          <span class="font-bold uppercase text-sm ${statusTextClass}">${standard.status}</span>
           ${severityContent}
         </div>
       </div>
       ${accordionSection}
-      ${
-        standard.status === "PENDING"
-          ? '<div class="pending-progress"></div>'
-          : ""
-      }
+      ${standard.status === "PENDING" ? '<div class="pending-progress"></div>' : ""}
     </div>
   `;
 }
@@ -283,14 +267,8 @@ function renderReport(data) {
 
   const reportContainer = document.getElementById("report-container");
 
-  const frontendSection = createSection(
-    "1. :: FRONTEND MODULES [TYPESCRIPT]",
-    data.frontend
-  );
-  const backendSection = createSection(
-    "2. :: BACKEND MODULES [PYTHON]",
-    data.backend
-  );
+  const frontendSection = createSection("1. :: FRONTEND MODULES [TYPESCRIPT]", data.frontend);
+  const backendSection = createSection("2. :: BACKEND MODULES [PYTHON]", data.backend);
 
   reportContainer.innerHTML = frontendSection + backendSection;
 }
@@ -312,9 +290,7 @@ async function checkForUpdates() {
     });
 
     if (!response.ok) {
-      console.warn(
-        `Fetch of ${REPORT_DATA_URL} failed: ${response.status}. Retrying.`
-      );
+      console.warn(`Fetch of ${REPORT_DATA_URL} failed: ${response.status}. Retrying.`);
       return;
     }
 
@@ -327,21 +303,15 @@ async function checkForUpdates() {
       );
       console.log(
         "Frontend phases:",
-        newData.frontend.map((p) => `${p.name}: ${p.status}`).join(", ")
+        newData.frontend.map(p => `${p.name}: ${p.status}`).join(", ")
       );
-      console.log(
-        "Backend phases:",
-        newData.backend.map((p) => `${p.name}: ${p.status}`).join(", ")
-      );
+      console.log("Backend phases:", newData.backend.map(p => `${p.name}: ${p.status}`).join(", "));
       console.log("Overall status:", newData.overallStatus);
       lastTimestampMs = newData.timestampMs;
       renderReport(newData);
 
       // Stop polling after receiving final status and waiting a bit more
-      if (
-        newData.overallStatus !== "RUNNING" &&
-        newData.overallStatus !== "PENDING"
-      ) {
+      if (newData.overallStatus !== "RUNNING" && newData.overallStatus !== "PENDING") {
         console.log("Final status received, will stop polling in 5 seconds...");
         setTimeout(() => {
           checkCount = MAX_CHECKS;
@@ -371,20 +341,14 @@ async function initReport() {
       timestampMs: qualityGateResults.timestampMs,
       timestamp: qualityGateResults.timestamp,
       overallStatus: qualityGateResults.overallStatus,
-      frontend: qualityGateResults.frontend
-        .map((p) => `${p.name}: ${p.status}`)
-        .join(", "),
-      backend: qualityGateResults.backend
-        .map((p) => `${p.name}: ${p.status}`)
-        .join(", "),
+      frontend: qualityGateResults.frontend.map(p => `${p.name}: ${p.status}`).join(", "),
+      backend: qualityGateResults.backend.map(p => `${p.name}: ${p.status}`).join(", "),
     });
 
     renderReport(qualityGateResults);
 
     // Always start polling - it will stop after final status + 5 seconds
-    console.log(
-      "Auto-refresh enabled: checking every 0.1 seconds for live updates."
-    );
+    console.log("Auto-refresh enabled: checking every 0.1 seconds for live updates.");
     setInterval(checkForUpdates, 100);
   } catch (e) {
     console.error(

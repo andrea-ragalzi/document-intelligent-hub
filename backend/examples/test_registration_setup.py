@@ -49,29 +49,29 @@ def setup_test_data():
             "tier": "FREE",
             "is_used": False,
             "expires_at": datetime.now() + timedelta(days=30),
-            "created_at": SERVER_TIMESTAMP
+            "created_at": SERVER_TIMESTAMP,
         },
         {
             "code": "PRO2024",
             "tier": "PRO",
             "is_used": False,
             "expires_at": datetime.now() + timedelta(days=90),
-            "created_at": SERVER_TIMESTAMP
+            "created_at": SERVER_TIMESTAMP,
         },
         {
             "code": "UNLIMITED2024",
             "tier": "UNLIMITED",
             "is_used": False,
             "expires_at": datetime.now() + timedelta(days=365),
-            "created_at": SERVER_TIMESTAMP
+            "created_at": SERVER_TIMESTAMP,
         },
         {
             "code": "EXPIRED2023",
             "tier": "PRO",
             "is_used": False,
             "expires_at": datetime.now() - timedelta(days=1),  # Expired yesterday
-            "created_at": SERVER_TIMESTAMP
-        }
+            "created_at": SERVER_TIMESTAMP,
+        },
     ]
 
     for code_data in codes_to_create:
@@ -82,14 +82,13 @@ def setup_test_data():
     # 2. Configure unlimited emails list
     unlimited_emails = [
         "andrea.ragalzi.social@gmail.com",  # Social account - unlimited access
-        "andrea.ragalzi.code@gmail.com",    # Dev account - unlimited access
+        "andrea.ragalzi.code@gmail.com",  # Dev account - unlimited access
     ]
 
     settings_ref = db.collection("app_config").document("settings")
-    settings_ref.set({
-        "unlimited_emails": unlimited_emails,
-        "updated_at": SERVER_TIMESTAMP
-    })
+    settings_ref.set(
+        {"unlimited_emails": unlimited_emails, "updated_at": SERVER_TIMESTAMP}
+    )
     print(f"✅ Configured {len(unlimited_emails)} unlimited emails")
 
     print("\n🎉 Test data setup complete!")
@@ -112,30 +111,36 @@ def test_registration_flow():
     """
     print("\n🧪 Example API Usage:")
     print("\n1. For unlimited email users:")
-    print("""
+    print(
+        """
     POST /auth/register
     {
         "id_token": "<firebase_id_token>",
         "invitation_code": null
     }
-    """)
+    """
+    )
 
     print("\n2. For users with invitation code:")
-    print("""
+    print(
+        """
     POST /auth/register
     {
         "id_token": "<firebase_id_token>",
         "invitation_code": "PRO2024"
     }
-    """)
+    """
+    )
 
     print("\n3. Check current tier:")
-    print("""
+    print(
+        """
     POST /auth/refresh-claims
     {
         "id_token": "<firebase_id_token>"
     }
-    """)
+    """
+    )
 
 
 if __name__ == "__main__":

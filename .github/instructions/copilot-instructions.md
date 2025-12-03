@@ -29,25 +29,23 @@ Deployment: Docker + docker-compose
 Project Structure
 
 backend/
-  app/
-    core/         # Config, logging (structured logging with loguru)
-    db/           # ChromaDB client (HuggingFace embeddings - all-MiniLM-L6-v2)
-    routers/      # FastAPI endpoints (rag_router.py)
-    schemas/      # Pydantic models (rag.py)
-    services/     # Business logic (see Service Layer Architecture below)
-  tests/          # pytest with fixtures, mocked OpenAI calls
-  main.py         # FastAPI app entry point with CORS & logging middleware
+app/
+core/ # Config, logging (structured logging with loguru)
+db/ # ChromaDB client (HuggingFace embeddings - all-MiniLM-L6-v2)
+routers/ # FastAPI endpoints (rag_router.py)
+schemas/ # Pydantic models (rag.py)
+services/ # Business logic (see Service Layer Architecture below)
+tests/ # pytest with fixtures, mocked OpenAI calls
+main.py # FastAPI app entry point with CORS & logging middleware
 
 frontend/
-  app/            # Next.js App Router pages (dashboard, login, signup)
-    api/chat/     # Edge runtime API for streaming responses
-  components/     # React components (Chat, Upload, Sidebar, Modals)
-  stores/         # Zustand stores (uiStore.ts for UI state)
-  hooks/          # Custom hooks (useRAGChat, useConversations, etc.)
-  contexts/       # React contexts (AuthContext for Firebase)
-  lib/            # Utils, Firebase config, types, constants
-
-
+app/ # Next.js App Router pages (dashboard, login, signup)
+api/chat/ # Edge runtime API for streaming responses
+components/ # React components (Chat, Upload, Sidebar, Modals)
+stores/ # Zustand stores (uiStore.ts for UI state)
+hooks/ # Custom hooks (useRAGChat, useConversations, etc.)
+contexts/ # React contexts (AuthContext for Firebase)
+lib/ # Utils, Firebase config, types, constants
 
 Service Layer Architecture (Backend)
 
@@ -124,19 +122,19 @@ Multi-Tenancy & Data Isolation
 ChromaDB Metadata Filtering: Every document is tagged with user_id metadata. All queries filter by user_id to ensure strict tenant isolation:
 
 # Indexing (app/services/document_indexing_service.py)
+
 metadata = {
-    "user_id": user_id,
-    "filename": file.filename,
-    "chunk_index": i,
-    "document_language": detected_language,
+"user_id": user_id,
+"filename": file.filename,
+"chunk_index": i,
+"document_language": detected_language,
 }
 
 # Querying (app/db/chroma_client.py via Chroma)
+
 retriever = vectorstore.as_retriever(
-    search_kwargs={"filter": {"user_id": user_id}, "k": 10}
+search_kwargs={"filter": {"user_id": user_id}, "k": 10}
 )
-
-
 
 CRITICAL: Never modify or remove user_id filtering logic - it's the security boundary.
 
@@ -161,8 +159,6 @@ LLM extracts key facts, topics, ongoing issues
 Prompt Injection:
 
 [System Instruction] → [Conversation History] → [RAG Context] → [New Question]
-
-
 
 Quality Gate & Coding Standards (Severity)
 
@@ -235,45 +231,43 @@ cd backend
 poetry install
 poetry run uvicorn main:app --reload --host 0.0.0.0
 
-
-
 Frontend (separate terminal):
 
 cd frontend
 npm install
 npm run dev
 
-
-
 Docker Development
 
 # Build and start
+
 docker-compose up -d --build
 
 # View logs
+
 docker-compose logs -f backend
 docker-compose logs -f frontend
 
 # Access shells
+
 docker-compose exec backend sh
 docker-compose exec frontend sh
-
-
 
 Running Tests
 
 # All tests with coverage (Mandatory before pushing)
+
 ./run-coverage.sh
 
 # Backend only
+
 cd backend && pytest --cov=app --cov-report=term
 
 # Frontend only
+
 cd frontend && npm run test:coverage
 
 # Use VS Code tasks: "Run All Tests with Coverage"
-
-
 
 IMPORTANT: The backend uses poetry for dependency management. Always use poetry run or activate the virtual environment with poetry shell before running Python commands.
 
@@ -297,8 +291,6 @@ const { data: conversations, isLoading } = useConversations(userId);
 
 // Business logic (Hook)
 const { handleQuerySubmit, chatHistory } = useRAGChat();
-
-
 
 Never mix: Don't store server data in Zustand or UI flags in TanStack Query.
 
@@ -324,12 +316,10 @@ Implementation: Uses React Portal (createPortal) to render at document.body leve
 
 // Key pattern: Execute action FIRST, then close menu
 onClick={(e) => {
-  e.stopPropagation();
-  onAction(item.id);          // ← Execute first
-  setOpenMenuId(null);         // ← Close after
+e.stopPropagation();
+onAction(item.id); // ← Execute first
+setOpenMenuId(null); // ← Close after
 }}
-
-
 
 Mobile Gestures
 
@@ -348,12 +338,10 @@ Pinned items first (isPinned: true)
 Then by timestamp (most recent first)
 
 const sorted = [...items].sort((a, b) => {
-  if (a.isPinned && !b.isPinned) return -1;
-  if (!a.isPinned && b.isPinned) return 1;
-  return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+if (a.isPinned && !b.isPinned) return -1;
+if (!a.isPinned && b.isPinned) return 1;
+return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
 });
-
-
 
 API Conventions
 
@@ -369,29 +357,27 @@ Error Handling: Backend returns {detail: "error message"}, frontend displays in 
 
 Key Endpoints
 
-POST /rag/upload/        # Upload PDF (multipart/form-data)
-POST /rag/query/         # Query with optional conversation_history
-POST /rag/summarize/     # Generate conversation summary
-GET  /rag/documents/list # List user's documents (filtered by user_id)
+POST /rag/upload/ # Upload PDF (multipart/form-data)
+POST /rag/query/ # Query with optional conversation_history
+POST /rag/summarize/ # Generate conversation summary
+GET /rag/documents/list # List user's documents (filtered by user_id)
 DELETE /rag/documents/delete # Delete document by filename
-
-
 
 Configuration
 
 Environment Variables (.env)
 
 # Backend (required)
-OPENAI_API_KEY=sk-...              # For LLM calls (NOT embeddings)
-CHROMA_DB_PATH=chroma_db           # Vector store persistence
-EMBEDDING_MODEL=text-embedding-ada-002  # (unused - HuggingFace used instead)
-LLM_MODEL=gpt-3.5-turbo            # Or gpt-4
+
+OPENAI_API_KEY=sk-... # For LLM calls (NOT embeddings)
+CHROMA_DB_PATH=chroma_db # Vector store persistence
+EMBEDDING_MODEL=text-embedding-ada-002 # (unused - HuggingFace used instead)
+LLM_MODEL=gpt-3.5-turbo # Or gpt-4
 
 # Frontend (required)
+
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/rag
-NEXT_PUBLIC_FIREBASE_API_KEY=...  # Firebase config
-
-
+NEXT_PUBLIC_FIREBASE_API_KEY=... # Firebase config
 
 Note: Embeddings use local HuggingFace model (all-MiniLM-L6-v2) - no API key needed, fast, free, private.
 
@@ -432,16 +418,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 class QueryRequest(BaseModel):
-    user_id: str
-    query: str
-    conversation_history: Optional[list] = None
+user_id: str
+query: str
+conversation_history: Optional[list] = None
 
 async def query_documents(request: QueryRequest) -> dict:
-    """Process RAG query with proper typing and async."""
-    # Implementation
-    pass
-
-
+"""Process RAG query with proper typing and async.""" # Implementation
+pass
 
 TypeScript (Frontend)
 
@@ -472,24 +455,22 @@ Server Components by default, Client Components when needed ('use client')
 4. Example:
 
 interface ConversationProps {
-  conversations: SavedConversation[];
-  onLoad: (conv: SavedConversation) => void;
+conversations: SavedConversation[];
+onLoad: (conv: SavedConversation) => void;
 }
 
 export const ConversationList: React.FC<ConversationProps> = ({
-  conversations,
-  onLoad,
+conversations,
+onLoad,
 }) => {
-  const [selected, setSelected] = useState<string[]>([]);
+const [selected, setSelected] = useState<string[]>([]);
 
-  const handleSelect = (id: string) => {
-    setSelected(prev => [...prev, id]);
-  };
-
-  return (/* JSX */);
+const handleSelect = (id: string) => {
+setSelected(prev => [...prev, id]);
 };
 
-
+return (/_ JSX _/);
+};
 
 Common Patterns & Conventions
 
@@ -523,7 +504,7 @@ Known Gotchas
 
 PDF Parsing: UnstructuredPDFLoader can fail on minimal/corrupted PDFs (500 error) - not a code bug
 
-CORS: Backend allows * origins in development - restrict in production
+CORS: Backend allows \* origins in development - restrict in production
 
 ChromaDB Path: Must exist on startup (created in main.py if missing)
 

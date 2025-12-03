@@ -161,7 +161,7 @@ async def query_document(
     request: QueryRequest,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-):
+) -> QueryResponse:
     """
     **Query documents using RAG (Retrieval-Augmented Generation).**
 
@@ -243,7 +243,7 @@ def summarize_conversation(
     request: SummarizeRequest,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-):
+) -> SummarizeResponse:
     """
     **Generate conversation summary for long-term memory.**
 

@@ -27,7 +27,7 @@ class LanguageService:
         try:
             # langdetect restituisce un codice a due lettere (es. 'en', 'it')
             lang_code = detect(content)
-            return lang_code.upper()  # Restituisce il codice in maiuscolo
+            return str(lang_code).upper()  # Restituisce il codice in maiuscolo
 
         except Exception as e:
             # langdetect genera un'eccezione per stringhe molto brevi/ambigue
@@ -41,7 +41,7 @@ class LanguageService:
             # La libreria 'translate' utilizza l'endpoint pubblico di Google Translate
             translator = Translator(to_lang=self.target_lang)
             translation = translator.translate(content)
-            return translation.strip()
+            return str(translation).strip()
         except Exception as e:
             # Cattura StopIteration, errore comune per il fallimento della traduzione
             print(
@@ -63,7 +63,7 @@ class LanguageService:
             # Assumiamo che target_language_code sia un codice a due lettere (es. 'IT')
             translator = Translator(to_lang=target_language_code.lower())
             translation = translator.translate(answer)
-            return translation.strip()
+            return str(translation).strip()
         except Exception as e:
             print(
                 f"Translation failed (Type: {type(e).__name__}). Returning English answer."

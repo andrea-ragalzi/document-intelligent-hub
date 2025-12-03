@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from chromadb import Collection
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
+from langchain_core.vectorstores import VectorStoreRetriever
 
 from app.core.logging import logger
 
@@ -194,7 +195,7 @@ class VectorStoreRepository:
         k: int = 10,
         include_files: Optional[List[str]] = None,
         exclude_files: Optional[List[str]] = None,
-    ):
+    ) -> VectorStoreRetriever:
         """
         Get a LangChain retriever configured for a specific user with optional file filtering.
 

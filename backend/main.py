@@ -32,7 +32,9 @@ from app.routers import (  # noqa: E402
 
 # --- Lifespan Context Manager (Modern FastAPI Pattern) ---
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # pylint: disable=unused-argument,redefined-outer-name
+async def lifespan(
+    app: FastAPI,
+):  # pylint: disable=unused-argument,redefined-outer-name
     """Application lifespan manager - handles startup and shutdown."""
     # STARTUP
     logger.info(f"🚀 Starting {settings.PROJECT_NAME} v{settings.PROJECT_VERSION}")

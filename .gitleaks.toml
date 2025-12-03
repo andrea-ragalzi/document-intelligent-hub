@@ -1,0 +1,79 @@
+# Gitleaks Configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "Gitleaks Configuration for Document Intelligent Hub"
+
+[extend]
+# Usa le regole predefinite di Gitleaks come base
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for false positives"
+
+# Pattern da ignorare (es. test keys, examples)
+regexes = [
+  # Ignore example/placeholder values
+  '''your[-_]?api[-_]?key[-_]?here''',
+  '''your[-_]?secret[-_]?here''',
+  '''example[-_]?key''',
+  '''sk-proj-XXXXXXX''',
+  '''AIza[a-zA-Z0-9_-]{35}EXAMPLE''',
+  # Ignore Firebase config in .env.local.example (template files)
+  '''AIzaSy[a-zA-Z0-9_-]{33}.*\.example''',
+]
+
+# File da ignorare completamente
+paths = [
+  '''\.env\.example$''',
+  '''\.env\.local\.example$''',
+  '''\.env\.mcp\.example$''',
+  '''\.gitleaks\.toml$''',
+  '''\.pre-commit-config\.yaml$''',
+  '''node_modules/''',
+  '''\.venv/''',
+  '''venv/''',
+  '''\.git/''',
+  '''\.next/''',
+  '''__pycache__/''',
+  '''\.pytest_cache/''',
+  '''\.mypy_cache/''',
+  '''coverage/''',
+  '''htmlcov/''',
+  '''dist/''',
+  '''build/''',
+  '''\.DS_Store''',
+  '''chroma_db/''',
+  '''logs/''',
+]
+
+# Stopwords - se uno di questi è nel commit message, salta la scansione
+stopwords = [
+  '''gitleaks:allow''',
+  '''NOCOMMIT''',
+]
+
+# Exceptions for legitimate use cases
+[[rules]]
+id = "firebase-service-account-ignored"
+description = "Firebase service account is in .gitignore, not scanned"
+regex = '''-----BEGIN PRIVATE KEY-----'''
+# Questi file sono già in .gitignore, ma aggiungiamo l'eccezione esplicita
+path = '''backend/app/config/firebase-service-account\.json$'''
+
+[[rules]]
+id = "gitleaks-config-example"
+description = "Allow private key text in gitleaks config as example"
+regex = '''-----BEGIN PRIVATE KEY-----'''
+path = '''\.gitleaks\.toml$'''
+
+[[rules]]
+id = "local-env-files"
+description = "Local .env files are gitignored and contain development secrets"
+regex = '''(OPENAI_API_KEY|SENDGRID_API_KEY|FIREBASE_API_KEY)'''
+path = '''(backend/\.env|frontend/\.env\.local)$'''
+
+[[rules]]
+id = "test-fixtures"
+description = "Allow test fixtures and mock data"
+regex = '''(mock|test|fake)[-_]?(api[-_]?key|token|secret)'''
+path = '''tests/'''

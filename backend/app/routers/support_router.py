@@ -10,6 +10,7 @@ Handles support operations:
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, Dict
 
 import aiofiles
 from app.config.languages import SUPPORTED_LANGUAGES
@@ -68,7 +69,7 @@ async def report_bug(
     attachment: UploadFile = File(
         None, description="Optional file attachment (max 10MB)"
     ),
-):
+) -> Dict[str, Any]:
     """
     **Report a bug with optional attachment.**
 
@@ -154,7 +155,7 @@ async def report_bug(
 @router.post("/feedback/", status_code=status.HTTP_201_CREATED)
 async def submit_feedback(
     feedback: FeedbackRequest,
-):
+) -> Dict[str, Any]:
     """
     **Submit user feedback with star rating.**
 

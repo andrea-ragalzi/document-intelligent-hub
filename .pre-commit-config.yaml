@@ -1,0 +1,116 @@
+# Configurazione per la libreria 'pre-commit'
+# Esegue controlli statici e di sicurezza prima di ogni 'git commit'
+
+repos:
+  # ----------------------------------------------------------------------
+  # 1. Hook di Sicurezza CRITICO: Detect Secrets
+  # Questo hook cerca pattern noti di secrets (chiavi AWS, token API, ecc.)
+  # in qualsiasi file modificato. Il commit VIENE BLOCCATO se vengono trovati secrets.
+  # ----------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: detect-aws-credentials # Rileva chiavi AWS
+        args: ['--allow-missing-credentials']
+      - id: detect-private-key    # Rileva chiavi private RSA/DSA/EC
+        exclude: |
+          (?x)(
+              ^\.gitleaks\.toml$
+            | ^\.pre-commit-config\.yaml$
+          )
+
+  # ----------------------------------------------------------------------
+  # 2. Hook di Sicurezza Avanzato: Gitleaks (più aggressivo)
+  # Gitleaks è un linter specializzato per i secrets, con un database di
+  # pattern molto più ampio (chiavi Google, database, GitHub, ecc.).
+  # ----------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+        name: gitleaks (Secrets Scan)
+        entry: gitleaks protect --verbose --redact --staged
+        language: golang
+        pass_filenames: false
+
+  # ----------------------------------------------------------------------
+  # 3. Hook di Pulizia Codice (Opzionale ma Raccomandato)
+  # Questi hook sono utili per mantenere pulito il codice prima di Black/Prettier
+  # ----------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: check-yaml
+        exclude: |
+          (?x)(
+              \.github/workflows/
+          )
+      - id: check-json
+        exclude: |
+          (?x)(
+              ^\.vscode/settings\.json$
+            | tsconfig\.json$
+            | frontend/tsconfig\.json$
+          )
+      - id: end-of-file-fixer        # Aggiunge newline alla fine del file se mancante
+        exclude: |
+          (?x)(
+              ^backend/.venv/
+            | ^frontend/node_modules/
+            | ^frontend/.next/
+            | \.min\.(js|css)$
+            | \.lock$
+            | ^chroma_db/
+            | ^logs/
+          )
+      - id: trailing-whitespace      # Rimuove spazi bianchi in eccesso alla fine delle righe
+        exclude: |
+          (?x)(
+              ^backend/.venv/
+            | ^frontend/node_modules/
+            | ^frontend/.next/
+            | \.min\.(js|css)$
+            | \.lock$
+            | ^chroma_db/
+            | ^logs/
+          )
+      - id: check-executables-have-shebangs # Verifica gli script eseguibili
+      - id: check-added-large-files  # Blocca file > 500KB
+        args: ['--maxkb=500']
+      - id: check-merge-conflict     # Controlla marker di merge conflict
+      - id: check-case-conflict      # Rileva conflitti di case nei nomi file
+      - id: mixed-line-ending        # Normalizza line endings
+        args: ['--fix=lf']
+
+  # ----------------------------------------------------------------------
+  # 4. Python Linting (Backend)
+  # ----------------------------------------------------------------------
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: ['--config=backend/pyproject.toml']
+        files: ^backend/.*\.py$
+        exclude: |
+          (?x)(
+              ^backend/\.venv/
+            | ^backend/__pycache__/
+          )
+
+  # ----------------------------------------------------------------------
+  # 5. Frontend Linting (JavaScript/TypeScript)
+  # ----------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        types_or: [javascript, jsx, ts, tsx, json, css, scss, markdown]
+        exclude: |
+          (?x)(
+              ^frontend/node_modules/
+            | ^frontend/\.next/
+            | \.min\.(js|css)$
+            | package-lock\.json$
+          )
+        args: ['--config=frontend/.prettierrc']

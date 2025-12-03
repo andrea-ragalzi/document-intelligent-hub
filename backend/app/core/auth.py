@@ -63,7 +63,7 @@ def verify_firebase_token(authorization: str = Header(None)) -> str:
     # Verify token with Firebase Admin SDK
     try:
         decoded_token = auth.verify_id_token(token)
-        user_id = decoded_token["uid"]
+        user_id = str(decoded_token["uid"])
 
         # Optional: Log successful authentication (verbose mode only)
         logger.debug(f"✅ Token verified for user: {user_id}")
