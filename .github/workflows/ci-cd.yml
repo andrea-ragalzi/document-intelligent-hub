@@ -1,8 +1,67 @@
 name: CI/CD Pipeline
 
-# To disable CI/CD: Set CI_ENABLED to 'false' (line 4)
+# Quality Gate Mandatory Rules and Thresholds (Focus on "New Code")
+#
+# The Quality Gate (QG) must be configured to fail the build if any of the following
+# thresholds are not met in the New Code (i.e., lines added or modified in this Pull Request).
+#
+# I. Reliability and Security (Zero Tolerance)
+#
+# Metric                        | Condition for Success  | Objective
+# ------------------------------|------------------------|------------------------------------------
+# New Bugs                      | Less than 1 (i.e., 0)  | No critical or major bugs introduced
+# New Vulnerabilities           | Less than 1 (i.e., 0)  | No security vulnerabilities introduced
+# New Security Hotspots         | Less than 1 (i.e., 0)  | Not applicable. These should be reviewed, not block the QG
+#
+# II. Maintainability and Code Quality
+#
+# Metric                        | Condition for Success  | Objective
+# ------------------------------|------------------------|------------------------------------------
+# New Code Smells               | Less than 1 (i.e., 0)  | Keep technical debt at zero for new code
+# New Technical Debt Ratio      | Greater than 1.0       | Maintain maintainability
+#                               | (or absent if not      |
+#                               | using debt estimates)  |
+# New Duplication Density       | Less than 3.0%         | Avoid introducing copied code
+#
+# III. Test Coverage
+#
+# Metric                        | Condition for Success  | Objective
+# ------------------------------|------------------------|------------------------------------------
+# New Code Coverage             | Greater than 80%       | All new lines of code must have high test coverage
+#                               | (Ideal)                |
+# New Condition Coverage        | Greater than 75%       | Ensure conditional branches are covered
+#                               | (Ideal)                |
+#
+# Additional Note: By focusing on "New" metrics, we prevent quality degradation without
+# blocking work due to historical debt in old code.
+
+# Pipeline Architecture:
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │ PHASE 1: Quality Gate (Parallel)                                    │
+# │   ├─ Backend: Pylint (9.0), MyPy (strict), Lizard (CCN ≤ 15)      │
+# │   └─ Frontend: ESLint, TypeScript, Prettier                        │
+# ├─────────────────────────────────────────────────────────────────────┤
+# │ PHASE 2: Tests & Coverage (Parallel, depends on Quality Gate)      │
+# │   ├─ Backend: Pytest (≥ 80% coverage)                              │
+# │   └─ Frontend: Vitest (≥ 80% coverage)                             │
+# ├─────────────────────────────────────────────────────────────────────┤
+# │ PHASE 3: Build (Optional, disabled by default)                      │
+# │   ├─ Backend: Docker image                                          │
+# │   └─ Frontend: Docker image                                         │
+# ├─────────────────────────────────────────────────────────────────────┤
+# │ PHASE 4: Deploy (Only on main/develop)                              │
+# │   └─ Deploy to Production (main) or Staging (develop)              │
+# └─────────────────────────────────────────────────────────────────────┘
+
+# To disable CI/CD: Set CI_ENABLED to 'false'
 env:
   CI_ENABLED: "false"
+  # Configuration
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  PYLINT_THRESHOLD: 9.0
+  COMPLEXITY_THRESHOLD: 15
+  COVERAGE_THRESHOLD: 80
 
 on:
   push:
@@ -11,9 +70,11 @@ on:
     branches: [main]
 
 jobs:
-  # Check if CI is enabled
+  # ============================================================================
+  # INITIALIZATION
+  # ============================================================================
   check-ci:
-    name: Check CI Status
+    name: "🔍 Check CI Status"
     runs-on: ubuntu-latest
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
@@ -22,23 +83,140 @@ jobs:
         id: check
         run: echo "enabled=${{ env.CI_ENABLED }}" >> $GITHUB_OUTPUT
 
-  # Backend Tests
-  test-backend:
-    name: Test Backend
+  # ============================================================================
+  # PHASE 1: QUALITY GATE (Parallel Execution)
+  # ============================================================================
+  backend-quality-gate:
+    name: "🔒 Backend Quality Gate"
     runs-on: ubuntu-latest
     needs: check-ci
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
+    defaults:
+      run:
+        working-directory: ./backend
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: "🐍 Set up Python ${{ env.PYTHON_VERSION }}"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: "📦 Install Poetry"
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: "📚 Install dependencies"
+        run: poetry install --no-interaction --no-ansi
+
+      - name: "✨ Pylint (PEP 8 Enforcement)"
+        run: |
+          poetry run pylint app/ --rcfile=.pylintrc --fail-under=${{ env.PYLINT_THRESHOLD }} --exit-zero > pylint-report.txt
+          PYLINT_SCORE=$(poetry run pylint app/ --rcfile=.pylintrc --fail-under=${{ env.PYLINT_THRESHOLD }} | grep "Your code has been rated at" | awk '{print $7}' | cut -d'/' -f1)
+          echo "Pylint Score: $PYLINT_SCORE"
+          if (( $(echo "$PYLINT_SCORE < ${{ env.PYLINT_THRESHOLD }}" | bc -l) )); then
+            echo "❌ Pylint failed: Score $PYLINT_SCORE is below ${{ env.PYLINT_THRESHOLD }}"
+            cat pylint-report.txt
+            exit 1
+          fi
+          echo "✅ Pylint passed with score: $PYLINT_SCORE"
+
+      - name: "🔍 MyPy (Type Checking)"
+        run: |
+          poetry run mypy app/ --strict --pretty
+          if [ $? -ne 0 ]; then
+            echo "❌ Mypy type checking failed: Type errors detected"
+            exit 1
+          fi
+          echo "✅ Mypy type checking passed (strict mode)"
+
+      - name: "🧬 Lizard (Complexity Check)"
+        run: |
+          poetry run lizard app/ -l python -C ${{ env.COMPLEXITY_THRESHOLD }} -w -o lizard-report.txt
+          if [ $? -ne 0 ]; then
+            echo "❌ Lizard complexity check failed: Functions exceed CCN threshold of ${{ env.COMPLEXITY_THRESHOLD }}"
+            cat lizard-report.txt
+            exit 1
+          fi
+          echo "✅ Lizard complexity check passed (CCN ≤ ${{ env.COMPLEXITY_THRESHOLD }})"
+
+  frontend-quality-gate:
+    name: "🔒 Frontend Quality Gate"
+    runs-on: ubuntu-latest
+    needs: check-ci
+    if: ${{ needs.check-ci.outputs.enabled == 'true' }}
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "📦 Set up Node.js ${{ env.NODE_VERSION }}"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "./frontend/package-lock.json"
+
+      - name: "📚 Install dependencies"
+        run: npm ci
+
+      - name: "✨ ESLint (Quality & Style Check)"
+        run: |
+          npm run lint -- --max-warnings=0
+          if [ $? -ne 0 ]; then
+            echo "❌ ESLint failed: Critical errors or warnings found"
+            exit 1
+          fi
+          echo "✅ ESLint passed with zero errors/warnings"
+
+      - name: "🔍 TypeScript Type Check"
+        run: |
+          npx tsc --noEmit --pretty
+          if [ $? -ne 0 ]; then
+            echo "❌ TypeScript compilation failed: Type errors detected"
+            exit 1
+          fi
+          echo "✅ TypeScript type check passed"
+
+      - name: "💅 Prettier Format Check"
+        run: |
+          npx prettier --check "**/*.{ts,tsx,js,jsx,json,css,md}"
+          if [ $? -ne 0 ]; then
+            echo "❌ Prettier check failed: Code formatting issues detected"
+            exit 1
+          fi
+          echo "✅ Prettier format check passed"
+
+  # ============================================================================
+  # PHASE 2: TESTS & COVERAGE (Parallel Execution)
+  # ============================================================================
+  backend-tests:
+    name: "🧪 Backend Tests & Coverage"
+    runs-on: ubuntu-latest
+    needs: [check-ci, backend-quality-gate]
+    if: ${{ needs.check-ci.outputs.enabled == 'true' }}
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "🐍 Set up Python ${{ env.PYTHON_VERSION }}"
         id: setup-python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install Poetry
+      - name: "📦 Install Poetry"
         uses: snok/install-poetry@v1
         with:
           version: latest
@@ -46,116 +224,186 @@ jobs:
           virtualenvs-in-project: true
           installer-parallel: true
 
-      - name: Load cached venv
+      - name: "💾 Load cached venv"
         id: cached-poetry-dependencies
         uses: actions/cache@v4
         with:
           path: backend/.venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('backend/poetry.lock') }}
 
-      - name: Install dependencies
+      - name: "📚 Install dependencies"
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        working-directory: ./backend
         run: poetry install --no-interaction --no-root
 
-      - name: Install project
-        working-directory: ./backend
+      - name: "📦 Install project"
         run: poetry install --no-interaction
 
-      - name: Run tests with coverage
-        working-directory: ./backend
+      - name: "🧪 Run tests with coverage"
         env:
-          OPENAI_API_KEY: "sk-test-mock-key-for-ci"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-test-mock-key-for-ci' }}
         run: |
-          poetry run pytest --cov=app --cov-report=xml --cov-report=term
+          poetry run pytest --cov=app --cov-report=xml --cov-report=term --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
+          if [ $? -ne 0 ]; then
+            echo "❌ Tests failed or coverage below ${{ env.COVERAGE_THRESHOLD }}%"
+            exit 1
+          fi
+          echo "✅ All tests passed with coverage ≥ ${{ env.COVERAGE_THRESHOLD }}%"
 
-      - name: Upload coverage to Codecov
+      - name: "📊 Upload coverage to Codecov"
+        if: always()
         uses: codecov/codecov-action@v4
         with:
           file: ./backend/coverage.xml
           flags: backend
           name: backend-coverage
 
-  # Frontend Build Test
-  test-frontend:
-    name: Test Frontend Build
+  frontend-tests:
+    name: "🧪 Frontend Tests & Coverage"
     runs-on: ubuntu-latest
-    needs: check-ci
+    needs: [check-ci, frontend-quality-gate]
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
+    defaults:
+      run:
+        working-directory: ./frontend
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: "📦 Set up Node.js ${{ env.NODE_VERSION }}"
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
-        working-directory: ./frontend
+      - name: "📚 Install dependencies"
         run: npm ci
 
-      - name: Lint
-        working-directory: ./frontend
-        run: npm run lint
+      - name: "🧪 Run tests with coverage"
+        run: |
+          npm run test:coverage
+          if [ $? -ne 0 ]; then
+            echo "❌ Tests failed or coverage below ${{ env.COVERAGE_THRESHOLD }}%"
+            exit 1
+          fi
+          echo "✅ All tests passed with coverage ≥ ${{ env.COVERAGE_THRESHOLD }}%"
 
-      - name: Run tests with coverage
-        working-directory: ./frontend
-        run: npm run test:coverage
-
-      - name: Upload coverage to Codecov
+      - name: "📊 Upload coverage to Codecov"
+        if: always()
         uses: codecov/codecov-action@v4
         with:
           file: ./frontend/coverage/coverage-final.json
           flags: frontend
           name: frontend-coverage
 
-      - name: Build
-        working-directory: ./frontend
+      - name: "🏗️ Build application"
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/rag
         run: npm run build
 
-  # Docker Build Test (temporarily disabled)
+  # ============================================================================
+  # PHASE 3: BUILD (Optional - Disabled by default)
+  # ============================================================================
   docker-build:
-    name: Docker Build - ${{ matrix.service }}
+    name: "🐳 Docker Build - ${{ matrix.service }}"
     runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend]
-    if: false # Temporarily disabled - re-enable by changing to true
+    needs: [backend-tests, frontend-tests]
+    if: false # Enable by changing to: ${{ needs.check-ci.outputs.enabled == 'true' }}
     strategy:
       matrix:
         service: [backend, frontend]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: "🔧 Set up Docker Buildx"
         uses: docker/setup-buildx-action@v3
 
-      - name: Build ${{ matrix.service }} image
+      - name: "🐳 Build ${{ matrix.service }} image"
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: false
-          tags: document-hub-${{ matrix.service }}:test
+          tags: document-hub-${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           build-args: |
             BUILDKIT_INLINE_CACHE=1
 
-  # Deploy (optional - configure for your platform)
-  # deploy:
-  #   name: Deploy to Production
-  #   runs-on: ubuntu-latest
-  #   needs: [docker-build]
-  #   if: github.ref == 'refs/heads/main'
-  #
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #
-  #   - name: Deploy to Railway/Vercel/AWS
-  #     run: |
-  #       echo "Add your deployment commands here"
+  # ============================================================================
+  # PHASE 4: DEPLOY (Only on main/develop)
+  # ============================================================================
+  deploy:
+    name: "🚀 Deploy to ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}"
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: |
+      needs.check-ci.outputs.enabled == 'true' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "🚀 Deploy to ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}"
+        run: |
+          echo "🚀 Deploying to ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}..."
+          echo "📦 Branch: ${{ github.ref_name }}"
+          echo "🔖 Commit: ${{ github.sha }}"
+
+          # Add your deployment commands here
+          # Examples:
+          # - Railway: railway up
+          # - Vercel: vercel --prod
+          # - AWS: aws deploy ...
+          # - Docker: docker-compose up -d
+          # - Kubernetes: kubectl apply -f ...
+
+          echo "✅ Deployment completed successfully!"
+
+  # ============================================================================
+  # SUMMARY
+  # ============================================================================
+  ci-cd-summary:
+    name: "📊 Pipeline Summary"
+    runs-on: ubuntu-latest
+    needs:
+      [
+        backend-quality-gate,
+        frontend-quality-gate,
+        backend-tests,
+        frontend-tests,
+      ]
+    if: always() && needs.check-ci.outputs.enabled == 'true'
+
+    steps:
+      - name: "📊 Generate Pipeline Summary"
+        run: |
+          echo "# CI/CD Pipeline Results 📊" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Quality Gate & Tests Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Phase | Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔒 Quality Gate | Backend (Pylint, MyPy, Lizard) | ${{ needs.backend-quality-gate.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔒 Quality Gate | Frontend (ESLint, TypeScript, Prettier) | ${{ needs.frontend-quality-gate.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Tests | Backend (Pytest ≥ ${{ env.COVERAGE_THRESHOLD }}%) | ${{ needs.backend-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Tests | Frontend (Vitest ≥ ${{ env.COVERAGE_THRESHOLD }}%) | ${{ needs.frontend-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.backend-quality-gate.result }}" != "success" ] ||
+             [ "${{ needs.frontend-quality-gate.result }}" != "success" ] ||
+             [ "${{ needs.backend-tests.result }}" != "success" ] ||
+             [ "${{ needs.frontend-tests.result }}" != "success" ]; then
+            echo "## ❌ Pipeline Status: **FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the failed jobs above and fix the issues." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "## ✅ Pipeline Status: **SUCCESS**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All quality checks and tests passed successfully! 🎉" >> $GITHUB_STEP_SUMMARY
