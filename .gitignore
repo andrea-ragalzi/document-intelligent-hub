@@ -220,8 +220,7 @@ backend/config/*.txt
 **/config/*_prompt.txt
 **/config/rag_system_prompt.txt
 
-*.zip# MCP Config
-mcp.json
+*.zip
 
 # Quality Gate Reports
 scripts/report-data.json
