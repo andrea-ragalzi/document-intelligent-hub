@@ -14,6 +14,8 @@ Responsibilities:
 
 from typing import Any, List, Optional, Tuple
 
+from langchain_core.language_models import BaseChatModel
+
 from app.core.config import settings
 from app.core.constants import QueryConstants
 from app.core.logging import logger
@@ -23,7 +25,6 @@ from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.reranking_service import RerankingService
 from app.services.translation_service import TranslationService
-from langchain_core.language_models import BaseChatModel
 
 
 def _build_rag_prompt(context: str, question: str) -> str:
@@ -53,7 +54,7 @@ class AnswerGenerationService:
     Handles the complete RAG pipeline from retrieval to formatted response.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         llm: BaseChatModel,
         repository: VectorStoreRepository,
@@ -81,7 +82,7 @@ class AnswerGenerationService:
         self.query_expansion_service = query_expansion_service
         self.reranking_service = reranking_service
 
-    def generate_answer(
+    def generate_answer(  # pylint: disable=too-many-arguments
         self,
         query: str,
         user_id: str,
@@ -116,7 +117,13 @@ class AnswerGenerationService:
             logger.info(f"🚫 File filter: EXCLUDE {exclude_files}")
 
         # Detect languages
-        query_language_code = self.language_service.detect_language(query).upper()
+        try:
+            query_language_code = self.language_service.detect_language(query).upper()
+            logger.info(f"✅ Detected query language: {query_language_code}")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"❌ Failed to detect language: {e}")
+            query_language_code = "EN"
+
         target_response_language = (
             output_language.upper() if output_language else query_language_code
         )
@@ -127,10 +134,14 @@ class AnswerGenerationService:
 
         # Translate query for retrieval (English works best)
         if query_language_code != "EN":
-            translated_query = self.translation_service.translate_query_to_language(
-                query, "EN"
-            )
-            logger.info(f"🔄 Translated for retrieval: {translated_query[:100]}")
+            try:
+                translated_query = self.translation_service.translate_query_to_language(
+                    query, "EN"
+                )
+                logger.info(f"🔄 Translated for retrieval: {translated_query[:100]}")
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error(f"❌ Translation failed: {e}, using original query")
+                translated_query = query
         else:
             translated_query = query
 

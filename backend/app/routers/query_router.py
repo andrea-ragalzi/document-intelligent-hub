@@ -10,6 +10,9 @@ Handles query operations:
 import traceback
 from typing import Tuple
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from firebase_admin import auth
+
 from app.core.auth import verify_firebase_token
 from app.core.logging import logger
 from app.routers.auth_router import load_app_config
@@ -22,8 +25,6 @@ from app.schemas.rag_schema import (
 from app.services.query_parser_service import query_parser_service
 from app.services.rag_orchestrator_service import RAGService, get_rag_service
 from app.services.usage_tracking_service import UsageTrackingService, get_usage_service
-from fastapi import APIRouter, Depends, HTTPException, status
-from firebase_admin import auth
 
 
 def _get_user_tier_limits(user_id: str) -> Tuple[str, int]:
@@ -232,9 +233,12 @@ async def query_document(
         logger.error(f"Error message: {str(e)}")
         logger.error(f"Traceback:\n{traceback.format_exc()}")
         logger.error(f"{'='*80}")
+
+        # Return more detailed error message for debugging
+        error_detail = f"Failed to process query: {type(e).__name__}: {str(e)}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process query and retrieve answer.",
+            detail=error_detail,
         ) from e
 
 

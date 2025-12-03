@@ -8,8 +8,9 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from app.services.query_parser_service import FileFilterResponse, QueryParserService
 from langchain_core.output_parsers import StrOutputParser
+
+from app.services.query_parser_service import FileFilterResponse, QueryParserService
 
 
 @pytest.fixture
@@ -23,7 +24,9 @@ class TestFileFilterExtraction:
 
     @patch("app.services.query_parser_service.ChatOpenAI")
     @patch.object(StrOutputParser, "invoke")
-    def test_extract_include_filter_italian(self, mock_str_parser_invoke: Any) -> None:
+    def test_extract_include_filter_italian(
+        self, mock_str_parser_invoke: Any, mock_openai: Any
+    ) -> None:
         """Test extraction of INCLUDE filter from Italian query"""
         # Mock the output of the StrOutputParser step in the chain
         mock_response_content = """{
@@ -49,7 +52,9 @@ class TestFileFilterExtraction:
 
     @patch("app.services.query_parser_service.ChatOpenAI")
     @patch.object(StrOutputParser, "invoke")
-    def test_extract_exclude_filter_italian(self, mock_str_parser_invoke: Any) -> None:
+    def test_extract_exclude_filter_italian(
+        self, mock_str_parser_invoke: Any, mock_openai: Any
+    ) -> None:
         """Test extraction of EXCLUDE filter from Italian query"""
         # Mock the output of the StrOutputParser step
         mock_response_content = """{
@@ -75,7 +80,9 @@ class TestFileFilterExtraction:
 
     @patch("app.services.query_parser_service.ChatOpenAI")
     @patch.object(StrOutputParser, "invoke")
-    def test_extract_both_filters(self, mock_str_parser_invoke: Any) -> None:
+    def test_extract_both_filters(
+        self, mock_str_parser_invoke: Any, mock_openai: Any
+    ) -> None:
         """Test extraction of both INCLUDE and EXCLUDE filters"""
         # Mock the output of the StrOutputParser step
         mock_response_content = """{
@@ -104,7 +111,9 @@ class TestFileFilterExtraction:
 
     @patch("app.services.query_parser_service.ChatOpenAI")
     @patch.object(StrOutputParser, "invoke")
-    def test_no_filters_found(self, mock_str_parser_invoke: Any) -> None:
+    def test_no_filters_found(
+        self, mock_str_parser_invoke: Any, mock_openai: Any
+    ) -> None:
         """Test that no filters are found in a normal query"""
         # Mock the output of the StrOutputParser step
         mock_response_content = """{
@@ -176,7 +185,9 @@ class TestCaseInsensitiveMatching:
 
     @patch("app.services.query_parser_service.ChatOpenAI")
     @patch.object(StrOutputParser, "invoke")
-    def test_case_insensitive_include(self, mock_str_parser_invoke: Any) -> None:
+    def test_case_insensitive_include(
+        self, mock_str_parser_invoke: Any, mock_openai: Any
+    ) -> None:
         """Test case-insensitive filename matching for include filters"""
         # Mock LLM returns lowercase filename
         mock_response_content = """{
@@ -200,7 +211,9 @@ class TestCaseInsensitiveMatching:
 
     @patch("app.services.query_parser_service.ChatOpenAI")
     @patch.object(StrOutputParser, "invoke")
-    def test_case_insensitive_exclude(self, mock_str_parser_invoke: Any) -> None:
+    def test_case_insensitive_exclude(
+        self, mock_str_parser_invoke: Any, mock_openai: Any
+    ) -> None:
         """Test case-insensitive filename matching for exclude filters"""
         # Mock LLM returns mixed case filename
         mock_response_content = """{
@@ -223,7 +236,9 @@ class TestCaseInsensitiveMatching:
 
     @patch("app.services.query_parser_service.ChatOpenAI")
     @patch.object(StrOutputParser, "invoke")
-    def test_non_existent_file_is_ignored(self, mock_str_parser_invoke: Any) -> None:
+    def test_non_existent_file_is_ignored(
+        self, mock_str_parser_invoke: Any, mock_openai: Any
+    ) -> None:
         """Test that non-existent files in the query are ignored"""
         # Mock LLM returns a file that is not in the available list
         mock_response_content = """{

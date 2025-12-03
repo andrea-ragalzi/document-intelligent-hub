@@ -7,10 +7,11 @@ Tracks user queries per day in Firestore and enforces tier limits.
 from datetime import datetime, timezone
 from typing import Any
 
-from app.core.logging import logger
 from firebase_admin import firestore
 from google.cloud.firestore import transactional as firestore_transactional
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+
+from app.core.logging import logger
 
 
 class UsageTrackingService:
@@ -47,7 +48,8 @@ class UsageTrackingService:
 
             # Get today's query count
             queries_today = data.get("queries", {}).get(today, 0)
-            return int(queries_today)
+            # Handle None values from Firestore
+            return int(queries_today) if queries_today is not None else 0
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error getting user queries: {e}")
@@ -71,13 +73,15 @@ class UsageTrackingService:
             transaction = self.db.transaction()
 
             @firestore_transactional  # type: ignore[untyped-decorator]
-            def update_in_transaction(transaction: Any, ref: Any) -> None:
+            def update_in_transaction(transaction: Any, ref: Any) -> int:
                 snapshot = ref.get(transaction=transaction)
 
                 if snapshot.exists:
                     data = snapshot.to_dict() or {}
                     queries = data.get("queries", {})
                     current_count = queries.get(today, 0)
+                    # Handle None values from Firestore
+                    current_count = current_count if current_count is not None else 0
                     new_count = current_count + 1
                     queries[today] = new_count
                     transaction.update(
@@ -88,14 +92,16 @@ class UsageTrackingService:
                             "updated_at": SERVER_TIMESTAMP,
                         },
                     )
-                else:
-                    new_data = {
-                        "queries": {today: 1},
-                        "last_query_at": SERVER_TIMESTAMP,
-                        "created_at": SERVER_TIMESTAMP,
-                        "updated_at": SERVER_TIMESTAMP,
-                    }
-                    transaction.set(ref, new_data)
+                    return new_count
+
+                new_data = {
+                    "queries": {today: 1},
+                    "last_query_at": SERVER_TIMESTAMP,
+                    "created_at": SERVER_TIMESTAMP,
+                    "updated_at": SERVER_TIMESTAMP,
+                }
+                transaction.set(ref, new_data)
+                return 1
 
             new_count = update_in_transaction(transaction, usage_ref)
             logger.info(f"📊 User {user_id} queries today: {new_count}")

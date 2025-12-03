@@ -416,6 +416,53 @@ class TestUsageServiceEdgeCases:
         # Should handle gracefully and return 0
         assert result == 0
 
+    def test_get_queries_with_none_value(
+        self, usage_service: Any, mock_firestore_db: Any
+    ) -> Any:
+        """Test handling None value in queries field (regression test for TypeError)"""
+        today_key = usage_service._get_today_key()
+
+        user_doc = MagicMock()
+        user_doc.exists = True
+        user_doc.to_dict.return_value = {
+            "queries": {today_key: None}  # None value from Firestore
+        }
+
+        doc_ref = MagicMock()
+        doc_ref.get.return_value = user_doc
+
+        mock_firestore_db.collection.return_value.document.return_value = doc_ref
+
+        result = usage_service.get_user_queries_today("user123")
+
+        # Should handle None gracefully and return 0
+        assert result == 0
+
+    def test_get_queries_with_mixed_none_values(
+        self, usage_service: Any, mock_firestore_db: Any
+    ) -> Any:
+        """Test handling mixed None and valid values"""
+        today_key = usage_service._get_today_key()
+
+        user_doc = MagicMock()
+        user_doc.exists = True
+        user_doc.to_dict.return_value = {
+            "queries": {
+                today_key: None,  # Today is None
+                "2025-11-23": 10,  # Yesterday has value
+            }
+        }
+
+        doc_ref = MagicMock()
+        doc_ref.get.return_value = user_doc
+
+        mock_firestore_db.collection.return_value.document.return_value = doc_ref
+
+        result = usage_service.get_user_queries_today("user123")
+
+        # Should handle None for today and return 0
+        assert result == 0
+
     def test_check_limit_with_negative_limit(self, usage_service: Any) -> None:
         """Test checking limit with negative limit value"""
         with patch.object(usage_service, "get_user_queries_today", return_value=5):
