@@ -16,7 +16,7 @@ import {
   Timestamp,
   serverTimestamp,
 } from "firebase/firestore";
-import { db, auth } from "./firebase";
+import { getFirebaseAuth, getFirebaseDb } from "./firebase";
 import type { SavedConversation, ChatMessage } from "./types";
 
 const CONVERSATIONS_COLLECTION = "conversations";
@@ -36,7 +36,7 @@ export async function saveConversationToFirestore(
 
   try {
     // Verify authentication
-    const currentUser = auth.currentUser;
+    const currentUser = getFirebaseAuth().currentUser;
     if (!currentUser) {
       console.error("❌ No authenticated user found");
       throw new Error("User must be authenticated to save conversations");
@@ -60,7 +60,7 @@ export async function saveConversationToFirestore(
 
     console.log("📤 Adding document to Firestore...");
     console.log("  Collection:", CONVERSATIONS_COLLECTION);
-    console.log("  Database:", db);
+    console.log("  Database:", getFirebaseDb());
     console.log("  ConversationData:", {
       userId,
       name,
@@ -68,7 +68,7 @@ export async function saveConversationToFirestore(
     });
 
     try {
-      const collectionRef = collection(db, CONVERSATIONS_COLLECTION);
+      const collectionRef = collection(getFirebaseDb(), CONVERSATIONS_COLLECTION);
       console.log("  Collection reference:", collectionRef);
 
       const docRef = await addDoc(collectionRef, conversationData);
@@ -121,7 +121,7 @@ export async function loadConversationsFromFirestore(userId: string): Promise<Sa
     // Simplified query without orderBy to avoid index requirement
     // TODO: Add orderBy when index is created
     const q = query(
-      collection(db, CONVERSATIONS_COLLECTION),
+      collection(getFirebaseDb(), CONVERSATIONS_COLLECTION),
       where("userId", "==", userId)
       // orderBy("createdAt", "desc") // Temporarily commented
     );
@@ -177,7 +177,7 @@ export async function loadConversationsFromFirestore(userId: string): Promise<Sa
  */
 export async function deleteConversationFromFirestore(conversationId: string): Promise<void> {
   try {
-    await deleteDoc(doc(db, CONVERSATIONS_COLLECTION, conversationId));
+    await deleteDoc(doc(getFirebaseDb(), CONVERSATIONS_COLLECTION, conversationId));
   } catch (error) {
     console.error("Error deleting conversation from Firestore:", error);
     throw new Error("Failed to delete conversation");
@@ -196,7 +196,7 @@ export async function updateConversationNameInFirestore(
   console.log("  New name:", newName);
 
   try {
-    const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
+    const conversationRef = doc(getFirebaseDb(), CONVERSATIONS_COLLECTION, conversationId);
     await updateDoc(conversationRef, {
       name: newName,
       updatedAt: serverTimestamp(),
@@ -229,14 +229,14 @@ export async function updateConversationHistoryInFirestore(
 
   try {
     // Check authentication status
-    const currentUser = auth.currentUser;
+    const currentUser = getFirebaseAuth().currentUser;
     if (!currentUser) {
       console.error("❌ No authenticated user found");
       throw new Error("User must be authenticated to update conversations");
     }
     console.log("✅ Authenticated user:", currentUser.uid);
 
-    const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
+    const conversationRef = doc(getFirebaseDb(), CONVERSATIONS_COLLECTION, conversationId);
     const updateData: {
       history: ChatMessage[];
       updatedAt: ReturnType<typeof serverTimestamp>;

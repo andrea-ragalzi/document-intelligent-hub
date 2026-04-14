@@ -11,7 +11,7 @@ import {
   onAuthStateChanged,
   User,
 } from "firebase/auth";
-import { auth } from "./firebase";
+import { getFirebaseAuth } from "./firebase";
 
 /**
  * Sign in anonymously for development/demo purposes
@@ -19,7 +19,7 @@ import { auth } from "./firebase";
 export async function signInAnonymous(): Promise<User> {
   try {
     console.log("🔐 Signing in anonymously...");
-    const result = await signInAnonymously(auth);
+    const result = await signInAnonymously(getFirebaseAuth());
     console.log("✅ Anonymous sign-in successful:", result.user.uid);
     return result.user;
   } catch (error) {
@@ -34,7 +34,7 @@ export async function signInAnonymous(): Promise<User> {
 export async function signInWithEmail(email: string, password: string): Promise<User> {
   try {
     console.log("🔐 Signing in with email...");
-    const result = await signInWithEmailAndPassword(auth, email, password);
+    const result = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
     console.log("✅ Email sign-in successful:", result.user.uid);
     return result.user;
   } catch (error) {
@@ -49,7 +49,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
 export async function signUpWithEmail(email: string, password: string): Promise<User> {
   try {
     console.log("🔐 Creating new user...");
-    const result = await createUserWithEmailAndPassword(auth, email, password);
+    const result = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
     console.log("✅ User created successfully:", result.user.uid);
     return result.user;
   } catch (error) {
@@ -64,7 +64,7 @@ export async function signUpWithEmail(email: string, password: string): Promise<
 export async function signOut(): Promise<void> {
   try {
     console.log("🔐 Signing out...");
-    await firebaseSignOut(auth);
+    await firebaseSignOut(getFirebaseAuth());
     console.log("✅ Sign-out successful");
   } catch (error) {
     console.error("❌ Sign-out failed:", error);
@@ -76,14 +76,14 @@ export async function signOut(): Promise<void> {
  * Get current authenticated user
  */
 export function getCurrentUser(): User | null {
-  return auth.currentUser;
+  return getFirebaseAuth().currentUser;
 }
 
 /**
  * Listen to authentication state changes
  */
 export function onAuthChange(callback: (user: User | null) => void): () => void {
-  return onAuthStateChanged(auth, callback);
+  return onAuthStateChanged(getFirebaseAuth(), callback);
 }
 
 /**
@@ -91,7 +91,7 @@ export function onAuthChange(callback: (user: User | null) => void): () => void 
  */
 export async function getCurrentUserId(): Promise<string> {
   return new Promise((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(auth, user => {
+    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), user => {
       unsubscribe();
       if (user) {
         resolve(user.uid);
