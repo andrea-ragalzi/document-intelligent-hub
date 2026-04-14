@@ -1,4 +1,4 @@
-.PHONY: help setup build up down restart logs test clean prune
+.PHONY: help setup build build-frontend build-backend up down restart logs test clean prune
 
 # Default target
 help:
@@ -39,14 +39,26 @@ setup:
 	@./setup.sh
 
 # Build images
+# Frontend requires NEXT_PUBLIC_* vars from frontend/.env.local at build time.
+# docker compose --env-file passes them for build arg substitution without touching runtime env.
 build:
-	@echo "🔨 Building Docker images..."
-	docker-compose build --no-cache
+	@echo "🔨 Building backend image..."
+	docker compose build --no-cache backend
+	@echo "🔨 Building frontend image (with Firebase config)..."
+	docker compose --env-file frontend/.env.local build --no-cache frontend
+
+build-frontend:
+	@echo "🔨 Building frontend image (with Firebase config)..."
+	docker compose --env-file frontend/.env.local build --no-cache frontend
+
+build-backend:
+	@echo "🔨 Building backend image..."
+	docker compose build --no-cache backend
 
 # Start services
 up:
 	@echo "▶️  Starting services..."
-	docker-compose up -d
+	docker compose up -d
 	@echo "✅ Services started"
 	@echo "   Frontend: http://localhost:3000"
 	@echo "   Backend:  http://localhost:8000"
@@ -55,24 +67,24 @@ up:
 # Stop services
 down:
 	@echo "⏸️  Stopping services..."
-	docker-compose down
+	docker compose down
 	@echo "✅ Services stopped"
 
 # Restart services
 restart:
 	@echo "🔄 Restarting services..."
-	docker-compose restart
+	docker compose restart
 	@echo "✅ Services restarted"
 
 # View logs
 logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 logs-backend:
-	docker-compose logs -f backend
+	docker compose logs -f backend
 
 logs-frontend:
-	docker-compose logs -f frontend
+	docker compose logs -f frontend
 
 # Development mode (with hot reload)
 dev-backend:
@@ -88,30 +100,30 @@ dev-frontend:
 # Testing
 test:
 	@echo "🧪 Running all tests..."
-	docker-compose exec backend pytest -v
+	docker compose exec backend pytest -v
 
 test-backend:
 	@echo "🧪 Running backend tests..."
-	docker-compose exec backend pytest tests/ -v
+	docker compose exec backend pytest tests/ -v
 
 test-coverage:
 	@echo "🧪 Running tests with coverage..."
-	docker-compose exec backend pytest --cov=app --cov-report=html --cov-report=term
+	docker compose exec backend pytest --cov=app --cov-report=html --cov-report=term
 	@echo "📊 Coverage report: backend/htmlcov/index.html"
 
 # Shell access
 shell-backend:
 	@echo "🐚 Accessing backend container..."
-	docker-compose exec backend sh
+	docker compose exec backend sh
 
 shell-frontend:
 	@echo "🐚 Accessing frontend container..."
-	docker-compose exec frontend sh
+	docker compose exec frontend sh
 
 # Cleanup
 clean:
 	@echo "🧹 Cleaning up containers..."
-	docker-compose down
+	docker compose down
 	@echo "✅ Containers removed (volumes preserved)"
 
 prune:
@@ -119,7 +131,7 @@ prune:
 	@read -p "Are you sure? [y/N] " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker-compose down -v; \
+		docker compose down -v; \
 		echo "✅ All containers and volumes removed"; \
 	else \
 		echo "❌ Cancelled"; \
@@ -128,7 +140,7 @@ prune:
 # Status check
 status:
 	@echo "📊 Service Status:"
-	@docker-compose ps
+	@docker compose ps
 
 # Health check
 health:
