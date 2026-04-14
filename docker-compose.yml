@@ -1,25 +1,24 @@
-version: '3.8'
-
 services:
   # Backend FastAPI Service
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
     container_name: document-hub-backend
     ports:
       - "8000:8000"
     environment:
-      # OpenAI API Key (required)
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
       # Application settings
       - APP_NAME=Document Intelligent Hub
       - PROJECT_NAME=Document Intelligent Hub Backend
       - VERSION=1.0.0
       # RAG Configuration
       - CHROMA_DB_PATH=/app/chroma_db
-      - EMBEDDING_MODEL=text-embedding-ada-002
       - LLM_MODEL=gpt-3.5-turbo
+      # Firebase credentials
+      - FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase-service-account.json
       # Python settings
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
@@ -28,11 +27,19 @@ services:
       - chroma_data:/app/chroma_db
       # Mount uploads directory (if needed)
       - ./backend/uploads:/app/uploads
+      # Mount Firebase service account credentials (read-only)
+      - ./backend/app/config/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     networks:
       - app-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/', timeout=2)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8000/', timeout=2)",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -43,6 +50,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}
+        - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        - NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+        - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+        - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+        - NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID}
     container_name: document-hub-frontend
     ports:
       - "3000:3000"
@@ -58,7 +72,13 @@ services:
       - app-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
