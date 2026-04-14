@@ -41,8 +41,12 @@ async def lifespan(
     logger.info(f"🤖 LLM Model: {settings.LLM_MODEL}")
     logger.info(f"🧠 Embedding Model: {settings.EMBEDDING_MODEL_NAME}")
 
-    # Initialize Firebase
-    initialize_firebase()
+    # Initialize Firebase (optional — app starts without it, auth endpoints won't register)
+    try:
+        initialize_firebase()
+    except ValueError as e:
+        logger.warning(f"⚠️ Firebase not initialized: {e}")
+        logger.warning("⚠️ Authentication endpoints will be unavailable")
 
     # Verify ChromaDB connection and preload models
     try:
