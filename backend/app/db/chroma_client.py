@@ -12,12 +12,13 @@ Architecture: Dependency Injection pattern for microservices-ready architecture
 
 from typing import Generator
 
-from app.core.config import settings
-from app.core.logging import logger
 from chromadb import Collection, PersistentClient
 from chromadb.api import ClientAPI
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+
+from app.core.config import settings
+from app.core.logging import logger
 
 # Collection name - equivalent to a "table" in traditional databases
 COLLECTION_NAME: str = "document_intelligence_collection"

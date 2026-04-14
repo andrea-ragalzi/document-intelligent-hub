@@ -29,6 +29,8 @@ sendgrid = "^6.12.5"
 python-dotenv = "^1.2.1"
 firebase-admin = "^7.1.0"
 aiofiles = "^25.1.0"
+loguru = "^0.7.0"
+sentence-transformers = "^3.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
