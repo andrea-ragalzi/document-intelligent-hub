@@ -34,7 +34,13 @@ async def lifespan(app: FastAPI):
     logger.info(f"🧠 Embedding Model: {settings.EMBEDDING_MODEL_NAME}")
 
     # Initialize Firebase
-    initialize_firebase()
+    try:
+        initialize_firebase()
+    except ValueError as e:
+        logger.warning(f"⚠️ Firebase not initialized: {e}")
+        logger.warning(
+            "⚠️ Authentication endpoints will not work without Firebase credentials"
+        )
 
     # Verify ChromaDB connection and preload models
     try:
