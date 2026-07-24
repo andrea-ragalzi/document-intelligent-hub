@@ -142,7 +142,7 @@ install-backend:
 
 install-frontend:
 	@echo "📦 Installing frontend dependencies..."
-	cd frontend && npm install
+	cd frontend && npm ci
 
 # Format code
 format-backend:
