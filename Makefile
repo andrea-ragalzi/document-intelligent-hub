@@ -76,7 +76,7 @@ dev-backend:
 	@echo "🔧 Starting backend in development mode..."
 	@echo "   Backend will be accessible at: http://0.0.0.0:8000"
 	@echo "   Use your local IP for mobile access"
-	cd backend && source venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	cd backend && poetry run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 dev-frontend:
 	@echo "🔧 Starting frontend in development mode..."
@@ -138,7 +138,7 @@ health:
 # Install dependencies (local development)
 install-backend:
 	@echo "📦 Installing backend dependencies..."
-	cd backend && pip install -e .
+	cd backend && poetry install --no-root
 
 install-frontend:
 	@echo "📦 Installing frontend dependencies..."
