@@ -11,13 +11,10 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 
 ## What It Does
 
-- Authenticates users with Firebase and protects document/query endpoints with verified ID tokens.
-- Uploads, validates, parses, and indexes PDF documents.
-- Lists and deletes the authenticated user's indexed documents.
-- Answers natural-language questions using retrieved document context.
-- Returns source filenames with each grounded answer.
-- Supports file-aware queries, multilingual input/output, and conversation context.
-- Persists saved conversations in Firestore through the Next.js client.
+- Authenticated users can upload, manage, and search private PDF collections.
+- Natural-language questions are answered from retrieved document context, with source filenames returned for grounding.
+- File-aware and multilingual queries support conversations over indexed documents.
+- Saved conversations are persisted in Firestore through the client application.
 
 ## Backend Engineering Highlights
 
@@ -32,15 +29,10 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 
 ## Key Capabilities
 
-- Authenticated PDF upload and document lifecycle operations
 - Structural or fixed-size chunking selected from document characteristics
-- Persistent vector storage with per-user and optional filename filters
-- Local `all-MiniLM-L6-v2` embeddings
-- Conversational query reformulation and multi-query expansion
+- Persistent vector storage with optional filename filters
 - Lightweight rank-and-term-frequency reranking
 - Language detection, translated retrieval, and configurable answer language
-- RAG answers with source filenames
-- Firestore conversation persistence and usage tracking
 - Responsive Next.js client for document management and chat
 
 ## Architecture
@@ -71,7 +63,7 @@ Firebase handles identity, while Firestore stores conversations and backend usag
 
 ## RAG Pipeline
 
-### Document indexing
+### Document Indexing
 
 ```text
 Authenticated PDF upload
@@ -84,7 +76,7 @@ Authenticated PDF upload
 → batched ChromaDB indexing
 ```
 
-### Query and answer generation
+### Query and Answer Generation
 
 ```text
 Firebase token verification
@@ -166,7 +158,7 @@ Prerequisites: Python 3.12, Poetry, Node.js with npm, an OpenAI API key, and a F
    - Frontend: http://127.0.0.1:3000
    - FastAPI documentation: http://127.0.0.1:8000/docs
 
-See the [backend handbook](backend/README.md) for backend-specific details. A dedicated frontend handbook is planned for the next documentation pass.
+See the [backend handbook](backend/README.md) and [frontend handbook](frontend/README.md) for component-specific details.
 
 ## Repository Structure
 
@@ -194,20 +186,15 @@ document-intelligent-hub/
 
 ## Current Status & Limitations
 
-- The application requires external Firebase and OpenAI configuration. Retrieved document context is sent to the configured OpenAI model during answer generation.
-- User separation in ChromaDB is enforced at the application layer through metadata filters in a shared collection; cross-user isolation should continue to be covered by integration tests.
+- Full RAG usage requires external Firebase and OpenAI configuration.
 - The FastAPI backend returns a complete JSON answer. The frontend then emits that completed text character by character, so this is not end-to-end model streaming.
-- A summarization endpoint and frontend hook exist, but automatic conversation summarization is not connected to the active dashboard flow.
-- Dockerfiles and a Compose configuration are present, but a clean-clone Docker workflow has not been verified as part of this documentation reset and is not presented as production deployment.
-- Automated test suites exist, but their current full pass status and coverage were not verified in this pass. The repository's CI workflow is currently disabled.
+- Dockerfiles and a Compose configuration are present, but the complete clean-clone deployment workflow has not yet been verified.
 - Source attribution is currently filename-level rather than page-level citation.
-- The repository is a local-development portfolio project and does not claim production readiness or measured scalability.
 
 ## Component Documentation
 
-- [Backend handbook](backend/README.md) — current backend overview; scheduled for a separate documentation pass.
-- [Frontend handbook](frontend/README.md) — planned, but not yet present on this branch.
-- The tracked GitHub Wiki contains historical material under review and should not currently be treated as the source of truth.
+- [Backend handbook](backend/README.md)
+- [Frontend handbook](frontend/README.md)
 
 ## Author
 
