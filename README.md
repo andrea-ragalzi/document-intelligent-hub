@@ -1,263 +1,221 @@
-# 🧠 Document Intelligent Hub
+# Document Intelligent Hub
 
-Full-Stack AI-powered RAG (Retrieval-Augmented Generation) application providing secure, semantic Q&A over proprietary documents. Built with FastAPI, LangChain, ChromaDB, and Next.js with Multi-Tenancy support.
+Document Intelligent Hub is an independently built, full-stack application for people and teams who need to search private PDF collections and ask questions grounded in their own documents. Its core is a Python 3.12 and FastAPI REST API that authenticates users with Firebase, indexes document content in ChromaDB with local HuggingFace embeddings, and returns RAG-generated answers with the source filenames used as context.
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-16.0-000000?style=flat&logo=next.js)](https://nextjs.org/)
+The project is full-stack but intentionally backend-heavy. It demonstrates authenticated API design, third-party integrations, document-processing workflows, application-level user isolation, maintainable service boundaries, and automated testing around an applied Retrieval-Augmented Generation (RAG) system.
+
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat&logo=python)](https://www.python.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://www.docker.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.121-009688?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 
----
+## What It Does
 
-## 🚀 Quick Start
+- Authenticates users with Firebase and protects document/query endpoints with verified ID tokens.
+- Uploads, validates, parses, and indexes PDF documents.
+- Lists and deletes the authenticated user's indexed documents.
+- Answers natural-language questions using retrieved document context.
+- Returns source filenames with each grounded answer.
+- Supports file-aware queries, multilingual input/output, and conversation context.
+- Persists saved conversations in Firestore through the Next.js client.
 
-### Docker (Recommended)
+## Backend Engineering Highlights
 
-```bash
-# Clone and setup
-git clone https://github.com/andrea-ragalzi/document-intelligent-hub.git
-cd document-intelligent-hub
+- **REST API design:** FastAPI routers and Pydantic schemas define authentication, document, query, usage, and support contracts, with OpenAPI documentation available at runtime.
+- **Authentication boundary:** Firebase Admin verifies bearer tokens; protected routes derive the user ID from the verified token rather than trusting a client-selected owner.
+- **Backend integrations:** the service coordinates Firebase, Firestore, OpenAI, ChromaDB, local HuggingFace embeddings, and SendGrid-backed support workflows.
+- **Maintainable boundaries:** HTTP handling, schemas, application services, vector-store access, configuration, and dependency construction are separated under `backend/app/`.
+- **Multi-user isolation:** indexed chunks carry the verified Firebase user ID in metadata, and repository operations apply that metadata filter when listing, retrieving, and deleting documents.
+- **Document processing:** PDF parsing, document classification, adaptive chunking, language detection, metadata enrichment, batch indexing, and cleanup are isolated in dedicated services.
+- **Applied RAG:** query parsing, conditional reformulation, expansion, filtered retrieval, local reranking, answer generation, and source extraction form an explicit pipeline.
+- **Automated tests:** pytest covers backend services, repositories, authentication helpers, and API behavior; Vitest and React Testing Library cover frontend hooks, stores, and components.
 
-# Configure environment
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+## Key Capabilities
 
-# Start services
-docker-compose up -d --build
-```
+- Authenticated PDF upload and document lifecycle operations
+- Structural or fixed-size chunking selected from document characteristics
+- Persistent vector storage with per-user and optional filename filters
+- Local `all-MiniLM-L6-v2` embeddings
+- Conversational query reformulation and multi-query expansion
+- Lightweight rank-and-term-frequency reranking
+- Language detection, translated retrieval, and configurable answer language
+- RAG answers with source filenames
+- Firestore conversation persistence and usage tracking
+- Responsive Next.js client for document management and chat
 
-**Access:**
+## Architecture
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-
-### Local Development
-
-```bash
-# Install pre-commit hooks (first time only)
-pip install pre-commit
-pre-commit install
-
-# Backend
-cd backend
-python -m venv venv && source venv/bin/activate
-pip install -e .
-uvicorn main:app --reload
-
-# Frontend (new terminal)
-cd frontend
-npm install && npm run dev
-```
-
-> **Note:** Pre-commit hooks will automatically check for secrets and code quality issues before each commit.
-
----
-
-## ✨ Key Features
-
-- 🔐 **Multi-Tenant Architecture** - Secure data isolation per user with Firebase authentication
-- 📄 **PDF Processing** - Upload and index PDF documents with hierarchical structure awareness
-- 🤖 **AI-Powered Q&A** - GPT-based intelligent answers from your documents
-- 🧠 **Conversation Memory** - Hybrid short-term + long-term memory for context-aware dialogues
-- 💬 **Smart Chat History** - Last 7 exchanges automatically included for coherent conversations
-- 📝 **Auto-Summarization** - LLM-generated summaries every 20 messages for long-term context
-- 🎨 **Modern UI** - Responsive Next.js with dark mode and beautiful landing page
-- 🚀 **Real-time Responses** - Streaming AI responses with Vercel AI SDK
-- 🔍 **Semantic Search** - ChromaDB vector store with multi-query retrieval
-- 🌍 **Multi-Language Support** - Automatic translation for queries and responses
-- 🐳 **Docker Ready** - One-command deployment with docker-compose
-
----
-
-## 📚 Documentation
-
-**📖 [View Complete Documentation on Wiki](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki)**
-
-### Quick Links
-
-- **Getting Started**
-
-  - [Installation Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Installation-Guide)
-  - [Quick Start Tutorial](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Quick-Start)
-  - [Configuration Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Configuration)
-
-- **Architecture**
-
-  - [Project Structure](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Project-Structure)
-  - [Backend Architecture](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Backend-Architecture)
-  - [Frontend Architecture](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Frontend-Architecture)
-  - [State Management](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/State-Management)
-
-- **Features**
-
-  - [RAG Chat System](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/RAG-Chat-System)
-  - [Document Upload](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Document-Upload)
-  - [Conversation Management](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Conversation-Management)
-
-- **Development**
-
-  - [Development Workflow](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Development-Workflow)
-  - [Testing Guide](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Testing-Guide)
-  - [Contributing Guidelines](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Contributing-Guidelines)
-
-- **Deployment**
-
-  - [Docker Deployment](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Docker-Deployment)
-  - [Production Deployment](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Production-Deployment)
-
-- **Reference**
-  - [API Endpoints](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/API-Endpoints)
-  - [Environment Variables](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Environment-Variables)
-  - [Common Issues](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Common-Issues)
-
----
-
-## 🏗️ Architecture Overview
-
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
-│                   Frontend (Next.js 16)                      │
-│  • React 19 + TypeScript                                    │
-│  • Zustand + TanStack Query (State Management)              │
-│  • Tailwind CSS + Dark Mode                                 │
-│  • Vercel AI SDK for Streaming                              │
-│  • Firebase (Auth + Firestore)                              │
-└────────────────┬────────────────────────────────────────────┘
-                 │ REST API
-┌────────────────▼────────────────────────────────────────────┐
-│                  Backend (FastAPI + Python)                  │
-│  • LangChain + OpenAI GPT                                    │
-│  • Multi-tenant RAG Pipeline                                 │
-│  • PDF Processing                                            │
-└────────────────┬────────────────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────────────────┐
-│                ChromaDB (Vector Database)                    │
-│  • Persistent storage                                        │
-│  • Metadata filtering per user                               │
-│  • Embedding-based semantic search                           │
-└──────────────────────────────────────────────────────────────┘
+│ Next.js 16 + TypeScript                                     │
+│                                                             │
+│ • Firebase Authentication                                   │
+│ • Firestore conversation persistence                        │
+│ • Document management and chat UI                           │
+└───────────────────────┬─────────────────────────────────────┘
+                        │ REST API + Firebase bearer token
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│ FastAPI + Pydantic                                          │
+│                                                             │
+│ Routers → Services → Repository                             │
+│    │          │          │                                  │
+│    │          │          └─ ChromaDB                        │
+│    │          ├─ OpenAI chat models                         │
+│    │          └─ HuggingFace embeddings                     │
+│    └─ Firebase Admin / Firestore                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
----
+Firebase handles identity, while Firestore stores conversations and backend usage/configuration data. ChromaDB stores PDF chunks and embeddings. OpenAI is used for language-model operations; document embeddings are generated locally with HuggingFace Sentence Transformers.
 
-## 🛠️ Tech Stack
+## RAG Pipeline
 
-### Backend
+### Document indexing
 
-- **FastAPI** - Modern Python web framework
-- **LangChain** - LLM orchestration
-- **OpenAI** - GPT models for generation
-- **ChromaDB** - Vector database
-- **PyPDF** - PDF text extraction
+```text
+Authenticated PDF upload
+→ file validation and temporary-file handling
+→ element extraction with UnstructuredPDFLoader
+→ document classification and structural-density check
+→ structural or fixed-size chunking
+→ ownership, filename, language, section, and timestamp metadata
+→ local HuggingFace embeddings
+→ batched ChromaDB indexing
+```
 
-### Frontend
+### Query and answer generation
 
-- **Next.js 16** - React framework with App Router & Turbopack
-- **TypeScript** - Type-safe JavaScript
-- **Zustand** - Lightweight state management
-- **TanStack Query** - Server state management with caching
-- **Tailwind CSS** - Utility-first styling
-- **Vercel AI SDK** - Streaming chat responses
-- **Firebase** - Authentication & Firestore database
+```text
+Firebase token verification
+→ natural-language file-filter extraction
+→ conditional query reformulation from conversation context
+→ query-language detection and retrieval-language handling
+→ alternative-query generation
+→ ChromaDB retrieval filtered by verified user metadata
+→ duplicate removal and local reranking
+→ prompt construction with retrieved context and conversation history
+→ OpenAI answer generation
+→ source-filename extraction and API response
+```
 
-### DevOps
+The API returns source filenames, not page-level citations or retrieval scores.
 
-- **Docker** - Containerization
-- **Docker Compose** - Multi-container orchestration
-- **pytest** - Python testing
-- **Vitest** - Frontend testing
+## Tech Stack
 
----
+| Area                 | Technologies                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------- |
+| Backend              | Python 3.12, FastAPI, Uvicorn, Pydantic Settings                                                        |
+| RAG and integrations | LangChain, OpenAI, ChromaDB, HuggingFace Sentence Transformers, Unstructured, Firebase Admin, Firestore |
+| Frontend             | Next.js 16, React 19, TypeScript, Firebase, TanStack Query, Zustand, Tailwind CSS                       |
+| Testing              | pytest, pytest-asyncio, pytest-cov, Vitest, React Testing Library                                       |
+| Quality and tooling  | Poetry, mypy, Pylint, ESLint, Prettier, pre-commit, Docker Compose                                      |
 
-## 🧪 Testing
+## Testing
+
+The repository contains backend and frontend test suites. This documentation pass did not execute the complete suites, so it does not claim a current pass count or coverage percentage.
+
+Backend:
 
 ```bash
-# Backend tests
 cd backend
-pytest --cov=app --cov-report=html
+poetry run pytest
 
-# Frontend tests
+# Optional coverage report
+poetry run pytest --cov=app --cov-report=term
+```
+
+Frontend:
+
+```bash
 cd frontend
-npm run test
+npm run test:run
 
-# Run all tests with coverage
-./run-coverage.sh
+# Optional coverage report
+npm run test:coverage
 ```
 
----
+## Run Locally
 
-## 📖 API Documentation
+Prerequisites: Python 3.12, Poetry, Node.js with npm, an OpenAI API key, and a Firebase project with web and Admin SDK configuration.
 
-Interactive API documentation available when running:
+1. Prepare the ignored local configuration files:
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+   - `backend/.env`, using `backend/.env.example` as a starting point
+   - `backend/app/config/firebase-service-account.json`
+   - `frontend/.env.local`
 
-### Main Endpoints
+2. Install and start the backend:
 
-**Upload Document**
+   ```bash
+   cd backend
+   poetry install
+   poetry run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+   ```
 
-```bash
-POST /rag/upload/
-Content-Type: multipart/form-data
-Body: { file: PDF, user_id: string }
+3. In another terminal, install and start the frontend:
+
+   ```bash
+   cd frontend
+   npm ci
+   npm run dev
+   ```
+
+4. Open:
+
+   - Frontend: http://127.0.0.1:3000
+   - FastAPI documentation: http://127.0.0.1:8000/docs
+
+See the [backend handbook](backend/README.md) for backend-specific details. A dedicated frontend handbook is planned for the next documentation pass.
+
+## Repository Structure
+
+```text
+document-intelligent-hub/
+├── backend/
+│   ├── app/
+│   │   ├── core/          # Settings, authentication, Firebase, logging
+│   │   ├── db/            # ChromaDB and embedding configuration
+│   │   ├── repositories/  # Vector-store persistence and filtering
+│   │   ├── routers/       # FastAPI endpoints
+│   │   ├── schemas/       # Pydantic API contracts
+│   │   └── services/      # Document, query, RAG, usage, and support logic
+│   ├── tests/             # Backend pytest suite
+│   └── main.py            # FastAPI entry point
+├── frontend/
+│   ├── app/               # Next.js pages and chat API route
+│   ├── components/        # UI components
+│   ├── hooks/             # Client and server-state workflows
+│   ├── lib/               # Firebase, API, and conversation integrations
+│   └── test/              # Frontend Vitest suite
+├── docker-compose.yml
+└── README.md
 ```
 
-**Query Document**
+## Current Status & Limitations
 
-```bash
-POST /rag/query/
-Content-Type: application/json
-Body: { query: string, user_id: string, chat_history: array }
-```
+- The application requires external Firebase and OpenAI configuration. Retrieved document context is sent to the configured OpenAI model during answer generation.
+- User separation in ChromaDB is enforced at the application layer through metadata filters in a shared collection; cross-user isolation should continue to be covered by integration tests.
+- The FastAPI backend returns a complete JSON answer. The frontend then emits that completed text character by character, so this is not end-to-end model streaming.
+- A summarization endpoint and frontend hook exist, but automatic conversation summarization is not connected to the active dashboard flow.
+- Dockerfiles and a Compose configuration are present, but a clean-clone Docker workflow has not been verified as part of this documentation reset and is not presented as production deployment.
+- Automated test suites exist, but their current full pass status and coverage were not verified in this pass. The repository's CI workflow is currently disabled.
+- Source attribution is currently filename-level rather than page-level citation.
+- The repository is a local-development portfolio project and does not claim production readiness or measured scalability.
 
----
+## Component Documentation
 
-## 🤝 Contributing
+- [Backend handbook](backend/README.md) — current backend overview; scheduled for a separate documentation pass.
+- [Frontend handbook](frontend/README.md) — planned, but not yet present on this branch.
+- The tracked GitHub Wiki contains historical material under review and should not currently be treated as the source of truth.
 
-Contributions are welcome! Please see our [Contributing Guidelines](https://github.com/andrea-ragalzi/document-intelligent-hub/wiki/Contributing-Guidelines) for details.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 👤 Author
+## Author
 
 **Andrea Ragalzi**
 
-- Email: andrea.ragalzi.code@gmail.com
 - GitHub: [@andrea-ragalzi](https://github.com/andrea-ragalzi)
+- Email: andrea.ragalzi.code@gmail.com
 
----
+## License
 
-## 🙏 Acknowledgments
-
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
-- [Next.js](https://nextjs.org/) - The React Framework
-- [LangChain](https://www.langchain.com/) - LLM application framework
-- [ChromaDB](https://www.trychroma.com/) - Open-source embedding database
-- [OpenAI](https://openai.com/) - GPT models and embeddings
-- [Vercel AI SDK](https://sdk.vercel.ai/) - AI streaming toolkit
-- [TanStack Query](https://tanstack.com/query) - Powerful data synchronization
-- [Zustand](https://github.com/pmndrs/zustand) - Lightweight state management
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [Firebase](https://firebase.google.com/) - Authentication and Firestore
-- [TypeScript](https://www.typescriptlang.org/) - JavaScript with syntax for types
-- [Docker](https://www.docker.com/) - Containerization platform
-
----
-
-**⭐ Star this repository if you find it helpful!**
+This project is licensed under the [MIT License](LICENSE).
