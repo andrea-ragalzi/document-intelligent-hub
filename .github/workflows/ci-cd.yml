@@ -70,9 +70,6 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: read
-
 jobs:
   # ============================================================================
   # INITIALIZATION
@@ -80,6 +77,8 @@ jobs:
   check-ci:
     name: "🔍 Check CI Status"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
       docker_enabled: ${{ steps.check.outputs.docker_enabled }}
@@ -96,6 +95,8 @@ jobs:
   backend-quality-gate:
     name: "🔒 Backend Quality Gate"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: check-ci
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
     defaults:
@@ -156,6 +157,8 @@ jobs:
   frontend-quality-gate:
     name: "🔒 Frontend Quality Gate"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: check-ci
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
     defaults:
@@ -209,6 +212,8 @@ jobs:
   backend-tests:
     name: "🧪 Backend Tests & Coverage"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [check-ci, backend-quality-gate]
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
     defaults:
@@ -269,6 +274,8 @@ jobs:
   frontend-tests:
     name: "🧪 Frontend Tests & Coverage"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [check-ci, frontend-quality-gate]
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
     defaults:
@@ -317,6 +324,8 @@ jobs:
   docker-build:
     name: "🐳 Docker Build - ${{ matrix.service }}"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [check-ci, backend-tests, frontend-tests]
     if: ${{ needs.check-ci.outputs.enabled == 'true' && needs.check-ci.outputs.docker_enabled == 'true' }}
     strategy:
@@ -348,6 +357,8 @@ jobs:
   deploy:
     name: "🚀 Deploy to ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [check-ci, docker-build]
     if: |
       needs.check-ci.outputs.enabled == 'true' &&
@@ -383,6 +394,8 @@ jobs:
   ci-cd-summary:
     name: "📊 Pipeline Summary"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs:
       [
         check-ci,
