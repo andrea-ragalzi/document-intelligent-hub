@@ -14,10 +14,16 @@ All endpoints require valid Firebase Auth token in Authorization header.
 from io import BytesIO
 from typing import Any, Dict, Tuple
 
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+
 from app.config.security_constants import FILE_READ_CHUNK_SIZE
 from app.core.auth import verify_firebase_token
 from app.core.logging import logger
-from app.core.security import get_safe_file_size_mb, sanitize_filename
+from app.core.security import (
+    get_safe_file_size_mb,
+    sanitize_filename,
+    sanitize_log_value,
+)
 from app.schemas.rag_schema import (
     DetectLanguageResponse,
     DocumentDeleteResponse,
@@ -29,8 +35,6 @@ from app.services.tier_limit_service import (
     check_file_count_limit,
     get_max_upload_size_bytes,
 )
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-
 router = APIRouter(prefix="/rag", tags=["documents"])
 
 
@@ -83,7 +87,7 @@ def _check_file_limits(user_id: str, rag_service: RAGService) -> Tuple[int, floa
 
     if not can_upload:
         logger.warning(
-            f"⚠️ File limit reached | User: {user_id} | "
+            f"⚠️ File limit reached | User: {sanitize_log_value(user_id)} | "
             f"Files: {current_file_count}/{max_files}"
         )
         raise HTTPException(
@@ -128,7 +132,7 @@ async def _read_and_validate_file_size(
             if file_size > max_size_bytes:
                 size_mb = get_safe_file_size_mb(file_size)
                 logger.warning(
-                    f"⚠️ File too large | User: {user_id} | "
+                    f"⚠️ File too large | User: {sanitize_log_value(user_id)} | "
                     f"Size: {size_mb}MB | Limit: {max_size_mb}MB"
                 )
                 raise HTTPException(
@@ -146,7 +150,7 @@ async def _read_and_validate_file_size(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Error reading file: {e}")
+        logger.error(f"❌ Error reading file: {sanitize_log_value(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to read file: {str(e)}",
@@ -195,8 +199,8 @@ async def upload_document(
         )
 
         logger.info(
-            f"✅ Document indexed | User: {user_id} | "
-            f"File: {safe_filename} | Chunks: {chunks_indexed}"
+            f"✅ Document indexed | User: {sanitize_log_value(user_id)} | "
+            f"File: {sanitize_log_value(safe_filename)} | Chunks: {chunks_indexed}"
         )
 
         return UploadResponse(
@@ -210,7 +214,10 @@ async def upload_document(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
     except Exception as e:
-        logger.error(f"❌ Indexing error for file {safe_filename}: {e}")
+        logger.error(
+            f"❌ Indexing error for file {sanitize_log_value(safe_filename)}: "
+            f"{sanitize_log_value(e)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Indexing failed: {str(e)}",
@@ -277,7 +284,9 @@ async def check_documents(
         count = rag_service.get_user_document_count(user_id)
         return {"has_documents": count > 0, "document_count": count}
     except Exception as e:
-        logger.error(f"❌ Error checking document status: {e}")
+        logger.error(
+            f"❌ Error checking document status: {sanitize_log_value(e)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to check document status: {str(e)}",
@@ -324,7 +333,8 @@ async def delete_document(
     # Audit log BEFORE deletion
     client_ip = request.client.host if request.client else "unknown"
     logger.bind(AUDIT=True).warning(
-        f"🗑️ DELETE REQUEST | User: {user_id} | File: {filename} | IP: {client_ip}"
+        f"🗑️ DELETE REQUEST | User: {sanitize_log_value(user_id)} | "
+        f"File: {sanitize_log_value(filename)} | IP: {sanitize_log_value(client_ip)}"
     )
 
     try:
@@ -340,7 +350,8 @@ async def delete_document(
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning(
-            f"✅ DELETED | User: {user_id} | File: {filename} | Chunks: {deleted_count}"
+            f"✅ DELETED | User: {sanitize_log_value(user_id)} | "
+            f"File: {sanitize_log_value(filename)} | Chunks: {deleted_count}"
         )
 
         return DocumentDeleteResponse(
@@ -352,7 +363,9 @@ async def delete_document(
         raise
     except Exception as e:
         logger.error(
-            f"❌ Delete failed | User: {user_id} | File: {filename} | Error: {e}"
+            f"❌ Delete failed | User: {sanitize_log_value(user_id)} | "
+            f"File: {sanitize_log_value(filename)} | "
+            f"Error: {sanitize_log_value(e)}"
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -377,7 +390,8 @@ async def delete_all_documents(
     # Audit log BEFORE deletion
     client_ip = request.client.host if request.client else "unknown"
     logger.bind(AUDIT=True).error(
-        f"🚨 BULK DELETE REQUEST | User: {user_id} | IP: {client_ip}"
+        f"🚨 BULK DELETE REQUEST | User: {sanitize_log_value(user_id)} | "
+        f"IP: {sanitize_log_value(client_ip)}"
     )
 
     try:
@@ -391,7 +405,8 @@ async def delete_all_documents(
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).error(
-            f"✅ BULK DELETED | User: {user_id} | Chunks: {deleted_count}"
+            f"✅ BULK DELETED | User: {sanitize_log_value(user_id)} | "
+            f"Chunks: {deleted_count}"
         )
 
         return {
@@ -401,7 +416,10 @@ async def delete_all_documents(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Bulk delete failed | User: {user_id} | Error: {e}")
+        logger.error(
+            f"❌ Bulk delete failed | User: {sanitize_log_value(user_id)} | "
+            f"Error: {sanitize_log_value(e)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete documents: {str(e)}",

@@ -68,6 +68,11 @@ def sanitize_filename(filename: str) -> str:
     return safe_name
 
 
+def sanitize_log_value(value: object) -> str:
+    """Escape line separators so untrusted values cannot forge log entries."""
+    return str(value).replace("\r", r"\r").replace("\n", r"\n")
+
+
 def validate_file_extension(filename: str, allowed_extensions: list[str]) -> bool:
     """
     Validate file has an allowed extension.

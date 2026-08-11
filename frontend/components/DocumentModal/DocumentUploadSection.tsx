@@ -55,6 +55,14 @@ export const DocumentUploadSection: React.FC<DocumentUploadSectionProps> = ({
         onDragOver={onDragOver}
         onDrop={onDrop}
         onClick={() => fileInputRef.current?.click()}
+        onKeyDown={event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
+        role="button"
+        tabIndex={0}
         className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 cursor-pointer ${
           dragActive
             ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
@@ -78,6 +86,7 @@ export const DocumentUploadSection: React.FC<DocumentUploadSectionProps> = ({
           type="file"
           accept=".pdf"
           onChange={onFileChange}
+          onClick={event => event.stopPropagation()}
           className="hidden"
           disabled={isUploading}
         />

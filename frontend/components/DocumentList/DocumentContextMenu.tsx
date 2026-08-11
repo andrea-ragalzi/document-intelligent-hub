@@ -62,7 +62,6 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
         onTouchStart={onDragStart}
         onTouchMove={onDragMove}
         onTouchEnd={onDragEnd}
-        onClick={e => e.stopPropagation()}
       >
         {/* Drag Handle - Mobile only */}
         <div className="md:hidden flex justify-center py-2 border-b border-indigo-700 dark:border-slate-700">

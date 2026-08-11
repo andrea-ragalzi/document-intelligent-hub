@@ -147,13 +147,12 @@ class TestFileFilterExtraction:
                     "data.pdf",
                 ],  # nonexistent.pdf NOT in list
             )
-
-            # Should NOT include invalid filename
-            assert "nonexistent.pdf" not in result.include_files
-
         except Exception:  # pylint: disable=broad-exception-caught
             # If LLM call fails (no API key, network error), skip this test
             pytest.skip("LLM call failed - requires OpenAI API key")
+
+        # Should NOT include invalid filename
+        assert "nonexistent.pdf" not in result.include_files
 
     @patch("app.services.query_parser_service.ChatOpenAI")
     def test_handles_llm_failure_gracefully(self, mock_llm_class: Any) -> None:
