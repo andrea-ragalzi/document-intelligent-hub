@@ -134,22 +134,23 @@ class TestFileFilterExtraction:
         assert len(result.exclude_files) == 0
         assert result.cleaned_query == "What is the main topic?"
 
+    @patch("app.services.query_parser_service.ChatOpenAI")
+    @patch.object(StrOutputParser, "invoke")
     def test_validates_against_available_files(
-        self, query_parser: QueryParserService
+        self, mock_str_parser_invoke: Any, mock_openai: Any
     ) -> None:
         """Test that extraction validates filenames against available documents"""
-        # This test will use actual LLM call (if API key available) or fail gracefully
-        try:
-            result = query_parser.extract_file_filters(
-                query="Usa nonexistent.pdf per la ricerca",
-                available_files=[
-                    "report.pdf",
-                    "data.pdf",
-                ],  # nonexistent.pdf NOT in list
-            )
-        except Exception:  # pylint: disable=broad-exception-caught
-            # If LLM call fails (no API key, network error), skip this test
-            pytest.skip("LLM call failed - requires OpenAI API key")
+        mock_str_parser_invoke.return_value = """{
+            "include_files": ["nonexistent.pdf"],
+            "exclude_files": [],
+            "cleaned_query": "ricerca"
+        }"""
+        service = QueryParserService()
+
+        result = service.extract_file_filters(
+            query="Usa nonexistent.pdf per la ricerca",
+            available_files=["report.pdf", "data.pdf"],
+        )
 
         # Should NOT include invalid filename
         assert "nonexistent.pdf" not in result.include_files

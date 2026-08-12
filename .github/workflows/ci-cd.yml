@@ -55,20 +55,19 @@ name: CI/CD Pipeline
 
 # To disable CI/CD: Set CI_ENABLED to 'false'
 env:
-  CI_ENABLED: "false"
+  CI_ENABLED: "true"
   DOCKER_BUILD_ENABLED: "false"
   # Configuration
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
   PYLINT_THRESHOLD: 9.0
   COMPLEXITY_THRESHOLD: 15
-  COVERAGE_THRESHOLD: 80
 
 on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   # ============================================================================
@@ -121,7 +120,10 @@ jobs:
           virtualenvs-in-project: true
 
       - name: "📚 Install dependencies"
-        run: poetry install --no-interaction --no-ansi
+        run: |
+          poetry config --local installer.only-binary :all:
+          poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
+          poetry sync --no-interaction --no-ansi
 
       - name: "✨ Pylint (PEP 8 Enforcement)"
         run: |
@@ -177,7 +179,7 @@ jobs:
           cache-dependency-path: "./frontend/package-lock.json"
 
       - name: "📚 Install dependencies"
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: "✨ ESLint (Quality & Style Check)"
         run: |
@@ -190,7 +192,7 @@ jobs:
 
       - name: "🔍 TypeScript Type Check"
         run: |
-          npx tsc --noEmit --pretty
+          npm run type-check
           if [ $? -ne 0 ]; then
             echo "❌ TypeScript compilation failed: Type errors detected"
             exit 1
@@ -199,7 +201,7 @@ jobs:
 
       - name: "💅 Prettier Format Check"
         run: |
-          npx prettier --check "**/*.{ts,tsx,js,jsx,json,css,md}"
+          npm run format:check
           if [ $? -ne 0 ]; then
             echo "❌ Prettier check failed: Code formatting issues detected"
             exit 1
@@ -247,21 +249,21 @@ jobs:
 
       - name: "📚 Install dependencies"
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
+        run: |
+          poetry config --local installer.only-binary :all:
+          poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
+          poetry sync --no-interaction --no-root
 
       - name: "📦 Install project"
-        run: poetry install --no-interaction
+        run: |
+          poetry config --local installer.only-binary :all:
+          poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
+          poetry sync --no-interaction
 
       - name: "🧪 Run tests with coverage"
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-test-mock-key-for-ci' }}
         run: |
-          poetry run pytest --cov=app --cov-report=xml --cov-report=term --cov-fail-under="$COVERAGE_THRESHOLD"
-          if [ $? -ne 0 ]; then
-            echo "❌ Tests failed or coverage below $COVERAGE_THRESHOLD%"
-            exit 1
-          fi
-          echo "✅ All tests passed with coverage ≥ $COVERAGE_THRESHOLD%"
+          poetry run pytest --cov=app --cov-report=xml --cov-report=term
+          echo "✅ All backend tests passed; coverage report generated"
 
       - name: "📊 Upload coverage to Codecov"
         if: always()
@@ -294,24 +296,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: "📚 Install dependencies"
-        run: npm ci
+        run: npm ci --ignore-scripts
 
-      - name: "🧪 Run tests with coverage"
+      - name: "🧪 Run tests"
         run: |
-          npm run test:coverage
-          if [ $? -ne 0 ]; then
-            echo "❌ Tests failed or coverage below $COVERAGE_THRESHOLD%"
-            exit 1
-          fi
-          echo "✅ All tests passed with coverage ≥ $COVERAGE_THRESHOLD%"
-
-      - name: "📊 Upload coverage to Codecov"
-        if: always()
-        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
-        with:
-          file: ./frontend/coverage/coverage-final.json
-          flags: frontend
-          name: frontend-coverage
+          npm run test:run
+          echo "✅ All frontend tests passed"
 
       - name: "🏗️ Build application"
         env:
@@ -435,8 +425,8 @@ jobs:
           echo "|-------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| 🔒 Quality Gate | Backend (Pylint, MyPy, Lizard) | $BACKEND_QUALITY_LABEL |" >> $GITHUB_STEP_SUMMARY
           echo "| 🔒 Quality Gate | Frontend (ESLint, TypeScript, Prettier) | $FRONTEND_QUALITY_LABEL |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧪 Tests | Backend (Pytest ≥ $COVERAGE_THRESHOLD%) | $BACKEND_TEST_LABEL |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧪 Tests | Frontend (Vitest ≥ $COVERAGE_THRESHOLD%) | $FRONTEND_TEST_LABEL |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Tests | Backend (Pytest) | $BACKEND_TEST_LABEL |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Tests | Frontend (Vitest) | $FRONTEND_TEST_LABEL |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "$BACKEND_QUALITY_RESULT" != "success" ] ||

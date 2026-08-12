@@ -57,7 +57,7 @@ class TestRegistrationEndpoint:
             config_ref.get.return_value = config_doc
 
             def mock_document(doc_id: str) -> MagicMock:
-                if doc_id == "EXPIREDCODE123":
+                if doc_id == "TESTCODE123":
                     return code_ref
                 if doc_id == "settings":
                     return config_ref

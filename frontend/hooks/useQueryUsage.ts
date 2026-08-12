@@ -151,7 +151,7 @@ function buildUsageResult(
     queryLimit,
     remaining,
     tier,
-    isLimitReached: checkLimitReached(remaining),
+    isLimitReached: checkLimitReached(data?.remaining),
     isLoading,
     error: error ?? null,
     refetch,

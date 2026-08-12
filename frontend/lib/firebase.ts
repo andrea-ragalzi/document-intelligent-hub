@@ -32,11 +32,7 @@ function initFirebase(): { app: FirebaseApp; auth: Auth; db: Firestore } {
 
   // Validate at call-time (runtime, inside the browser) – not at module
   // evaluation time, so Next.js static generation never hits this throw.
-  if (
-    !firebaseConfig.apiKey ||
-    !firebaseConfig.authDomain ||
-    !firebaseConfig.projectId
-  ) {
+  if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
     throw new Error(
       "Firebase configuration is missing. Please ensure all required " +
         "environment variables are set in .env.local"

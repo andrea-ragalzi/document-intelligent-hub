@@ -10,10 +10,35 @@ import tempfile
 from typing import Generator
 from unittest.mock import Mock, patch
 
+import firebase_admin
 import pytest
-from app.core.config import settings
 from fastapi.testclient import TestClient
-from main import app
+from firebase_admin import firestore
+
+# Keep the automated suite independent from ignored local prompt files.
+os.environ.setdefault(
+    "RAG_SYSTEM_PROMPT", "ONLY use the information provided in the Context"
+)
+
+# Register auth routes without loading real credentials and keep Firestore offline.
+try:
+    firebase_admin.get_app()
+except ValueError:
+    firebase_admin.initialize_app(options={"projectId": "document-hub-test"})
+
+_test_firestore_db = Mock()
+_test_settings_document = Mock()
+_test_settings_document.exists = False
+_test_firestore_db.collection.return_value.document.return_value.get.return_value = (
+    _test_settings_document
+)
+_firestore_client_patcher = patch.object(
+    firestore, "client", return_value=_test_firestore_db
+)
+_firestore_client_patcher.start()
+
+from app.core.config import settings  # pylint: disable=wrong-import-position
+from main import app  # pylint: disable=wrong-import-position
 
 
 class TestClientWithContext(TestClient):
@@ -23,6 +48,16 @@ class TestClientWithContext(TestClient):
     """
 
     test_user_context: dict[str, str | None]
+
+
+@pytest.fixture(autouse=True)
+def reset_app_config_cache() -> Generator[None, None, None]:
+    """Prevent Firestore configuration state from leaking between tests."""
+    from app.routers.auth_router import clear_cache
+
+    clear_cache()
+    yield
+    clear_cache()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -36,6 +71,12 @@ def cleanup_chroma_db_after_session() -> Generator[None, None, None]:
     if "test" in settings.CHROMA_DB_PATH and os.path.exists(settings.CHROMA_DB_PATH):
         print(f"🧹 Cleaning up ChromaDB test directory: {settings.CHROMA_DB_PATH}")
         shutil.rmtree(settings.CHROMA_DB_PATH)
+
+    _firestore_client_patcher.stop()
+    try:
+        firebase_admin.delete_app(firebase_admin.get_app())
+    except ValueError:
+        pass
 
 
 @pytest.fixture(scope="module", autouse=True)

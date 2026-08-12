@@ -4,6 +4,33 @@ Test suite for RAG endpoints: /rag/upload/ and /rag/query/
 
 from io import BytesIO
 from typing import Any
+from unittest.mock import patch
+
+import pytest
+from app.schemas.rag_schema import FileFilterResponse
+
+
+@pytest.fixture(autouse=True)
+def mock_external_rag_calls() -> Any:
+    """Keep endpoint tests deterministic and independent from OpenAI."""
+
+    def parse_query(query: str, available_files: list[str]) -> FileFilterResponse:
+        del available_files
+        return FileFilterResponse(
+            include_files=[],
+            exclude_files=[],
+            original_query=query,
+            cleaned_query=query,
+        )
+
+    with patch(
+        "app.routers.query_router.query_parser_service.extract_file_filters",
+        side_effect=parse_query,
+    ), patch(
+        "app.services.rag_orchestrator_service.RAGService.answer_query",
+        return_value=("Test answer grounded in the indexed document.", ["test_doc.pdf"]),
+    ):
+        yield
 
 
 class TestHealthEndpoint:
