@@ -7853,6 +7853,18 @@ shellingham = ">=1.3.0"
 typing-extensions = ">=3.7.4.3"
 
 [[package]]
+name = "types-aiofiles"
+version = "25.1.0.20260518"
+description = "Typing stubs for aiofiles"
+optional = false
+python-versions = ">=3.10"
+groups = ["dev"]
+files = [
+    {file = "types_aiofiles-25.1.0.20260518-py3-none-any.whl", hash = "sha256:f776bdfb4bec17f743d9ef042e61edf03bdcc7821fc08556fba9b63d873fdea9"},
+    {file = "types_aiofiles-25.1.0.20260518.tar.gz", hash = "sha256:c0c95eb78755d4fa7b397d4f0332c632714dd7cd0d17f49b96e31d4d7a8d8c76"},
+]
+
+[[package]]
 name = "types-requests"
 version = "2.32.4.20250913"
 description = "Typing stubs for requests"
@@ -9083,4 +9095,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.15"
-content-hash = "157de985085d05d2c33412133bffc62851b7dec382a8f10a14a68ceccd1d988b"
+content-hash = "2d1fc92c4f2509ed541c654eaa3fdb5496cd4ab058143ee3c287cdeb86c84f48"
