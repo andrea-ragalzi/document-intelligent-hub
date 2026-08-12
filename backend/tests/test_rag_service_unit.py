@@ -241,13 +241,13 @@ class TestQueryProcessing:
             answer, sources = rag_service.answer_query(
                 query="Nonexistent topic", user_id="test-user"
             )
-
-            # Should still return an answer (may indicate no info found)
-            assert isinstance(answer, str)
-            assert len(sources) == 0
         except Exception:  # pylint: disable=broad-exception-caught
             # Some implementations may raise exception for no documents
-            pass
+            pytest.skip("Implementation raises when no documents are available")
+
+        # Should still return an answer (may indicate no info found)
+        assert isinstance(answer, str)
+        assert len(sources) == 0
 
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)
@@ -400,13 +400,18 @@ class TestEdgeCases:
         mock_retriever.invoke.return_value = []
         mock_repository.get_retriever.return_value = mock_retriever
 
+        rag_service.query_processing_service.reformulate_query = Mock(return_value="")
+        rag_service.query_processing_service.classify_query = Mock(
+            return_value="general"
+        )
+        rag_service.answer_generation_service.generate_answer = Mock(
+            return_value=("No question provided", [])
+        )
+
         # Should handle gracefully
-        try:
-            answer, _ = rag_service.answer_query(query="", user_id="test-user")
-            assert isinstance(answer, str)
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            # Some implementations may raise validation error
-            assert "query" in str(e).lower() or "empty" in str(e).lower()
+        answer, _ = rag_service.answer_query(query="", user_id="test-user")
+
+        assert isinstance(answer, str)
 
     def test_operations_with_special_characters_in_filename(
         self, mock_repository: Any

@@ -13,17 +13,18 @@ from pathlib import Path
 from typing import Any, Dict
 
 import aiofiles
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+
 from app.config.languages import SUPPORTED_LANGUAGES
 from app.config.security_constants import MAX_ATTACHMENT_SIZE
 from app.core.logging import logger
+from app.core.security import sanitize_log_value
 from app.schemas.rag_schema import (
     FeedbackRequest,
     LanguageInfo,
     LanguagesListResponse,
 )
 from app.services.email_service import get_email_service
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
-
 router = APIRouter(prefix="/rag", tags=["support"])
 
 
@@ -100,7 +101,10 @@ async def report_bug(
         attachment_filename = attachment.filename
         attachment_type = attachment.content_type
         logger.info(
-            f"📎 Attachment received | Name: {attachment_filename} | Type: {attachment_type} | Size: {len(attachment_content)} bytes"
+            f"📎 Attachment received | "
+            f"Name: {sanitize_log_value(attachment_filename)} | "
+            f"Type: {sanitize_log_value(attachment_type)} | "
+            f"Size: {len(attachment_content)} bytes"
         )
 
     # Ensure logs directory exists
@@ -140,7 +144,11 @@ async def report_bug(
     # Log to main logs with emoji for visibility
     attachment_info = f" | 📎 {attachment_filename}" if attachment_filename else ""
     logger.bind(BUG_REPORT=True).warning(
-        f"🐞 Bug Report from {user_id} | Conv: {conversation_id or 'N/A'} | Email: {'✅' if email_sent else '❌'}{attachment_info} | {description[:100]}"
+        f"🐞 Bug Report from {sanitize_log_value(user_id)} | "
+        f"Conv: {sanitize_log_value(conversation_id or 'N/A')} | "
+        f"Email: {'✅' if email_sent else '❌'}"
+        f"{sanitize_log_value(attachment_info)} | "
+        f"{sanitize_log_value(description[:100])}"
     )
 
     return {
@@ -209,7 +217,12 @@ async def submit_feedback(
 
     # Log to main logs with emoji for visibility
     logger.bind(FEEDBACK=True).info(
-        f"{sentiment_emoji} Feedback from {feedback.user_id} | Rating: {feedback.rating}/5.0 | Conv: {feedback.conversation_id or 'N/A'} | Email: {'✅' if email_sent else '❌'} | {feedback.message[:100] if feedback.message else 'No message'}"
+        f"{sentiment_emoji} Feedback from "
+        f"{sanitize_log_value(feedback.user_id)} | "
+        f"Rating: {feedback.rating}/5.0 | "
+        f"Conv: {sanitize_log_value(feedback.conversation_id or 'N/A')} | "
+        f"Email: {'✅' if email_sent else '❌'} | "
+        f"{sanitize_log_value(feedback.message[:100] if feedback.message else 'No message')}"
     )
 
     return {

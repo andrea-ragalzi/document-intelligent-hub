@@ -56,6 +56,7 @@ name: CI/CD Pipeline
 # To disable CI/CD: Set CI_ENABLED to 'false'
 env:
   CI_ENABLED: "false"
+  DOCKER_BUILD_ENABLED: "false"
   # Configuration
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
@@ -76,12 +77,17 @@ jobs:
   check-ci:
     name: "🔍 Check CI Status"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
+      docker_enabled: ${{ steps.check.outputs.docker_enabled }}
     steps:
       - name: Check if CI is enabled
         id: check
-        run: echo "enabled=${{ env.CI_ENABLED }}" >> $GITHUB_OUTPUT
+        run: |
+          echo "enabled=$CI_ENABLED" >> "$GITHUB_OUTPUT"
+          echo "docker_enabled=$DOCKER_BUILD_ENABLED" >> "$GITHUB_OUTPUT"
 
   # ============================================================================
   # PHASE 1: QUALITY GATE (Parallel Execution)
@@ -89,6 +95,8 @@ jobs:
   backend-quality-gate:
     name: "🔒 Backend Quality Gate"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: check-ci
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
     defaults:
@@ -97,29 +105,31 @@ jobs:
 
     steps:
       - name: "📥 Checkout code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: "🐍 Set up Python ${{ env.PYTHON_VERSION }}"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
 
       - name: "📦 Install Poetry"
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1
+        with:
+          version: 2.4.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
 
       - name: "📚 Install dependencies"
         run: poetry install --no-interaction --no-ansi
 
       - name: "✨ Pylint (PEP 8 Enforcement)"
         run: |
-          poetry run pylint app/ --rcfile=.pylintrc --fail-under=${{ env.PYLINT_THRESHOLD }} --exit-zero > pylint-report.txt
-          PYLINT_SCORE=$(poetry run pylint app/ --rcfile=.pylintrc --fail-under=${{ env.PYLINT_THRESHOLD }} | grep "Your code has been rated at" | awk '{print $7}' | cut -d'/' -f1)
+          poetry run pylint app/ --rcfile=.pylintrc --fail-under="$PYLINT_THRESHOLD" --exit-zero > pylint-report.txt
+          PYLINT_SCORE=$(poetry run pylint app/ --rcfile=.pylintrc --fail-under="$PYLINT_THRESHOLD" | grep "Your code has been rated at" | awk '{print $7}' | cut -d'/' -f1)
           echo "Pylint Score: $PYLINT_SCORE"
-          if (( $(echo "$PYLINT_SCORE < ${{ env.PYLINT_THRESHOLD }}" | bc -l) )); then
-            echo "❌ Pylint failed: Score $PYLINT_SCORE is below ${{ env.PYLINT_THRESHOLD }}"
+          if (( $(echo "$PYLINT_SCORE < $PYLINT_THRESHOLD" | bc -l) )); then
+            echo "❌ Pylint failed: Score $PYLINT_SCORE is below $PYLINT_THRESHOLD"
             cat pylint-report.txt
             exit 1
           fi
@@ -136,17 +146,19 @@ jobs:
 
       - name: "🧬 Lizard (Complexity Check)"
         run: |
-          poetry run lizard app/ -l python -C ${{ env.COMPLEXITY_THRESHOLD }} -w -o lizard-report.txt
+          poetry run lizard app/ -l python -C "$COMPLEXITY_THRESHOLD" -w -o lizard-report.txt
           if [ $? -ne 0 ]; then
-            echo "❌ Lizard complexity check failed: Functions exceed CCN threshold of ${{ env.COMPLEXITY_THRESHOLD }}"
+            echo "❌ Lizard complexity check failed: Functions exceed CCN threshold of $COMPLEXITY_THRESHOLD"
             cat lizard-report.txt
             exit 1
           fi
-          echo "✅ Lizard complexity check passed (CCN ≤ ${{ env.COMPLEXITY_THRESHOLD }})"
+          echo "✅ Lizard complexity check passed (CCN ≤ $COMPLEXITY_THRESHOLD)"
 
   frontend-quality-gate:
     name: "🔒 Frontend Quality Gate"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: check-ci
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
     defaults:
@@ -155,10 +167,10 @@ jobs:
 
     steps:
       - name: "📥 Checkout code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: "📦 Set up Node.js ${{ env.NODE_VERSION }}"
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -200,6 +212,8 @@ jobs:
   backend-tests:
     name: "🧪 Backend Tests & Coverage"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [check-ci, backend-quality-gate]
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
     defaults:
@@ -208,25 +222,25 @@ jobs:
 
     steps:
       - name: "📥 Checkout code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: "🐍 Set up Python ${{ env.PYTHON_VERSION }}"
         id: setup-python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: "📦 Install Poetry"
-        uses: snok/install-poetry@v1
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1
         with:
-          version: latest
+          version: 2.4.1
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
 
       - name: "💾 Load cached venv"
         id: cached-poetry-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: backend/.venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('backend/poetry.lock') }}
@@ -242,16 +256,16 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-test-mock-key-for-ci' }}
         run: |
-          poetry run pytest --cov=app --cov-report=xml --cov-report=term --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
+          poetry run pytest --cov=app --cov-report=xml --cov-report=term --cov-fail-under="$COVERAGE_THRESHOLD"
           if [ $? -ne 0 ]; then
-            echo "❌ Tests failed or coverage below ${{ env.COVERAGE_THRESHOLD }}%"
+            echo "❌ Tests failed or coverage below $COVERAGE_THRESHOLD%"
             exit 1
           fi
-          echo "✅ All tests passed with coverage ≥ ${{ env.COVERAGE_THRESHOLD }}%"
+          echo "✅ All tests passed with coverage ≥ $COVERAGE_THRESHOLD%"
 
       - name: "📊 Upload coverage to Codecov"
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           file: ./backend/coverage.xml
           flags: backend
@@ -260,6 +274,8 @@ jobs:
   frontend-tests:
     name: "🧪 Frontend Tests & Coverage"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [check-ci, frontend-quality-gate]
     if: ${{ needs.check-ci.outputs.enabled == 'true' }}
     defaults:
@@ -268,10 +284,10 @@ jobs:
 
     steps:
       - name: "📥 Checkout code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: "📦 Set up Node.js ${{ env.NODE_VERSION }}"
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -284,14 +300,14 @@ jobs:
         run: |
           npm run test:coverage
           if [ $? -ne 0 ]; then
-            echo "❌ Tests failed or coverage below ${{ env.COVERAGE_THRESHOLD }}%"
+            echo "❌ Tests failed or coverage below $COVERAGE_THRESHOLD%"
             exit 1
           fi
-          echo "✅ All tests passed with coverage ≥ ${{ env.COVERAGE_THRESHOLD }}%"
+          echo "✅ All tests passed with coverage ≥ $COVERAGE_THRESHOLD%"
 
       - name: "📊 Upload coverage to Codecov"
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           file: ./frontend/coverage/coverage-final.json
           flags: frontend
@@ -308,21 +324,23 @@ jobs:
   docker-build:
     name: "🐳 Docker Build - ${{ matrix.service }}"
     runs-on: ubuntu-latest
-    needs: [backend-tests, frontend-tests]
-    if: false # Enable by changing to: ${{ needs.check-ci.outputs.enabled == 'true' }}
+    permissions:
+      contents: read
+    needs: [check-ci, backend-tests, frontend-tests]
+    if: ${{ needs.check-ci.outputs.enabled == 'true' && needs.check-ci.outputs.docker_enabled == 'true' }}
     strategy:
       matrix:
         service: [backend, frontend]
 
     steps:
       - name: "📥 Checkout code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: "🔧 Set up Docker Buildx"
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: "🐳 Build ${{ matrix.service }} image"
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
@@ -339,20 +357,26 @@ jobs:
   deploy:
     name: "🚀 Deploy to ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}"
     runs-on: ubuntu-latest
-    needs: [docker-build]
+    permissions:
+      contents: read
+    needs: [check-ci, docker-build]
     if: |
       needs.check-ci.outputs.enabled == 'true' &&
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     steps:
       - name: "📥 Checkout code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: "🚀 Deploy to ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}"
+        env:
+          DEPLOYMENT_TARGET: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+          DEPLOYMENT_BRANCH: ${{ github.ref_name }}
+          DEPLOYMENT_SHA: ${{ github.sha }}
         run: |
-          echo "🚀 Deploying to ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}..."
-          echo "📦 Branch: ${{ github.ref_name }}"
-          echo "🔖 Commit: ${{ github.sha }}"
+          echo "🚀 Deploying to $DEPLOYMENT_TARGET..."
+          echo "📦 Branch: $DEPLOYMENT_BRANCH"
+          echo "🔖 Commit: $DEPLOYMENT_SHA"
 
           # Add your deployment commands here
           # Examples:
@@ -370,8 +394,11 @@ jobs:
   ci-cd-summary:
     name: "📊 Pipeline Summary"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs:
       [
+        check-ci,
         backend-quality-gate,
         frontend-quality-gate,
         backend-tests,
@@ -381,23 +408,41 @@ jobs:
 
     steps:
       - name: "📊 Generate Pipeline Summary"
+        env:
+          BACKEND_QUALITY_RESULT: ${{ needs.backend-quality-gate.result }}
+          FRONTEND_QUALITY_RESULT: ${{ needs.frontend-quality-gate.result }}
+          BACKEND_TEST_RESULT: ${{ needs.backend-tests.result }}
+          FRONTEND_TEST_RESULT: ${{ needs.frontend-tests.result }}
         run: |
+          result_label() {
+            if [ "$1" = "success" ]; then
+              echo "✅ PASSED"
+            else
+              echo "❌ FAILED"
+            fi
+          }
+
+          BACKEND_QUALITY_LABEL=$(result_label "$BACKEND_QUALITY_RESULT")
+          FRONTEND_QUALITY_LABEL=$(result_label "$FRONTEND_QUALITY_RESULT")
+          BACKEND_TEST_LABEL=$(result_label "$BACKEND_TEST_RESULT")
+          FRONTEND_TEST_LABEL=$(result_label "$FRONTEND_TEST_RESULT")
+
           echo "# CI/CD Pipeline Results 📊" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Quality Gate & Tests Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Phase | Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔒 Quality Gate | Backend (Pylint, MyPy, Lizard) | ${{ needs.backend-quality-gate.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔒 Quality Gate | Frontend (ESLint, TypeScript, Prettier) | ${{ needs.frontend-quality-gate.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧪 Tests | Backend (Pytest ≥ ${{ env.COVERAGE_THRESHOLD }}%) | ${{ needs.backend-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧪 Tests | Frontend (Vitest ≥ ${{ env.COVERAGE_THRESHOLD }}%) | ${{ needs.frontend-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔒 Quality Gate | Backend (Pylint, MyPy, Lizard) | $BACKEND_QUALITY_LABEL |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔒 Quality Gate | Frontend (ESLint, TypeScript, Prettier) | $FRONTEND_QUALITY_LABEL |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Tests | Backend (Pytest ≥ $COVERAGE_THRESHOLD%) | $BACKEND_TEST_LABEL |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Tests | Frontend (Vitest ≥ $COVERAGE_THRESHOLD%) | $FRONTEND_TEST_LABEL |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.backend-quality-gate.result }}" != "success" ] ||
-             [ "${{ needs.frontend-quality-gate.result }}" != "success" ] ||
-             [ "${{ needs.backend-tests.result }}" != "success" ] ||
-             [ "${{ needs.frontend-tests.result }}" != "success" ]; then
+          if [ "$BACKEND_QUALITY_RESULT" != "success" ] ||
+             [ "$FRONTEND_QUALITY_RESULT" != "success" ] ||
+             [ "$BACKEND_TEST_RESULT" != "success" ] ||
+             [ "$FRONTEND_TEST_RESULT" != "success" ]; then
             echo "## ❌ Pipeline Status: **FAILED**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Please check the failed jobs above and fix the issues." >> $GITHUB_STEP_SUMMARY
