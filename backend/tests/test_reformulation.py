@@ -1,6 +1,7 @@
-"""
-Quick test for query reformulation functionality.
-Run with: poetry run python test_reformulation.py
+"""Manual OpenAI integration smoke test for query reformulation.
+
+Run explicitly with: ``poetry run python tests/test_reformulation.py``.
+The module-level guard keeps this external test out of the default pytest suite.
 """
 
 from typing import Any
@@ -8,11 +9,6 @@ from typing import Any
 from app.repositories.dependencies import get_vector_store_repository
 from app.schemas.rag_schema import ConversationMessage
 from app.services.rag_orchestrator_service import RAGService
-
-# Initialize service
-repository_dependency = get_vector_store_repository()
-repository = next(repository_dependency)
-rag_service = RAGService(repository=repository)
 
 # Test cases
 test_cases: list[dict[str, Any]] = [
@@ -41,29 +37,36 @@ test_cases: list[dict[str, Any]] = [
     },
 ]
 
-print("=" * 80)
-print("QUERY REFORMULATION TEST")
-print("=" * 80)
+def run_reformulation_smoke_test() -> None:
+    """Exercise query reformulation against the configured OpenAI service."""
+    repository_dependency = get_vector_store_repository()
+    repository = next(repository_dependency)
+    rag_service = RAGService(repository=repository)
 
-for idx, test in enumerate(test_cases, 1):
-    print(f"\nTest {idx}:")
-    print(f"  Original: {test['query']}")
-    print(f"  History: {len(test['history'])} messages")
+    try:
+        print("=" * 80)
+        print("QUERY REFORMULATION TEST")
+        print("=" * 80)
 
-    # Use public method from query_processing_service
-    reformulated = rag_service.query_processing_service.reformulate_query(
-        test["query"], test["history"]
-    )
+        for idx, test in enumerate(test_cases, 1):
+            print(f"\nTest {idx}:")
+            print(f"  Original: {test['query']}")
+            print(f"  History: {len(test['history'])} messages")
 
-    print(f"  Reformulated: {reformulated}")
-    print(f"  Expected: {test['expected']}")
-    print(f"  Changed: {'Yes' if reformulated != test['query'] else 'No'}")
-print("\n" + "=" * 80)
-print("TEST COMPLETE")
-print("=" * 80)
+            reformulated = rag_service.query_processing_service.reformulate_query(
+                test["query"], test["history"]
+            )
 
-try:
-    repository_dependency.close()
-except StopIteration:
-    pass
-print("=" * 80)
+            print(f"  Reformulated: {reformulated}")
+            print(f"  Expected: {test['expected']}")
+            print(f"  Changed: {'Yes' if reformulated != test['query'] else 'No'}")
+
+        print("\n" + "=" * 80)
+        print("TEST COMPLETE")
+        print("=" * 80)
+    finally:
+        repository_dependency.close()
+
+
+if __name__ == "__main__":
+    run_reformulation_smoke_test()
