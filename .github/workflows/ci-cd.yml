@@ -122,8 +122,8 @@ jobs:
       - name: "📚 Install dependencies"
         run: |
           poetry config --local installer.only-binary :all:
-          poetry config --local installer.no-binary antlr4-python3-runtime,pypika
-          poetry install --no-interaction --no-ansi
+          poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
+          poetry sync --no-interaction --no-ansi
 
       - name: "✨ Pylint (PEP 8 Enforcement)"
         run: |
@@ -251,14 +251,14 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: |
           poetry config --local installer.only-binary :all:
-          poetry config --local installer.no-binary antlr4-python3-runtime,pypika
-          poetry install --no-interaction --no-root
+          poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
+          poetry sync --no-interaction --no-root
 
       - name: "📦 Install project"
         run: |
           poetry config --local installer.only-binary :all:
-          poetry config --local installer.no-binary antlr4-python3-runtime,pypika
-          poetry install --no-interaction
+          poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
+          poetry sync --no-interaction
 
       - name: "🧪 Run tests with coverage"
         run: |
