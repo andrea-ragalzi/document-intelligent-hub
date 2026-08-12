@@ -61,8 +61,8 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
       console.log("Sending bug report with FormData");
       await submitBugReport(formData);
 
-      setSubmitStatus("success");
       resetForm();
+      setSubmitStatus("success");
 
       // Close modal after 2 seconds
       setTimeout(() => {
