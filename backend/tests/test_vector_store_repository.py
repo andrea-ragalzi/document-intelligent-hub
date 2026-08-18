@@ -6,15 +6,17 @@ They test CRUD operations, metadata filtering, and multi-tenancy isolation.
 """
 
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
+from langchain_core.documents import Document
+
 from app.db.chroma_client import (
     get_chroma_client,
     get_chroma_collection,
     get_vector_store,
 )
 from app.repositories.vector_store_repository import VectorStoreRepository
-from langchain_core.documents import Document
 
 
 @pytest.fixture(scope="function")
@@ -222,6 +224,49 @@ class TestRepositoryBasicOperations:
             "test-repo-user-1", "delete_me.pdf"
         )
 
+    def test_delete_document_preserves_other_file_for_same_user(
+        self, test_repository: Any
+    ) -> None:
+        """Filename-scoped deletion must retain the user's unrelated chunks."""
+        test_repository.add_documents(
+            [
+                Document(
+                    page_content="Target chunk one",
+                    metadata={
+                        "source": "test-repo-user-1",
+                        "original_filename": "target.pdf",
+                        "chunk_index": 0,
+                    },
+                ),
+                Document(
+                    page_content="Target chunk two",
+                    metadata={
+                        "source": "test-repo-user-1",
+                        "original_filename": "target.pdf",
+                        "chunk_index": 1,
+                    },
+                ),
+                Document(
+                    page_content="Unrelated document chunk",
+                    metadata={
+                        "source": "test-repo-user-1",
+                        "original_filename": "keep.pdf",
+                        "chunk_index": 0,
+                    },
+                ),
+            ]
+        )
+
+        deleted_count = test_repository.delete_document(
+            "test-repo-user-1", "target.pdf"
+        )
+
+        assert deleted_count == 2
+        assert not test_repository.check_document_exists(
+            "test-repo-user-1", "target.pdf"
+        )
+        assert test_repository.check_document_exists("test-repo-user-1", "keep.pdf")
+
     def test_delete_all_user_documents(self, test_repository: Any) -> None:
         """Test deleting all documents for a user"""
         # Add multiple documents
@@ -338,6 +383,83 @@ class TestMultiTenancyIsolation:
         assert test_repository.check_document_exists(
             "test-repo-user-2", "shared_name.pdf"
         )
+
+    @pytest.mark.parametrize(
+        ("include_files", "exclude_files", "expected_filter"),
+        [
+            (None, None, {"source": "test-repo-user-1"}),
+            (
+                ["allowed.pdf"],
+                None,
+                {
+                    "$and": [
+                        {"source": "test-repo-user-1"},
+                        {"original_filename": {"$in": ["allowed.pdf"]}},
+                    ]
+                },
+            ),
+            (
+                None,
+                ["excluded.pdf"],
+                {
+                    "$and": [
+                        {"source": "test-repo-user-1"},
+                        {"original_filename": {"$nin": ["excluded.pdf"]}},
+                    ]
+                },
+            ),
+        ],
+    )
+    def test_retriever_always_includes_user_metadata_filter(
+        self,
+        include_files: list[str] | None,
+        exclude_files: list[str] | None,
+        expected_filter: dict[str, Any],
+    ) -> None:
+        """Every RAG retriever variant must retain the tenant metadata filter."""
+        vector_store = Mock()
+        repository = VectorStoreRepository(
+            vector_store=vector_store,
+            collection=Mock(),
+        )
+
+        repository.get_retriever(
+            user_id="test-repo-user-1",
+            k=7,
+            include_files=include_files,
+            exclude_files=exclude_files,
+        )
+
+        vector_store.as_retriever.assert_called_once_with(
+            search_kwargs={"filter": expected_filter, "k": 7}
+        )
+
+    def test_delete_filter_combines_verified_user_and_filename(self) -> None:
+        """Both deletion operations must use the same owner-and-filename filter."""
+        collection = Mock()
+        collection.get.return_value = {"ids": ["chunk-1", "chunk-2"]}
+        repository = VectorStoreRepository(
+            vector_store=Mock(),
+            collection=collection,
+        )
+        expected_filter = {
+            "$and": [
+                {"source": "test-repo-user-1"},
+                {"original_filename": "shared_name.pdf"},
+            ]
+        }
+
+        deleted_count = repository.delete_document(
+            "test-repo-user-1",
+            "shared_name.pdf",
+        )
+
+        assert deleted_count == 2
+        collection.get.assert_called_once_with(
+            where=expected_filter,
+            limit=100000,
+        )
+        collection.delete.assert_called_once_with(where=expected_filter)
 
 
 # pylint: disable=W0621  # test_repository fixture redefines name from outer scope (pytest pattern)
