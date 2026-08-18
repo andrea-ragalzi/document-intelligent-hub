@@ -4,7 +4,7 @@ Test suite for RAG endpoints: /rag/upload/ and /rag/query/
 
 from io import BytesIO
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from app.schemas.rag_schema import FileFilterResponse
@@ -51,11 +51,15 @@ class TestUploadEndpoint:
     def test_upload_valid_pdf(
         self, client: Any, sample_pdf: Any, test_user_id: str
     ) -> None:
-        """Test uploading a valid PDF file"""
+        """A valid PDF reaches indexing with the authenticated user's identity."""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
 
-        with open(sample_pdf, "rb") as f:
+        with patch(
+            "app.services.rag_orchestrator_service.RAGService.index_document",
+            new_callable=AsyncMock,
+            return_value=(2, "EN"),
+        ) as index_document, open(sample_pdf, "rb") as f:
             files = {"file": ("test.pdf", f, "application/pdf")}
 
             response = client.post("/rag/upload/", files=files)
@@ -65,7 +69,32 @@ class TestUploadEndpoint:
         assert json_response["status"] == "success"
         assert "chunks_indexed" in json_response
         assert isinstance(json_response["chunks_indexed"], int)
-        assert json_response["chunks_indexed"] > 0
+        assert json_response["chunks_indexed"] == 2
+        index_document.assert_awaited_once()
+        call = index_document.await_args
+        assert call.kwargs["user_id"] == test_user_id
+        assert call.kwargs["file"].filename == "test.pdf"
+        assert call.kwargs["document_language"] is None
+
+    def test_malformed_pdf_returns_controlled_error(
+        self, client: Any, test_user_id: str
+    ) -> None:
+        """A parser/indexing failure is converted to the current API error response."""
+        client.test_user_context["user_id"] = test_user_id
+
+        with patch(
+            "app.services.rag_orchestrator_service.RAGService.index_document",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("malformed PDF"),
+        ) as index_document:
+            response = client.post(
+                "/rag/upload/",
+                files={"file": ("broken.pdf", BytesIO(b"not a PDF"), "application/pdf")},
+            )
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Indexing failed: malformed PDF"
+        assert index_document.await_args.kwargs["user_id"] == test_user_id
 
     def test_upload_missing_user_id(self, client: Any, sample_pdf: Any) -> None:
         """Test upload without auth token returns 401"""
