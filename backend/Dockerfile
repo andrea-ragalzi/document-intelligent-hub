@@ -23,7 +23,7 @@ COPY scripts/export_lock_constraints.py scripts/export_lock_constraints.py
 
 # Convert Poetry's lock into pip constraints so the deployment build cannot
 # silently resolve different transitive versions from those tested locally.
-RUN python scripts/export_lock_constraints.py poetry.lock /tmp/constraints.txt
+RUN python scripts/export_lock_constraints.py
 
 # Install the CPU-only PyTorch wheels before the application dependencies.
 # The application explicitly runs all-MiniLM-L6-v2 on CPU; using PyPI's Linux
@@ -45,7 +45,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # The application itself is trusted local source and some locked dependencies
 # are source-only on PyPI, so a universal binary-only install is not possible.
 # Every third-party resolution is nevertheless constrained by poetry.lock.
-RUN pip install --no-cache-dir --constraint /tmp/constraints.txt -e . && pip check  # NOSONAR
+RUN pip install --no-cache-dir \
+        --constraint /tmp/constraints.txt \
+        --only-binary=:all: \
+        --no-binary=antlr4-python3-runtime,langdetect,pypika \
+        -e . && \
+    pip check
 
 # Stage 2: Runtime - Create minimal runtime image
 FROM python:3.12-slim

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import sys
 import tomllib
 from pathlib import Path
 
+LOCK_PATH = Path(__file__).resolve().parents[1] / "poetry.lock"
+OUTPUT_PATH = Path("/tmp/constraints.txt")
 
-def export_constraints(lock_path: Path, output_path: Path) -> None:
+
+def export_constraints() -> None:
     """Write one exact pip constraint per package in Poetry's main group."""
-    lock_data = tomllib.loads(lock_path.read_text(encoding="utf-8"))
+    lock_data = tomllib.loads(LOCK_PATH.read_text(encoding="utf-8"))
     versions: dict[str, str] = {}
 
     for package in lock_data.get("package", []):
@@ -28,12 +30,8 @@ def export_constraints(lock_path: Path, output_path: Path) -> None:
     constraints = "".join(
         f"{name}=={version}\n" for name, version in sorted(versions.items())
     )
-    output_path.write_text(constraints, encoding="utf-8")
+    OUTPUT_PATH.write_text(constraints, encoding="utf-8")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        raise SystemExit(
-            "Usage: export_lock_constraints.py POETRY_LOCK OUTPUT_CONSTRAINTS"
-        )
-    export_constraints(Path(sys.argv[1]), Path(sys.argv[2]))
+    export_constraints()
