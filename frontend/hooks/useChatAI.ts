@@ -2,7 +2,6 @@ import { useChat } from "ai/react";
 import type { Message } from "ai/react";
 import { ChatMessage } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useState } from "react";
 
 interface UseChatAIProps {
   userId: string;
@@ -11,28 +10,21 @@ interface UseChatAIProps {
 
 export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
   const { getIdToken } = useAuth();
-  const [authToken, setAuthToken] = useState<string | null>(null);
-
-  // Get auth token on mount
-  useEffect(() => {
-    const fetchToken = async () => {
-      const token = await getIdToken();
-      setAuthToken(token);
-    };
-    fetchToken();
-  }, [getIdToken]);
 
   // Log output language selection
   console.log(`🌍 [useChatAI] Output language: ${selectedOutputLanguage || "auto"}`);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages } =
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit: submitChat,
+    isLoading,
+    error,
+    setMessages,
+  } =
     useChat({
       api: "/api/chat",
-      headers: authToken
-        ? {
-            Authorization: `Bearer ${authToken}`,
-          }
-        : undefined,
       body: {
         userId,
         output_language: selectedOutputLanguage?.toUpperCase(),
@@ -46,6 +38,24 @@ export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
         }
       },
     });
+
+  // Firebase ID tokens expire after a session has been open for a while. Resolve
+  // the token for every request so Firebase can refresh it before the chat call.
+  const handleSubmit = async (event?: { preventDefault?: () => void }) => {
+    event?.preventDefault?.();
+
+    const token = await getIdToken();
+    if (!token) {
+      console.error("Chat error: no authenticated Firebase token available");
+      return;
+    }
+
+    submitChat(undefined, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
 
   // Converti i messaggi dal formato Vercel AI al formato ChatMessage
   const chatHistory: ChatMessage[] = messages
