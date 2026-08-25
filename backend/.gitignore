@@ -2,7 +2,12 @@
 .venv
 
 # Variabili d'ambiente (Non commettere le chiavi!)
-.env
+.env*
+!.env.example
+
+# Credenziali Firebase locali (DEV o backup PROD)
+app/config/firebase-service-account*.json
+config/firebase-service-account*.json
 
 # 🔒 SECURITY: Prompt files (contain proprietary prompt engineering)
 config/*.txt

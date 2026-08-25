@@ -92,7 +92,7 @@ Relevant files: `app/core/auth.py`, `app/core/firebase.py`, `app/routers/documen
 
 ## Configuration
 
-The backend loads `backend/.env` when started through `main.py`. It also expects the local Firebase service-account file at `backend/app/config/firebase-service-account.json` unless an alternative credential source is configured. Never commit either file.
+The backend loads the ignored `backend/.env.development.local` first and then fills any remaining local secrets from `backend/.env` when started through `main.py`. Existing process variables remain authoritative. Local development expects the dedicated DEV service-account file at `backend/app/config/firebase-service-account.dev.json`. Deployment images exclude both environment files, and Railway supplies the PROD credential through `FIREBASE_CREDENTIALS`; never commit either credential.
 
 | Variable                          | Controls                                                                |
 | --------------------------------- | ----------------------------------------------------------------------- |
@@ -162,7 +162,7 @@ The repository contains unit and integration-style tests, but these commands are
 
 - Run Uvicorn from `backend/`: `.env`, the default prompt paths, and the relative `CHROMA_DB_PATH` are resolved from the backend working directory.
 - Firebase initialization is attempted at startup. Without valid Firebase credentials the process can start, but protected/authentication routes are unavailable.
-- Registration requires either an email listed in Firestore `app_config/settings.unlimited_emails` or an unused `invitation_codes` document with `is_used: false` and a valid `tier`; the assigned tier is stored as a Firebase custom claim.
+- Registration without an invitation assigns the constrained FREE tier. Optional elevated access uses `app_config/settings.unlimited_emails` or an unused `invitation_codes` document; the assigned tier is stored as a Firebase custom claim.
 - Startup preloads the local HuggingFace embedding model and creates the persistent ChromaDB directory if needed; the first run can be slow and may require model download access.
 - ChromaDB contains the local search index rather than the original PDFs. Deleting `CHROMA_DB_PATH` loses indexed chunks and requires the documents to be uploaded again.
 - Development CORS allows all origins. Setting `ENVIRONMENT=production` switches to the comma-separated `ALLOWED_ORIGINS` list.
