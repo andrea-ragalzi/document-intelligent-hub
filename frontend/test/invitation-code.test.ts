@@ -10,9 +10,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook } from "@testing-library/react";
-import { act } from "react";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { act, createElement } from "react";
 import { useRegistration } from "@/hooks/useRegistration";
+import InvitationCodeModal from "@/components/InvitationCodeModal";
 import type { User } from "firebase/auth";
 
 // Mock AuthContext
@@ -218,6 +220,52 @@ describe("useRegistration Hook", () => {
     // Should return null if no user (but our mock always has user)
     // This test documents expected behavior
     expect(result.current.isRegistering).toBe(false);
+  });
+});
+
+describe("InvitationCodeModal public FREE onboarding", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    globalThis.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("lets a new user continue with FREE without an invitation code", async () => {
+    (globalThis.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: "success", tier: "FREE" }),
+    });
+    const onSuccess = vi.fn();
+    const user = userEvent.setup();
+
+    render(createElement(InvitationCodeModal, { isOpen: true, onSuccess }));
+    await user.click(screen.getByRole("button", { name: "Continue with FREE" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("FREE"));
+    const fetchCall = (globalThis.fetch as any).mock.calls[0];
+    const requestBody = JSON.parse(fetchCall[1].body);
+    expect(requestBody.invitation_code).toBeNull();
+  });
+
+  it("still submits an invitation code for elevated access", async () => {
+    (globalThis.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: "success", tier: "PRO" }),
+    });
+    const onSuccess = vi.fn();
+    const user = userEvent.setup();
+
+    render(createElement(InvitationCodeModal, { isOpen: true, onSuccess }));
+    await user.type(screen.getByLabelText("Invitation Code"), "valid-pro-code");
+    await user.click(screen.getByRole("button", { name: "Use Invitation Code" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("PRO"));
+    const fetchCall = (globalThis.fetch as any).mock.calls[0];
+    const requestBody = JSON.parse(fetchCall[1].body);
+    expect(requestBody.invitation_code).toBe("VALID-PRO-CODE");
   });
 });
 

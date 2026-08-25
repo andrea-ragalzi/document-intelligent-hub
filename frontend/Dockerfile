@@ -25,8 +25,10 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Firebase public config — baked into the JS bundle at compile time
-# Values are passed as build args from docker-compose (sourced from frontend/.env.local)
+# Values are passed as build args from docker-compose (sourced from
+# frontend/.env.development.local for local Compose usage).
 # They are NOT stored in the image filesystem — only inlined into the bundle by Next.js
+ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_FIREBASE_API_KEY
 ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -34,6 +36,7 @@ ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 ARG NEXT_PUBLIC_FIREBASE_APP_ID
 
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
 ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID

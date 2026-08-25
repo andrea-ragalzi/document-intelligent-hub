@@ -129,13 +129,13 @@ npm run test:coverage
 
 ## Run Locally
 
-Prerequisites: Python 3.12, Poetry, Node.js with npm, an OpenAI API key, and a Firebase project with web and Admin SDK configuration.
+Prerequisites: Python 3.12, Poetry, Node.js with npm, an OpenAI API key, and a dedicated DEV Firebase project with Web and Admin SDK configuration. Do not use the production Firebase project for localhost.
 
 1. Prepare the ignored local configuration files:
 
-   - `backend/.env`, using `backend/.env.example` as a starting point
-   - `backend/app/config/firebase-service-account.json`
-   - `frontend/.env.local`
+   - `backend/.env.development.local`, using `backend/.env.example` as a starting point
+   - `backend/app/config/firebase-service-account.dev.json`
+   - `frontend/.env.development.local`, using `frontend/.env.example`
 
 2. Install and start the backend:
 
@@ -159,6 +159,7 @@ Prerequisites: Python 3.12, Poetry, Node.js with npm, an OpenAI API key, and a F
    - FastAPI documentation: http://127.0.0.1:8000/docs
 
 See the [backend handbook](backend/README.md) and [frontend handbook](frontend/README.md) for component-specific details.
+The complete two-environment model and Firebase DEV checklist are in [ENVIRONMENTS.md](ENVIRONMENTS.md).
 
 ## Repository Structure
 

@@ -10,9 +10,13 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-# Load .env from backend directory first
+# Load explicit DEV-only routing/persistence first, then fill remaining local
+# secrets from the legacy/base file. Real process variables (tests, Docker and
+# Railway) stay authoritative because neither file overwrites them.
+dev_env_path = Path(__file__).parent / ".env.development.local"
+load_dotenv(dotenv_path=dev_env_path, override=False)
 env_path = Path(__file__).parent / ".env"
-load_dotenv(dotenv_path=env_path, override=True)
+load_dotenv(dotenv_path=env_path, override=False)
 
 # Now, import other modules (after load_dotenv to load env vars first)
 # pylint: disable=wrong-import-position

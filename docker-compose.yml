@@ -5,7 +5,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     env_file:
-      - ./backend/.env
+      - ./backend/.env.development.local
     container_name: document-hub-backend
     ports:
       - "8000:8000"
@@ -28,7 +28,7 @@ services:
       # Mount uploads directory (if needed)
       - ./backend/uploads:/app/uploads
       # Mount Firebase service account credentials (read-only)
-      - ./backend/app/config/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+      - ./backend/app/config/firebase-service-account.dev.json:/run/secrets/firebase-service-account.json:ro
     networks:
       - app-network
     restart: unless-stopped
@@ -51,6 +51,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
+        - NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/rag
         - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}
         - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
         - NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
@@ -62,7 +63,7 @@ services:
       - "3000:3000"
     environment:
       # API URL - points to backend service
-      - NEXT_PUBLIC_API_BASE_URL=http://backend:8000/rag
+      - NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/rag
       - NODE_ENV=production
       - PORT=3000
     depends_on:

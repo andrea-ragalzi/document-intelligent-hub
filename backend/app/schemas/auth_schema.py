@@ -15,12 +15,12 @@ class RegistrationData(BaseModel):
 
     Attributes:
         id_token: Firebase ID token for user authentication
-        invitation_code: Optional invitation code for tier assignment (required if user not in unlimited list)
+        invitation_code: Optional invitation code for elevated tier assignment
     """
 
     id_token: str = Field(..., description="Firebase ID token")
     invitation_code: Optional[str] = Field(
-        None, description="Invitation code for tier assignment"
+        None, description="Optional invitation code for elevated tier assignment"
     )
 
 

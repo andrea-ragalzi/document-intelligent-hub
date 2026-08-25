@@ -52,7 +52,7 @@ class UsageTrackingService:
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error getting user queries: {e}")
-            return 0
+            raise RuntimeError("Failed to read query usage") from e
 
     def increment_user_queries(self, user_id: str) -> int:
         """
@@ -140,8 +140,8 @@ class UsageTrackingService:
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error checking query limit: {e}")
-            # On error, allow the query but log it
-            return True, 0
+            # Fail closed so a Firestore outage cannot bypass paid-query limits.
+            return False, max_queries
 
     def _should_keep_date(
         self, date_key: str, cutoff_date: datetime, days_to_keep: int
