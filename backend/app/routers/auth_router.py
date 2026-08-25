@@ -411,7 +411,11 @@ def _mark_code_as_used(code_ref: Any, user_id: str, invitation_code: str) -> Non
         logger.error(f"❌ Failed to mark code as used: {e}")
 
 
-@router.post("/register", response_model=RegistrationResponse)
+@router.post(
+    "/register",
+    response_model=RegistrationResponse,
+    responses={400: {"description": "Invalid registration or invitation code."}},
+)
 async def register_user(registration_data: RegistrationData) -> RegistrationResponse:
     """
     Register user and assign a server-authoritative tier.
