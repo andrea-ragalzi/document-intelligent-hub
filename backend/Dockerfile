@@ -9,6 +9,7 @@ ARG TORCH_VERSION=2.10.0+cpu
 ARG TORCHVISION_VERSION=0.25.0+cpu
 ARG FIREBASE_ADMIN_VERSION=7.1.0
 ARG GOOGLE_CLOUD_FIRESTORE_VERSION=2.21.0
+ARG GOOGLE_API_CORE_VERSION=2.28.1
 
 # Install system dependencies required for building Python packages
 RUN apt-get update && apt-get install -y \
@@ -31,7 +32,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
         "torchvision==${TORCHVISION_VERSION}" && \
     pip install --no-cache-dir \
         "firebase-admin==${FIREBASE_ADMIN_VERSION}" \
-        "google-cloud-firestore==${GOOGLE_CLOUD_FIRESTORE_VERSION}" && \
+        "google-cloud-firestore==${GOOGLE_CLOUD_FIRESTORE_VERSION}" \
+        "google-api-core==${GOOGLE_API_CORE_VERSION}" && \
     pip install --no-cache-dir -e . && \
     pip check
 
