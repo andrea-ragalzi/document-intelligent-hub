@@ -19,6 +19,83 @@ client = TestClient(app)
 class TestRegistrationEndpoint:
     """Integration tests for POST /auth/register endpoint"""
 
+    def test_new_user_registers_as_free_without_invitation(self) -> None:
+        """A verified Firebase user with no claims receives the FREE tier."""
+        with patch(
+            "app.routers.auth_router.load_app_config",
+            return_value={"unlimited_emails": [], "limits": {}},
+        ), patch("app.routers.auth_router.auth") as mock_auth:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "new_public_user",
+                "email": "new@example.com",
+            }
+            firebase_user = MagicMock()
+            firebase_user.custom_claims = {}
+            mock_auth.get_user.return_value = firebase_user
+
+            response = client.post(
+                "/auth/register",
+                json={"id_token": "valid_token", "invitation_code": None},
+            )
+
+            assert response.status_code == 200
+            assert response.json()["tier"] == "FREE"
+            mock_auth.set_custom_user_claims.assert_called_once_with(
+                "new_public_user", {"tier": "FREE"}
+            )
+
+    def test_client_cannot_self_assign_elevated_tier(self) -> None:
+        """An extra client-supplied tier field cannot bypass server assignment."""
+        with patch(
+            "app.routers.auth_router.load_app_config",
+            return_value={"unlimited_emails": [], "limits": {}},
+        ), patch("app.routers.auth_router.auth") as mock_auth:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "forgery_attempt_user",
+                "email": "forgery@example.com",
+            }
+            firebase_user = MagicMock()
+            firebase_user.custom_claims = {}
+            mock_auth.get_user.return_value = firebase_user
+
+            response = client.post(
+                "/auth/register",
+                json={
+                    "id_token": "valid_token",
+                    "invitation_code": None,
+                    "tier": "UNLIMITED",
+                },
+            )
+
+            assert response.status_code == 200
+            assert response.json()["tier"] == "FREE"
+            mock_auth.set_custom_user_claims.assert_called_once_with(
+                "forgery_attempt_user", {"tier": "FREE"}
+            )
+
+    def test_repeat_registration_preserves_existing_elevated_tier(self) -> None:
+        """Calling registration without a code must not downgrade existing users."""
+        with patch(
+            "app.routers.auth_router.load_app_config",
+            return_value={"unlimited_emails": [], "limits": {}},
+        ), patch("app.routers.auth_router.auth") as mock_auth:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "existing_pro_user",
+                "email": "pro@example.com",
+            }
+            firebase_user = MagicMock()
+            firebase_user.custom_claims = {"tier": "PRO"}
+            mock_auth.get_user.return_value = firebase_user
+
+            response = client.post(
+                "/auth/register",
+                json={"id_token": "valid_token", "invitation_code": None},
+            )
+
+            assert response.status_code == 200
+            assert response.json()["tier"] == "PRO"
+            mock_auth.set_custom_user_claims.assert_not_called()
+
     def test_register_with_valid_free_code_full_flow(self) -> None:
         """Test complete registration flow with valid FREE invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
