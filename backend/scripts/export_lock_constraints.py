@@ -6,11 +6,10 @@ import tomllib
 from pathlib import Path
 
 LOCK_PATH = Path(__file__).resolve().parents[1] / "poetry.lock"
-OUTPUT_PATH = Path("/tmp/constraints.txt")
 
 
-def export_constraints() -> None:
-    """Write one exact pip constraint per package in Poetry's main group."""
+def export_constraints() -> str:
+    """Return one exact pip constraint per package in Poetry's main group."""
     lock_data = tomllib.loads(LOCK_PATH.read_text(encoding="utf-8"))
     versions: dict[str, str] = {}
 
@@ -27,11 +26,10 @@ def export_constraints() -> None:
                 f"{previous} and {version}"
             )
 
-    constraints = "".join(
+    return "".join(
         f"{name}=={version}\n" for name, version in sorted(versions.items())
     )
-    OUTPUT_PATH.write_text(constraints, encoding="utf-8")
 
 
 if __name__ == "__main__":
-    export_constraints()
+    print(export_constraints(), end="")
