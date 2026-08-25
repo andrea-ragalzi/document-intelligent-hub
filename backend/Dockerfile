@@ -7,6 +7,8 @@ WORKDIR /app
 ARG PYTORCH_CPU_INDEX_URL=https://download.pytorch.org/whl/cpu
 ARG TORCH_VERSION=2.10.0+cpu
 ARG TORCHVISION_VERSION=0.25.0+cpu
+ARG FIREBASE_ADMIN_VERSION=7.1.0
+ARG GOOGLE_CLOUD_FIRESTORE_VERSION=2.21.0
 
 # Install system dependencies required for building Python packages
 RUN apt-get update && apt-get install -y \
@@ -20,11 +22,16 @@ COPY app/__init__.py app/__init__.py
 # Install the CPU-only PyTorch wheels before the application dependencies.
 # The application explicitly runs all-MiniLM-L6-v2 on CPU; using PyPI's Linux
 # wheels here would otherwise pull the CUDA runtime into the deployment image.
+# Keep Firebase/Firestore aligned with the working Poetry lock. Newer Firestore
+# clients encode `(default)` in this project's database resource path.
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir \
         --index-url "${PYTORCH_CPU_INDEX_URL}" \
         "torch==${TORCH_VERSION}" \
         "torchvision==${TORCHVISION_VERSION}" && \
+    pip install --no-cache-dir \
+        "firebase-admin==${FIREBASE_ADMIN_VERSION}" \
+        "google-cloud-firestore==${GOOGLE_CLOUD_FIRESTORE_VERSION}" && \
     pip install --no-cache-dir -e . && \
     pip check
 
