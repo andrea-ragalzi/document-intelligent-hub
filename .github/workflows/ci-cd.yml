@@ -214,6 +214,7 @@ jobs:
     name: "🚀 Develop to main release gate"
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     if: >-
@@ -235,9 +236,10 @@ jobs:
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             test "$HEAD_REF" = "develop"
-            summary=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs" \
-              --jq '[.check_runs[] | select(.name == "📊 Pipeline Summary") | .conclusion] | last')
-            test "$summary" = "success"
+            develop_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=develop&event=push&head_sha=$HEAD_SHA&status=completed" \
+              --jq '[.workflow_runs[] | select(.name == "CI/CD Pipeline" and .conclusion == "success") | .id] | first')
+            test -n "$develop_run"
+            test "$develop_run" != "null"
           else
             gh api "repos/$GITHUB_REPOSITORY/commits/$COMMIT_SHA/pulls" \
               --jq '.[] | select(.base.ref == "main" and .head.ref == "develop" and .merged_at != null) | .number' \
