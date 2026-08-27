@@ -236,10 +236,27 @@ jobs:
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             test "$HEAD_REF" = "develop"
-            develop_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=develop&event=push&head_sha=$HEAD_SHA&status=completed" \
-              --jq '[.workflow_runs[] | select(.name == "CI/CD Pipeline" and .conclusion == "success") | .id] | first')
-            test -n "$develop_run"
-            test "$develop_run" != "null"
+            deadline=$((SECONDS + 720))
+            while true; do
+              develop_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=develop&event=push&head_sha=$HEAD_SHA" \
+                --jq '([.workflow_runs[] | select(.name == "CI/CD Pipeline")][0] // {"status":"missing","conclusion":"pending"}) | "\(.status) \(.conclusion)"')
+
+              case "$develop_run" in
+                "completed success") break ;;
+                "completed "*)
+                  echo "The CI/CD Pipeline on develop did not succeed: $develop_run"
+                  exit 1
+                  ;;
+              esac
+
+              if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "Timed out waiting for the CI/CD Pipeline on develop."
+                exit 1
+              fi
+
+              echo "Waiting for the CI/CD Pipeline on develop: $develop_run"
+              sleep 20
+            done
           else
             gh api "repos/$GITHUB_REPOSITORY/commits/$COMMIT_SHA/pulls" \
               --jq '.[] | select(.base.ref == "main" and .head.ref == "develop" and .merged_at != null) | .number' \
