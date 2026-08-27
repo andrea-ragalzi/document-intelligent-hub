@@ -26,11 +26,11 @@ def mock_external_rag_calls() -> Any:
     with patch(
         "app.routers.query_router.query_parser_service.extract_file_filters",
         side_effect=parse_query,
-    ), patch(
+    ) as filter_parser, patch(
         "app.services.rag_orchestrator_service.RAGService.answer_query",
         return_value=("Test answer grounded in the indexed document.", ["test_doc.pdf"]),
-    ):
-        yield
+    ) as answer_query:
+        yield {"filter_parser": filter_parser, "answer_query": answer_query}
 
 
 class TestHealthEndpoint:
@@ -134,23 +134,50 @@ class TestUploadEndpoint:
 class TestQueryEndpoint:
     """Test suite for /rag/query/ endpoint"""
 
-    def test_query_basic(self, client: Any, test_user_id: str) -> None:
-        """Test basic query functionality"""
+    def test_query_basic(
+        self,
+        client: Any,
+        test_user_id: str,
+        mock_external_rag_calls: dict[str, Any],
+    ) -> None:
+        """Return the API contract while preserving authenticated file filters."""
         # Set the user_id context for this test
         client.test_user_context["user_id"] = test_user_id
 
-        payload = {
-            "query": "What is this document about?",
-        }
+        filter_parser = mock_external_rag_calls["filter_parser"]
+        answer_query = mock_external_rag_calls["answer_query"]
+        filter_parser.side_effect = None
+        filter_parser.return_value = FileFilterResponse(
+            include_files=["policy.pdf"],
+            exclude_files=["draft.pdf"],
+            original_query="What changed in policy.pdf?",
+            cleaned_query="What changed?",
+        )
+        answer_query.return_value = (
+            "The policy changed in January.",
+            ["policy.pdf"],
+        )
 
-        response = client.post("/rag/query/", json=payload)
+        payload = {"query": "What changed in policy.pdf?"}
 
+        with patch("socket.socket.connect") as network_connect:
+            response = client.post("/rag/query/", json=payload)
+
+        network_connect.assert_not_called()
         assert response.status_code == 200
-        json_response = response.json()
-        assert "answer" in json_response
-        assert "source_documents" in json_response
-        assert isinstance(json_response["answer"], str)
-        assert isinstance(json_response["source_documents"], list)
+        assert response.json() == {
+            "answer": "The policy changed in January.",
+            "source_documents": ["policy.pdf"],
+        }
+        assert filter_parser.call_args.kwargs["query"] == payload["query"]
+        answer_query.assert_called_once_with(
+            "What changed?",
+            test_user_id,
+            [],
+            None,
+            include_files=["policy.pdf"],
+            exclude_files=["draft.pdf"],
+        )
 
     def test_query_long_text(self, client: Any, test_user_id: str) -> None:
         """Test query with longer question"""

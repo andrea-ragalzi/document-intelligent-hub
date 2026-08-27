@@ -29,6 +29,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     // Additional ignores:
+    ".vercel/**",
     "coverage/**",
     "test/**",
     "*.config.*",

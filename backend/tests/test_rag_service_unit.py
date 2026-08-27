@@ -17,6 +17,7 @@ from langchain_core.documents import Document
 
 import app.services.rag_orchestrator_service
 from app.repositories.vector_store_repository import VectorStoreRepository
+from app.schemas.rag_schema import ConversationMessage
 from app.services.rag_orchestrator_service import RAGService
 
 
@@ -78,97 +79,68 @@ class TestRAGServiceInitialization:
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)
 class TestQueryProcessing:
-    """Test query processing and answer generation"""
+    """Test existing non-happy-path query behavior without external calls."""
 
-    @patch("app.services.rag_orchestrator_service.ChatOpenAI")
-    def test_answer_query_basic(
-        self, mock_llm_class: Any, mock_repository: Any
-    ) -> None:
-        """Test basic query processing"""
-        # Mock LLM response
-        mock_llm_instance = Mock()
-        mock_response = Mock()
-        mock_response.content = "This is the answer from the document."
-        mock_llm_instance.invoke.return_value = mock_response
-        mock_llm_class.return_value = mock_llm_instance
-
-        # Mock retriever with relevant documents
-        mock_retriever = Mock()
-        relevant_docs = [
-            Document(
-                page_content="Relevant content about Python programming.",
-                metadata={"source": "test-user", "original_filename": "python.pdf"},
-            )
+    def test_answer_query_with_conversation_history(self, rag_service: Any) -> None:
+        """Conversation history is preserved across orchestrator delegation."""
+        conversation_history = [
+            ConversationMessage(role="user", content="Previous question"),
+            ConversationMessage(role="assistant", content="Previous answer"),
         ]
-        mock_retriever.invoke.return_value = relevant_docs
-        mock_repository.get_retriever.return_value = mock_retriever
-
-        # Create new service with mocked LLM
-        service = RAGService(repository=mock_repository)
-        service.llm = mock_llm_instance
-
-        # Answer query
-        answer, sources = service.answer_query(
-            query="What is Python?", user_id="test-user"
+        rag_service.query_processing_service.reformulate_query = Mock(
+            return_value="Reformulated follow-up question"
+        )
+        rag_service.query_processing_service.classify_query = Mock(
+            return_value="GENERAL_SEARCH"
+        )
+        rag_service.answer_generation_service.generate_answer = Mock(
+            return_value=("History-aware answer", ["history.pdf"])
         )
 
-        # Verify business logic
-        assert isinstance(answer, str)
-        assert len(answer) > 0
-        assert isinstance(sources, list)
+        answer, sources = rag_service.answer_query(
+            query="Follow-up question",
+            user_id="test-user",
+            conversation_history=conversation_history,
+        )
 
-        # Verify repository was called (may be called multiple times for query expansion/reranking)
-        assert mock_repository.get_retriever.call_count >= 1
-
-    def test_answer_query_with_conversation_history(
-        self, rag_service: Any, mock_repository: Any
-    ) -> Any:
-        """Test query processing with conversation history"""
-        # Mock retriever
-        mock_retriever = Mock()
-        mock_retriever.invoke.return_value = [
-            Document(page_content="Test content", metadata={"source": "test-user"})
-        ]
-        mock_repository.get_retriever.return_value = mock_retriever
-
-        conversation_history = [
-            {"role": "user", "content": "Previous question"},
-            {"role": "assistant", "content": "Previous answer"},
-        ]
-
-        # This should include history in the prompt
-        # (actual verification would require inspecting LLM call)
-        try:
-            _, _ = rag_service.answer_query(
-                query="Follow-up question",
-                user_id="test-user",
-                conversation_history=conversation_history,
-            )
-            # Test passes if no exception raised - history feature working
-        except Exception:  # pylint: disable=broad-exception-caught
-            # If conversation_history not implemented yet, skip
-            pytest.skip("Conversation history feature not implemented")
+        assert answer == "History-aware answer"
+        assert sources == ["history.pdf"]
+        rag_service.answer_generation_service.generate_answer.assert_called_once_with(
+            query="Reformulated follow-up question",
+            user_id="test-user",
+            conversation_history=conversation_history,
+            output_language=None,
+            include_files=None,
+            exclude_files=None,
+        )
 
     def test_answer_query_no_relevant_documents(
         self, rag_service: Any, mock_repository: Any
-    ) -> Any:
-        """Test query when no relevant documents found"""
-        # Mock retriever returns empty list
-        mock_retriever = Mock()
-        mock_retriever.invoke.return_value = []
-        mock_repository.get_retriever.return_value = mock_retriever
+    ) -> None:
+        """No retrieved chunks returns the existing grounded fallback without an LLM."""
+        retriever = Mock()
+        retriever.invoke.return_value = []
+        mock_repository.get_retriever.return_value = retriever
+        answer_service = rag_service.answer_generation_service
+        answer_service.language_service = Mock()
+        answer_service.language_service.detect_language.return_value = "EN"
+        answer_service.language_service.translate_answer_back.side_effect = (
+            lambda answer, _language: answer
+        )
+        answer_service.query_expansion_service = Mock()
+        answer_service.query_expansion_service.generate_alternative_queries.return_value = (
+            []
+        )
+        answer_service.llm = Mock()
 
-        try:
-            answer, sources = rag_service.answer_query(
-                query="Nonexistent topic", user_id="test-user"
-            )
-        except Exception:  # pylint: disable=broad-exception-caught
-            # Some implementations may raise exception for no documents
-            pytest.skip("Implementation raises when no documents are available")
+        answer, sources = answer_service.generate_answer(
+            query="Nonexistent topic",
+            user_id="test-user",
+        )
 
-        # Should still return an answer (may indicate no info found)
-        assert isinstance(answer, str)
-        assert len(sources) == 0
+        assert answer == "I cannot answer this question based on the documents provided."
+        assert sources == []
+        answer_service.llm.invoke.assert_not_called()
 
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)

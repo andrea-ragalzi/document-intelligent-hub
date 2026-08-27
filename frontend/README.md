@@ -61,7 +61,7 @@ The active dashboard uses `hooks/queries/useConversationsQuery.ts` with TanStack
 
 ## Configuration
 
-Create `frontend/.env.local`. No tracked `.env.local.example` file is currently provided.
+Create the ignored `frontend/.env.development.local` from the tracked `frontend/.env.example`. It must contain only the dedicated DEV Firebase Web app configuration; Vercel owns the independent production values.
 
 | Variable                                   | Controls                                                            |
 | ------------------------------------------ | ------------------------------------------------------------------- |

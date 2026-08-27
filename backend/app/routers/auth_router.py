@@ -22,6 +22,8 @@ from google.cloud.firestore import SERVER_TIMESTAMP
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+SUPPORTED_TIERS = frozenset({"FREE", "PRO", "UNLIMITED"})
+
 
 def get_db() -> Any:
     """Get or initialize Firestore client (lazy initialization using function attribute)."""
@@ -293,6 +295,23 @@ def _assign_tier_to_user(user_id: str, tier: str) -> RegistrationResponse:
         ) from e
 
 
+def _get_existing_user_tier(user_id: str) -> str | None:
+    """Return a valid tier already assigned by Firebase Admin, if present."""
+    try:
+        user = auth.get_user(user_id)
+        custom_claims = user.custom_claims or {}
+        existing_tier = custom_claims.get("tier")
+
+        if existing_tier in SUPPORTED_TIERS:
+            return str(existing_tier)
+        return None
+    except Exception as e:
+        logger.error(f"❌ Failed to read existing Firebase claims: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to verify existing account tier."
+        ) from e
+
+
 def _validate_invitation_code(invitation_code: str, db: Any) -> dict[str, Any]:
     """
     Validate invitation code and return code data.
@@ -392,17 +411,22 @@ def _mark_code_as_used(code_ref: Any, user_id: str, invitation_code: str) -> Non
         logger.error(f"❌ Failed to mark code as used: {e}")
 
 
-@router.post("/register", response_model=RegistrationResponse)
+@router.post(
+    "/register",
+    responses={400: {"description": "Invalid registration or invitation code."}},
+)
 async def register_user(registration_data: RegistrationData) -> RegistrationResponse:
     """
-    Register user and assign tier based on invitation code or unlimited email list.
+    Register user and assign a server-authoritative tier.
 
     Flow:
     1. Verify Firebase ID token
     2. Check if user email is in unlimited list (skip invitation code if true)
-    3. Validate invitation code (if not in unlimited list)
-    4. Assign tier via Firebase Custom Claims
-    5. Mark invitation code as used (if applicable)
+    3. Preserve an existing valid Firebase tier
+    4. Assign FREE when no invitation code is supplied
+    5. Validate an optional invitation code for elevated access
+    6. Assign tier via Firebase Custom Claims
+    7. Mark invitation code as used (if applicable)
 
     Args:
         registration_data: Registration request with ID token and optional invitation code
@@ -429,21 +453,36 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
         )
         return _assign_tier_to_user(user_id, "UNLIMITED")
 
-    # Step 3: Validate invitation code (required if not in unlimited list)
-    if not registration_data.invitation_code:
-        logger.warning(
-            f"❌ User {user_email} not in unlimited list and no invitation code provided"
-        )
-        raise HTTPException(
-            status_code=400, detail="Invitation code is required for registration"
-        )
+    # Step 3: No code means normal public FREE registration. Preserve any
+    # existing valid Firebase tier so repeat registration cannot downgrade users.
+    invitation_code = (registration_data.invitation_code or "").strip()
+    if not invitation_code:
+        existing_tier = _get_existing_user_tier(user_id)
+        if existing_tier:
+            logger.info(
+                f"✅ User {user_id} already has tier {existing_tier}; preserving it"
+            )
+            return RegistrationResponse(
+                status="success",
+                tier=existing_tier,
+                message="Existing account tier preserved.",
+            )
 
-    invitation_code = registration_data.invitation_code.strip()
+        logger.info(f"🆓 No invitation code supplied; assigning FREE to {user_id}")
+        return _assign_tier_to_user(user_id, "FREE")
+
     db = get_db()
 
-    # Step 4: Validate invitation code
+    # Step 4: Validate invitation code. Its tier comes only from server-side
+    # Firestore data; request bodies cannot select an elevated tier.
     code_data = _validate_invitation_code(invitation_code, db)
-    assigned_tier = code_data.get("tier", "FREE")
+    assigned_tier = str(code_data.get("tier", "FREE")).upper()
+    if assigned_tier not in SUPPORTED_TIERS:
+        logger.error(
+            f"❌ Invitation code {invitation_code} has unsupported tier {assigned_tier}"
+        )
+        raise HTTPException(status_code=400, detail="Invitation code has invalid tier")
+
     logger.info(f"✅ Valid invitation code - assigning tier: {assigned_tier}")
 
     # Step 5: Assign tier to user

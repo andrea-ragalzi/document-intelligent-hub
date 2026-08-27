@@ -21,6 +21,7 @@ wheels/
 *.egg
 
 # Virtual environments
+.venv/
 venv/
 ENV/
 env/
@@ -34,17 +35,27 @@ env/
 
 # Testing
 .pytest_cache/
+.mypy_cache/
 .coverage
+coverage.xml
 htmlcov/
 
-# Environment files
-.env
-.env.local
+# Environment files and local credentials must never enter an image build.
+.env*
+**/.env*
+**/firebase-service-account.json
+**/*service-account*.json
+**/firebase-adminsdk-*.json
+
+# Active prompts are local, git-ignored configuration. Deployment supplies
+# them externally; tracked *.txt.example templates remain in the context.
+config/*.txt
 
 # ChromaDB (will be mounted as volume)
-chroma_db/
+chroma_db*/
 
 # Logs
+logs/
 *.log
 
 # OS files

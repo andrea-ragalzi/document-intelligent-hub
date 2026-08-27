@@ -20,7 +20,7 @@ def initialize_firebase() -> None:
     Looks for Firebase credentials in order:
     1. FIREBASE_CREDENTIALS environment variable (JSON string)
     2. FIREBASE_SERVICE_ACCOUNT_PATH environment variable (file path)
-    3. Default service account file in config/ directory
+    3. Default DEV service account file in config/ directory
 
     Returns:
         firebase_admin.App: Initialized Firebase app
@@ -68,7 +68,9 @@ def initialize_firebase() -> None:
 
     # Try default service account file location
     default_path = (
-        Path(__file__).parent.parent / "config" / "firebase-service-account.json"
+        Path(__file__).parent.parent
+        / "config"
+        / "firebase-service-account.dev.json"
     )
     if default_path.exists():
         try:
@@ -84,7 +86,7 @@ def initialize_firebase() -> None:
         "Firebase credentials not found. Please set one of:\n"
         "1. FIREBASE_CREDENTIALS environment variable (JSON string)\n"
         "2. FIREBASE_SERVICE_ACCOUNT_PATH environment variable (file path)\n"
-        "3. Place firebase-service-account.json in backend/app/config/"
+        "3. Place firebase-service-account.dev.json in backend/app/config/"
     )
     logger.error(f"❌ {error_msg}")
     raise ValueError(error_msg)

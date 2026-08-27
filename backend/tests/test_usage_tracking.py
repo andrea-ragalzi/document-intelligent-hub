@@ -125,16 +125,14 @@ class TestUsageTrackingService:
     def test_get_user_queries_today_error_handling(
         self, usage_service: Any, mock_firestore_db: Any
     ) -> Any:
-        """Test error handling when Firestore fails"""
+        """Firestore read failures must not look like zero usage."""
         doc_ref = MagicMock()
         doc_ref.get.side_effect = Exception("Firestore error")
 
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
 
-        result = usage_service.get_user_queries_today("user123")
-
-        # Should return 0 on error (fallback)
-        assert result == 0
+        with pytest.raises(RuntimeError, match="Failed to read query usage"):
+            usage_service.get_user_queries_today("user123")
 
     @pytest.mark.skip(reason="Complex transaction mocking - requires integration test")
     def test_increment_user_queries_new_user(
@@ -241,6 +239,20 @@ class TestUsageTrackingService:
 
         assert can_query is False
         assert queries_used == 25
+
+    def test_check_query_limit_fails_closed_on_usage_read_error(
+        self, usage_service: Any
+    ) -> None:
+        """A Firestore outage must block paid RAG queries."""
+        with patch.object(
+            usage_service,
+            "get_user_queries_today",
+            side_effect=RuntimeError("Firestore unavailable"),
+        ):
+            can_query, queries_used = usage_service.check_query_limit("user123", 20)
+
+        assert can_query is False
+        assert queries_used == 20
 
     def test_check_query_limit_unlimited(self, usage_service: Any) -> None:
         """Test unlimited tier (9999 threshold)"""
@@ -401,7 +413,7 @@ class TestUsageServiceEdgeCases:
     def test_get_queries_with_corrupted_data(
         self, usage_service: Any, mock_firestore_db: Any
     ) -> Any:
-        """Test handling corrupted queries data"""
+        """Corrupted quota data must fail closed instead of granting free usage."""
         user_doc = MagicMock()
         user_doc.exists = True
         user_doc.to_dict.return_value = {"queries": "not a dict"}  # Corrupted data
@@ -411,10 +423,8 @@ class TestUsageServiceEdgeCases:
 
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
 
-        result = usage_service.get_user_queries_today("user123")
-
-        # Should handle gracefully and return 0
-        assert result == 0
+        with pytest.raises(RuntimeError, match="Failed to read query usage"):
+            usage_service.get_user_queries_today("user123")
 
     def test_get_queries_with_none_value(
         self, usage_service: Any, mock_firestore_db: Any

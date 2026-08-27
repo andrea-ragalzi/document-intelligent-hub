@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "dih---development",
+    "dev": "dih---development",
+    "production": "intelligent-document-hub-a16c1"
+  }
+}
