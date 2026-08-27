@@ -224,6 +224,49 @@ class TestRepositoryBasicOperations:
             "test-repo-user-1", "delete_me.pdf"
         )
 
+    def test_delete_document_preserves_other_file_for_same_user(
+        self, test_repository: Any
+    ) -> None:
+        """Filename-scoped deletion must retain the user's unrelated chunks."""
+        test_repository.add_documents(
+            [
+                Document(
+                    page_content="Target chunk one",
+                    metadata={
+                        "source": "test-repo-user-1",
+                        "original_filename": "target.pdf",
+                        "chunk_index": 0,
+                    },
+                ),
+                Document(
+                    page_content="Target chunk two",
+                    metadata={
+                        "source": "test-repo-user-1",
+                        "original_filename": "target.pdf",
+                        "chunk_index": 1,
+                    },
+                ),
+                Document(
+                    page_content="Unrelated document chunk",
+                    metadata={
+                        "source": "test-repo-user-1",
+                        "original_filename": "keep.pdf",
+                        "chunk_index": 0,
+                    },
+                ),
+            ]
+        )
+
+        deleted_count = test_repository.delete_document(
+            "test-repo-user-1", "target.pdf"
+        )
+
+        assert deleted_count == 2
+        assert not test_repository.check_document_exists(
+            "test-repo-user-1", "target.pdf"
+        )
+        assert test_repository.check_document_exists("test-repo-user-1", "keep.pdf")
+
     def test_delete_all_user_documents(self, test_repository: Any) -> None:
         """Test deleting all documents for a user"""
         # Add multiple documents
