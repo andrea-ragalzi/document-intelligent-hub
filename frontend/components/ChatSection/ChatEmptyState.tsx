@@ -3,12 +3,18 @@
  */
 
 import { Loader, AlertTriangle, MessageSquare, Paperclip } from "lucide-react";
+import type { DemoDocumentState } from "@/hooks/useDemoDocument";
+import { DemoDocumentCard } from "./DemoDocumentCard";
 
 interface EmptyStateProps {
   isCheckingDocuments: boolean;
   isServerOnline: boolean;
   isLimitReached: boolean;
   noDocuments: boolean;
+  demoDocumentState: DemoDocumentState;
+  suggestedQuestions: string[];
+  onSelectQuestion: (question: string) => void;
+  onOpenUpload: () => void;
 }
 
 export function ChatEmptyState({
@@ -16,6 +22,10 @@ export function ChatEmptyState({
   isServerOnline,
   isLimitReached,
   noDocuments,
+  demoDocumentState,
+  suggestedQuestions,
+  onSelectQuestion,
+  onOpenUpload,
 }: EmptyStateProps) {
   if (isCheckingDocuments) {
     return (
@@ -65,6 +75,12 @@ export function ChatEmptyState({
           <Paperclip size={14} className="inline mr-1" />
           Upload a PDF document to start asking questions
         </p>
+        <DemoDocumentCard
+          state={demoDocumentState}
+          suggestedQuestions={suggestedQuestions}
+          onSelectQuestion={onSelectQuestion}
+          onOpenUpload={onOpenUpload}
+        />
       </>
     );
   }
@@ -76,6 +92,12 @@ export function ChatEmptyState({
       <p className="text-sm text-gray-400 dark:text-gray-500">
         Ask me anything about your documents!
       </p>
+      <DemoDocumentCard
+        state={demoDocumentState}
+        suggestedQuestions={suggestedQuestions}
+        onSelectQuestion={onSelectQuestion}
+        onOpenUpload={onOpenUpload}
+      />
     </>
   );
 }

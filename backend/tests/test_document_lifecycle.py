@@ -61,6 +61,7 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
         chunks_indexed, language = await service.index_document(
             upload,
             user_id="verified-user",
+            document_metadata={"is_demo_document": True},
         )
 
     assert chunks_indexed > 0
@@ -82,6 +83,7 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
         for chunk in indexed_chunks
     )
     assert all("uploaded_at" in chunk.metadata for chunk in indexed_chunks)
+    assert all(chunk.metadata["is_demo_document"] is True for chunk in indexed_chunks)
 
     temporary_pdf = loader_class.call_args.args[0]
     assert not os.path.exists(temporary_pdf)

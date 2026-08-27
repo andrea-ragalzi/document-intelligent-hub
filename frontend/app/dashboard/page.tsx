@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, FormEvent, useState } from "react";
+import { useRef, useEffect, FormEvent, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
 import type { Message } from "ai/react";
@@ -27,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useServerStatus } from "@/hooks/useServerStatus";
 import { useUserTier } from "@/hooks/useUserTier";
 import { useQueryUsage } from "@/hooks/useQueryUsage";
+import { useDemoDocument } from "@/hooks/useDemoDocument";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -79,6 +80,15 @@ export default function Page() {
 
   // Ensure documents is always an array
   const documents = rawDocuments || [];
+
+  const handleDemoDocumentReady = useCallback(async () => {
+    await refreshDocuments();
+    globalThis.dispatchEvent(new Event("refreshDocumentStatus"));
+  }, [refreshDocuments]);
+  const { state: demoDocumentState, suggestedQuestions } = useDemoDocument({
+    userId,
+    onReady: handleDemoDocumentReady,
+  });
 
   // Check if user has uploaded documents
   const { hasDocuments, isChecking } = useDocumentStatus(userId);
@@ -576,6 +586,9 @@ export default function Page() {
               onSelectOutputLanguage={setSelectedOutputLanguage}
               isServerOnline={isServerOnline}
               isLimitReached={isLimitReached}
+              demoDocumentState={demoDocumentState}
+              suggestedQuestions={suggestedQuestions}
+              onSuggestedQuestion={handleQueryChange}
             />
           </div>
 
