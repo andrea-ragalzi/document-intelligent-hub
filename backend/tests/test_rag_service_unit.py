@@ -10,7 +10,7 @@ independently with fast, reliable mock objects.
 
 import inspect
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from langchain_core.documents import Document
@@ -75,86 +75,6 @@ class TestRAGServiceInitialization:
         with pytest.raises(TypeError):
             # Should fail because repository is required
             RAGService()  # type: ignore  # pylint: disable=no-value-for-parameter
-
-
-# pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)
-class TestDocumentIndexing:
-    """Test document indexing business logic"""
-
-    @pytest.mark.skip(
-        reason="Requires mocking UnstructuredPDFLoader - PDF parsing is complex"
-    )
-    @patch("app.services.rag_orchestrator_service.UnstructuredPDFLoader")
-    @pytest.mark.asyncio
-    async def test_index_document_success(
-        self, mock_pdf_loader: Any, rag_service: Any, mock_repository: Any
-    ) -> Any:
-        """Test successful document indexing"""
-        # Mock PDF loader
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = [
-            Document(page_content="Test content", metadata={})
-        ]
-        mock_pdf_loader.return_value = mock_loader_instance
-
-        # Mock async file
-        mock_file = Mock()
-        mock_file.filename = "test.pdf"
-
-        mock_file.read = AsyncMock(return_value=b"fake pdf content")
-
-        # Mock repository behavior
-        mock_repository.check_document_exists.return_value = False
-        mock_repository.add_documents.return_value = 5
-
-        # Index document
-        total_chunks, language = await rag_service.index_document(
-            file=mock_file, user_id="test-user"
-        )
-
-        # Verify business logic
-        assert total_chunks == 5
-        assert language is not None
-
-        # Verify repository was called correctly
-        mock_repository.check_document_exists.assert_called_once_with(
-            user_id="test-user", filename="test.pdf"
-        )
-        mock_repository.add_documents.assert_called_once()
-
-    @pytest.mark.skip(
-        reason="Requires mocking UnstructuredPDFLoader - PDF parsing is complex"
-    )
-    @pytest.mark.asyncio
-    async def test_index_document_already_exists(
-        self, rag_service: Any, mock_repository: Any
-    ) -> Any:
-        """Test indexing fails when document already exists"""
-        # Mock async file
-        mock_file = Mock()
-        mock_file.filename = "existing.pdf"
-
-        mock_file.read = AsyncMock(return_value=b"fake content")
-
-        # Mock repository - document exists
-        mock_repository.check_document_exists.return_value = True
-
-        # Should raise exception
-        with pytest.raises(Exception, match="already exists"):
-            await rag_service.index_document(file=mock_file, user_id="test-user")
-
-        # Should not call add_documents if document exists
-        mock_repository.add_documents.assert_not_called()
-
-    def test_index_document_uses_language_detection(
-        self, rag_service: Any, mock_repository: Any
-    ) -> Any:
-        """Test that indexing includes language detection in metadata.
-
-        This test verifies business logic includes language detection
-        (actual implementation would be tested with integration tests).
-        Placeholder - extend based on actual implementation.
-        """
 
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)
@@ -419,34 +339,6 @@ class TestMockingBestPractices:
 
         # Verify exact call (positional args)
         mock_repository.delete_document.assert_called_once_with("user123", "file.pdf")
-
-    @pytest.mark.skip(
-        reason="Requires mocking UnstructuredPDFLoader - PDF parsing is complex"
-    )
-    @pytest.mark.asyncio
-    async def test_example_mock_return_values(
-        self, rag_service: Any, mock_repository: Any
-    ) -> Any:
-        """Example: Configure mock return values"""
-
-        # Different return value based on input
-        def mock_check_exists(
-            user_id: str, filename: str  # pylint: disable=unused-argument
-        ) -> bool:
-            return filename == "exists.pdf"
-
-        mock_repository.check_document_exists.side_effect = mock_check_exists
-
-        # Test with existing file
-        mock_file1 = Mock()
-        mock_file1.filename = "exists.pdf"
-
-        mock_file1.read = AsyncMock(return_value=b"content")
-
-        try:
-            await rag_service.index_document(mock_file1, "user")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            assert "exists" in str(e)
 
     def test_example_count_method_calls(
         self, rag_service: Any, mock_repository: Any

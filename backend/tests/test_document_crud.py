@@ -82,6 +82,22 @@ class TestDocumentCRUD:
         docs = response.json()["documents"]
         assert not any(d["filename"] == "to_delete.pdf" for d in docs)
 
+    def test_delete_missing_document_returns_not_found(
+        self, client: Any, unique_user_id: str
+    ) -> None:
+        """Deleting a filename that was never indexed returns the current 404."""
+        client.test_user_context["user_id"] = unique_user_id
+
+        response = client.delete(
+            "/rag/documents/delete",
+            params={"filename": "missing-document.pdf"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == (
+            f"Document 'missing-document.pdf' not found for user {unique_user_id}"
+        )
+
     def test_delete_all_documents(
         self, client: Any, sample_pdf: Any, unique_user_id: str
     ) -> Any:

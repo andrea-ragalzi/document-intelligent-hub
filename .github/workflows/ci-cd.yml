@@ -342,43 +342,6 @@ jobs:
             BUILDKIT_INLINE_CACHE=1
 
   # ============================================================================
-  # PHASE 4: DEPLOY (Only on main/develop)
-  # ============================================================================
-  deploy:
-    name: "🚀 Deploy to ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs: [check-ci, docker-build]
-    if: |
-      needs.check-ci.outputs.enabled == 'true' &&
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-    steps:
-      - name: "📥 Checkout code"
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: "🚀 Deploy to ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}"
-        env:
-          DEPLOYMENT_TARGET: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-          DEPLOYMENT_BRANCH: ${{ github.ref_name }}
-          DEPLOYMENT_SHA: ${{ github.sha }}
-        run: |
-          echo "🚀 Deploying to $DEPLOYMENT_TARGET..."
-          echo "📦 Branch: $DEPLOYMENT_BRANCH"
-          echo "🔖 Commit: $DEPLOYMENT_SHA"
-
-          # Add your deployment commands here
-          # Examples:
-          # - Railway: railway up
-          # - Vercel: vercel --prod
-          # - AWS: aws deploy ...
-          # - Docker: docker-compose up -d
-          # - Kubernetes: kubectl apply -f ...
-
-          echo "✅ Deployment completed successfully!"
-
-  # ============================================================================
   # SUMMARY
   # ============================================================================
   ci-cd-summary:

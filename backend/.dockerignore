@@ -52,7 +52,7 @@ htmlcov/
 config/*.txt
 
 # ChromaDB (will be mounted as volume)
-chroma_db/
+chroma_db*/
 
 # Logs
 logs/
