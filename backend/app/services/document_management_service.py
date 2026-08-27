@@ -140,7 +140,7 @@ class DocumentManagementService:
             logger.error(f"❌ Error deleting all documents for user {user_id}: {e}")
             raise
 
-    def get_user_document_count(self, user_id: str) -> int:
+    def get_user_document_count(self, user_id: str, include_demo: bool = True) -> int:
         """
         Count the number of unique documents for a user.
 
@@ -148,6 +148,7 @@ class DocumentManagementService:
 
         Args:
             user_id: The user ID
+            include_demo: Whether to include the bundled starter document.
 
         Returns:
             Number of unique documents
@@ -162,7 +163,9 @@ class DocumentManagementService:
                 return 0
 
             unique_filenames = {
-                metadata.get("original_filename", "Unknown") for metadata in metadatas
+                metadata.get("original_filename", "Unknown")
+                for metadata in metadatas
+                if include_demo or not metadata.get("is_demo_document", False)
             }
 
             count = len(unique_filenames)

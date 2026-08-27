@@ -26,9 +26,15 @@ from app.core.security import (
 )
 from app.schemas.rag_schema import (
     DetectLanguageResponse,
+    DemoDocumentSeedResponse,
     DocumentDeleteResponse,
     DocumentListResponse,
     UploadResponse,
+)
+from app.services.demo_document_service import (
+    DEMO_DOCUMENT_FILENAME,
+    DEMO_SUGGESTED_QUESTIONS,
+    DemoDocumentService,
 )
 from app.services.rag_orchestrator_service import RAGService, get_rag_service
 from app.services.tier_limit_service import (
@@ -82,7 +88,11 @@ def _check_file_limits(user_id: str, rag_service: RAGService) -> Tuple[int, floa
     Raises:
         HTTPException: If file count limit is reached
     """
-    current_file_count = rag_service.get_user_document_count(user_id)
+    # The bundled starter PDF is private per user but does not consume the
+    # user's personal-upload allowance.
+    current_file_count = rag_service.get_user_document_count(
+        user_id, include_demo=False
+    )
     can_upload, max_files = check_file_count_limit(user_id, current_file_count)
 
     if not can_upload:
@@ -154,6 +164,36 @@ async def _read_and_validate_file_size(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to read file: {str(e)}",
+        ) from e
+
+
+@router.post("/documents/seed-demo", response_model=DemoDocumentSeedResponse)
+async def seed_demo_document(
+    user_id: str = Depends(verify_firebase_token),
+    rag_service: RAGService = Depends(get_rag_service),
+) -> DemoDocumentSeedResponse:
+    """Index the bundled Alice excerpt privately for the verified Firebase UID."""
+    try:
+        result = await DemoDocumentService(rag_service).seed_for_user(user_id)
+        return DemoDocumentSeedResponse(
+            status=result.status,
+            message=(
+                "Demo document ready."
+                if result.status == "ready"
+                else "Demo document indexed successfully."
+            ),
+            filename=DEMO_DOCUMENT_FILENAME,
+            chunks_indexed=result.chunks_indexed,
+            suggested_questions=DEMO_SUGGESTED_QUESTIONS,
+        )
+    except Exception as e:
+        logger.error(
+            f"❌ Demo document seeding failed | User: {sanitize_log_value(user_id)} | "
+            f"Error: {sanitize_log_value(e)}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Demo document could not be prepared. You can still upload your own PDF.",
         ) from e
 
 

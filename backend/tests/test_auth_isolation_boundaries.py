@@ -1,7 +1,7 @@
 """Security boundary tests for Firebase authentication and tenant isolation."""
 
 from collections.abc import Generator
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -121,6 +121,38 @@ def test_document_list_uses_verified_uid_and_ignores_spoofed_user_id(
         "user_id": AUTHENTICATED_USER,
     }
     rag_service.get_user_documents.assert_called_once_with(AUTHENTICATED_USER)
+
+
+def test_demo_seed_uses_verified_uid_and_ignores_spoofed_user_id(
+    protected_client: tuple[TestClient, Mock],
+) -> None:
+    """Demo chunks must be seeded for the Firebase UID, never a request parameter."""
+    client, rag_service = protected_client
+    rag_service.user_document_exists.return_value = False
+    rag_service.index_document = AsyncMock(return_value=(4, "EN"))
+
+    with patch(
+        "app.core.auth.auth.verify_id_token",
+        return_value={"uid": AUTHENTICATED_USER},
+    ):
+        response = client.post(
+            "/rag/documents/seed-demo",
+            params={"user_id": OTHER_USER},
+            headers=VALID_AUTH_HEADER,
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "seeded"
+    assert response.json()["filename"] == "alice-cheshire-cat-demo.pdf"
+    assert response.json()["suggested_questions"] == [
+        "What does Alice first notice about the Cheshire Cat?",
+        "How is the Cheshire Cat described?",
+        "What happens when the Cat disappears?",
+    ]
+    rag_service.user_document_exists.assert_called_once_with(
+        AUTHENTICATED_USER, "alice-cheshire-cat-demo.pdf"
+    )
+    assert rag_service.index_document.await_args.kwargs["user_id"] == AUTHENTICATED_USER
 
 
 def test_delete_cannot_target_another_user_via_client_user_id(

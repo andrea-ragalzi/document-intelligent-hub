@@ -15,7 +15,7 @@ Responsibilities:
 import os
 import tempfile
 import time
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.logging import logger
 from app.repositories.vector_store_repository import VectorStoreRepository
@@ -57,7 +57,11 @@ class DocumentIndexingService:
         self.classifier_service = classifier_service
 
     async def index_document(
-        self, file: UploadFile, user_id: str, document_language: Optional[str] = None
+        self,
+        file: UploadFile,
+        user_id: str,
+        document_language: Optional[str] = None,
+        document_metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[int, str]:
         """
         Load a PDF, split it into chunks, create embeddings, and save to ChromaDB.
@@ -71,6 +75,7 @@ class DocumentIndexingService:
             user_id: The user identifier for multi-tenancy
             document_language: Optional language code (IT, EN, FR, etc.).
                                Auto-detected if not provided.
+            document_metadata: Internal metadata applied to every indexed chunk.
 
         Returns:
             Tuple of (chunks_indexed, detected_or_specified_language)
@@ -94,7 +99,11 @@ class DocumentIndexingService:
             )
             chunks = filter_complex_metadata(chunks)
             final_chunks = self._prepare_chunks_with_metadata(
-                chunks, user_id, file.filename or "unknown.pdf", doc_language
+                chunks,
+                user_id,
+                file.filename or "unknown.pdf",
+                doc_language,
+                document_metadata,
             )
 
             # Detect language if not provided
@@ -246,6 +255,7 @@ class DocumentIndexingService:
         user_id: str,
         filename: str,
         doc_language: Optional[str],
+        document_metadata: Optional[Dict[str, Any]] = None,
     ) -> List[Document]:
         """
         Add metadata to chunks including user_id, language, chapter tracking, and timestamp.
@@ -255,6 +265,7 @@ class DocumentIndexingService:
             user_id: User identifier for multi-tenancy
             filename: Original filename
             doc_language: Document language (None = auto-detect)
+            document_metadata: Internal metadata applied to every chunk.
 
         Returns:
             Chunks with complete metadata
@@ -290,6 +301,8 @@ class DocumentIndexingService:
             chunk.metadata["original_filename"] = filename
             chunk.metadata["original_language_code"] = detected_language
             chunk.metadata["uploaded_at"] = uploaded_at
+            if document_metadata:
+                chunk.metadata.update(document_metadata)
 
             final_chunks.append(chunk)
 

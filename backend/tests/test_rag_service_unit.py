@@ -244,6 +244,24 @@ class TestDocumentCount:
 
         assert count == 0
 
+    def test_demo_document_does_not_consume_personal_upload_allowance(
+        self, rag_service: Any, mock_repository: Any
+    ) -> None:
+        """The private starter PDF must not reduce the tier's user-upload limit."""
+        mock_repository.get_user_chunks_sample.return_value = (
+            [
+                {
+                    "original_filename": "alice-cheshire-cat-demo.pdf",
+                    "is_demo_document": True,
+                },
+                {"original_filename": "my-resume.pdf"},
+            ],
+            [],
+        )
+
+        assert rag_service.get_user_document_count("test-user") == 2
+        assert rag_service.get_user_document_count("test-user", include_demo=False) == 1
+
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)
 class TestServiceIsolation:

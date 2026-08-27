@@ -111,7 +111,11 @@ class RAGService:
     # === DOCUMENT INDEXING OPERATIONS ===
 
     async def index_document(
-        self, file: UploadFile, user_id: str, document_language: Optional[str] = None
+        self,
+        file: UploadFile,
+        user_id: str,
+        document_language: Optional[str] = None,
+        document_metadata: Optional[dict[str, Any]] = None,
     ) -> Tuple[int, str]:
         """
         Delegate to DocumentIndexingService.
@@ -120,12 +124,13 @@ class RAGService:
             file: Uploaded PDF file
             user_id: User identifier
             document_language: Optional language code
+            document_metadata: Internal metadata applied to indexed chunks.
 
         Returns:
             Tuple of (chunks_indexed, detected_language)
         """
         return await self.indexing_service.index_document(
-            file, user_id, document_language
+            file, user_id, document_language, document_metadata
         )
 
     async def detect_document_language_preview(
@@ -201,6 +206,7 @@ class RAGService:
 
         Args:
             user_id: User identifier
+            include_demo: Whether to include the bundled starter document.
 
         Returns:
             List of DocumentInfo objects
@@ -232,7 +238,7 @@ class RAGService:
         """
         return self.document_management_service.delete_all_user_documents(user_id)
 
-    def get_user_document_count(self, user_id: str) -> int:
+    def get_user_document_count(self, user_id: str, include_demo: bool = True) -> int:
         """
         Delegate to DocumentManagementService.
 
@@ -242,7 +248,13 @@ class RAGService:
         Returns:
             Number of unique documents
         """
-        return self.document_management_service.get_user_document_count(user_id)
+        return self.document_management_service.get_user_document_count(
+            user_id, include_demo=include_demo
+        )
+
+    def user_document_exists(self, user_id: str, filename: str) -> bool:
+        """Return whether this authenticated user's document is already indexed."""
+        return self.repository.check_document_exists(user_id, filename)
 
     # === CONVERSATION OPERATIONS ===
 
