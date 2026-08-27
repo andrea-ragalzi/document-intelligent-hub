@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+from typing import Literal
 
 from fastapi import UploadFile
 
@@ -30,7 +31,7 @@ async def _get_seed_lock(user_id: str) -> asyncio.Lock:
 
 @dataclass(frozen=True)
 class DemoSeedResult:
-    status: str
+    status: Literal["seeded", "ready"]
     chunks_indexed: int
 
 
