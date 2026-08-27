@@ -13,7 +13,7 @@ config/firebase-service-account*.json
 config/*.txt
 
 # Database e cache locali (ChromaDB)
-chroma_db/
+chroma_db*/
 
 # File specifici di Python
 __pycache__/

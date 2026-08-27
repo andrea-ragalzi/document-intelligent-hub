@@ -10,7 +10,7 @@ Frontend  http://localhost:3000
 Backend   http://127.0.0.1:8000
 API base  http://127.0.0.1:8000/rag
 Firebase  dedicated DEV project
-Chroma    backend/chroma_db on the local filesystem
+Chroma    backend/chroma_db_dev on the local filesystem
 OpenAI    dedicated DEV key/project when available
 ```
 
@@ -64,10 +64,9 @@ Production values must not be copied into local environment files or Git.
    npx firebase-tools deploy --only firestore:rules --project <DEV_PROJECT_ID>
    ```
 
-5. Create `app_config/settings` with `unlimited_emails` as an empty array and a
-   `limits` map when explicit configuration is desired. If absent, the backend
-   uses its constrained defaults: FREE 20 queries/day, 5 files, 10 MB/file;
-   PRO 500 queries/day, 50 files, 50 MB/file; UNLIMITED 9999 values.
+5. Create `app_config/settings` with `unlimited_emails` as an empty array and the
+   explicit constrained limits: FREE 20 queries/day, 5 files, 10 MB/file; PRO
+   500 queries/day, 50 files, 50 MB/file; UNLIMITED 9999 values.
 6. Do not create `invitation_codes` unless elevated-tier testing is required.
    A code document uses `tier`, `is_used`, and optional `expires_at` fields.
 7. Create a DEV service-account key and store it only at the ignored local path
@@ -86,3 +85,7 @@ feature/* -> develop -> local testing with DEV -> main -> production
 `develop` is never an online environment. Vercel and Railway production should
 ultimately deploy from `main`; preview/staging infrastructure is outside this
 model.
+
+The older ignored `backend/chroma_db` directory is legacy local data. Preserve
+it if it exists, but do not use it for DEV; new local runs use
+`backend/chroma_db_dev`.
