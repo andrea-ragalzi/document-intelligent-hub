@@ -9,6 +9,7 @@ independently with fast, reliable mock objects.
 """
 
 import inspect
+import time
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -141,6 +142,46 @@ class TestQueryProcessing:
         assert answer == "I cannot answer this question based on the documents provided."
         assert sources == []
         answer_service.llm.invoke.assert_not_called()
+
+    def test_retrieval_runs_distinct_multi_queries_concurrently(
+        self, rag_service: Any, mock_repository: Any
+    ) -> None:
+        """Distinct searches retain their pool while no longer run serially."""
+        answer_service = rag_service.answer_generation_service
+        answer_service.query_expansion_service.generate_alternative_queries = Mock(
+            return_value=["Alpha fact", " alpha   fact ", "Beta fact"]
+        )
+        retriever = Mock()
+
+        def delayed_search(query: str) -> list[Document]:
+            time.sleep(0.10)
+            return [
+                Document(
+                    page_content=f"Evidence for {query}",
+                    metadata={"source": "test-user", "original_filename": "evidence.pdf"},
+                )
+            ]
+
+        retriever.invoke.side_effect = delayed_search
+        mock_repository.get_retriever.return_value = retriever
+        answer_service.reranking_service.rerank_documents = Mock(side_effect=lambda **kwargs: kwargs["documents"])
+
+        started = time.monotonic()
+        documents = answer_service._retrieve_and_rerank(
+            translated_query="Original fact",
+            original_query="Original fact",
+            user_id="test-user",
+            include_files=None,
+            exclude_files=None,
+        )
+
+        assert time.monotonic() - started < 0.24
+        assert retriever.invoke.call_count == 3
+        assert [document.page_content for document in documents] == [
+            "Evidence for Original fact",
+            "Evidence for Alpha fact",
+            "Evidence for Beta fact",
+        ]
 
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)

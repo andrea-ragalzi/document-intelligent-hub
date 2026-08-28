@@ -10,6 +10,7 @@ This module provides:
 Architecture: Dependency Injection pattern for microservices-ready architecture
 """
 
+from threading import Lock
 from typing import Generator
 
 from chromadb import Collection, PersistentClient
@@ -25,6 +26,9 @@ COLLECTION_NAME: str = "document_intelligence_collection"
 
 # Global singleton for embedding function (loaded once at startup)
 _embedding_function_singleton: HuggingFaceEmbeddings | None = None
+_chroma_client_singleton: ClientAPI | None = None
+_chroma_collection_singleton: Collection | None = None
+_chroma_initialization_lock = Lock()
 
 
 # --- Embedding Function Configuration ---
@@ -89,9 +93,15 @@ def get_chroma_client() -> ClientAPI:
     Returns:
         ClientAPI: ChromaDB client instance with persistent storage
     """
-    client = PersistentClient(path=settings.CHROMA_DB_PATH)
-    logger.debug(f"📊 ChromaDB client initialized with path: {settings.CHROMA_DB_PATH}")
-    return client
+    global _chroma_client_singleton
+    if _chroma_client_singleton is None:
+        with _chroma_initialization_lock:
+            if _chroma_client_singleton is None:
+                _chroma_client_singleton = PersistentClient(path=settings.CHROMA_DB_PATH)
+                logger.debug(
+                    f"📊 ChromaDB client initialized with path: {settings.CHROMA_DB_PATH}"
+                )
+    return _chroma_client_singleton
 
 
 def get_chroma_collection(client: ClientAPI) -> Collection:
@@ -107,12 +117,16 @@ def get_chroma_collection(client: ClientAPI) -> Collection:
     Returns:
         Collection: ChromaDB collection for RAG operations
     """
-    collection = client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        # Note: Embedding function is managed by LangChain wrapper, not here
-    )
-    logger.debug(f"📚 Collection '{COLLECTION_NAME}' ready for operations")
-    return collection
+    global _chroma_collection_singleton
+    if _chroma_collection_singleton is None:
+        with _chroma_initialization_lock:
+            if _chroma_collection_singleton is None:
+                _chroma_collection_singleton = client.get_or_create_collection(
+                    name=COLLECTION_NAME,
+                    # Note: Embedding function is managed by LangChain wrapper, not here
+                )
+                logger.debug(f"📚 Collection '{COLLECTION_NAME}' ready for operations")
+    return _chroma_collection_singleton
 
 
 # --- FastAPI Dependency Functions (Dependency Injection) ---
