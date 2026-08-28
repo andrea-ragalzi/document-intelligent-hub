@@ -22,7 +22,39 @@ describe("useDemoDocument", () => {
     const { result } = renderHook(() => useDemoDocument({ userId: "user-a" }));
 
     await waitFor(() => expect(result.current.state).toBe("failed"));
-    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("recovers from one transient seed failure and refreshes document state", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response("unavailable", { status: 502 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "ready",
+            filename: "alice-cheshire-cat-demo.pdf",
+            suggested_questions: ["How is the Cheshire Cat described?"],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      );
+    const onReady = vi.fn();
+
+    const { result } = renderHook(() => useDemoDocument({ userId: "user-a", onReady }));
+
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(onReady).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes document state after the final seed failure", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("unavailable", { status: 502 }));
+    const onReady = vi.fn();
+
+    const { result } = renderHook(() => useDemoDocument({ userId: "user-a", onReady }));
+
+    await waitFor(() => expect(result.current.state).toBe("failed"));
+    expect(onReady).toHaveBeenCalledOnce();
   });
 
   it("seeds only once while the authenticated dashboard remains mounted", async () => {

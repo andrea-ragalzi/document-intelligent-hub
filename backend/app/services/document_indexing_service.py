@@ -12,6 +12,7 @@ Responsibilities:
 - Provide language preview for user confirmation
 """
 
+import asyncio
 import os
 import tempfile
 import time
@@ -84,45 +85,53 @@ class DocumentIndexingService:
         temp_file_path = await self._create_temp_file_from_upload(file)
 
         try:
-            # Load PDF and classify document
+            # PDF parsing, chunking, embedding and Chroma writes are synchronous
+            # libraries. Run the complete CPU/blocking section outside FastAPI's
+            # event loop so health checks and independent requests can progress.
+            return await asyncio.to_thread(
+                self._index_document_sync,
+                temp_file_path,
+                file.filename or "unknown.pdf",
+                user_id,
+                doc_language,
+                document_metadata,
+            )
+        finally:
+            self._cleanup_temp_file(temp_file_path)
+
+    def _index_document_sync(
+        self,
+        temp_file_path: str,
+        filename: str,
+        user_id: str,
+        document_language: Optional[str],
+        document_metadata: Optional[Dict[str, Any]],
+    ) -> Tuple[int, str]:
+        """Execute the synchronous PDF-to-Chroma portion in a worker thread."""
+        try:
             documents = UnstructuredPDFLoader(temp_file_path, mode="elements").load()
             full_text_preview = " ".join([doc.page_content for doc in documents[:15]])[
                 :5000
             ]
-            category = self._classify_document(
-                file.filename or "unknown", full_text_preview
-            )
-
-            # Apply chunking strategy and prepare chunks
-            chunks = self._apply_chunking_strategy(
-                documents, category, full_text_preview
-            )
+            category = self._classify_document(filename, full_text_preview)
+            chunks = self._apply_chunking_strategy(documents, category, full_text_preview)
             chunks = filter_complex_metadata(chunks)
             final_chunks = self._prepare_chunks_with_metadata(
-                chunks,
-                user_id,
-                file.filename or "unknown.pdf",
-                doc_language,
-                document_metadata,
+                chunks, user_id, filename, document_language, document_metadata
             )
-
-            # Detect language if not provided
-            doc_language = self._resolve_document_language(doc_language, final_chunks)
-
-            # Index chunks
+            resolved_language = self._resolve_document_language(
+                document_language, final_chunks
+            )
             total_chunks_indexed = (
                 self._batch_index_chunks(final_chunks) if final_chunks else 0
             )
             logger.info(
-                f"✅ Indexed {total_chunks_indexed} chunks in language: {doc_language}"
+                f"✅ Indexed {total_chunks_indexed} chunks in language: {resolved_language}"
             )
-            return total_chunks_indexed, doc_language
-
+            return total_chunks_indexed, resolved_language
         except Exception as e:
             logger.error(f"❌ Indexing error (service level): {e}")
-            raise e
-        finally:
-            self._cleanup_temp_file(temp_file_path)
+            raise
 
     async def _create_temp_file_from_upload(self, file: UploadFile) -> str:
         """
@@ -383,24 +392,9 @@ class DocumentIndexingService:
             os.close(temp_fd)  # Close the file descriptor before passing to loader
 
             # Load first pages only for preview
-            loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
-            documents = loader.load()
-
-            # Extract preview text (first 3 pages or 2000 chars)
-            preview_text = " ".join([doc.page_content for doc in documents[:3]])[:2000]
-
-            if len(preview_text) < 50:
-                logger.warning("⚠️ Not enough text for language detection")
-                return "EN", 0.5  # Default fallback
-
-            # Detect language (confidence not available, assume high confidence if detected)
-            detected_lang = self.language_service.detect_language(preview_text)
-            confidence = 0.9  # langdetect has high accuracy
-
-            logger.info(
-                f"🌍 Preview language detected: {detected_lang} (confidence: {confidence:.2f})"
+            return await asyncio.to_thread(
+                self._detect_document_language_preview_sync, temp_file_path
             )
-            return detected_lang.upper(), confidence
 
         except Exception as e:
             logger.error(f"❌ Language detection error: {e}")
@@ -410,3 +404,18 @@ class DocumentIndexingService:
             # temp_file_path is from tempfile.mkstemp(), already an absolute path
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
+
+    def _detect_document_language_preview_sync(self, temp_file_path: str) -> Tuple[str, float]:
+        """Parse a PDF preview without blocking the application event loop."""
+        loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
+        documents = loader.load()
+        preview_text = " ".join([doc.page_content for doc in documents[:3]])[:2000]
+        if len(preview_text) < 50:
+            logger.warning("⚠️ Not enough text for language detection")
+            return "EN", 0.5
+        detected_lang = self.language_service.detect_language(preview_text)
+        confidence = 0.9
+        logger.info(
+            f"🌍 Preview language detected: {detected_lang} (confidence: {confidence:.2f})"
+        )
+        return detected_lang.upper(), confidence

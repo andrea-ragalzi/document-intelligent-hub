@@ -7,6 +7,8 @@ Handles query operations:
 - File filtering and query optimization
 """
 
+import asyncio
+import time
 import traceback
 from typing import Tuple
 
@@ -175,22 +177,44 @@ async def query_document(
     **Cost:** ~$0.00007 per query for optimization (7 cents per 1000 queries)
     """
     try:
+        request_started = time.perf_counter()
         _log_request_details(request, user_id)
 
         # Check tier limits and usage
-        tier, max_queries = _get_user_tier_limits(user_id)
+        tier_started = time.perf_counter()
+        tier, max_queries = await asyncio.to_thread(_get_user_tier_limits, user_id)
         usage_service = get_usage_service()
-        _check_and_enforce_query_limit(usage_service, user_id, tier, max_queries)
+        await asyncio.to_thread(
+            _check_and_enforce_query_limit, usage_service, user_id, tier, max_queries
+        )
+        logger.info(
+            f"⏱️ Query timing | firebase_tier_and_usage="
+            f"{(time.perf_counter() - tier_started) * 1000:.2f}ms"
+        )
 
         # Extract file filters and optimize query
-        available_documents = rag_service.get_user_documents(user_id)
+        documents_started = time.perf_counter()
+        available_documents = await asyncio.to_thread(
+            rag_service.get_user_documents, user_id
+        )
         available_filenames = [doc.filename for doc in available_documents]
 
         logger.info(f"📂 User has {len(available_filenames)} documents available")
         logger.info("🔍 Extracting file filters and optimizing query...")
+        logger.info(
+            f"⏱️ Query timing | document_lookup="
+            f"{(time.perf_counter() - documents_started) * 1000:.2f}ms"
+        )
 
-        filter_result = query_parser_service.extract_file_filters(
-            query=request.query, available_files=available_filenames
+        parser_started = time.perf_counter()
+        filter_result = await asyncio.to_thread(
+            query_parser_service.extract_file_filters,
+            query=request.query,
+            available_files=available_filenames,
+        )
+        logger.info(
+            f"⏱️ Query timing | query_parser="
+            f"{(time.perf_counter() - parser_started) * 1000:.2f}ms"
         )
 
         query_for_rag = filter_result.cleaned_query
@@ -207,7 +231,9 @@ async def query_document(
         logger.info(f"🧹 Optimized query: {query_for_rag}")
 
         # Call RAG service
-        answer, sources = rag_service.answer_query(
+        rag_started = time.perf_counter()
+        answer, sources = await asyncio.to_thread(
+            rag_service.answer_query,
             query_for_rag,
             user_id,
             request.conversation_history,
@@ -215,9 +241,19 @@ async def query_document(
             include_files=include_files,
             exclude_files=exclude_files,
         )
+        logger.info(
+            f"⏱️ Query timing | rag_answer="
+            f"{(time.perf_counter() - rag_started) * 1000:.2f}ms"
+        )
 
         # Increment query counter
-        new_count = usage_service.increment_user_queries(user_id)
+        usage_increment_started = time.perf_counter()
+        new_count = await asyncio.to_thread(usage_service.increment_user_queries, user_id)
+        logger.info(
+            f"⏱️ Query timing | usage_increment="
+            f"{(time.perf_counter() - usage_increment_started) * 1000:.2f}ms | "
+            f"total={(time.perf_counter() - request_started) * 1000:.2f}ms"
+        )
         _log_response_details(answer, sources, tier, new_count, max_queries)
 
         return QueryResponse(answer=answer, source_documents=sources)

@@ -5,6 +5,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Callable
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -106,9 +107,11 @@ app.add_middleware(
 async def log_requests(request: Request, call_next: Callable[[Request], Any]) -> Any:
     """Log all HTTP requests with timing information."""
     start_time = time.time()
+    request_id = request.headers.get("X-Request-ID") or uuid4().hex
+    request.state.request_id = request_id
     client_host = request.client.host if request.client else "unknown"
     logger.bind(ACCESS=True).info(
-        f"➡️  {request.method} {request.url.path} - Client: {client_host}"
+        f"➡️  [{request_id}] {request.method} {request.url.path} - Client: {client_host}"
     )
 
     try:
@@ -116,14 +119,15 @@ async def log_requests(request: Request, call_next: Callable[[Request], Any]) ->
         process_time = (time.time() - start_time) * 1000  # in milliseconds
         status_emoji = "✅" if response.status_code < 400 else "❌"
         logger.bind(ACCESS=True).info(
-            f"{status_emoji} {request.method} {request.url.path} - "
+            f"{status_emoji} [{request_id}] {request.method} {request.url.path} - "
             f"Status: {response.status_code} - Time: {process_time:.2f}ms"
         )
+        response.headers["X-Request-ID"] = request_id
         return response
     except Exception as e:
         process_time = (time.time() - start_time) * 1000
         logger.error(
-            f"❌ {request.method} {request.url.path} - Error: {str(e)} - Time: {process_time:.2f}ms"
+            f"❌ [{request_id}] {request.method} {request.url.path} - Error: {str(e)} - Time: {process_time:.2f}ms"
         )
         # Re-raise the exception to be handled by FastAPI's error handling
         raise
