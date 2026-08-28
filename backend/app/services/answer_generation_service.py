@@ -12,6 +12,8 @@ Responsibilities:
 - Format sources and metadata
 """
 
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional, Tuple
 
 from app.core.config import settings
@@ -191,12 +193,24 @@ class AnswerGenerationService:
             List of reranked documents
         """
         # Generate alternative queries
+        expansion_started = time.perf_counter()
         alternative_queries = self.query_expansion_service.generate_alternative_queries(
             translated_query
         )
+        expansion_ms = (time.perf_counter() - expansion_started) * 1000
         logger.info(f"📝 Generated {len(alternative_queries)} alternative queries")
+        logger.info(f"⏱️ RAG timing | query_expansion={expansion_ms:.2f}ms")
 
-        all_queries = [translated_query] + alternative_queries
+        # Keep the first occurrence and preserve ordering: this avoids paying for
+        # semantically identical searches while leaving the retrieval pool and
+        # reranker inputs unchanged for distinct queries.
+        all_queries = []
+        seen_queries = set()
+        for candidate in [translated_query] + alternative_queries:
+            normalized = " ".join(candidate.lower().split())
+            if normalized and normalized not in seen_queries:
+                seen_queries.add(normalized)
+                all_queries.append(candidate)
 
         # Setup retriever
         retriever = self.repository.get_retriever(
@@ -206,14 +220,28 @@ class AnswerGenerationService:
             exclude_files=exclude_files,
         )
 
-        # Parallel retrieval
+        # Each Chroma search embeds its query and performs an independent vector
+        # lookup. Execute them concurrently while preserving query order before
+        # the existing deduplication/reranking stage.
         logger.info(f"🔎 Parallel retrieval for {len(all_queries)} queries")
+        retrieval_started = time.perf_counter()
+
+        def search_query(query: str) -> Tuple[List[Any], float]:
+            search_started = time.perf_counter()
+            docs = retriever.invoke(query)
+            return docs, (time.perf_counter() - search_started) * 1000
+
+        with ThreadPoolExecutor(max_workers=min(4, len(all_queries))) as executor:
+            search_results = list(executor.map(search_query, all_queries))
+
         all_retrieved_docs = []
         doc_ids = set()
 
-        for idx, q in enumerate(all_queries, 1):
-            docs = retriever.invoke(q)
-            logger.info(f"🔎 Query {idx}/{len(all_queries)}: Found {len(docs)} chunks")
+        for idx, (docs, search_ms) in enumerate(search_results, 1):
+            logger.info(
+                f"⏱️ RAG timing | vector_search_{idx}={search_ms:.2f}ms | "
+                f"chunks={len(docs)}"
+            )
 
             for doc in docs:
                 metadata_tuple = tuple(sorted(doc.metadata.items()))
@@ -230,9 +258,14 @@ class AnswerGenerationService:
         logger.info(
             f"📚 Retrieved {len(all_retrieved_docs)} chunks from {len(unique_files)} files"
         )
+        logger.info(
+            f"⏱️ RAG timing | vector_search_total="
+            f"{(time.perf_counter() - retrieval_started) * 1000:.2f}ms"
+        )
 
         # Rerank to top N
         logger.info(f"🎯 Reranking documents → top {QueryConstants.FINAL_RETRIEVAL_K}")
+        reranking_started = time.perf_counter()
         context_docs = self.reranking_service.rerank_documents(
             documents=all_retrieved_docs,
             original_query=original_query,
@@ -240,6 +273,10 @@ class AnswerGenerationService:
             top_n=QueryConstants.FINAL_RETRIEVAL_K,
         )
         logger.info(f"✨ Reranking completed: {len(context_docs)} documents")
+        logger.info(
+            f"⏱️ RAG timing | reranking="
+            f"{(time.perf_counter() - reranking_started) * 1000:.2f}ms"
+        )
 
         return context_docs
 
