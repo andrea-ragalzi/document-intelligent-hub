@@ -1,407 +1,266 @@
 name: CI/CD Pipeline
 
-# Quality Gate Mandatory Rules and Thresholds (Focus on "New Code")
-#
-# The Quality Gate (QG) must be configured to fail the build if any of the following
-# thresholds are not met in the New Code (i.e., lines added or modified in this Pull Request).
-#
-# I. Reliability and Security (Zero Tolerance)
-#
-# Metric                        | Condition for Success  | Objective
-# ------------------------------|------------------------|------------------------------------------
-# New Bugs                      | Less than 1 (i.e., 0)  | No critical or major bugs introduced
-# New Vulnerabilities           | Less than 1 (i.e., 0)  | No security vulnerabilities introduced
-# New Security Hotspots         | Less than 1 (i.e., 0)  | Not applicable. These should be reviewed, not block the QG
-#
-# II. Maintainability and Code Quality
-#
-# Metric                        | Condition for Success  | Objective
-# ------------------------------|------------------------|------------------------------------------
-# New Code Smells               | Less than 1 (i.e., 0)  | Keep technical debt at zero for new code
-# New Technical Debt Ratio      | Greater than 1.0       | Maintain maintainability
-#                               | (or absent if not      |
-#                               | using debt estimates)  |
-# New Duplication Density       | Less than 3.0%         | Avoid introducing copied code
-#
-# III. Test Coverage
-#
-# Metric                        | Condition for Success  | Objective
-# ------------------------------|------------------------|------------------------------------------
-# New Code Coverage             | Greater than 80%       | All new lines of code must have high test coverage
-#                               | (Ideal)                |
-# New Condition Coverage        | Greater than 75%       | Ensure conditional branches are covered
-#                               | (Ideal)                |
-#
-# Additional Note: By focusing on "New" metrics, we prevent quality degradation without
-# blocking work due to historical debt in old code.
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
 
-# Pipeline Architecture:
-# ┌─────────────────────────────────────────────────────────────────────┐
-# │ PHASE 1: Quality Gate (Parallel)                                    │
-# │   ├─ Backend: Pylint (9.0), MyPy (strict), Lizard (CCN ≤ 15)      │
-# │   └─ Frontend: ESLint, TypeScript, Prettier                        │
-# ├─────────────────────────────────────────────────────────────────────┤
-# │ PHASE 2: Tests & Coverage (Parallel, depends on Quality Gate)      │
-# │   ├─ Backend: Pytest (≥ 80% coverage)                              │
-# │   └─ Frontend: Vitest (≥ 80% coverage)                             │
-# ├─────────────────────────────────────────────────────────────────────┤
-# │ PHASE 3: Build (Optional, disabled by default)                      │
-# │   ├─ Backend: Docker image                                          │
-# │   └─ Frontend: Docker image                                         │
-# ├─────────────────────────────────────────────────────────────────────┤
-# │ PHASE 4: Deploy (Only on main/develop)                              │
-# │   └─ Deploy to Production (main) or Staging (develop)              │
-# └─────────────────────────────────────────────────────────────────────┘
+# A newer commit on the same PR supersedes the older validation run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
-# To disable CI/CD: Set CI_ENABLED to 'false'
 env:
-  CI_ENABLED: "true"
-  DOCKER_BUILD_ENABLED: "false"
-  # Configuration
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
   PYLINT_THRESHOLD: 9.0
   COMPLEXITY_THRESHOLD: 15
 
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
-
 jobs:
-  # ============================================================================
-  # INITIALIZATION
-  # ============================================================================
-  check-ci:
-    name: "🔍 Check CI Status"
+  changes:
+    name: "🔍 Detect changed areas"
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     outputs:
-      enabled: ${{ steps.check.outputs.enabled }}
-      docker_enabled: ${{ steps.check.outputs.docker_enabled }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend_docker: ${{ steps.filter.outputs.backend_docker }}
     steps:
-      - name: Check if CI is enabled
-        id: check
-        run: |
-          echo "enabled=$CI_ENABLED" >> "$GITHUB_OUTPUT"
-          echo "docker_enabled=$DOCKER_BUILD_ENABLED" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
 
-  # ============================================================================
-  # PHASE 1: QUALITY GATE (Parallel Execution)
-  # ============================================================================
-  backend-quality-gate:
-    name: "🔒 Backend Quality Gate"
+      - id: filter
+        # Pinned to the v3.0.4 commit: SonarCloud requires immutable action refs.
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci-cd.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci-cd.yml'
+            backend_docker:
+              - 'backend/Dockerfile'
+              - 'backend/.dockerignore'
+              - 'backend/pyproject.toml'
+              - 'backend/poetry.lock'
+              - 'backend/assets/**'
+              - '.github/workflows/ci-cd.yml'
+
+  backend-ci:
+    name: "🐍 Backend CI"
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: check-ci
-    if: ${{ needs.check-ci.outputs.enabled == 'true' }}
+    needs: changes
+    if: >-
+      needs.changes.outputs.backend == 'true' &&
+      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
     defaults:
       run:
         working-directory: ./backend
-
     steps:
-      - name: "📥 Checkout code"
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: "🐍 Set up Python ${{ env.PYTHON_VERSION }}"
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
-
-      - name: "📦 Install Poetry"
-        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1
-        with:
-          version: 2.4.1
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: "📚 Install dependencies"
-        run: |
-          poetry config --local installer.only-binary :all:
-          poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
-          poetry sync --no-interaction --no-ansi
-
-      - name: "✨ Pylint (PEP 8 Enforcement)"
-        run: |
-          poetry run pylint app/ --rcfile=.pylintrc --fail-under="$PYLINT_THRESHOLD" --exit-zero > pylint-report.txt
-          PYLINT_SCORE=$(poetry run pylint app/ --rcfile=.pylintrc --fail-under="$PYLINT_THRESHOLD" | grep "Your code has been rated at" | awk '{print $7}' | cut -d'/' -f1)
-          echo "Pylint Score: $PYLINT_SCORE"
-          if (( $(echo "$PYLINT_SCORE < $PYLINT_THRESHOLD" | bc -l) )); then
-            echo "❌ Pylint failed: Score $PYLINT_SCORE is below $PYLINT_THRESHOLD"
-            cat pylint-report.txt
-            exit 1
-          fi
-          echo "✅ Pylint passed with score: $PYLINT_SCORE"
-
-      - name: "🔍 MyPy (Type Checking)"
-        run: |
-          poetry run mypy app/ --strict --pretty
-          if [ $? -ne 0 ]; then
-            echo "❌ Mypy type checking failed: Type errors detected"
-            exit 1
-          fi
-          echo "✅ Mypy type checking passed (strict mode)"
-
-      - name: "🧬 Lizard (Complexity Check)"
-        run: |
-          poetry run lizard app/ -l python -C "$COMPLEXITY_THRESHOLD" -w -o lizard-report.txt
-          if [ $? -ne 0 ]; then
-            echo "❌ Lizard complexity check failed: Functions exceed CCN threshold of $COMPLEXITY_THRESHOLD"
-            cat lizard-report.txt
-            exit 1
-          fi
-          echo "✅ Lizard complexity check passed (CCN ≤ $COMPLEXITY_THRESHOLD)"
-
-  frontend-quality-gate:
-    name: "🔒 Frontend Quality Gate"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs: check-ci
-    if: ${{ needs.check-ci.outputs.enabled == 'true' }}
-    defaults:
-      run:
-        working-directory: ./frontend
-
-    steps:
-      - name: "📥 Checkout code"
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: "📦 Set up Node.js ${{ env.NODE_VERSION }}"
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: "./frontend/package-lock.json"
-
-      - name: "📚 Install dependencies"
-        run: npm ci --ignore-scripts
-
-      - name: "✨ ESLint (Quality & Style Check)"
-        run: |
-          npm run lint -- --max-warnings=0
-          if [ $? -ne 0 ]; then
-            echo "❌ ESLint failed: Critical errors or warnings found"
-            exit 1
-          fi
-          echo "✅ ESLint passed with zero errors/warnings"
-
-      - name: "🔍 TypeScript Type Check"
-        run: |
-          npm run type-check
-          if [ $? -ne 0 ]; then
-            echo "❌ TypeScript compilation failed: Type errors detected"
-            exit 1
-          fi
-          echo "✅ TypeScript type check passed"
-
-      - name: "💅 Prettier Format Check"
-        run: |
-          npm run format:check
-          if [ $? -ne 0 ]; then
-            echo "❌ Prettier check failed: Code formatting issues detected"
-            exit 1
-          fi
-          echo "✅ Prettier format check passed"
-
-  # ============================================================================
-  # PHASE 2: TESTS & COVERAGE (Parallel Execution)
-  # ============================================================================
-  backend-tests:
-    name: "🧪 Backend Tests & Coverage"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs: [check-ci, backend-quality-gate]
-    if: ${{ needs.check-ci.outputs.enabled == 'true' }}
-    defaults:
-      run:
-        working-directory: ./backend
-
-    steps:
-      - name: "📥 Checkout code"
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v4
 
       - name: "🐍 Set up Python ${{ env.PYTHON_VERSION }}"
         id: setup-python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/poetry.lock
 
       - name: "📦 Install Poetry"
-        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
         with:
           version: 2.4.1
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
 
-      - name: "💾 Load cached venv"
-        id: cached-poetry-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - name: "💾 Restore Poetry virtualenv"
+        id: poetry-venv
+        uses: actions/cache@v4
         with:
           path: backend/.venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('backend/poetry.lock') }}
+          key: poetry-venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('backend/poetry.lock') }}
 
-      - name: "📚 Install dependencies"
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      - name: "📚 Synchronize dependencies"
         run: |
           poetry config --local installer.only-binary :all:
           poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
-          poetry sync --no-interaction --no-root
+          poetry sync --no-interaction --no-ansi
 
-      - name: "📦 Install project"
-        run: |
-          poetry config --local installer.only-binary :all:
-          poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
-          poetry sync --no-interaction
+      # One environment avoids installing the Python/RAG dependency set twice.
+      - name: "✨ Pylint"
+        run: poetry run pylint app/ --rcfile=.pylintrc --fail-under="$PYLINT_THRESHOLD"
 
-      - name: "🧪 Run tests with coverage"
-        run: |
-          poetry run pytest --cov=app --cov-report=xml --cov-report=term
-          echo "✅ All backend tests passed; coverage report generated"
+      - name: "🔍 MyPy"
+        run: poetry run mypy app/ --strict --pretty
+
+      - name: "🧬 Lizard"
+        run: poetry run lizard app/ -l python -C "$COMPLEXITY_THRESHOLD" -w
+
+      - name: "🧪 Tests with coverage"
+        run: poetry run pytest --cov=app --cov-report=xml --cov-report=term
 
       - name: "📊 Upload coverage to Codecov"
         if: always()
-        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
         with:
           file: ./backend/coverage.xml
           flags: backend
           name: backend-coverage
 
-  frontend-tests:
-    name: "🧪 Frontend Tests & Coverage"
+  frontend-ci:
+    name: "⚛️ Frontend CI"
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [check-ci, frontend-quality-gate]
-    if: ${{ needs.check-ci.outputs.enabled == 'true' }}
+    needs: changes
+    if: >-
+      needs.changes.outputs.frontend == 'true' &&
+      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
     defaults:
       run:
         working-directory: ./frontend
-
     steps:
-      - name: "📥 Checkout code"
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v4
 
       - name: "📦 Set up Node.js ${{ env.NODE_VERSION }}"
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: "📚 Install dependencies"
         run: npm ci --ignore-scripts
 
-      - name: "🧪 Run tests"
-        run: |
-          npm run test:run
-          echo "✅ All frontend tests passed"
+      - name: "✨ ESLint"
+        run: npm run lint -- --max-warnings=0
 
-      - name: "🏗️ Build application"
+      - name: "🔍 TypeScript"
+        run: npm run type-check
+
+      - name: "💅 Prettier"
+        run: npm run format:check
+
+      - name: "🧪 Tests"
+        run: npm run test:run
+
+      - name: "🏗️ Production build"
         env:
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/rag
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/rag
         run: npm run build
 
-  # ============================================================================
-  # PHASE 3: BUILD (Optional - Disabled by default)
-  # ============================================================================
-  docker-build:
-    name: "🐳 Docker Build - ${{ matrix.service }}"
+  backend-docker:
+    name: "🐳 Backend Docker build"
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [check-ci, backend-tests, frontend-tests]
-    if: ${{ needs.check-ci.outputs.enabled == 'true' && needs.check-ci.outputs.docker_enabled == 'true' }}
-    strategy:
-      matrix:
-        service: [backend, frontend]
-
+    needs: changes
+    if: >-
+      needs.changes.outputs.backend_docker == 'true' &&
+      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
     steps:
-      - name: "📥 Checkout code"
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v4
 
       - name: "🔧 Set up Docker Buildx"
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca # v3.9.0
 
-      - name: "🐳 Build ${{ matrix.service }} image"
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
+      - name: "🐳 Build deployment image"
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
-          context: ./${{ matrix.service }}
-          file: ./${{ matrix.service }}/Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile
           push: false
-          tags: document-hub-${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
+          tags: document-hub-backend:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
-  # ============================================================================
-  # SUMMARY
-  # ============================================================================
-  ci-cd-summary:
+  ci-summary:
     name: "📊 Pipeline Summary"
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs:
-      [
-        check-ci,
-        backend-quality-gate,
-        frontend-quality-gate,
-        backend-tests,
-        frontend-tests,
-      ]
-    if: always() && needs.check-ci.outputs.enabled == 'true'
-
+    needs: [changes, backend-ci, frontend-ci, backend-docker]
+    if: >-
+      always() &&
+      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
     steps:
-      - name: "📊 Generate Pipeline Summary"
+      - name: "📊 Validate selected checks"
         env:
-          BACKEND_QUALITY_RESULT: ${{ needs.backend-quality-gate.result }}
-          FRONTEND_QUALITY_RESULT: ${{ needs.frontend-quality-gate.result }}
-          BACKEND_TEST_RESULT: ${{ needs.backend-tests.result }}
-          FRONTEND_TEST_RESULT: ${{ needs.frontend-tests.result }}
+          BACKEND: ${{ needs.backend-ci.result }}
+          FRONTEND: ${{ needs.frontend-ci.result }}
+          DOCKER: ${{ needs.backend-docker.result }}
         run: |
-          result_label() {
-            if [ "$1" = "success" ]; then
-              echo "✅ PASSED"
-            else
-              echo "❌ FAILED"
+          for result in "$BACKEND" "$FRONTEND" "$DOCKER"; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "A selected check failed or was cancelled: $result"
+              exit 1
             fi
-          }
+          done
+          echo "Selected CI checks passed." >> "$GITHUB_STEP_SUMMARY"
 
-          BACKEND_QUALITY_LABEL=$(result_label "$BACKEND_QUALITY_RESULT")
-          FRONTEND_QUALITY_LABEL=$(result_label "$FRONTEND_QUALITY_RESULT")
-          BACKEND_TEST_LABEL=$(result_label "$BACKEND_TEST_RESULT")
-          FRONTEND_TEST_LABEL=$(result_label "$FRONTEND_TEST_RESULT")
+  release-gate:
+    name: "🚀 Develop to main release gate"
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    if: >-
+      (github.event_name == 'pull_request' && github.base_ref == 'main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
 
-          echo "# CI/CD Pipeline Results 📊" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Quality Gate & Tests Status" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Phase | Component | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔒 Quality Gate | Backend (Pylint, MyPy, Lizard) | $BACKEND_QUALITY_LABEL |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔒 Quality Gate | Frontend (ESLint, TypeScript, Prettier) | $FRONTEND_QUALITY_LABEL |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧪 Tests | Backend (Pytest) | $BACKEND_TEST_LABEL |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧪 Tests | Frontend (Vitest) | $FRONTEND_TEST_LABEL |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+      - name: "🔒 Validate release source and configuration"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          test -f backend/Dockerfile
+          test -f frontend/next.config.ts
 
-          if [ "$BACKEND_QUALITY_RESULT" != "success" ] ||
-             [ "$FRONTEND_QUALITY_RESULT" != "success" ] ||
-             [ "$BACKEND_TEST_RESULT" != "success" ] ||
-             [ "$FRONTEND_TEST_RESULT" != "success" ]; then
-            echo "## ❌ Pipeline Status: **FAILED**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Please check the failed jobs above and fix the issues." >> $GITHUB_STEP_SUMMARY
-            exit 1
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            test "$HEAD_REF" = "develop"
+            deadline=$((SECONDS + 720))
+            while true; do
+              develop_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=develop&event=push&head_sha=$HEAD_SHA" \
+                --jq '([.workflow_runs[] | select(.name == "CI/CD Pipeline")][0] // {"status":"missing","conclusion":"pending"}) | "\(.status) \(.conclusion)"')
+
+              case "$develop_run" in
+                "completed success") break ;;
+                "completed "*)
+                  echo "The CI/CD Pipeline on develop did not succeed: $develop_run"
+                  exit 1
+                  ;;
+              esac
+
+              if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "Timed out waiting for the CI/CD Pipeline on develop."
+                exit 1
+              fi
+
+              echo "Waiting for the CI/CD Pipeline on develop: $develop_run"
+              sleep 20
+            done
+          else
+            gh api "repos/$GITHUB_REPOSITORY/commits/$COMMIT_SHA/pulls" \
+              --jq '.[] | select(.base.ref == "main" and .head.ref == "develop" and .merged_at != null) | .number' \
+              | grep -q .
           fi
 
-          echo "## ✅ Pipeline Status: **SUCCESS**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All quality checks and tests passed successfully! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "Release promotion is sourced from validated develop." >> "$GITHUB_STEP_SUMMARY"

@@ -11,6 +11,7 @@ import { ChatEmptyState } from "./ChatSection/ChatEmptyState";
 import { getPlaceholderText } from "./ChatSection/placeholderText";
 import { ChatLoadingSkeleton } from "./ChatSection/ChatLoadingSkeleton";
 import { ChatInputActions } from "./ChatSection/ChatInputActions";
+import type { DemoDocumentState } from "@/hooks/useDemoDocument";
 
 interface ChatSectionProps {
   chatHistory: ChatMessage[];
@@ -26,6 +27,9 @@ interface ChatSectionProps {
   onSelectOutputLanguage: (code: string) => void;
   isServerOnline?: boolean;
   isLimitReached?: boolean;
+  demoDocumentState: DemoDocumentState;
+  suggestedQuestions: string[];
+  onSuggestedQuestion: (question: string) => void;
 }
 export const ChatSection: React.FC<ChatSectionProps> = ({
   chatHistory,
@@ -41,6 +45,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   onSelectOutputLanguage,
   isServerOnline = true,
   isLimitReached = false,
+  demoDocumentState,
+  suggestedQuestions,
+  onSuggestedQuestion,
 }) => {
   const chatEndRef = useChatScroll(chatHistory, isQuerying);
   const { textareaRef, resetHeight, handleChange } = useTextareaResize();
@@ -82,6 +89,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 isServerOnline={isServerOnline}
                 isLimitReached={isLimitReached}
                 noDocuments={noDocuments}
+                demoDocumentState={demoDocumentState}
+                suggestedQuestions={suggestedQuestions}
+                onSelectQuestion={onSuggestedQuestion}
+                onOpenUpload={onOpenUploadModal}
               />
             </div>
           ) : (

@@ -153,6 +153,16 @@ class UploadResponse(BaseModel):
     )
 
 
+class DemoDocumentSeedResponse(BaseModel):
+    """Result of creating the private starter document for an authenticated user."""
+
+    status: Literal["seeded", "ready"]
+    message: str
+    filename: str
+    chunks_indexed: int = Field(ge=0)
+    suggested_questions: List[str]
+
+
 class ConversationMessage(BaseModel):
     """
     Schema for a single message in the conversation history.
