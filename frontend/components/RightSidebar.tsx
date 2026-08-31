@@ -73,7 +73,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   };
 
-  const displayName = user?.displayName || user?.email || "Utente";
+  const displayName = user?.displayName || user?.email || "User";
   const ThemeIcon = theme === "light" ? Moon : Sun;
 
   return (
@@ -124,7 +124,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 <div className="flex items-center gap-3">
                   <ThemeIcon size={20} className="text-indigo-700 dark:text-indigo-200" />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
-                    Tema
+                    Theme
                   </span>
                 </div>
                 <span className="text-sm text-indigo-700 dark:text-indigo-200 capitalize">
@@ -138,7 +138,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 <div className="flex items-center gap-3">
                   <FileText size={20} className="text-indigo-700 dark:text-indigo-200" />
                   <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
-                    Gestione Documenti
+                    Manage Documents
                   </span>
                 </div>
                 <ChevronRight size={20} className="text-indigo-700 dark:text-indigo-200" />

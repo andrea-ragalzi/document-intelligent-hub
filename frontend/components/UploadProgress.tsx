@@ -55,9 +55,9 @@ export const UploadProgress: React.FC<UploadProgressProps> = ({
       case "processing":
         return "Generating embeddings...";
       case "complete":
-        return "✅ Upload complete!";
+        return "Upload complete";
       case "error":
-        return "❌ Upload failed";
+        return "Upload failed";
       default:
         return "Processing...";
     }

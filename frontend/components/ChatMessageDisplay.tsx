@@ -13,13 +13,12 @@ const cleanDocumentMarkers = (text: string): string => {
   return text.replaceAll(/\s?\[DOCUMENT \d+\]/gi, "");
 };
 
-// Componente di visualizzazione dell'Avatar
 const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
   <div
     className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
       isUser
-        ? "bg-indigo-500" // Utente: colore primario
-        : "bg-indigo-300 dark:bg-indigo-700 text-indigo-900 dark:text-indigo-50" // Assistente: colore secondario/neutro
+        ? "bg-indigo-500"
+        : "bg-indigo-300 dark:bg-indigo-700 text-indigo-900 dark:text-indigo-50"
     } ${isUser ? "ml-2" : "mr-2"}`}
   >
     {isUser ? <UserIcon size={16} /> : <MessageSquare size={16} />}
@@ -37,7 +36,7 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
       {!isUser && <Avatar isUser={false} />}
 
       <div className="max-w-[85%] sm:max-w-[80%] flex flex-col">
-        {/* Header (Nome Utente/Assistente) */}
+        {/* Message author */}
         <div
           className={`text-xs font-medium mb-1 ${
             isUser
@@ -45,15 +44,15 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
               : "text-indigo-700 dark:text-indigo-200 pl-2"
           }`}
         >
-          {isUser ? "Tu" : "Assistente"}
+          {isUser ? "You" : "Assistant"}
         </div>
 
-        {/* Bubble Messaggio */}
+        {/* Message content */}
         <div
           className={`p-3 sm:p-4 rounded-xl shadow-md transition duration-300 break-words overflow-wrap-anywhere ${
             isUser
-              ? "ml-auto bg-indigo-500 text-white rounded-br-sm" // Utente: colore primario, angolo inferiore-destro piccolo
-              : "bg-white text-indigo-900 rounded-tl-sm border-2 border-indigo-100 dark:bg-indigo-950 dark:text-indigo-50 dark:border-indigo-800" // Assistente: colore chiaro, angolo superiore-sinistro piccolo
+              ? "ml-auto bg-indigo-500 text-white rounded-br-sm"
+              : "bg-white text-indigo-900 rounded-tl-sm border-2 border-indigo-100 dark:bg-indigo-950 dark:text-indigo-50 dark:border-indigo-800"
           }`}
         >
           {msg.isThinking ? (
@@ -65,12 +64,12 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
             <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">{cleanedText}</p>
           )}
 
-          {/* Source/Citations Section (Solo per l'Assistente e quando non sta pensando) */}
+          {/* Sources */}
           {!isUser && msg.sources.length > 0 && !msg.isThinking && (
             <div className="mt-3 pt-2 border-t border-indigo-300 dark:border-indigo-700">
               <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-200 flex items-center mb-1">
                 <LinkIcon size={12} className="mr-1.5" />
-                Fonti trovate ({msg.sources.length}):
+                Sources ({msg.sources.length}):
               </span>
               <ul className="list-disc list-inside text-xs text-indigo-900 dark:text-indigo-50 space-y-0.5 max-h-24 overflow-y-auto pr-2">
                 {msg.sources.map((source, i) => (
