@@ -22,6 +22,7 @@ from app.schemas.rag_schema import (
     SummarizeResponse,
 )
 from app.services.query_parser_service import query_parser_service
+from app.services.query_concurrency_limiter import query_concurrency_limiter
 from app.services.rag_orchestrator_service import RAGService, get_rag_service
 from app.services.usage_tracking_service import UsageTrackingService, get_usage_service
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -180,6 +181,18 @@ async def query_document(
 
     **Cost:** ~$0.00007 per query for optimization (7 cents per 1000 queries)
     """
+    query_slot_acquired = await query_concurrency_limiter.acquire(user_id)
+    if not query_slot_acquired:
+        logger.warning(
+            f"⛔ Concurrent RAG query rejected for user {user_id}: "
+            "a query is already running"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="A query is already running for this account. Please wait for it to finish.",
+            headers={"Retry-After": "5"},
+        )
+
     quota_reserved = False
     try:
         request_started = time.perf_counter()
@@ -286,6 +299,8 @@ async def query_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_detail,
         ) from e
+    finally:
+        await query_concurrency_limiter.release(user_id)
 
 
 @router.post("/summarize/", response_model=SummarizeResponse)

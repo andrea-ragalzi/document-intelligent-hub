@@ -3,17 +3,19 @@
 import asyncio
 import time
 from io import BytesIO
+from threading import Event
 from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from langchain_core.documents import Document
 
 from app.routers import query_router
 from app.schemas.rag_schema import FileFilterResponse, QueryRequest
 from app.services.document_classifier_service import DocumentCategory
 from app.services.document_indexing_service import DocumentIndexingService
+from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
 
 
 @pytest.mark.asyncio
@@ -95,3 +97,52 @@ async def test_independent_rag_queries_progress_concurrently(
         ["user-a.pdf"],
         ["user-b.pdf"],
     ]
+
+
+@pytest.mark.asyncio
+async def test_second_same_user_query_is_rejected_while_first_is_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Double-clicks cannot start two expensive RAG requests for one UID."""
+    started = Event()
+    release = Event()
+
+    class UsageService:
+        def reserve_query_slot(self, _user_id: str, _max_queries: int) -> tuple[bool, int]:
+            return True, 1
+
+    class RAGService:
+        def get_user_documents(self, _user_id: str) -> list[Any]:
+            return []
+
+        def answer_query(self, *_args: Any, **_kwargs: Any) -> tuple[str, list[str]]:
+            started.set()
+            assert release.wait(timeout=1)
+            return "answer", ["user-a.pdf"]
+
+    parser_result = FileFilterResponse(
+        include_files=[], exclude_files=[], original_query="question", cleaned_query="question"
+    )
+    monkeypatch.setattr(query_router, "_get_user_tier_limits", lambda _uid: ("FREE", 20))
+    monkeypatch.setattr(query_router, "get_usage_service", lambda: UsageService())
+    monkeypatch.setattr(
+        query_router,
+        "query_concurrency_limiter",
+        QueryConcurrencyLimiter(max_concurrent_per_user=1),
+    )
+    monkeypatch.setattr(
+        query_router.query_parser_service, "extract_file_filters", lambda **_kwargs: parser_result
+    )
+
+    request = QueryRequest(query="question", conversation_history=[])
+    first_query = asyncio.create_task(
+        query_router.query_document(request, "user-a", RAGService())
+    )
+    assert await asyncio.to_thread(started.wait, 1)
+
+    with pytest.raises(HTTPException, match="already running") as error:
+        await query_router.query_document(request, "user-a", RAGService())
+
+    assert getattr(error.value, "status_code", None) == 429
+    release.set()
+    await first_query
