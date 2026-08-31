@@ -110,6 +110,70 @@ class UsageTrackingService:
             logger.error(f"❌ Error incrementing user queries: {e}")
             raise
 
+    def reserve_query_slot(self, user_id: str, max_queries: int) -> tuple[bool, int]:
+        """Atomically reserve one query before starting potentially paid RAG work.
+
+        The read, limit check, and increment happen in one Firestore transaction.
+        Firestore retries the transaction if another request changes the same usage
+        document, so concurrent requests cannot each observe the same free slot.
+
+        A successful reservation is intentionally retained if later RAG work fails:
+        downstream parsing or generation may already have used an external service.
+        This fail-closed behaviour prevents retries from bypassing the daily limit.
+        """
+        try:
+            today = self._get_today_key()
+            usage_ref = self.db.collection("user_usage").document(user_id)
+            transaction = self.db.transaction()
+
+            @firestore_transactional  # type: ignore[untyped-decorator]
+            def reserve_in_transaction(transaction: Any, ref: Any) -> tuple[bool, int]:
+                snapshot = ref.get(transaction=transaction)
+                data = snapshot.to_dict() if snapshot.exists else {}
+                queries = dict((data or {}).get("queries", {}))
+                current_count = queries.get(today, 0) or 0
+                current_count = int(current_count)
+
+                if max_queries < 9999 and current_count >= max_queries:
+                    return False, current_count
+
+                new_count = current_count + 1
+                queries[today] = new_count
+                update_data = {
+                    "queries": queries,
+                    "last_query_at": SERVER_TIMESTAMP,
+                    "updated_at": SERVER_TIMESTAMP,
+                }
+                if snapshot.exists:
+                    transaction.update(ref, update_data)
+                else:
+                    transaction.set(
+                        ref,
+                        {
+                            **update_data,
+                            "created_at": SERVER_TIMESTAMP,
+                        },
+                    )
+                return True, new_count
+
+            reserved, new_count = reserve_in_transaction(transaction, usage_ref)
+            if reserved:
+                logger.info(
+                    f"📊 Reserved query slot for user {user_id}: "
+                    f"{new_count}/{max_queries}"
+                )
+            else:
+                logger.warning(
+                    f"⚠️ User {user_id} has exceeded daily query limit "
+                    f"({new_count}/{max_queries})"
+                )
+            return bool(reserved), int(new_count)
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"❌ Error reserving query slot: {e}")
+            # Fail closed so a Firestore outage cannot bypass paid-query limits.
+            return False, max_queries
+
     def check_query_limit(self, user_id: str, max_queries: int) -> tuple[bool, int]:
         """
         Check if user has exceeded their daily query limit.

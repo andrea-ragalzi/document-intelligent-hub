@@ -11,7 +11,7 @@ export function getPlaceholderText(
     return "Server offline - Read only mode...";
   }
   if (isLimitReached) {
-    return "Daily query limit reached. Upgrade your plan or try again tomorrow...";
+    return "Daily query limit reached. Please try again tomorrow...";
   }
   if (isChatDisabled) {
     return "Upload a document first...";

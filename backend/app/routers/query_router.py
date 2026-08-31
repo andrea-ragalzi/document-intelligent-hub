@@ -9,7 +9,6 @@ Handles query operations:
 
 import asyncio
 import time
-import traceback
 from typing import Tuple
 
 from app.core.auth import verify_firebase_token
@@ -22,6 +21,7 @@ from app.schemas.rag_schema import (
     SummarizeResponse,
 )
 from app.services.query_parser_service import query_parser_service
+from app.services.query_concurrency_limiter import query_concurrency_limiter
 from app.services.rag_orchestrator_service import RAGService, get_rag_service
 from app.services.usage_tracking_service import UsageTrackingService, get_usage_service
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -60,11 +60,11 @@ def _get_user_tier_limits(user_id: str) -> Tuple[str, int]:
     return tier, max_queries
 
 
-def _check_and_enforce_query_limit(
+def _reserve_and_enforce_query_limit(
     usage_service: UsageTrackingService, user_id: str, tier: str, max_queries: int
 ) -> int:
     """
-    Check if user has exceeded query limit and raise exception if so.
+    Atomically reserve quota before starting RAG/OpenAI work.
 
     Args:
         usage_service: Usage tracking service
@@ -73,32 +73,36 @@ def _check_and_enforce_query_limit(
         max_queries: Maximum queries allowed per day
 
     Returns:
-        Current queries used count
+        Reserved query count
 
     Raises:
         HTTPException: If query limit is exceeded
     """
-    can_query, queries_used = usage_service.check_query_limit(user_id, max_queries)
+    can_query, reserved_count = usage_service.reserve_query_slot(
+        user_id, max_queries
+    )
     logger.info(
-        f"📊 Usage check result: can_query={can_query}, "
-        f"queries_used={queries_used}, max_queries={max_queries}"
+        f"📊 Usage reservation result: reserved={can_query}, "
+        f"queries_used={reserved_count}, max_queries={max_queries}"
     )
 
     if not can_query:
         logger.warning(
             f"⛔ Query limit exceeded for user {user_id} ({tier}): "
-            f"{queries_used}/{max_queries}"
+            f"{reserved_count}/{max_queries}"
         )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
-                f"Daily query limit exceeded ({queries_used}/{max_queries}). "
+                f"Daily query limit exceeded ({reserved_count}/{max_queries}). "
                 f"Please upgrade your plan or try again tomorrow."
             ),
         )
 
-    logger.info(f"✅ Query limit check passed: {queries_used}/{max_queries} ({tier})")
-    return queries_used
+    logger.info(
+        f"✅ Query slot reserved: {reserved_count}/{max_queries} ({tier})"
+    )
+    return reserved_count
 
 
 def _log_request_details(request: QueryRequest, user_id: str) -> None:
@@ -151,7 +155,7 @@ def _log_response_details(
     if sources:
         logger.info(f"   Files: {', '.join(sources[:5])}")
     logger.info(f"📝 Answer preview: {answer[:200]}...")
-    logger.info(f"📊 Query counter incremented: {new_count}/{max_queries} ({tier})")
+    logger.info(f"📊 Query slot reserved: {new_count}/{max_queries} ({tier})")
     logger.info(f"{'='*80}")
 
 
@@ -176,17 +180,35 @@ async def query_document(
 
     **Cost:** ~$0.00007 per query for optimization (7 cents per 1000 queries)
     """
+    query_slot_acquired = await query_concurrency_limiter.acquire(user_id)
+    if not query_slot_acquired:
+        logger.warning(
+            f"⛔ Concurrent RAG query rejected for user {user_id}: "
+            "a query is already running"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="A query is already running for this account. Please wait for it to finish.",
+            headers={"Retry-After": "5"},
+        )
+
+    quota_reserved = False
     try:
         request_started = time.perf_counter()
         _log_request_details(request, user_id)
 
-        # Check tier limits and usage
+        # Reserve tier quota before any parser/RAG/OpenAI work.
         tier_started = time.perf_counter()
         tier, max_queries = await asyncio.to_thread(_get_user_tier_limits, user_id)
         usage_service = get_usage_service()
-        await asyncio.to_thread(
-            _check_and_enforce_query_limit, usage_service, user_id, tier, max_queries
+        reserved_count = await asyncio.to_thread(
+            _reserve_and_enforce_query_limit,
+            usage_service,
+            user_id,
+            tier,
+            max_queries,
         )
+        quota_reserved = True
         logger.info(
             f"⏱️ Query timing | firebase_tier_and_usage="
             f"{(time.perf_counter() - tier_started) * 1000:.2f}ms"
@@ -246,35 +268,38 @@ async def query_document(
             f"{(time.perf_counter() - rag_started) * 1000:.2f}ms"
         )
 
-        # Increment query counter
-        usage_increment_started = time.perf_counter()
-        new_count = await asyncio.to_thread(usage_service.increment_user_queries, user_id)
         logger.info(
-            f"⏱️ Query timing | usage_increment="
-            f"{(time.perf_counter() - usage_increment_started) * 1000:.2f}ms | "
-            f"total={(time.perf_counter() - request_started) * 1000:.2f}ms"
+            f"⏱️ Query timing | total="
+            f"{(time.perf_counter() - request_started) * 1000:.2f}ms"
         )
-        _log_response_details(answer, sources, tier, new_count, max_queries)
+        _log_response_details(answer, sources, tier, reserved_count, max_queries)
 
         return QueryResponse(answer=answer, source_documents=sources)
 
     except HTTPException:
         raise
     except Exception as e:
+        if quota_reserved:
+            logger.warning(
+                "⚠️ RAG request failed after quota reservation; retaining the "
+                "reserved slot because external work may already have started."
+            )
         logger.error(f"{'='*80}")
         logger.error("❌ [ROUTER] QUERY PROCESSING ERROR")
         logger.error(f"{'='*80}")
         logger.error(f"Error type: {type(e).__name__}")
-        logger.error(f"Error message: {str(e)}")
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error(
+            "Error details and traceback redacted to prevent leaking provider "
+            "or credential data."
+        )
         logger.error(f"{'='*80}")
 
-        # Return more detailed error message for debugging
-        error_detail = f"Failed to process query: {type(e).__name__}: {str(e)}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_detail,
+            detail="Unable to process the query. Please try again.",
         ) from e
+    finally:
+        await query_concurrency_limiter.release(user_id)
 
 
 @router.post("/summarize/", response_model=SummarizeResponse)

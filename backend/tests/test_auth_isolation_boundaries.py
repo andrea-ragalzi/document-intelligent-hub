@@ -196,8 +196,7 @@ def test_query_uses_verified_uid_and_ignores_spoofed_user_id(
     rag_service.answer_query.return_value = ("Scoped answer", ["user-a.pdf"])
 
     usage_service = Mock()
-    usage_service.check_query_limit.return_value = (True, 0)
-    usage_service.increment_user_queries.return_value = 1
+    usage_service.reserve_query_slot.return_value = (True, 1)
     parsed_query = FileFilterResponse(
         include_files=[],
         exclude_files=[],
@@ -238,8 +237,80 @@ def test_query_uses_verified_uid_and_ignores_spoofed_user_id(
         include_files=None,
         exclude_files=None,
     )
-    usage_service.check_query_limit.assert_called_once_with(
+    usage_service.reserve_query_slot.assert_called_once_with(
         AUTHENTICATED_USER,
         20,
     )
-    usage_service.increment_user_queries.assert_called_once_with(AUTHENTICATED_USER)
+
+
+def test_query_limit_rejection_happens_before_rag_work(
+    protected_client: tuple[TestClient, Mock],
+) -> None:
+    """A rejected reservation must not reach document lookup or OpenAI/RAG work."""
+    client, rag_service = protected_client
+    usage_service = Mock()
+    usage_service.reserve_query_slot.return_value = (False, 20)
+
+    with patch(
+        "app.core.auth.auth.verify_id_token",
+        return_value={"uid": AUTHENTICATED_USER},
+    ), patch.object(
+        query_router,
+        "_get_user_tier_limits",
+        return_value=("FREE", 20),
+    ), patch.object(
+        query_router,
+        "get_usage_service",
+        return_value=usage_service,
+    ):
+        response = client.post(
+            "/rag/query/",
+            headers=VALID_AUTH_HEADER,
+            json={"query": "Private question"},
+        )
+
+    assert response.status_code == 429
+    usage_service.reserve_query_slot.assert_called_once_with(AUTHENTICATED_USER, 20)
+    rag_service.get_user_documents.assert_not_called()
+    rag_service.answer_query.assert_not_called()
+
+
+def test_rag_error_response_and_logs_redact_exception_details(
+    protected_client: tuple[TestClient, Mock],
+) -> None:
+    """OpenAI/RAG exception text must remain server-internal and redacted."""
+    client, rag_service = protected_client
+    secret_like_text = "sk-prohibited-test-value"
+    rag_service.get_user_documents.return_value = []
+    rag_service.answer_query.side_effect = RuntimeError(
+        f"OpenAI request failed with {secret_like_text}"
+    )
+    parsed_query = FileFilterResponse(
+        include_files=[],
+        exclude_files=[],
+        original_query="Private question",
+        cleaned_query="Private question",
+    )
+    router_logger = Mock()
+
+    with patch(
+        "app.core.auth.auth.verify_id_token",
+        return_value={"uid": AUTHENTICATED_USER},
+    ), patch.object(
+        query_router,
+        "_get_user_tier_limits",
+        return_value=("FREE", 20),
+    ), patch.object(
+        query_router.query_parser_service,
+        "extract_file_filters",
+        return_value=parsed_query,
+    ), patch.object(query_router, "logger", router_logger):
+        response = client.post(
+            "/rag/query/",
+            headers=VALID_AUTH_HEADER,
+            json={"query": "Private question"},
+        )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Unable to process the query. Please try again."
+    assert secret_like_text not in str(router_logger.mock_calls)

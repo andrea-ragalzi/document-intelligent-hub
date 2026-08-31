@@ -250,22 +250,17 @@ describe("InvitationCodeModal public FREE onboarding", () => {
     expect(requestBody.invitation_code).toBeNull();
   });
 
-  it("still submits an invitation code for elevated access", async () => {
-    (globalThis.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: "success", tier: "PRO" }),
-    });
+  it("communicates FREE access without advertising elevated tiers or invitation requests", () => {
     const onSuccess = vi.fn();
-    const user = userEvent.setup();
 
     render(createElement(InvitationCodeModal, { isOpen: true, onSuccess }));
-    await user.type(screen.getByLabelText("Invitation Code"), "valid-pro-code");
-    await user.click(screen.getByRole("button", { name: "Use Invitation Code" }));
 
-    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("PRO"));
-    const fetchCall = (globalThis.fetch as any).mock.calls[0];
-    const requestBody = JSON.parse(fetchCall[1].body);
-    expect(requestBody.invitation_code).toBe("VALID-PRO-CODE");
+    expect(screen.getByText(/FREE tier/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue with FREE" })).toBeInTheDocument();
+    expect(screen.queryByText(/PRO/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/UNLIMITED/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Invitation Code")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /request one here/i })).not.toBeInTheDocument();
   });
 });
 
