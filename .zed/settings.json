@@ -1,0 +1,18 @@
+{
+  "languages": {
+    "Python": {
+      "language_servers": ["basedpyright", "ruff"],
+      "format_on_save": "off",
+      "preferred_line_length": 120
+    }
+  },
+  "lsp": {
+    "basedpyright": {
+      "settings": {
+        "basedpyright.analysis": {
+          "diagnosticMode": "openFilesOnly"
+        }
+      }
+    }
+  }
+}
