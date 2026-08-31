@@ -73,7 +73,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   );
 
   return (
-    <div className="w-full h-full flex flex-col bg-indigo-50 dark:bg-indigo-950 transition-colors duration-200 ease-in-out font-[Inter] relative pb-0">
+    <div className="w-full h-full flex flex-col bg-canvas transition-colors duration-200 ease-in-out font-[Inter] relative pb-0">
       {/* Scrollable Chat Area: Altezza calcolata per lasciare spazio all'input bar */}
       <div
         className="p-4 sm:p-6 overflow-y-auto w-full flex-grow pb-0"
@@ -82,8 +82,8 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
       >
         <div className="max-w-4xl mx-auto">
           {chatHistory.length === 0 ? (
-            <div className="text-center p-8 sm:p-16 text-indigo-700 dark:text-indigo-200">
-              <MessageSquare size={48} className="sm:size-16 mx-auto mb-4 text-indigo-300" />
+            <div className="text-center p-8 sm:p-16 text-muted">
+              <MessageSquare size={48} className="sm:size-16 mx-auto mb-4 text-quiet" />
               <ChatEmptyState
                 isCheckingDocuments={isCheckingDocuments}
                 isServerOnline={isServerOnline}
@@ -111,16 +111,15 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
       {/* Gemini-style Input Bar - Sticky bottom with elegant spacing */}
       <form
         onSubmit={handleSubmit}
-        className="sticky bottom-0 left-0 right-0 bg-transparent sm:bg-gradient-to-t sm:from-indigo-50 sm:via-indigo-50 sm:to-transparent sm:dark:from-indigo-950 sm:dark:via-indigo-950 sm:dark:to-transparent pt-0 pb-0 -mx-4 md:mx-0 md:pt-4 md:pb-3 md:px-4 transition-all duration-200 ease-in-out z-10"
+        className="sticky bottom-0 left-0 right-0 bg-transparent pt-0 pb-0 -mx-4 md:mx-0 md:pt-4 md:pb-3 md:px-4 transition-all duration-200 ease-in-out z-10"
       >
         <div className="max-w-4xl md:mx-auto">
           {/* Gemini-inspired Input Container */}
           <div
-            className="relative bg-indigo-50 dark:bg-indigo-950
+            className="relative bg-surface
             rounded-3xl md:rounded-[32px]
-            shadow-md md:shadow-lg
-            border-2 border-indigo-300 dark:border-indigo-700
-            hover:shadow-xl transition-shadow duration-300
+            border border-line/20
+            shadow-sm hover:border-line/35 transition-colors duration-300
             overflow-hidden"
           >
             {/* Textarea Area - Top Section */}
@@ -132,7 +131,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 disabled={isQuerying || !userId || isChatDisabled}
                 placeholder={getPlaceholderText(isServerOnline, isLimitReached, isChatDisabled)}
                 rows={1}
-                className="w-full py-1 px-1 text-base bg-transparent focus:outline-none disabled:cursor-not-allowed transition-all duration-200 text-indigo-900 dark:text-indigo-50 placeholder-indigo-700 dark:placeholder-indigo-300 resize-none overflow-y-auto leading-6"
+                className="w-full py-1 px-1 text-base bg-transparent focus:outline-none disabled:cursor-not-allowed transition-all duration-200 text-ink placeholder-quiet resize-none overflow-y-auto leading-6"
                 style={{
                   minHeight: "44px",
                   maxHeight: "144px",

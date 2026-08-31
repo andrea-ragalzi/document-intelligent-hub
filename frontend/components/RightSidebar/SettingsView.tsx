@@ -5,11 +5,9 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({ onDeleteAccount }) => {
   return (
     <div className="p-4">
-      <div className="border-2 border-indigo-300 dark:border-indigo-700 rounded-lg p-4">
-        <h3 className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
-          Account Management
-        </h3>
-        <p className="text-sm text-indigo-700 dark:text-indigo-200 mb-4">
+      <div className="ui-subtle-panel rounded-lg p-4">
+        <h3 className="text-base font-semibold text-ink mb-2">Account Management</h3>
+        <p className="text-sm text-muted mb-4">
           Permanently delete your account and all associated data. This action cannot be undone.
         </p>
         <button

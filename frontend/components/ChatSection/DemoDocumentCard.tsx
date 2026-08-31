@@ -18,14 +18,14 @@ export function DemoDocumentCard({
 
   if (state === "seeding") {
     return (
-      <div className="mx-auto mt-6 max-w-xl rounded-xl border border-indigo-200 bg-white/70 p-4 text-left dark:border-indigo-800 dark:bg-indigo-900/30">
-        <p className="flex items-center gap-2 font-semibold text-indigo-800 dark:text-indigo-100">
+      <div className="ui-panel mx-auto mt-6 max-w-xl rounded-xl p-4 text-left">
+        <p className="flex items-center gap-2 font-semibold text-ink">
           <Loader size={18} className="animate-spin" /> Preparing your private demo document…
         </p>
         <button
           type="button"
           onClick={onOpenUpload}
-          className="mt-2 text-sm text-indigo-700 underline dark:text-indigo-200"
+          className="mt-2 text-sm text-accent underline underline-offset-2"
         >
           You can also upload your own PDF.
         </button>
@@ -51,20 +51,18 @@ export function DemoDocumentCard({
   }
 
   return (
-    <div className="mx-auto mt-6 max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-left dark:border-emerald-800 dark:bg-emerald-900/20">
-      <p className="flex items-center gap-2 font-semibold text-emerald-900 dark:text-emerald-100">
+    <div className="mx-auto mt-6 max-w-xl rounded-xl border border-success/30 bg-success/10 p-4 text-left">
+      <p className="flex items-center gap-2 font-semibold text-ink">
         <FileText size={18} /> Demo document ready
       </p>
-      <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-200">
-        Try one of these questions:
-      </p>
+      <p className="mt-1 text-sm text-muted">Try one of these questions:</p>
       <div className="mt-3 flex flex-col items-start gap-2">
         {suggestedQuestions.map(question => (
           <button
             key={question}
             type="button"
             onClick={() => onSelectQuestion(question)}
-            className="text-left text-sm text-indigo-700 underline decoration-indigo-300 underline-offset-2 dark:text-indigo-200"
+            className="text-left text-sm text-accent underline decoration-accent/40 underline-offset-2"
           >
             {question}
           </button>
@@ -73,7 +71,7 @@ export function DemoDocumentCard({
       <button
         type="button"
         onClick={onOpenUpload}
-        className="mt-4 flex items-center gap-1 text-sm text-emerald-800 underline dark:text-emerald-200"
+        className="mt-4 flex items-center gap-1 text-sm text-accent underline underline-offset-2"
       >
         <Paperclip size={14} /> You can also upload your own PDF.
       </button>

@@ -24,11 +24,8 @@ export const useTheme = () => {
     const root = document.documentElement;
     localStorage.setItem("theme", theme);
 
-    if (theme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
+    root.classList.toggle("dark", theme === "dark");
+    root.classList.toggle("light", theme === "light");
   }, [theme, mounted]);
 
   const toggleTheme = () => {

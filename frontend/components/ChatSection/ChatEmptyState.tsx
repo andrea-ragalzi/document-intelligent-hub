@@ -30,8 +30,8 @@ export function ChatEmptyState({
   if (isCheckingDocuments) {
     return (
       <>
-        <p className="font-bold text-lg text-gray-500 dark:text-gray-300">Checking documents...</p>
-        <Loader size={24} className="animate-spin mx-auto mt-4 text-indigo-500" />
+        <p className="font-semibold text-lg text-muted">Checking documents...</p>
+        <Loader size={24} className="animate-spin mx-auto mt-4 text-accent" />
       </>
     );
   }
@@ -67,11 +67,9 @@ export function ChatEmptyState({
   if (noDocuments) {
     return (
       <>
-        <MessageSquare size={48} className="mx-auto text-indigo-400 dark:text-indigo-500" />
-        <p className="font-bold text-lg text-gray-500 dark:text-gray-300">
-          No documents uploaded yet
-        </p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 max-w-md mx-auto">
+        <MessageSquare size={48} className="mx-auto text-quiet" />
+        <p className="font-semibold text-lg text-muted">No documents uploaded yet</p>
+        <p className="text-sm text-quiet max-w-md mx-auto">
           <Paperclip size={14} className="inline mr-1" />
           Upload a PDF document to start asking questions
         </p>
@@ -87,11 +85,9 @@ export function ChatEmptyState({
 
   return (
     <>
-      <MessageSquare size={48} className="mx-auto text-indigo-400 dark:text-indigo-500" />
-      <p className="font-bold text-lg text-gray-500 dark:text-gray-300">Start a conversation</p>
-      <p className="text-sm text-gray-400 dark:text-gray-500">
-        Ask me anything about your documents!
-      </p>
+      <MessageSquare size={48} className="mx-auto text-quiet" />
+      <p className="font-semibold text-lg text-muted">Start a conversation</p>
+      <p className="text-sm text-quiet">Ask me anything about your documents!</p>
       <DemoDocumentCard
         state={demoDocumentState}
         suggestedQuestions={suggestedQuestions}

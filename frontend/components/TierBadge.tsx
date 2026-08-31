@@ -18,21 +18,20 @@ const TIER_CONFIG = {
   FREE: {
     icon: Gift,
     label: "Free",
-    color: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
-    iconColor: "text-gray-500 dark:text-gray-400",
+    color: "bg-surface border border-line/15 text-muted",
+    iconColor: "text-quiet",
   },
   PRO: {
     icon: Zap,
     label: "Pro",
-    color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-    iconColor: "text-blue-600 dark:text-blue-400",
+    color: "bg-accent/10 border border-accent/20 text-accent",
+    iconColor: "text-accent",
   },
   UNLIMITED: {
     icon: Crown,
     label: "Unlimited",
-    color:
-      "bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 text-yellow-800 dark:text-yellow-300",
-    iconColor: "text-yellow-600 dark:text-yellow-400",
+    color: "bg-warning/10 border border-warning/25 text-warning",
+    iconColor: "text-warning",
   },
 };
 
@@ -57,7 +56,7 @@ export default function TierBadge({
       {showUpgrade && tier !== "UNLIMITED" && onUpgrade && (
         <button
           onClick={onUpgrade}
-          className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium underline"
+          className="text-xs text-accent hover:text-accent-hover font-medium underline"
         >
           Upgrade
         </button>

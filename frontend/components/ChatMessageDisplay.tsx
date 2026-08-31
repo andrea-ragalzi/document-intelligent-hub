@@ -16,9 +16,7 @@ const cleanDocumentMarkers = (text: string): string => {
 const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
   <div
     className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
-      isUser
-        ? "bg-indigo-500"
-        : "bg-indigo-300 dark:bg-indigo-700 text-indigo-900 dark:text-indigo-50"
+      isUser ? "bg-accent text-on-accent" : "bg-raised text-muted"
     } ${isUser ? "ml-2" : "mr-2"}`}
   >
     {isUser ? <UserIcon size={16} /> : <MessageSquare size={16} />}
@@ -39,9 +37,7 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
         {/* Message author */}
         <div
           className={`text-xs font-medium mb-1 ${
-            isUser
-              ? "text-indigo-700 dark:text-indigo-200 text-right pr-2"
-              : "text-indigo-700 dark:text-indigo-200 pl-2"
+            isUser ? "text-muted text-right pr-2" : "text-muted pl-2"
           }`}
         >
           {isUser ? "You" : "Assistant"}
@@ -49,10 +45,10 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
 
         {/* Message content */}
         <div
-          className={`p-3 sm:p-4 rounded-xl shadow-md transition duration-300 break-words overflow-wrap-anywhere ${
+          className={`p-3 sm:p-4 rounded-xl border border-line/15 transition duration-300 break-words overflow-wrap-anywhere ${
             isUser
-              ? "ml-auto bg-indigo-500 text-white rounded-br-sm"
-              : "bg-white text-indigo-900 rounded-tl-sm border-2 border-indigo-100 dark:bg-indigo-950 dark:text-indigo-50 dark:border-indigo-800"
+              ? "ml-auto bg-accent text-on-accent rounded-br-sm"
+              : "bg-surface text-ink rounded-tl-sm"
           }`}
         >
           {msg.isThinking ? (
@@ -66,16 +62,16 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
 
           {/* Sources */}
           {!isUser && msg.sources.length > 0 && !msg.isThinking && (
-            <div className="mt-3 pt-2 border-t border-indigo-300 dark:border-indigo-700">
-              <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-200 flex items-center mb-1">
+            <div className="mt-3 pt-2 border-t border-line/15">
+              <span className="text-xs font-semibold text-muted flex items-center mb-1">
                 <LinkIcon size={12} className="mr-1.5" />
                 Sources ({msg.sources.length}):
               </span>
-              <ul className="list-disc list-inside text-xs text-indigo-900 dark:text-indigo-50 space-y-0.5 max-h-24 overflow-y-auto pr-2">
+              <ul className="list-disc list-inside text-xs text-ink space-y-0.5 max-h-24 overflow-y-auto pr-2">
                 {msg.sources.map((source, i) => (
                   <li
                     key={`source-${i}-${source.substring(0, 30)}`}
-                    className="truncate hover:text-indigo-500 transition-colors"
+                    className="truncate hover:text-accent transition-colors"
                   >
                     <a
                       href={source}
