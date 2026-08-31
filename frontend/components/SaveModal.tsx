@@ -18,11 +18,7 @@ export const SaveModal: React.FC<SaveModalProps> = ({
   onSave,
   errorMessage,
 }) => {
-  console.log("📋 SaveModal render - isOpen:", isOpen);
-
   if (!isOpen) return null;
-
-  console.log("✅ SaveModal is rendering!");
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 dark:bg-opacity-70 z-[60] flex items-center justify-center p-4">

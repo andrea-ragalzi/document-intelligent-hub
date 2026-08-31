@@ -11,9 +11,6 @@ interface UseChatAIProps {
 export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
   const { getIdToken } = useAuth();
 
-  // Log output language selection
-  console.log(`🌍 [useChatAI] Output language: ${selectedOutputLanguage || "auto"}`);
-
   const {
     messages,
     input,
@@ -31,7 +28,7 @@ export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
     onError: (error: Error) => {
       // Silently handle rate limit errors (429) - they're expected
       if (error.message.includes("Daily query limit exceeded")) {
-        console.log("⚠️ Query limit reached");
+        return;
       } else {
         console.error("Chat error:", error);
       }

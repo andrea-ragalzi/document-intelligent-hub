@@ -32,7 +32,7 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
           type="button"
           onClick={onOpenUploadModal}
           disabled={!userId || !isServerOnline}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center h-10 w-10 rounded-full text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center h-10 w-10 rounded-full text-muted hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus"
           title={
             isServerOnline === false ? "Server offline - upload unavailable" : "Upload document"
           }
@@ -46,7 +46,7 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
           type="button"
           onClick={onOpenLanguageSelector}
           disabled={!userId}
-          className="min-h-[44px] flex items-center justify-center h-10 px-3 rounded-full text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-lg focus:outline-none focus:ring-3 focus:ring-focus"
+          className="min-h-[44px] flex items-center justify-center h-10 px-3 rounded-full text-muted hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-lg focus:outline-none focus:ring-3 focus:ring-focus"
           title={`Response Language: ${selectedOutputLanguage.toUpperCase()}`}
           aria-label="Select output language"
         >
@@ -60,8 +60,8 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
         disabled={isQuerying || !query.trim() || !userId || isChatDisabled}
         className={`min-h-[44px] min-w-[44px] flex items-center justify-center h-10 w-10 rounded-full transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus ${
           isQuerying || !query.trim() || !userId || isChatDisabled
-            ? "bg-indigo-300 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 cursor-not-allowed"
-            : "bg-indigo-500 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
+            ? "bg-raised text-quiet cursor-not-allowed"
+            : "bg-accent text-on-accent hover:bg-accent-hover"
         }`}
         title="Send message"
         aria-label="Send message"

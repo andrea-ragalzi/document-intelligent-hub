@@ -73,7 +73,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   };
 
-  const displayName = user?.displayName || user?.email || "Utente";
+  const displayName = user?.displayName || user?.email || "User";
   const ThemeIcon = theme === "light" ? Moon : Sun;
 
   return (
@@ -82,7 +82,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
       {isOpen && (
         <div
           aria-hidden="true"
-          className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 xl:hidden"
+          className="fixed inset-0 bg-black/55 z-40 transition-opacity duration-300 xl:hidden"
           onClick={onClose}
           onKeyDown={e => e.key === "Escape" && onClose()}
         />
@@ -90,7 +90,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 
       {/* Sidebar - Permanente su desktop (xl+), overlay su mobile */}
       <div
-        className={`h-full w-96 bg-indigo-50 dark:bg-indigo-950 shadow-xl transform transition-all duration-200 ease-in-out flex flex-col border-l-2 border-indigo-100 dark:border-indigo-800 font-[Inter]
+        className={`h-full w-96 bg-raised transform transition-all duration-200 ease-in-out flex flex-col border-l border-line/15 font-[Inter]
 
           xl:relative xl:translate-x-0 xl:z-0
 
@@ -119,54 +119,44 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             <div className="p-4 space-y-2">
               <button
                 onClick={onToggleTheme}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <ThemeIcon size={20} className="text-indigo-700 dark:text-indigo-200" />
-                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
-                    Tema
-                  </span>
+                  <ThemeIcon size={20} className="text-muted" />
+                  <span className="text-base font-medium text-ink">Theme</span>
                 </div>
-                <span className="text-sm text-indigo-700 dark:text-indigo-200 capitalize">
-                  {theme}
-                </span>
+                <span className="text-sm text-muted capitalize">{theme}</span>
               </button>
               <button
                 onClick={() => setActiveView("documents")}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <FileText size={20} className="text-indigo-700 dark:text-indigo-200" />
-                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
-                    Gestione Documenti
-                  </span>
+                  <FileText size={20} className="text-muted" />
+                  <span className="text-base font-medium text-ink">Manage Documents</span>
                 </div>
-                <ChevronRight size={20} className="text-indigo-700 dark:text-indigo-200" />
+                <ChevronRight size={20} className="text-quiet" />
               </button>
               <button
                 onClick={() => setActiveView("settings")}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <Settings size={20} className="text-indigo-700 dark:text-indigo-200" />
-                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
-                    Settings
-                  </span>
+                  <Settings size={20} className="text-muted" />
+                  <span className="text-base font-medium text-ink">Settings</span>
                 </div>
-                <ChevronRight size={20} className="text-indigo-700 dark:text-indigo-200" />
+                <ChevronRight size={20} className="text-quiet" />
               </button>
               <button
                 onClick={() => {
                   onOpenBugReport();
                   onClose();
                 }}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
                   <Bug size={20} className="text-red-600 dark:text-red-400" />
-                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
-                    Report Bug
-                  </span>
+                  <span className="text-base font-medium text-ink">Report Bug</span>
                 </div>
               </button>
               <button
@@ -174,13 +164,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   onOpenFeedback();
                   onClose();
                 }}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
                   <Star size={20} className="text-yellow-600 dark:text-yellow-400" />
-                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
-                    Give Feedback
-                  </span>
+                  <span className="text-base font-medium text-ink">Give Feedback</span>
                 </div>
               </button>
               <button
@@ -188,13 +176,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   router.push("/about");
                   onClose();
                 }}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
               >
                 <div className="flex items-center gap-3">
-                  <Info size={20} className="text-indigo-600 dark:text-indigo-300" />
-                  <span className="text-base font-medium text-indigo-900 dark:text-indigo-50">
-                    About
-                  </span>
+                  <Info size={20} className="text-muted" />
+                  <span className="text-base font-medium text-ink">About</span>
                 </div>
               </button>
             </div>

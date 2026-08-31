@@ -22,7 +22,11 @@ export default function LandingPage() {
   }, [user, loading, router]);
 
   if (!mounted || loading) {
-    return null;
+    return (
+      <main className="app-shell min-h-screen flex items-center justify-center" aria-busy="true">
+        <p className="text-muted">Loading Document Intelligent Hub…</p>
+      </main>
+    );
   }
 
   // Don't show landing page if user is authenticated
@@ -76,36 +80,36 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="app-shell min-h-screen">
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         {/* Background decorations */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 dark:bg-purple-900 rounded-full opacity-20 blur-3xl"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-300 dark:bg-blue-900 rounded-full opacity-20 blur-3xl"></div>
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-line/5 rounded-full blur-3xl"></div>
         </div>
 
         {/* Navigation */}
         <nav className="relative z-10 container mx-auto px-4 sm:px-6 py-4 sm:py-5">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+          <div className="ui-panel rounded-xl px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
             <div className="flex items-center gap-2 sm:gap-2.5">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-accent rounded-xl flex items-center justify-center">
+                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-on-accent" />
               </div>
-              <span className="text-base sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+              <span className="text-base sm:text-xl font-semibold tracking-tight text-ink">
                 Document Intelligent Hub
               </span>
             </div>
             <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={() => router.push("/login")}
-                className="px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base text-muted hover:text-ink font-medium transition-colors rounded-lg hover:bg-surface-hover"
               >
                 Login
               </button>
               <button
                 onClick={() => router.push("/signup")}
-                className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg transform hover:scale-105 font-semibold"
+                className="ui-primary-action px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base rounded-lg transition-colors font-semibold"
               >
                 Get Started
               </button>
@@ -115,18 +119,18 @@ export default function LandingPage() {
 
         {/* Hero Content */}
         <div className="relative z-10 container mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-20 sm:pb-32 text-center">
-          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-medium mb-6 sm:mb-8">
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-accent/10 border border-accent/20 rounded-full text-accent text-xs sm:text-sm font-medium mb-6 sm:mb-8">
             <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
             AI-Powered Document Intelligence
           </div>
 
-          <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent leading-tight px-4">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-semibold tracking-tight mb-4 sm:mb-6 text-ink leading-tight px-4">
             Transform Your Documents
             <br />
             Into Conversations
           </h1>
 
-          <p className="text-base sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 sm:mb-12 max-w-3xl mx-auto px-4">
+          <p className="text-base sm:text-xl md:text-2xl text-muted mb-8 sm:mb-12 max-w-3xl mx-auto px-4">
             Upload your PDFs, ask questions in natural language, and get intelligent answers powered
             by advanced RAG technology.
           </p>
@@ -134,7 +138,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
             <button
               onClick={() => router.push("/signup")}
-              className="group px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 text-base sm:text-lg font-semibold flex items-center justify-center gap-2"
+              className="ui-primary-action group px-6 sm:px-8 py-3 sm:py-4 rounded-lg transition-colors text-base sm:text-lg font-semibold flex items-center justify-center gap-2"
             >
               Start Free Now
               <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
@@ -143,7 +147,7 @@ export default function LandingPage() {
               href="https://github.com/andrea-ragalzi/document-intelligent-hub"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-6 sm:px-8 py-3 sm:py-4 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 text-base sm:text-lg font-semibold flex items-center justify-center gap-2 border border-gray-200 dark:border-gray-700"
+              className="ui-secondary-action px-6 sm:px-8 py-3 sm:py-4 rounded-lg transition-colors text-base sm:text-lg font-semibold flex items-center justify-center gap-2"
             >
               <svg
                 className="w-4 h-4 sm:w-5 sm:h-5"
@@ -166,10 +170,10 @@ export default function LandingPage() {
       {/* Features Section */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <div className="text-center mb-10 sm:mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3 sm:mb-4 text-ink">
             Everything You Need
           </h2>
-          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+          <p className="text-lg sm:text-xl text-muted">
             Powerful features to make your documents work for you
           </p>
         </div>
@@ -178,17 +182,15 @@ export default function LandingPage() {
           {features.map(feature => (
             <div
               key={feature.title}
-              className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 group hover:-translate-y-1"
+              className="ui-panel p-8 rounded-xl transition-colors group hover:border-line/30"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 bg-accent/12 rounded-lg flex items-center justify-center text-accent mb-3 sm:mb-4 group-hover:bg-accent/18 transition-colors">
                 {feature.icon}
               </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-gray-900 dark:text-white">
+              <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-ink">
                 {feature.title}
               </h3>
-              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                {feature.description}
-              </p>
+              <p className="text-sm sm:text-base text-muted">{feature.description}</p>
             </div>
           ))}
         </div>
@@ -196,14 +198,12 @@ export default function LandingPage() {
 
       {/* How It Works Section */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 py-16 sm:py-24">
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 rounded-3xl p-8 sm:p-12 lg:p-16">
+        <div className="ui-subtle-panel rounded-2xl p-8 sm:p-12 lg:p-16">
           <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3 sm:mb-4 text-ink">
               How It Works
             </h2>
-            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
-              Get started in three simple steps
-            </p>
+            <p className="text-lg sm:text-xl text-muted">Get started in three simple steps</p>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-10 sm:gap-12 max-w-5xl mx-auto">
@@ -225,15 +225,13 @@ export default function LandingPage() {
               },
             ].map(item => (
               <div key={item.step} className="text-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl sm:text-3xl font-bold mx-auto mb-5 sm:mb-6 shadow-lg">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-accent rounded-full flex items-center justify-center text-on-accent text-2xl sm:text-3xl font-semibold mx-auto mb-5 sm:mb-6">
                   {item.step}
                 </div>
-                <h3 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+                <h3 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-ink">
                   {item.title}
                 </h3>
-                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed">
-                  {item.desc}
-                </p>
+                <p className="text-sm sm:text-base text-muted leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -243,10 +241,10 @@ export default function LandingPage() {
       {/* Technologies Section */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <div className="text-center mb-8 sm:mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3 sm:mb-4 text-ink">
             Built With Modern Technologies
           </h2>
-          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+          <p className="text-lg sm:text-xl text-muted">
             Powered by industry-leading tools and frameworks
           </p>
         </div>
@@ -255,7 +253,7 @@ export default function LandingPage() {
           {technologies.map(tech => (
             <div
               key={tech}
-              className="px-4 sm:px-6 py-2 sm:py-3 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm sm:text-base font-medium hover:shadow-lg hover:-translate-y-0.5 transition-all"
+              className="px-4 sm:px-6 py-2 sm:py-3 bg-surface rounded-full border border-line/15 text-muted text-sm sm:text-base font-medium hover:bg-surface-hover hover:text-ink transition-colors"
             >
               {tech}
             </div>
@@ -265,7 +263,7 @@ export default function LandingPage() {
 
       {/* CTA Section */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 py-12 sm:py-20">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl sm:rounded-3xl p-8 sm:p-12 md:p-20 text-center text-white shadow-2xl">
+        <div className="bg-raised border border-line/15 rounded-2xl p-8 sm:p-12 md:p-20 text-center text-ink">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6">
             Ready to Get Started?
           </h2>
@@ -274,7 +272,7 @@ export default function LandingPage() {
           </p>
           <button
             onClick={() => router.push("/signup")}
-            className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 text-base sm:text-lg font-semibold inline-flex items-center gap-2"
+            className="ui-primary-action px-6 sm:px-8 py-3 sm:py-4 rounded-lg transition-colors text-base sm:text-lg font-semibold inline-flex items-center gap-2"
           >
             Create Free Account
             <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -283,20 +281,20 @@ export default function LandingPage() {
       </div>
 
       {/* Footer */}
-      <footer className="relative z-10 container mx-auto px-4 sm:px-6 py-8 sm:py-12 border-t border-gray-200 dark:border-gray-800">
+      <footer className="relative z-10 container mx-auto px-4 sm:px-6 py-8 sm:py-12 border-t border-line/15">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-4">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
-            <span className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
+            <span className="text-lg sm:text-xl font-semibold text-ink">
               Document Intelligent Hub
             </span>
           </div>
-          <div className="flex gap-4 sm:gap-6 text-sm sm:text-base text-gray-600 dark:text-gray-400">
+          <div className="flex gap-4 sm:gap-6 text-sm sm:text-base text-muted">
             <a
               href="https://github.com/andrea-ragalzi/document-intelligent-hub"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              className="hover:text-accent transition-colors"
             >
               GitHub
             </a>
@@ -304,7 +302,7 @@ export default function LandingPage() {
               href="https://github.com/andrea-ragalzi/document-intelligent-hub/wiki"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              className="hover:text-accent transition-colors"
             >
               Documentation
             </a>
@@ -313,7 +311,7 @@ export default function LandingPage() {
             href="https://andrearagalzi.netlify.app/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-500 dark:text-gray-500 text-sm"
+            className="text-quiet text-sm"
           >
             © {new Date().getFullYear()} Andrea Ragalzi
           </a>

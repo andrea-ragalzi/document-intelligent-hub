@@ -49,6 +49,7 @@ build-backend = "poetry.core.masonry.api"
 
 # Type checking - Firebase Admin SDK has incomplete stubs
 [tool.pyright]
+extraPaths = ["."]
 ignore = ["**/__pycache__", "**/chroma_db"]
 reportMissingTypeStubs = false
 reportUnknownMemberType = false

@@ -1,21 +1,135 @@
-/* app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Aggiungi qui eventuali stili globali personalizzati */
-/* Ad esempio, per la scrollbar della chat */
-.dark ::-webkit-scrollbar-thumb {
-  background-color: #4b5563;
-  /* gray-600 */
+:root {
+  color-scheme: light;
+  --color-canvas: 245 247 245;
+  --color-raised: 237 241 238;
+  --color-surface: 255 255 255;
+  --color-surface-hover: 240 244 241;
+  --color-ink: 23 32 26;
+  --color-muted: 88 101 93;
+  --color-quiet: 117 129 121;
+  --color-line: 23 32 26;
+  --color-accent: 38 122 71;
+  --color-accent-hover: 28 97 55;
+  --color-on-accent: 255 255 255;
+  --color-focus: 38 122 71;
+  --color-danger: 185 54 54;
+  --color-warning: 159 102 28;
+  --color-success: 38 122 71;
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  background-color: #6b7280;
-  /* gray-500 */
+.dark {
+  color-scheme: dark;
+  --color-canvas: 9 16 12;
+  --color-raised: 13 21 16;
+  --color-surface: 16 23 18;
+  --color-surface-hover: 24 35 27;
+  --color-ink: 237 242 239;
+  --color-muted: 168 179 172;
+  --color-quiet: 130 144 135;
+  --color-line: 216 222 218;
+  --color-accent: 123 211 154;
+  --color-accent-hover: 153 222 177;
+  --color-on-accent: 9 16 12;
+  --color-focus: 123 211 154;
+  --color-danger: 245 133 133;
+  --color-warning: 238 185 103;
+  --color-success: 123 211 154;
 }
 
-/* Upload progress shimmer animation */
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+    background: rgb(var(--color-canvas));
+    color: rgb(var(--color-ink));
+  }
+
+  ::selection {
+    background: rgb(var(--color-accent) / 0.24);
+  }
+}
+
+@layer components {
+  .app-shell {
+    background:
+      radial-gradient(circle at top right, rgb(var(--color-accent) / 0.08), transparent 30rem),
+      rgb(var(--color-canvas));
+  }
+
+  .auth-shell {
+    background:
+      radial-gradient(circle at top, rgb(var(--color-accent) / 0.1), transparent 28rem),
+      rgb(var(--color-canvas));
+  }
+
+  .ui-panel {
+    background: rgb(var(--color-surface));
+    border: 1px solid rgb(var(--color-line) / 0.14);
+    box-shadow: 0 12px 32px rgb(5 12 8 / 0.08);
+  }
+
+  .dark .ui-panel {
+    box-shadow: 0 14px 34px rgb(0 0 0 / 0.18);
+  }
+
+  .ui-subtle-panel {
+    background: rgb(var(--color-raised));
+    border: 1px solid rgb(var(--color-line) / 0.14);
+  }
+
+  .ui-input {
+    background: rgb(var(--color-surface));
+    border: 1px solid rgb(var(--color-line) / 0.18);
+    color: rgb(var(--color-ink));
+  }
+
+  .ui-input::placeholder {
+    color: rgb(var(--color-quiet));
+  }
+
+  .ui-input:focus {
+    border-color: rgb(var(--color-focus));
+    box-shadow: 0 0 0 3px rgb(var(--color-focus) / 0.18);
+  }
+
+  .ui-primary-action {
+    background: rgb(var(--color-accent));
+    color: rgb(var(--color-on-accent));
+  }
+
+  .ui-primary-action:hover:not(:disabled) {
+    background: rgb(var(--color-accent-hover));
+  }
+
+  .ui-secondary-action {
+    background: transparent;
+    border: 1px solid rgb(var(--color-line) / 0.2);
+    color: rgb(var(--color-ink));
+  }
+
+  .ui-secondary-action:hover:not(:disabled) {
+    background: rgb(var(--color-surface-hover));
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--color-quiet) / 0.48);
+  border: 3px solid rgb(var(--color-canvas));
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--color-muted) / 0.7);
+}
+
 @keyframes shimmer {
   0% {
     transform: translateX(-100%);

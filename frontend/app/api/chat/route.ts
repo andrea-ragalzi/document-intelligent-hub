@@ -33,8 +33,7 @@ export async function POST(req: Request) {
 
     const userQuery = lastMessage.content;
 
-    // Prepare history for the backend (exclude last message)
-    // IMPORTANT: Backend expects { role: "user"|"assistant", content: string }
+    // Prepare history for the backend, excluding the latest user message.
     const chatHistory = messages.slice(0, -1).map((msg: Message) => ({
       role: msg.role === "user" ? "user" : "assistant",
       content: msg.content,
@@ -47,19 +46,9 @@ export async function POST(req: Request) {
       conversation_history: chatHistory,
     };
 
-    // Add output_language if provided
     if (output_language) {
       requestBody.output_language = output_language;
-      console.log(
-        `🌍 [Frontend API] output_language value: "${output_language}" (type: ${typeof output_language})`
-      );
-    } else {
-      console.log(
-        "� [Frontend API] No output_language specified (backend will auto-detect from query)"
-      );
     }
-
-    console.log(`📦 [Frontend API] Full request body:`, JSON.stringify(requestBody, null, 2));
 
     // Call the FastAPI backend
     const response = await fetch(`${API_BASE_URL}/query/`, {
@@ -84,10 +73,7 @@ export async function POST(req: Request) {
 
     const data = await response.json();
 
-    // For now return the response as complete text
     let answer = data.answer || "No response available";
-    // Note: sources are already included in the answer by the backend
-    // in the appropriate language (Sources/Fuentes/Fonti/Quellen/etc.)
 
     // Clean up [DOCUMENT X] markers from the answer
     // These are internal reference markers that shouldn't appear in user-facing text
@@ -104,10 +90,6 @@ export async function POST(req: Request) {
           // Small delay to simulate streaming
           await new Promise(resolve => setTimeout(resolve, 10));
         }
-
-        // REMOVED: Sources are now included by the backend in the answer itself
-        // The backend adds sources in the appropriate language (Sources/Fuentes/Fonti/etc.)
-        // No need to duplicate them here
 
         controller.close();
       },

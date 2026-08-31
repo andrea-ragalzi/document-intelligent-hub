@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isOpen && (
         <div
           aria-hidden="true"
-          className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-40 transition-opacity duration-300 lg:hidden"
+          className="fixed inset-0 bg-black/55 z-40 transition-opacity duration-300 lg:hidden"
           onClick={onClose}
           onKeyDown={e => {
             if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
@@ -78,11 +78,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         className={`
           h-full w-72
-          bg-indigo-50 dark:bg-indigo-950
-          shadow-lg
+          bg-raised
           transform transition-all duration-200 ease-in-out
           flex flex-col
-          border-r-2 border-indigo-100 dark:border-indigo-800
+          border-r border-line/15
           font-[Inter]
 
           lg:relative lg:translate-x-0 lg:z-0
@@ -92,18 +91,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         `}
       >
         {/* Search & New Chat Section */}
-        <div className="p-4 space-y-3 border-b-2 border-indigo-100 dark:border-indigo-800">
+        <div className="p-4 space-y-3 border-b border-line/15">
           {/* Search Input */}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={18} className="text-indigo-700 dark:text-indigo-200" />
+              <Search size={18} className="text-quiet" />
             </div>
             <input
               type="text"
               placeholder="Search conversations..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-3 text-base bg-white dark:bg-indigo-900 border-2 border-indigo-300 dark:border-indigo-700 rounded-lg focus:outline-none focus:ring-3 focus:ring-focus focus:border-indigo-500 text-indigo-900 dark:text-indigo-50 placeholder-indigo-700 dark:placeholder-indigo-300 transition-colors"
+              className="ui-input w-full pl-10 pr-3 py-3 text-base rounded-lg focus:outline-none focus:ring-0 transition-colors"
             />
           </div>
 
@@ -112,11 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={e => {
               e.stopPropagation();
               e.preventDefault();
-              console.log("🆕 New Chat button clicked");
               onNewConversation();
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 dark:active:bg-indigo-400 text-white rounded-lg transition-colors duration-150 font-medium text-base focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px]"
+            className="ui-primary-action w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors duration-150 font-medium text-base focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px]"
           >
             <MessageSquarePlus size={20} />
             <span>New Chat</span>
@@ -124,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Conversations List - Scrollable with strong contrast */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 bg-indigo-50 dark:bg-indigo-950">
+        <div className="flex-1 overflow-y-auto px-3 py-4">
           <ConversationList
             conversations={filteredConversations}
             currentConversationId={currentConversationId}

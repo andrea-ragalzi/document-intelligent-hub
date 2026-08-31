@@ -49,27 +49,13 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   // Refresh documents when upload completes
   useEffect(() => {
     if (prevUploadingRef.current === true && isUploading === false) {
-      console.log("🔄 Upload completed, refreshing document list...");
-      console.log("📊 Current documents before refresh:", documents.length);
       // Small delay to ensure backend has processed everything
       setTimeout(() => {
-        console.log("⏰ Executing delayed refresh...");
         refreshDocuments();
       }, 500);
     }
     prevUploadingRef.current = isUploading;
   }, [isUploading, refreshDocuments]);
-
-  // Log when documents change
-  useEffect(() => {
-    console.log(
-      "📝 Documents state changed:",
-      documents.length,
-      documents.map(d => d.filename)
-    );
-  }, [documents]);
-
-  console.log("📋 DocumentManager render - documents:", documents?.length || 0, documents);
 
   const [deletingDoc, setDeletingDoc] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);

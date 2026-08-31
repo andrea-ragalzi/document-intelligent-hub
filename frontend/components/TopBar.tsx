@@ -15,12 +15,12 @@ export const TopBar: React.FC<TopBarProps> = ({ onOpenLeftSidebar, onOpenRightSi
   const { tier, isLoading } = useUserTier();
 
   return (
-    <div className="w-full bg-indigo-50 dark:bg-indigo-950 border-b-2 border-indigo-100 dark:border-indigo-800 shadow-sm transition-colors duration-200 ease-in-out font-[Inter]">
+    <div className="w-full bg-raised border-b border-line/15 transition-colors duration-200 ease-in-out font-[Inter]">
       <div className="flex items-center justify-between px-4 py-3">
         {/* Left: Hamburger Menu - Solo mobile (nascosto su lg+) */}
         <button
           onClick={onOpenLeftSidebar}
-          className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-indigo-900 dark:text-indigo-50 lg:hidden focus:outline-none focus:ring-3 focus:ring-focus"
+          className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-ink lg:hidden focus:outline-none focus:ring-3 focus:ring-focus"
           aria-label="Toggle navigation"
           title="Conversazioni"
         >
@@ -32,7 +32,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onOpenLeftSidebar, onOpenRightSi
 
         {/* Center: Title */}
         <div className="flex-1 flex items-center justify-center gap-3">
-          <h1 className="text-xl font-bold text-indigo-900 dark:text-indigo-50">
+          <h1 className="text-xl font-semibold tracking-tight text-ink">
             Document Intelligent Hub
           </h1>
           {/* Tier badge - hidden on small screens */}
@@ -46,7 +46,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onOpenLeftSidebar, onOpenRightSi
         {/* Right: User Profile Icon - Solo mobile (nascosto su xl+) */}
         <button
           onClick={onOpenRightSidebar}
-          className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-all duration-200 ease-in-out text-indigo-900 dark:text-indigo-50 xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
+          className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-ink xl:hidden focus:outline-none focus:ring-3 focus:ring-focus"
           aria-label="Toggle settings"
           title="Impostazioni"
         >

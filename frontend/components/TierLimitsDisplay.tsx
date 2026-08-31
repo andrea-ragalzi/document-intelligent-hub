@@ -35,22 +35,18 @@ function DocumentLimitBar({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+        <div className="flex items-center gap-1.5 text-muted">
           <FileText className="w-3.5 h-3.5" />
           <span>Documents</span>
         </div>
-        <span
-          className={`font-medium ${
-            isClose ? "text-orange-600 dark:text-orange-400" : "text-gray-700 dark:text-gray-300"
-          }`}
-        >
+        <span className={`font-medium ${isClose ? "text-warning" : "text-muted"}`}>
           {current} / {max}
         </span>
       </div>
-      <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-line/15 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-300 ${
-            isClose ? "bg-orange-500" : "bg-blue-500"
+            isClose ? "bg-warning" : "bg-accent"
           }`}
           style={{ width: `${Math.min(percentage, 100)}%` }}
         />
@@ -76,22 +72,18 @@ function QueryLimitBar({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+        <div className="flex items-center gap-1.5 text-muted">
           <MessageSquare className="w-3.5 h-3.5" />
           <span>Queries Today</span>
         </div>
-        <span
-          className={`font-medium ${
-            isClose ? "text-orange-600 dark:text-orange-400" : "text-gray-700 dark:text-gray-300"
-          }`}
-        >
+        <span className={`font-medium ${isClose ? "text-warning" : "text-muted"}`}>
           {current} / {max === Infinity ? "∞" : max}
         </span>
       </div>
-      <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-line/15 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-300 ${
-            isClose ? "bg-orange-500" : "bg-green-500"
+            isClose ? "bg-warning" : "bg-success"
           }`}
           style={{ width: `${Math.min(percentage, 100)}%` }}
         />
@@ -113,7 +105,7 @@ export default function TierLimitsDisplay({
     <div className="space-y-4">
       {/* Tier Badge */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Your Plan</h3>
+        <h3 className="text-sm font-medium text-muted">Your Plan</h3>
         <TierBadge tier={tier} />
       </div>
 
@@ -135,14 +127,12 @@ export default function TierLimitsDisplay({
 
       {/* Unlimited Badge */}
       {isUnlimited && (
-        <div className="p-3 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+        <div className="p-3 bg-warning/10 border border-warning/25 rounded-lg">
           <div className="flex items-center gap-2">
-            <Crown className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-            <p className="text-sm text-yellow-900 dark:text-yellow-100 font-medium">
-              Unlimited Access
-            </p>
+            <Crown className="w-4 h-4 text-warning" />
+            <p className="text-sm text-ink font-medium">Unlimited Access</p>
           </div>
-          <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+          <p className="text-xs text-muted mt-1">
             You have full access to all features without limits
           </p>
         </div>

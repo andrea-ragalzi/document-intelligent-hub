@@ -10,7 +10,7 @@ export const ChatLoadingSkeleton: React.FC<ChatLoadingSkeletonProps> = ({ isQuer
       <div className="flex-shrink-0 mr-2 w-8 h-8"></div>
       <div className="max-w-[85%] sm:max-w-[80%] flex flex-col">
         <div className="text-xs font-medium mb-1 text-indigo-600 dark:text-indigo-400 pl-2">
-          Assistente
+          Assistant
         </div>
         <div className="p-3 sm:p-4 rounded-xl shadow-md bg-white dark:bg-gray-800 rounded-tl-sm border border-gray-100 dark:border-gray-700">
           {/* Skeleton Loader - Animate Pulse with Gradient */}

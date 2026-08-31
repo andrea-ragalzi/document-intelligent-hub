@@ -6,12 +6,12 @@ import { useMobileGestures } from "@/hooks/useMobileGestures";
 
 const getConversationItemClassName = (isSelected: boolean, isActive: boolean): string => {
   if (isSelected) {
-    return "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-500";
+    return "bg-accent/15 border border-accent";
   }
   if (isActive) {
-    return "bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-300 dark:border-indigo-700";
+    return "bg-accent/10 border border-accent/50";
   }
-  return "bg-white dark:bg-indigo-950 border-2 border-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-800 hover:border-indigo-500";
+  return "bg-surface border border-line/15 hover:bg-surface-hover hover:border-line/30";
 };
 
 interface ConversationListProps {
@@ -133,17 +133,15 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
   return (
     <section className="font-[Inter]">
-      <h2 className="text-base font-bold text-indigo-900 dark:text-indigo-50 mb-4 px-2">
-        Conversations
-      </h2>
+      <h2 className="text-base font-bold text-ink mb-4 px-2">Conversations</h2>
 
       {/* Bulk Action Bar - Automatically appears when there are selections */}
       {isSelectionMode && (
-        <div className="sticky top-0 z-10 bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-300 dark:border-indigo-700 rounded-lg mb-3 p-3 shadow-md">
+        <div className="sticky top-0 z-10 bg-accent/10 border border-accent/30 rounded-lg mb-3 p-3">
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={handleSelectAll}
-              className="text-sm text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-indigo-100 transition font-semibold focus:outline-none focus:ring-3 focus:ring-focus"
+              className="text-sm text-accent hover:text-accent-hover transition font-semibold focus:outline-none focus:ring-3 focus:ring-focus"
             >
               {selectedConvs.length === conversations.length ? "Deselect All" : "Select All"}
             </button>
@@ -161,9 +159,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
       {/* Flat sorted list (pinned first, then by date) */}
       <div className="space-y-1">
         {conversations.length === 0 ? (
-          <p className="text-sm text-indigo-700 dark:text-indigo-200 italic px-2 py-8 text-center">
-            No saved conversations
-          </p>
+          <p className="text-sm text-muted italic px-2 py-8 text-center">No saved conversations</p>
         ) : (
           sortedConversations.map(conv => {
             const isActive = currentConversationId === conv.id;
@@ -209,8 +205,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 <div className="flex items-start gap-2">
                   {/* Indicatore visivo di selezione - Solo elementi selezionati */}
                   {isSelected && (
-                    <div className="flex-shrink-0 h-6 w-6 flex items-center justify-center rounded-full bg-indigo-500 dark:bg-indigo-500 mt-1">
-                      <CheckCircle size={16} className="text-white" />
+                    <div className="flex-shrink-0 h-6 w-6 flex items-center justify-center rounded-full bg-accent mt-1">
+                      <CheckCircle size={16} className="text-on-accent" />
                     </div>
                   )}
 
@@ -218,17 +214,13 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   <div className="flex-1 min-w-0">
                     <p
                       className={`font-semibold text-sm truncate transition-colors duration-200 ${
-                        isActive
-                          ? "text-indigo-900 dark:text-indigo-50"
-                          : "text-indigo-900 dark:text-indigo-50 group-hover:text-indigo-700 dark:group-hover:text-indigo-200"
+                        isActive ? "text-ink" : "text-ink group-hover:text-accent"
                       }`}
                     >
                       {conv.name}
                     </p>
                     {/* Timestamp */}
-                    <p className="text-xs text-indigo-700 dark:text-indigo-200 mt-1">
-                      {conv.timestamp}
-                    </p>
+                    <p className="text-xs text-muted mt-1">{conv.timestamp}</p>
                   </div>
 
                   {/* Contenitore unificato: Pin (default) o Menu Kebab (hover) - Solo desktop */}
@@ -242,14 +234,14 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                       {/* Indicatore Pin - Visibile di default, nascosto all'hover */}
                       {!isSelected && conv.isPinned && (
                         <div className="absolute inset-0 flex items-center justify-center md:group-hover:hidden">
-                          <Pin size={14} className="text-indigo-500" fill="currentColor" />
+                          <Pin size={14} className="text-accent" fill="currentColor" />
                         </div>
                       )}
 
                       {/* Menu Kebab - Desktop only: visible on hover */}
                       <button
                         onClick={e => handleKebabClick(e, conv.id)}
-                        className="absolute inset-0 items-center justify-center text-indigo-700 hover:text-indigo-900 dark:text-indigo-200 dark:hover:text-indigo-100 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded transition-all duration-200 ease-in-out opacity-0 group-hover:opacity-100 hidden md:flex focus:outline-none focus:ring-3 focus:ring-focus"
+                        className="absolute inset-0 items-center justify-center text-muted hover:text-ink hover:bg-surface-hover rounded transition-all duration-200 ease-in-out opacity-0 group-hover:opacity-100 hidden md:flex focus:outline-none focus:ring-3 focus:ring-focus"
                         title="Options"
                       >
                         <MoreVertical size={16} />
@@ -271,7 +263,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             {/* Backdrop for mobile */}
             <div
               aria-hidden="true"
-              className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
+              className="fixed inset-0 bg-black/70 z-[100] md:hidden"
               onClick={e => {
                 e.stopPropagation();
                 closeContextMenu();
@@ -285,7 +277,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             />
             {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}
             <div
-              className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-gradient-to-b from-indigo-900 to-indigo-950 dark:from-slate-900 dark:to-black rounded-t-3xl md:rounded-lg shadow-2xl border-0 z-[110] transition-transform overflow-hidden"
+              className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-raised rounded-t-3xl md:rounded-lg border border-line/15 z-[110] transition-transform overflow-hidden"
               ref={node => {
                 menuRef.current = node;
               }}
@@ -304,7 +296,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 onTouchMove={handleDragMove}
                 onTouchEnd={handleDragEnd}
               >
-                <div className="w-10 h-1 bg-white/60 rounded-full" />
+                <div className="w-10 h-1 bg-quiet/60 rounded-full" />
               </div>
 
               {(() => {
@@ -318,11 +310,11 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                         e.stopPropagation();
                         runActionAndCloseMenu(() => onPin(conv.id, !conv.isPinned));
                       }}
-                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200"
+                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-ink hover:bg-surface-hover transition-colors duration-200"
                     >
                       <Pin
                         size={18}
-                        className={conv.isPinned ? "text-indigo-300" : "text-white/80"}
+                        className={conv.isPinned ? "text-accent" : "text-muted"}
                         fill={conv.isPinned ? "currentColor" : "none"}
                       />
                       <span className="font-semibold tracking-wide">
@@ -334,9 +326,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                         e.stopPropagation();
                         runActionAndCloseMenu(() => onRename(conv.id, conv.name));
                       }}
-                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200"
+                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-ink hover:bg-surface-hover transition-colors duration-200"
                     >
-                      <Edit size={18} className="text-white/80" />
+                      <Edit size={18} className="text-muted" />
                       <span className="font-semibold tracking-wide">Rename</span>
                     </button>
                     <button
@@ -344,9 +336,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                         e.stopPropagation();
                         runActionAndCloseMenu(() => openDeleteModal(conv));
                       }}
-                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-white hover:bg-white/10 transition-colors duration-200"
+                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-ink hover:bg-surface-hover transition-colors duration-200"
                     >
-                      <Trash2 size={18} className="text-white/80" />
+                      <Trash2 size={18} className="text-muted" />
                       <span className="font-semibold tracking-wide">Delete</span>
                     </button>
 
@@ -362,16 +354,12 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
       {/* Delete Single Conversation Modal */}
       {modalOpen && pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-indigo-950/80">
-          <div className="bg-indigo-50 dark:bg-indigo-950 rounded-xl shadow-xl p-6 w-full max-w-xs mx-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55">
+          <div className="ui-panel rounded-xl p-6 w-full max-w-xs mx-2">
             <div className="flex flex-col items-center text-center">
               <AlertCircle size={32} className="mb-2 text-red-600" />
-              <p className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
-                Delete conversation?
-              </p>
-              <p className="text-xs text-indigo-700 dark:text-indigo-200 mb-4 break-all">
-                {pendingDelete.name}
-              </p>
+              <p className="text-base font-semibold text-ink mb-2">Delete conversation?</p>
+              <p className="text-xs text-muted mb-4 break-all">{pendingDelete.name}</p>
               <div className="flex gap-2 w-full justify-center">
                 <button
                   onClick={handleDelete}
@@ -381,7 +369,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 </button>
                 <button
                   onClick={closeDeleteModal}
-                  className="min-h-[44px] flex-1 px-3 py-2 bg-indigo-300 hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-indigo-900 dark:text-indigo-50 text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
+                  className="ui-secondary-action min-h-[44px] flex-1 px-3 py-2 text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   Cancel
                 </button>
@@ -393,22 +381,22 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
       {/* Delete Multiple Confirmation Modal */}
       {deleteMultipleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-indigo-950/80">
-          <div className="bg-indigo-50 dark:bg-indigo-950 rounded-xl shadow-xl p-6 w-full max-w-md mx-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55">
+          <div className="ui-panel rounded-xl p-6 w-full max-w-md mx-2">
             <div className="flex flex-col items-center text-center">
               <AlertCircle size={32} className="mb-3 text-red-600" />
-              <p className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
+              <p className="text-base font-semibold text-ink mb-2">
                 Delete {selectedConvs.length} conversation
                 {selectedConvs.length > 1 ? "s" : ""}?
               </p>
-              <div className="w-full max-h-48 overflow-y-auto mb-4 bg-indigo-100 dark:bg-indigo-900 rounded-lg p-3">
+              <div className="w-full max-h-48 overflow-y-auto mb-4 bg-raised rounded-lg p-3">
                 <ul className="text-left">
                   {selectedConvs.map(id => {
                     const conv = conversations.find(c => c.id === id);
                     return conv ? (
                       <li
                         key={id}
-                        className="text-xs text-indigo-900 dark:text-indigo-50 break-all py-1.5 border-b border-indigo-300 dark:border-indigo-700 last:border-0"
+                        className="text-xs text-ink break-all py-1.5 border-b border-line/15 last:border-0"
                       >
                         • {conv.name}
                       </li>
@@ -416,9 +404,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   })}
                 </ul>
               </div>
-              <p className="text-xs text-indigo-700 dark:text-indigo-200 mb-4">
-                This action cannot be undone.
-              </p>
+              <p className="text-xs text-muted mb-4">This action cannot be undone.</p>
               <div className="flex gap-2 w-full justify-center">
                 <button
                   onClick={confirmDeleteSelected}
@@ -428,7 +414,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 </button>
                 <button
                   onClick={() => setDeleteMultipleModalOpen(false)}
-                  className="min-h-[44px] flex-1 px-3 py-2 bg-indigo-300 hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-indigo-900 dark:text-indigo-50 text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
+                  className="ui-secondary-action min-h-[44px] flex-1 px-3 py-2 text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   Cancel
                 </button>

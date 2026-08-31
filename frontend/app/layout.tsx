@@ -31,16 +31,19 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
+                const root = document.documentElement;
                 const theme = localStorage.getItem('theme');
-                if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.documentElement.classList.add('dark');
-                }
+                const isDark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                root.classList.toggle('dark', isDark);
+                root.classList.toggle('light', !isDark);
               } catch (e) {}
             `,
           }}
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} bg-canvas text-ink antialiased`}
+      >
         <QueryProvider>
           <AuthProvider>{children}</AuthProvider>
         </QueryProvider>

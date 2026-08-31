@@ -362,7 +362,7 @@ describe("DocumentManager", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it("should log document count on render", () => {
+  it("does not log document details on render", () => {
     const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     vi.mocked(useDocuments).mockReturnValue({
@@ -376,11 +376,7 @@ describe("DocumentManager", () => {
 
     render(<DocumentManager {...defaultProps} />);
 
-    expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining("📋 DocumentManager render - documents:"),
-      2,
-      mockDocuments
-    );
+    expect(consoleLogSpy).not.toHaveBeenCalled();
 
     consoleLogSpy.mockRestore();
   });
