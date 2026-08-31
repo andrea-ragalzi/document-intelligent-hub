@@ -57,7 +57,9 @@ class Settings(BaseSettings):
     # === RAG CONFIGURATION ===
     CHROMA_DB_PATH: str = "chroma_db"
     EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"
-    LLM_MODEL: str = "gpt-3.5-turbo"  # Can be overridden via .env
+    # Single source of truth for every OpenAI chat call. Local DEV templates use
+    # gpt-4o-mini; Railway production overrides this with gpt-5.6-luna.
+    LLM_MODEL: str = "gpt-4o-mini"
 
     # === RAG SYSTEM PROMPTS (SECURITY: LOADED FROM FILES) ===
     # ⚠️ SECURITY CRITICAL: These prompts are loaded from external files to:

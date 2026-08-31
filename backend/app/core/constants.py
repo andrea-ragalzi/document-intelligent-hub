@@ -30,8 +30,6 @@ class ChunkingConstants:
 class QueryConstants:
     """Query processing constants."""
 
-    PARSER_MODEL = "gpt-4o-mini"
-    PARSER_COST_PER_1K_QUERIES = 0.07  # USD
     MAX_QUERY_LENGTH = 1000  # Characters
     MIN_QUERY_LENGTH = 3  # Characters
     MIN_QUERY_LENGTH_FOR_REFORMULATION = (
@@ -159,9 +157,5 @@ class DocumentConstants:
 class LLMConstants:
     """LLM model configuration."""
 
-    DEFAULT_MODEL = "gpt-3.5-turbo"
-    QUERY_GEN_MODEL = (
-        "gpt-4o-mini"  # For cheap operations (classification, reformulation)
-    )
     DEFAULT_TEMPERATURE = 0.2  # Lower = more deterministic
     MAX_TOKENS = 1000  # Maximum tokens in response

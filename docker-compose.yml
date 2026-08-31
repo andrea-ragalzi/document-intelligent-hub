@@ -16,7 +16,7 @@ services:
       - VERSION=1.0.0
       # RAG Configuration
       - CHROMA_DB_PATH=/app/chroma_db
-      - LLM_MODEL=gpt-3.5-turbo
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
       # Firebase credentials
       - FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase-service-account.json
       # Python settings

@@ -1,17 +1,15 @@
 """
 Query Parser Service - Extract File Filters and Optimize Queries
 
-This service uses OpenAI gpt-4o-mini with structured output for:
+This service uses the configured OpenAI chat model with structured output for:
 1. Extracting file references (include/exclude)
 2. Cleaning the query by removing file mentions
 3. Correcting grammar and spelling errors
 4. Removing filler words and redundancy
 5. Multilingual support (Italian, English, mixed)
 
-Cost analysis:
-- gpt-4o-mini: $0.15/1M input tokens, $0.60/1M output tokens
-- Typical query: ~150 input + ~60 output tokens = $0.00007 (~0.07 cents)
-- 1000 queries = $0.07 (7 cents)
+The active model comes exclusively from ``LLM_MODEL`` so DEV and production
+can use separate model choices without code changes.
 
 Examples:
 - "Search only in file report.pdf for expenses" → include: [report.pdf], cleaned: "expenses"
@@ -55,7 +53,7 @@ class QueryParserService:
     """
     Service for extracting file filters and optimizing queries.
 
-    Uses OpenAI gpt-4o-mini with structured output:
+    Uses the configured OpenAI chat model with structured output:
     - Multilingual understanding (Italian, English, mixed)
     - Accurate extraction of include/exclude lists
     - Grammar and spelling correction
@@ -72,10 +70,9 @@ class QueryParserService:
     """
 
     def __init__(self) -> None:
-        """Initialize the query parser with OpenAI gpt-4o-mini."""
-        # Use gpt-4o-mini for cost-effective file extraction
+        """Initialize the query parser with the configured OpenAI model."""
         self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
+            model=settings.LLM_MODEL,
             temperature=0,
             api_key=SecretStr(settings.OPENAI_API_KEY),
         )
@@ -87,7 +84,7 @@ class QueryParserService:
         self.embeddings = get_embedding_function()
 
         logger.debug(
-            "✅ QueryParserService initialized with gpt-4o-mini (low cost, high accuracy)"
+            f"✅ QueryParserService initialized with {settings.LLM_MODEL}"
         )
 
     def extract_file_filters(
@@ -96,7 +93,7 @@ class QueryParserService:
         """
         Extract file filters and optimize query for semantic search.
 
-        Uses OpenAI gpt-4o-mini with structured output to:
+        Uses the configured OpenAI chat model with structured output to:
         1. Identify file references in the query
         2. Classify them as include or exclude based on context
         3. Clean the query by removing file mentions

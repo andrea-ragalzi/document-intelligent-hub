@@ -50,8 +50,8 @@ class QueryProcessingService:
         Initialize QueryProcessingService with LLM dependencies.
 
         Args:
-            llm: Main LLM for reformulation (gpt-3.5-turbo or gpt-4)
-            query_gen_llm: LLM for query generation/classification (gpt-4o-mini)
+            llm: Configured LLM for reformulation
+            query_gen_llm: Configured LLM for query generation/classification
         """
         self.llm = llm
         self.query_gen_llm = query_gen_llm

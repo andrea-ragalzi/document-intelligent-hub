@@ -22,6 +22,19 @@ class TestFileFilterExtraction:
     """Test suite for file filter extraction logic."""
 
     @patch("app.services.query_parser_service.ChatOpenAI")
+    def test_uses_the_single_configured_llm_model(
+        self, mock_openai: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Parser model selection must follow LLM_MODEL, never a hardcode."""
+        monkeypatch.setattr(
+            "app.services.query_parser_service.settings.LLM_MODEL", "test-model"
+        )
+
+        QueryParserService()
+
+        assert mock_openai.call_args.kwargs["model"] == "test-model"
+
+    @patch("app.services.query_parser_service.ChatOpenAI")
     @patch.object(StrOutputParser, "invoke")
     def test_extract_include_filter_italian(
         self, mock_str_parser_invoke: Any, mock_openai: Any
