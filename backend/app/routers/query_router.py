@@ -9,7 +9,6 @@ Handles query operations:
 
 import asyncio
 import time
-import traceback
 from typing import Tuple
 
 from app.core.auth import verify_firebase_token
@@ -289,15 +288,15 @@ async def query_document(
         logger.error("❌ [ROUTER] QUERY PROCESSING ERROR")
         logger.error(f"{'='*80}")
         logger.error(f"Error type: {type(e).__name__}")
-        logger.error(f"Error message: {str(e)}")
-        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        logger.error(
+            "Error details and traceback redacted to prevent leaking provider "
+            "or credential data."
+        )
         logger.error(f"{'='*80}")
 
-        # Return more detailed error message for debugging
-        error_detail = f"Failed to process query: {type(e).__name__}: {str(e)}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_detail,
+            detail="Unable to process the query. Please try again.",
         ) from e
     finally:
         await query_concurrency_limiter.release(user_id)
