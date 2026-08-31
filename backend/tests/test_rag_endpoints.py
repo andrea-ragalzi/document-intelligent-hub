@@ -218,8 +218,8 @@ class TestQueryEndpoint:
 
         response = client.post("/rag/query/", json=payload)
 
-        # Should still return 200 but may have generic response
-        assert response.status_code == 200
+        # Invalid queries are rejected before any OpenAI-backed router work.
+        assert response.status_code == 422
 
     def test_query_with_extra_fields(self, client: Any, test_user_id: str) -> None:
         """Test query with extra fields (should be ignored by Pydantic)"""

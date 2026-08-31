@@ -23,16 +23,12 @@ export function validateDescription(description: string): {
  * Creates FormData for bug report submission
  */
 export function createBugReportFormData(
-  userId: string | null | undefined,
   description: string,
   conversationId?: string | null,
   attachedFile?: File | null
 ): FormData {
   const formData = new FormData();
-  formData.append("user_id", userId || "anonymous");
   formData.append("description", description.trim());
-  formData.append("timestamp", new Date().toISOString());
-  formData.append("user_agent", navigator.userAgent);
 
   if (conversationId) {
     formData.append("conversation_id", conversationId);
@@ -48,9 +44,10 @@ export function createBugReportFormData(
 /**
  * Submits bug report to API
  */
-export async function submitBugReport(formData: FormData): Promise<void> {
+export async function submitBugReport(formData: FormData, token: string): Promise<void> {
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/report-bug`, {
     method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
 

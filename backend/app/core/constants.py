@@ -12,6 +12,14 @@ class ConversationConstants:
     BUFFER_SIZE = 7  # Number of message pairs to keep in memory
     SUMMARY_THRESHOLD = 20  # Messages before triggering summary
     MAX_HISTORY_LENGTH = 14  # Total messages (7 pairs * 2)
+    # Admission limits applied before any model call.  They retain the existing
+    # seven-pair UX while preventing a client from turning history into an
+    # unbounded prompt.
+    MAX_HISTORY_MESSAGES = MAX_HISTORY_LENGTH
+    MAX_HISTORY_MESSAGE_LENGTH = 2_000
+    MAX_HISTORY_TOTAL_LENGTH = 12_000
+    MAX_SUMMARY_HISTORY_MESSAGES = 40
+    MAX_SUMMARY_HISTORY_TOTAL_LENGTH = 20_000
 
 
 class ChunkingConstants:
@@ -25,6 +33,10 @@ class ChunkingConstants:
     MIN_CHUNK_SIZE = 50  # Minimum characters for a valid chunk
     MAX_CHUNK_SIZE = 2000  # Maximum characters per chunk
     COMBINE_SMALL_CHUNKS_THRESHOLD = 200  # Combine chunks smaller than this
+    # Resource ceilings for the public single-instance demo.  They are above
+    # normal small-PDF use but abort pathological extraction before embeddings.
+    MAX_EXTRACTED_DOCUMENT_TEXT = 500_000  # characters
+    MAX_DOCUMENT_CHUNKS = 500
 
 
 class QueryConstants:
@@ -106,7 +118,7 @@ class LanguageConstants:
 class TierConstants:
     """User tier and quota constants."""
 
-    UNLIMITED_QUOTA = 9999  # Effectively unlimited
+    UNLIMITED_QUOTA = 500  # High, but deliberately finite daily safety cap
     FREE_QUOTA = 10
     PRO_QUOTA = 100
     PREMIUM_QUOTA = 500
@@ -159,3 +171,4 @@ class LLMConstants:
 
     DEFAULT_TEMPERATURE = 0.2  # Lower = more deterministic
     MAX_TOKENS = 1000  # Maximum tokens in response
+    MAX_SUMMARY_TOKENS = 500  # Maximum tokens in a conversation summary

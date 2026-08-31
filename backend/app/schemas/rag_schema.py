@@ -10,6 +10,13 @@ from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.config.security_constants import (
+    MAX_BUG_REPORT_DESCRIPTION_LENGTH,
+    MAX_FEEDBACK_MESSAGE_LENGTH,
+    MAX_SUPPORT_CONVERSATION_ID_LENGTH,
+)
+from app.core.constants import ConversationConstants, QueryConstants
+
 # --- RAG CATEGORIES ---
 # These are the possible categories for the user query, used for specialized retrieval logic.
 # The Literal type ensures the LLM output is strictly one of these values.
@@ -84,21 +91,18 @@ class BugReportRequest(BaseModel):
     Used to collect structured feedback about errors, hallucinations, or system issues.
     """
 
-    user_id: str = Field(..., description="User ID who is reporting the bug")
     conversation_id: Optional[str] = Field(
-        None, description="ID of the conversation where the bug occurred"
+        None,
+        max_length=MAX_SUPPORT_CONVERSATION_ID_LENGTH,
+        description="ID of the conversation where the bug occurred",
     )
     description: str = Field(
-        ..., min_length=10, description="Description of the bug (minimum 10 characters)"
+        ...,
+        min_length=10,
+        max_length=MAX_BUG_REPORT_DESCRIPTION_LENGTH,
+        description="Description of the bug (minimum 10 characters)",
     )
-    timestamp: str = Field(..., description="ISO timestamp when the bug was reported")
-    user_agent: Optional[str] = Field(
-        None, description="Browser user agent for debugging context"
-    )
-
-    model_config = ConfigDict(
-        extra="allow",  # Allow extra fields for flexibility
-    )
+    model_config = ConfigDict(extra="forbid")
 
 
 class FeedbackRequest(BaseModel):
@@ -107,20 +111,16 @@ class FeedbackRequest(BaseModel):
     Collects user satisfaction and optional comments.
     """
 
-    user_id: str = Field(..., description="User ID who is providing feedback")
     conversation_id: Optional[str] = Field(
-        None, description="ID of the conversation being rated"
+        None,
+        max_length=MAX_SUPPORT_CONVERSATION_ID_LENGTH,
+        description="ID of the conversation being rated",
     )
     rating: int = Field(..., ge=1, le=5, description="Star rating from 1 to 5")
-    message: Optional[str] = Field(None, description="Optional feedback message")
-    timestamp: str = Field(..., description="ISO timestamp when feedback was submitted")
-    user_agent: Optional[str] = Field(
-        None, description="Browser user agent for context"
+    message: Optional[str] = Field(
+        None, max_length=MAX_FEEDBACK_MESSAGE_LENGTH, description="Optional feedback message"
     )
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
+    model_config = ConfigDict(extra="forbid")
 
 
 # --- RAG Schemas ---
@@ -172,7 +172,11 @@ class ConversationMessage(BaseModel):
     role: Literal["user", "assistant"] = Field(
         ..., description="The role of the message sender (user or assistant)."
     )
-    content: str = Field(..., description="The content of the message.")
+    content: str = Field(
+        ...,
+        max_length=ConversationConstants.MAX_HISTORY_MESSAGE_LENGTH,
+        description="The content of the message.",
+    )
 
 
 class QueryClassification(BaseModel):
@@ -197,7 +201,12 @@ class QueryClassification(BaseModel):
 class QueryRequest(BaseModel):
     """Schema for the incoming RAG query request."""
 
-    query: str = Field(..., description="The user's natural language question.")
+    query: str = Field(
+        ...,
+        min_length=QueryConstants.MIN_QUERY_LENGTH,
+        max_length=QueryConstants.MAX_QUERY_LENGTH,
+        description="The user's natural language question.",
+    )
     conversation_history: List[ConversationMessage] = Field(
         default=[],
         description=(
@@ -212,6 +221,17 @@ class QueryRequest(BaseModel):
             "If not provided, response will be in the same language as the query."
         ),
     )
+
+    @model_validator(mode="after")
+    def validate_bounded_history(self) -> "QueryRequest":
+        if len(self.conversation_history) > ConversationConstants.MAX_HISTORY_MESSAGES:
+            raise ValueError("Conversation history contains too many messages.")
+        if (
+            sum(len(message.content) for message in self.conversation_history)
+            > ConversationConstants.MAX_HISTORY_TOTAL_LENGTH
+        ):
+            raise ValueError("Conversation history is too large.")
+        return self
 
 
 class QueryResponse(BaseModel):
@@ -231,6 +251,17 @@ class SummarizeRequest(BaseModel):
     conversation_history: List[ConversationMessage] = Field(
         ..., description="The full or recent conversation history to summarize."
     )
+
+    @model_validator(mode="after")
+    def validate_bounded_history(self) -> "SummarizeRequest":
+        if len(self.conversation_history) > ConversationConstants.MAX_SUMMARY_HISTORY_MESSAGES:
+            raise ValueError("Conversation history contains too many messages to summarize.")
+        if (
+            sum(len(message.content) for message in self.conversation_history)
+            > ConversationConstants.MAX_SUMMARY_HISTORY_TOTAL_LENGTH
+        ):
+            raise ValueError("Conversation history is too large to summarize.")
+        return self
 
 
 class SummarizeResponse(BaseModel):

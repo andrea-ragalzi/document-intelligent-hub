@@ -8,6 +8,9 @@ import { render, screen, waitFor, fireEvent, act } from "@testing-library/react"
 import "@testing-library/jest-dom";
 import { BugReportModal } from "@/components/BugReportModal";
 
+const getIdToken = vi.fn().mockResolvedValue("firebase-test-token");
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ getIdToken }) }));
+
 // Mock fetch globally
 globalThis.fetch = vi.fn();
 
@@ -17,7 +20,6 @@ describe("BugReportModal", () => {
     isOpen: true,
     onClose: mockOnClose,
     conversationId: "test-conv-123",
-    userId: "test-user-456",
   };
 
   beforeEach(() => {
@@ -294,8 +296,11 @@ describe("BugReportModal", () => {
           expect.objectContaining({
             method: "POST",
             body: expect.any(FormData),
+            headers: { Authorization: "Bearer firebase-test-token" },
           })
         );
+        const formData = (globalThis.fetch as any).mock.calls[0][1].body;
+        expect(formData.get("user_id")).toBeNull();
       });
     });
 

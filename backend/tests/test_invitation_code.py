@@ -393,7 +393,7 @@ class TestTierLimitsEndpoint:
         assert "UNLIMITED" in data["limits"]
         assert data["limits"]["FREE"]["max_queries_per_day"] == 20
         assert data["limits"]["PRO"]["max_queries_per_day"] == 500
-        assert data["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
+        assert data["limits"]["UNLIMITED"]["max_queries_per_day"] == 500
 
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)

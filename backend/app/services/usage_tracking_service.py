@@ -134,7 +134,7 @@ class UsageTrackingService:
                 current_count = queries.get(today, 0) or 0
                 current_count = int(current_count)
 
-                if max_queries < 9999 and current_count >= max_queries:
+                if current_count >= max_queries:
                     return False, current_count
 
                 new_count = current_count + 1
@@ -180,17 +180,12 @@ class UsageTrackingService:
 
         Args:
             user_id: Firebase user ID
-            max_queries: Maximum queries allowed per day (9999 = unlimited)
+            max_queries: Finite maximum queries allowed per day
 
         Returns:
             Tuple of (can_query: bool, queries_used: int)
         """
         try:
-            # Unlimited users (9999) always pass
-            if max_queries >= 9999:
-                queries_used = self.get_user_queries_today(user_id)
-                return True, queries_used
-
             queries_used = self.get_user_queries_today(user_id)
             can_query = queries_used < max_queries
 

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from app.core.logging import logger
+from app.config.security_constants import UNLIMITED_TIER_MAX_QUERIES
 from app.schemas.auth_schema import (
     InvitationCodeRequest,
     InvitationCodeRequestResponse,
@@ -36,28 +37,21 @@ def calculate_remaining_queries(query_limit: int, queries_used: int) -> int:
     """
     Calculate remaining queries for a user.
 
-    For UNLIMITED tier (query_limit=9999), returns -1 as a special indicator.
-    For other tiers, returns the actual remaining count.
+    Every tier has a finite server-side ceiling, including UNLIMITED.
 
     Args:
         query_limit: Maximum queries allowed per day
         queries_used: Number of queries already used today
 
     Returns:
-        int: Remaining queries (-1 for UNLIMITED, actual count for other tiers)
+        int: Remaining queries
 
     Examples:
         >>> calculate_remaining_queries(20, 15)
         5
-        >>> calculate_remaining_queries(9999, 5000)
-        -1
+        >>> calculate_remaining_queries(500, 20)
+        480
     """
-    unlimited_threshold = 9999
-    unlimited_indicator = -1
-
-    if query_limit == unlimited_threshold:
-        return unlimited_indicator
-
     return max(0, query_limit - queries_used)
 
 
@@ -131,7 +125,7 @@ def load_app_config() -> dict[str, Any]:
     - unlimited_emails: List[str]
     - limits: dict with tier limits (FREE, PRO, UNLIMITED)
 
-    UNLIMITED tier limits are always injected with max values (9999).
+    UNLIMITED tier limits are always injected with a high, finite safety cap.
     Results are cached to reduce Firestore reads.
     """
     # Return cached values if available
@@ -157,7 +151,7 @@ def load_app_config() -> dict[str, Any]:
 
                 # Always inject UNLIMITED tier with max values
                 tier_limits["UNLIMITED"] = {
-                    "max_queries_per_day": 9999,
+                    "max_queries_per_day": UNLIMITED_TIER_MAX_QUERIES,
                     "max_files": 9999,
                     "max_file_size_mb": 9999,
                 }
@@ -184,7 +178,7 @@ def load_app_config() -> dict[str, Any]:
                 "max_file_size_mb": 50,
             },
             "UNLIMITED": {
-                "max_queries_per_day": 9999,
+                "max_queries_per_day": UNLIMITED_TIER_MAX_QUERIES,
                 "max_files": 9999,
                 "max_file_size_mb": 9999,
             },
@@ -207,7 +201,7 @@ def load_app_config() -> dict[str, Any]:
                     "max_file_size_mb": 50,
                 },
                 "UNLIMITED": {
-                    "max_queries_per_day": 9999,
+                    "max_queries_per_day": UNLIMITED_TIER_MAX_QUERIES,
                     "max_files": 9999,
                     "max_file_size_mb": 9999,
                 },

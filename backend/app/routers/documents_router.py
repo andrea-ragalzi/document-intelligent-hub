@@ -11,13 +11,14 @@ Handles document operations with security enhancements:
 All endpoints require valid Firebase Auth token in Authorization header.
 """
 
+import asyncio
 from io import BytesIO
 from typing import Any, Dict, Tuple
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 
 from app.config.security_constants import FILE_READ_CHUNK_SIZE
-from app.core.auth import verify_firebase_token
+from app.core.auth import require_verified_email, verify_firebase_token
 from app.core.logging import logger
 from app.core.security import (
     get_safe_file_size_mb,
@@ -37,11 +38,17 @@ from app.services.demo_document_service import (
     DemoDocumentService,
 )
 from app.services.rag_orchestrator_service import RAGService, get_rag_service
+from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
 from app.services.tier_limit_service import (
     check_file_count_limit,
     get_max_upload_size_bytes,
 )
 router = APIRouter(prefix="/rag", tags=["documents"])
+
+# One costly PDF operation at a time per authenticated UID.  This is an
+# intentional in-process guard for the current single-replica public demo.
+upload_concurrency_limiter = QueryConcurrencyLimiter()
+language_preview_concurrency_limiter = QueryConcurrencyLimiter()
 
 
 def _validate_and_sanitize_filename(filename: str | None) -> str:
@@ -169,7 +176,7 @@ async def _read_and_validate_file_size(
 
 @router.post("/documents/seed-demo", response_model=DemoDocumentSeedResponse)
 async def seed_demo_document(
-    user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
 ) -> DemoDocumentSeedResponse:
     """Index the bundled Alice excerpt privately for the verified Firebase UID."""
@@ -203,7 +210,7 @@ async def seed_demo_document(
 async def upload_document(
     _request: Request,
     file: UploadFile = File(..., description="The PDF document to be indexed."),
-    user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
 ) -> UploadResponse:
     """
@@ -211,7 +218,7 @@ async def upload_document(
 
     **🔒 Security Features:**
     - Requires valid Firebase Auth token
-    - Tier-based file size limit (FREE: 10MB, PRO: 50MB, UNLIMITED: 9999MB)
+    - Tier-based file size limit
     - Tier-based file count limit
     - Filename sanitization (prevents path traversal)
     - PDF-only validation
@@ -219,21 +226,26 @@ async def upload_document(
     **Multi-tenancy:** Each document is tagged with verified `user_id` from Auth token.
     **Tier Limits:** Automatically enforced based on user's Firebase custom claims.
     """
-    # Validate filename and check limits
-    safe_filename = _validate_and_sanitize_filename(file.filename)
-    max_size_bytes, max_size_mb = _check_file_limits(user_id, rag_service)
-
-    # Read and validate file size
-    file_content = await _read_and_validate_file_size(
-        file, max_size_bytes, max_size_mb, user_id
-    )
-
-    # Create new UploadFile with sanitized filename
-    reconstructed_file = BytesIO(file_content)
-    safe_file = UploadFile(file=reconstructed_file, filename=safe_filename)
-
-    # Index document
+    admitted = await upload_concurrency_limiter.acquire(user_id)
+    if not admitted:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="A document upload is already running for this account. Please wait for it to finish.",
+            headers={"Retry-After": "5"},
+        )
     try:
+        # Keep the admission lock through count check and indexing.  This makes
+        # the existing document-count rule race-free for a single UID.
+        safe_filename = _validate_and_sanitize_filename(file.filename)
+        max_size_bytes, max_size_mb = await asyncio.to_thread(
+            _check_file_limits, user_id, rag_service
+        )
+        file_content = await _read_and_validate_file_size(
+            file, max_size_bytes, max_size_mb, user_id
+        )
+        safe_file = UploadFile(
+            file=BytesIO(file_content), filename=safe_filename
+        )
         chunks_indexed, detected_language = await rag_service.index_document(
             file=safe_file, user_id=user_id, document_language=None
         )
@@ -249,6 +261,8 @@ async def upload_document(
             chunks_indexed=chunks_indexed,
             detected_language=detected_language or "Unknown",
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
@@ -262,12 +276,14 @@ async def upload_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Indexing failed: {str(e)}",
         ) from e
+    finally:
+        await upload_concurrency_limiter.release(user_id)
 
 
 @router.post("/detect-language/", response_model=DetectLanguageResponse)
 async def detect_document_language(
     file: UploadFile = File(..., description="The PDF document to analyze."),
-    _user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
 ) -> DetectLanguageResponse:
     """
@@ -275,8 +291,15 @@ async def detect_document_language(
 
     **🔒 Security:** Requires valid Firebase Auth token
     """
-    # Sanitize filename
+    admitted = await language_preview_concurrency_limiter.acquire(user_id)
+    if not admitted:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="A document preview is already running for this account. Please wait for it to finish.",
+            headers={"Retry-After": "5"},
+        )
     if not file.filename:
+        await language_preview_concurrency_limiter.release(user_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Filename is required.",
@@ -286,6 +309,7 @@ async def detect_document_language(
 
     # Validate file type
     if not safe_filename.lower().endswith(".pdf"):
+        await language_preview_concurrency_limiter.release(user_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only PDF files are supported.",
@@ -293,9 +317,14 @@ async def detect_document_language(
 
     # Detect language via service
     try:
-        await file.seek(0)
+        max_size_bytes = await asyncio.to_thread(get_max_upload_size_bytes, user_id)
+        max_size_mb = get_safe_file_size_mb(max_size_bytes)
+        file_content = await _read_and_validate_file_size(
+            file, max_size_bytes, max_size_mb, user_id
+        )
+        preview_file = UploadFile(file=BytesIO(file_content), filename=safe_filename)
         language_code, confidence = await rag_service.detect_document_language_preview(
-            file=file
+            file=preview_file
         )
 
         return DetectLanguageResponse(
@@ -303,11 +332,15 @@ async def detect_document_language(
             confidence=confidence,
             filename=safe_filename,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Language detection failed: {str(e)}",
         ) from e
+    finally:
+        await language_preview_concurrency_limiter.release(user_id)
 
 
 @router.get("/documents/check")
