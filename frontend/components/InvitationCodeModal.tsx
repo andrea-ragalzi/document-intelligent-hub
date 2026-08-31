@@ -57,9 +57,7 @@ export default function InvitationCodeModal({ isOpen, onSuccess }: InvitationCod
           {error && (
             <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              <p className="text-xs text-red-500 dark:text-red-400 mt-1">
-                Please try again.
-              </p>
+              <p className="text-xs text-red-500 dark:text-red-400 mt-1">Please try again.</p>
             </div>
           )}
 
