@@ -62,8 +62,8 @@ async def test_independent_rag_queries_progress_concurrently(
     """Blocking retrieval/LLM work must run in worker threads per request."""
 
     class UsageService:
-        def increment_user_queries(self, _user_id: str) -> int:
-            return 1
+        def reserve_query_slot(self, _user_id: str, _max_queries: int) -> tuple[bool, int]:
+            return True, 1
 
     class RAGService:
         def get_user_documents(self, _user_id: str) -> list[Any]:
@@ -77,7 +77,7 @@ async def test_independent_rag_queries_progress_concurrently(
         include_files=[], exclude_files=[], original_query="question", cleaned_query="question"
     )
     monkeypatch.setattr(query_router, "_get_user_tier_limits", lambda _uid: ("FREE", 20))
-    monkeypatch.setattr(query_router, "_check_and_enforce_query_limit", lambda *_args: None)
+    monkeypatch.setattr(query_router, "_reserve_and_enforce_query_limit", lambda *_args: 1)
     monkeypatch.setattr(query_router, "get_usage_service", lambda: UsageService())
     monkeypatch.setattr(
         query_router.query_parser_service, "extract_file_filters", lambda **_kwargs: parser_result

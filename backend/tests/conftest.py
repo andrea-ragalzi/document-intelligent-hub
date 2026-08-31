@@ -301,11 +301,8 @@ def mock_usage_service() -> Generator[Mock, None, None]:
         # Create a mock for the service *instance*
         mock_service_instance = Mock()
 
-        # check_query_limit is SYNCHRONOUS - returns tuple directly (not awaitable)
-        mock_service_instance.check_query_limit = Mock(return_value=(True, 0))
-
-        # increment_user_queries is also SYNCHRONOUS
-        mock_service_instance.increment_user_queries = Mock(return_value=1)
+        # reserve_query_slot is SYNCHRONOUS and atomically consumes one slot.
+        mock_service_instance.reserve_query_slot = Mock(return_value=(True, 1))
 
         # get_user_queries_today is also SYNCHRONOUS
         mock_service_instance.get_user_queries_today = Mock(return_value=0)

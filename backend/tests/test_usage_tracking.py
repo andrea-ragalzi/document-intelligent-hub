@@ -11,7 +11,9 @@ Tests cover:
 - Error handling
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from threading import Lock
 from typing import Any, Generator
 from unittest.mock import MagicMock, Mock, patch
 
@@ -293,6 +295,108 @@ class TestUsageTrackingService:
         # UNLIMITED tier should ALWAYS allow queries regardless of count
         assert can_query is True
         assert queries_used == 5000
+
+    def test_reserve_query_slot_atomically_increments_when_under_limit(
+        self, usage_service: Any, mock_firestore_db: Any
+    ) -> None:
+        """A permitted query must be counted inside the Firestore transaction."""
+        today_key = usage_service._get_today_key()
+        snapshot = Mock(exists=True)
+        snapshot.to_dict.return_value = {"queries": {today_key: 19}}
+        transaction = Mock()
+        document_ref = Mock()
+        document_ref.get.return_value = snapshot
+        mock_firestore_db.collection.return_value.document.return_value = document_ref
+        mock_firestore_db.transaction.return_value = transaction
+
+        with patch(
+            "app.services.usage_tracking_service.firestore_transactional",
+            side_effect=lambda function: function,
+        ):
+            reserved, new_count = usage_service.reserve_query_slot("user123", 20)
+
+        assert reserved is True
+        assert new_count == 20
+        document_ref.get.assert_called_once_with(transaction=transaction)
+        transaction.update.assert_called_once()
+        assert transaction.update.call_args.args[1]["queries"][today_key] == 20
+
+    def test_reserve_query_slot_rejects_without_writing_at_limit(
+        self, usage_service: Any, mock_firestore_db: Any
+    ) -> None:
+        """Parallel requests that reach the limit cannot reserve extra OpenAI work."""
+        today_key = usage_service._get_today_key()
+        snapshot = Mock(exists=True)
+        snapshot.to_dict.return_value = {"queries": {today_key: 20}}
+        transaction = Mock()
+        document_ref = Mock()
+        document_ref.get.return_value = snapshot
+        mock_firestore_db.collection.return_value.document.return_value = document_ref
+        mock_firestore_db.transaction.return_value = transaction
+
+        with patch(
+            "app.services.usage_tracking_service.firestore_transactional",
+            side_effect=lambda function: function,
+        ):
+            reserved, count = usage_service.reserve_query_slot("user123", 20)
+
+        assert reserved is False
+        assert count == 20
+        transaction.update.assert_not_called()
+        transaction.set.assert_not_called()
+
+    def test_concurrent_reservations_cannot_exceed_limit(
+        self, usage_service: Any, mock_firestore_db: Any
+    ) -> None:
+        """Only the remaining slots may be reserved by parallel same-user calls."""
+        today_key = usage_service._get_today_key()
+        state = {"queries": {today_key: 0}}
+        lock = Lock()
+
+        class Snapshot:
+            exists = True
+
+            def to_dict(self) -> dict[str, Any]:
+                return {"queries": dict(state["queries"])}
+
+        class DocumentRef:
+            def get(self, transaction: Any) -> Snapshot:
+                del transaction
+                return Snapshot()
+
+        class Transaction:
+            def update(self, ref: Any, values: dict[str, Any]) -> None:
+                del ref
+                state["queries"] = dict(values["queries"])
+
+            def set(self, ref: Any, values: dict[str, Any]) -> None:
+                del ref
+                state["queries"] = dict(values["queries"])
+
+        document_ref = DocumentRef()
+        mock_firestore_db.collection.return_value.document.return_value = document_ref
+        mock_firestore_db.transaction.side_effect = Transaction
+
+        def transactional_with_lock(function: Any) -> Any:
+            def wrapped(*args: Any, **kwargs: Any) -> Any:
+                with lock:
+                    return function(*args, **kwargs)
+
+            return wrapped
+
+        with patch(
+            "app.services.usage_tracking_service.firestore_transactional",
+            side_effect=transactional_with_lock,
+        ), ThreadPoolExecutor(max_workers=5) as executor:
+            results = list(
+                executor.map(
+                    lambda _: usage_service.reserve_query_slot("user123", 2), range(5)
+                )
+            )
+
+        assert sum(reserved for reserved, _ in results) == 2
+        assert sum(not reserved for reserved, _ in results) == 3
+        assert state["queries"][today_key] == 2
 
     @pytest.mark.skip(reason="cleanup_old_usage returns None, needs implementation fix")
     def test_cleanup_old_usage(
