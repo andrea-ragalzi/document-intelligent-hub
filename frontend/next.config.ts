@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Permit the loopback and current LAN host used to access the same local
-  // development server. This keeps Turbopack's HMR connection available when
-  // testing from another device on the local network.
-  allowedDevOrigins: ["127.0.0.1", "192.168.1.220"],
+  // An optional local-only variable permits HMR from a developer's LAN host.
+  allowedDevOrigins: ["127.0.0.1", process.env.NEXT_DEV_ALLOWED_ORIGIN].filter(
+    (origin): origin is string => Boolean(origin)
+  ),
   // Vercel supplies its own build adapter and does not use standalone output.
   // Keep standalone enabled for the existing self-hosted/Docker build only.
   output: process.env.VERCEL ? undefined : "standalone",
