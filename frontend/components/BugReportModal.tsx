@@ -9,20 +9,20 @@ import { BugReportModalHeader } from "./BugReportModal/BugReportModalHeader";
 import { BugReportModalInfo } from "./BugReportModal/BugReportModalInfo";
 import { BugReportFileAttachment } from "./BugReportModal/BugReportFileAttachment";
 import { BugReportStatusMessages } from "./BugReportModal/BugReportStatusMessages";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface BugReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   conversationId?: string | null;
-  userId?: string | null;
 }
 
 export const BugReportModal: React.FC<BugReportModalProps> = ({
   isOpen,
   onClose,
   conversationId,
-  userId,
 }) => {
+  const { getIdToken } = useAuth();
   const {
     description,
     setDescription,
@@ -56,10 +56,10 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
     setErrorMessage("");
 
     try {
-      const formData = createBugReportFormData(userId, description, conversationId, attachedFile);
-
-      console.log("Sending bug report with FormData");
-      await submitBugReport(formData);
+      const token = await getIdToken();
+      if (!token) throw new Error("Please sign in again before submitting a report.");
+      const formData = createBugReportFormData(description, conversationId, attachedFile);
+      await submitBugReport(formData, token);
 
       resetForm();
       setSubmitStatus("success");
@@ -166,7 +166,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                   <div className="flex justify-between">
                     <span className="font-semibold text-gray-700 dark:text-gray-300">User ID:</span>
                     <code className="text-gray-600 dark:text-gray-400 break-all max-w-[60%] text-right">
-                      {userId || "anonymous"}
+                      Verified securely by the server
                     </code>
                   </div>
                   <div className="flex justify-between">

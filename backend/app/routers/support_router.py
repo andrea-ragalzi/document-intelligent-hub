@@ -1,49 +1,71 @@
-"""
-Support Router - User Support and Configuration Endpoints
+"""Authenticated bug-report, feedback, and language support endpoints."""
 
-Handles support operations:
-- Bug reports with attachments
-- User feedback with ratings
-- Supported languages list
-"""
-
-import json
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Dict
+from typing import Any
+from uuid import uuid4
 
-import aiofiles
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
+from firebase_admin import firestore
 
 from app.config.languages import SUPPORTED_LANGUAGES
-from app.config.security_constants import MAX_ATTACHMENT_SIZE
-from app.core.logging import logger
-from app.core.security import sanitize_log_value
-from app.schemas.rag_schema import (
-    FeedbackRequest,
-    LanguageInfo,
-    LanguagesListResponse,
+from app.config.security_constants import (
+    ALLOWED_ATTACHMENT_MIME_TYPES,
+    MAX_ATTACHMENT_SIZE,
+    MAX_BUG_REPORT_DESCRIPTION_LENGTH,
+    MAX_SUPPORT_CONVERSATION_ID_LENGTH,
+    MAX_SUPPORT_USER_AGENT_LENGTH,
 )
+from app.core.auth import verify_firebase_token
+from app.core.logging import logger
+from app.core.security import sanitize_filename, sanitize_log_value
+from app.schemas.rag_schema import FeedbackRequest, LanguageInfo, LanguagesListResponse
 from app.services.email_service import get_email_service
+from app.services.support_rate_limiter import support_rate_limiter
+
 router = APIRouter(prefix="/rag", tags=["support"])
 
 
-@router.get(
-    "/languages/", response_model=LanguagesListResponse, status_code=status.HTTP_200_OK
-)
+def _server_timestamp() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _short_user_id(user_id: str) -> str:
+    return sanitize_log_value(user_id[:12])
+
+
+def _verify_conversation_ownership(conversation_id: str | None, user_id: str) -> str | None:
+    """Ensure an optional support reference belongs to the authenticated user."""
+    if not conversation_id:
+        return None
+    try:
+        snapshot = firestore.client().collection("conversations").document(conversation_id).get()
+    except Exception as exc:
+        logger.error("Support conversation lookup failed | Type: {}", type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to verify conversation. Please try again.",
+        ) from exc
+
+    if not snapshot.exists or (snapshot.to_dict() or {}).get("userId") != user_id:
+        logger.warning(
+            "Rejected support submission with unowned conversation | UID: {}",
+            _short_user_id(user_id),
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    return conversation_id
+
+
+async def _reserve_support_submission(event_type: str, user_id: str) -> None:
+    if not await support_rate_limiter.allow(event_type, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many support submissions. Please try again later.",
+            headers={"Retry-After": "3600"},
+        )
+
+
+@router.get("/languages/", response_model=LanguagesListResponse, status_code=status.HTTP_200_OK)
 def get_supported_languages() -> LanguagesListResponse:
-    """
-    **Get list of supported languages.**
-
-    Returns language metadata:
-    - Code (ISO 639-1)
-    - English name
-    - Native name
-    - Flag emoji
-    - Translated "Sources" label
-
-    **Cache-friendly:** Languages rarely change, safe to cache client-side.
-    """
     languages = [
         LanguageInfo(
             code=lang["code"],
@@ -54,107 +76,56 @@ def get_supported_languages() -> LanguagesListResponse:
         )
         for lang in SUPPORTED_LANGUAGES
     ]
-
     return LanguagesListResponse(languages=languages, total_count=len(languages))
 
 
 @router.post("/report-bug/", status_code=status.HTTP_201_CREATED)
 async def report_bug(
-    user_id: str = Form(..., description="User ID who is reporting the bug"),
-    description: str = Form(
-        ..., min_length=10, description="Bug description (min 10 chars)"
-    ),
-    conversation_id: str = Form(None, description="Optional conversation ID"),
-    timestamp: str = Form(..., description="ISO timestamp when bug was reported"),
-    user_agent: str = Form(None, description="Optional browser user agent"),
-    attachment: UploadFile = File(
-        None, description="Optional file attachment (max 10MB)"
-    ),
-) -> Dict[str, Any]:
-    """
-    **Report a bug with optional attachment.**
+    description: str = Form(..., min_length=10, max_length=MAX_BUG_REPORT_DESCRIPTION_LENGTH),
+    conversation_id: str | None = Form(None, max_length=MAX_SUPPORT_CONVERSATION_ID_LENGTH),
+    attachment: UploadFile | None = File(None),
+    user_agent: str | None = Header(None, alias="User-Agent"),
+    user_id: str = Depends(verify_firebase_token),
+) -> dict[str, Any]:
+    """Submit an authenticated bug report without storing its free-form text."""
+    await _reserve_support_submission("bug_report", user_id)
+    conversation_id = _verify_conversation_ownership(conversation_id, user_id)
 
-    Features:
-    - Email notification via SendGrid
-    - Supports attachments (images, videos, PDFs, archives) up to 10MB
-    - Structured logging to `logs/bug_reports.log`
-    - Conversation context for debugging
+    attachment_data: bytes | None = None
+    attachment_filename: str | None = None
+    attachment_type: str | None = None
+    if attachment:
+        attachment_type = attachment.content_type or ""
+        if attachment_type not in ALLOWED_ATTACHMENT_MIME_TYPES:
+            raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Unsupported attachment type")
+        if attachment.size and attachment.size > MAX_ATTACHMENT_SIZE:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Attachment exceeds the 10MB limit")
+        attachment_data = await attachment.read(MAX_ATTACHMENT_SIZE + 1)
+        if len(attachment_data) > MAX_ATTACHMENT_SIZE:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Attachment exceeds the 10MB limit")
+        attachment_filename = sanitize_filename(attachment.filename or "unnamed_file")
 
-    **Setup:** Requires `SENDGRID_API_KEY` in `.env`
-    """
-    # Validate attachment size (constant: 10MB for bug reports)
-    if attachment and attachment.size:
-        if attachment.size > MAX_ATTACHMENT_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"Attachment too large. Maximum size is 10MB, got {attachment.size / 1024 / 1024:.2f}MB",
-            )
-
-    # Read attachment content if provided
-    attachment_data = None
-    attachment_filename = None
-    attachment_type = None
-
-    if attachment and attachment.filename:
-        attachment_content = await attachment.read()
-        attachment_data = attachment_content
-        attachment_filename = attachment.filename
-        attachment_type = attachment.content_type
-        logger.info(
-            f"📎 Attachment received | "
-            f"Name: {sanitize_log_value(attachment_filename)} | "
-            f"Type: {sanitize_log_value(attachment_type)} | "
-            f"Size: {len(attachment_content)} bytes"
-        )
-
-    # Ensure logs directory exists
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-
-    # Structured log entry
-    log_entry = {
-        "timestamp": timestamp,
-        "user_id": user_id,
-        "conversation_id": conversation_id,
-        "description": description,
-        "user_agent": user_agent,
-        "attachment_filename": attachment_filename,
-        "attachment_size": len(attachment_data) if attachment_data else 0,
-        "server_timestamp": datetime.now(UTC).isoformat(),
-    }
-
-    # Write to dedicated bug reports log
-    bug_log_path = logs_dir / "bug_reports.log"
-    async with aiofiles.open(bug_log_path, "a", encoding="utf-8") as f:
-        await f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-
-    # Send email notification via SendGrid
-    email_service = get_email_service()
-    email_sent = email_service.send_bug_report(
+    email_sent = get_email_service().send_bug_report(
         user_id=user_id,
         description=description,
         conversation_id=conversation_id,
-        timestamp=timestamp,
-        user_agent=user_agent,
+        timestamp=_server_timestamp(),
+        user_agent=(user_agent or "")[:MAX_SUPPORT_USER_AGENT_LENGTH] or None,
         attachment_data=attachment_data,
         attachment_filename=attachment_filename,
         attachment_type=attachment_type,
     )
-
-    # Log to main logs with emoji for visibility
-    attachment_info = f" | 📎 {attachment_filename}" if attachment_filename else ""
-    logger.bind(BUG_REPORT=True).warning(
-        f"🐞 Bug Report from {sanitize_log_value(user_id)} | "
-        f"Conv: {sanitize_log_value(conversation_id or 'N/A')} | "
-        f"Email: {'✅' if email_sent else '❌'}"
-        f"{sanitize_log_value(attachment_info)} | "
-        f"{sanitize_log_value(description[:100])}"
+    logger.bind(BUG_REPORT=True).info(
+        "Bug report received | UID: {} | Conversation: {} | Attachment: {} | Email: {}",
+        _short_user_id(user_id),
+        sanitize_log_value(conversation_id or "N/A"),
+        bool(attachment_filename),
+        "sent" if email_sent else "not_sent",
     )
-
     return {
         "message": "Bug report received successfully",
-        "report_id": f"{user_id}_{datetime.now(UTC).timestamp()}",
-        "status": "logged",
+        "report_id": f"report_{uuid4().hex}",
+        "status": "accepted",
         "email_sent": email_sent,
         "attachment_included": attachment_filename is not None,
     }
@@ -163,71 +134,30 @@ async def report_bug(
 @router.post("/feedback/", status_code=status.HTTP_201_CREATED)
 async def submit_feedback(
     feedback: FeedbackRequest,
-) -> Dict[str, Any]:
-    """
-    **Submit user feedback with star rating.**
-
-    Features:
-    - Star rating from 0.5 to 5.0 (half-star increments)
-    - Optional feedback message
-    - Email notification with star visualization
-    - Structured logging to `logs/feedback.log`
-    - Conversation context for targeted improvements
-
-    **Setup:** Requires `SENDGRID_API_KEY` in `.env`
-    """
-    # Ensure logs directory exists
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-
-    # Structured log entry
-    log_entry = {
-        "timestamp": feedback.timestamp,
-        "user_id": feedback.user_id,
-        "conversation_id": feedback.conversation_id,
-        "rating": feedback.rating,
-        "message": feedback.message,
-        "user_agent": feedback.user_agent,
-        "server_timestamp": datetime.now(UTC).isoformat(),
-    }
-
-    # Write to dedicated feedback log
-    feedback_log_path = logs_dir / "feedback.log"
-    async with aiofiles.open(feedback_log_path, "a", encoding="utf-8") as f:
-        await f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-
-    # Send email notification via SendGrid
-    email_service = get_email_service()
-    email_sent = email_service.send_feedback(
-        user_id=feedback.user_id,
+    user_agent: str | None = Header(None, alias="User-Agent"),
+    user_id: str = Depends(verify_firebase_token),
+) -> dict[str, Any]:
+    """Submit authenticated feedback without storing its free-form message."""
+    await _reserve_support_submission("feedback", user_id)
+    conversation_id = _verify_conversation_ownership(feedback.conversation_id, user_id)
+    email_sent = get_email_service().send_feedback(
+        user_id=user_id,
         rating=feedback.rating,
         message=feedback.message,
-        conversation_id=feedback.conversation_id,
-        timestamp=feedback.timestamp,
-        user_agent=feedback.user_agent,
+        conversation_id=conversation_id,
+        timestamp=_server_timestamp(),
+        user_agent=(user_agent or "")[:MAX_SUPPORT_USER_AGENT_LENGTH] or None,
     )
-
-    # Determine sentiment emoji for logging
-    if feedback.rating >= 4.0:
-        sentiment_emoji = "😊"
-    elif feedback.rating >= 3.0:
-        sentiment_emoji = "😐"
-    else:
-        sentiment_emoji = "😞"
-
-    # Log to main logs with emoji for visibility
     logger.bind(FEEDBACK=True).info(
-        f"{sentiment_emoji} Feedback from "
-        f"{sanitize_log_value(feedback.user_id)} | "
-        f"Rating: {feedback.rating}/5.0 | "
-        f"Conv: {sanitize_log_value(feedback.conversation_id or 'N/A')} | "
-        f"Email: {'✅' if email_sent else '❌'} | "
-        f"{sanitize_log_value(feedback.message[:100] if feedback.message else 'No message')}"
+        "Feedback received | UID: {} | Rating: {} | Conversation: {} | Email: {}",
+        _short_user_id(user_id),
+        feedback.rating,
+        sanitize_log_value(conversation_id or "N/A"),
+        "sent" if email_sent else "not_sent",
     )
-
     return {
         "message": "Feedback received successfully",
-        "feedback_id": f"{feedback.user_id}_{datetime.now(UTC).timestamp()}",
-        "status": "logged",
+        "feedback_id": f"feedback_{uuid4().hex}",
+        "status": "accepted",
         "email_sent": email_sent,
     }

@@ -55,7 +55,7 @@ class TestLoadAppConfig:
             assert result["unlimited_emails"] == ["admin@example.com"]
             assert result["limits"]["FREE"]["max_queries_per_day"] == 20
             # UNLIMITED tier is always injected
-            assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
+            assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 500
 
     @pytest.mark.asyncio
     async def test_load_app_config_caching(self) -> Any:
@@ -109,7 +109,7 @@ class TestLoadAppConfig:
             # Should return defaults
             assert result["unlimited_emails"] == []
             assert "FREE" in result["limits"]
-            assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
+            assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 500
 
     @pytest.mark.asyncio
     async def test_load_app_config_firestore_error(self) -> Any:
@@ -130,7 +130,7 @@ class TestLoadAppConfig:
             # Should return defaults on error
             assert result["unlimited_emails"] == []
             assert "FREE" in result["limits"]
-            assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
+            assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 500
 
     @pytest.mark.asyncio
     async def test_load_app_config_missing_fields(self) -> Any:
@@ -158,7 +158,7 @@ class TestLoadAppConfig:
             assert "unlimited_emails" in result
             assert "limits" in result
             assert result["unlimited_emails"] == []
-            assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
+            assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 500
 
 
 class TestGetCurrentUserId:

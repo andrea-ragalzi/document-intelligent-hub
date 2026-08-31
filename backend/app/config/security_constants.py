@@ -39,7 +39,7 @@ ALLOWED_ATTACHMENT_MIME_TYPES = [
 
 # Maximum queries per day for UNLIMITED tier
 # Used to prevent abuse even on unlimited plans
-UNLIMITED_TIER_MAX_QUERIES = 9999
+UNLIMITED_TIER_MAX_QUERIES = 500
 
 # === DELETION CONFIRMATION ===
 
@@ -54,12 +54,20 @@ MAX_LOG_FILE_SIZE = 100 * 1024 * 1024  # 100MB
 # Number of log files to keep
 LOG_FILE_BACKUP_COUNT = 5
 
-# === RATE LIMITING (for future implementation) ===
+# === SUPPORT LIMITS ===
 
-# Maximum bug reports per hour per IP
+# Maximum free-form support content accepted by the public API.
+MAX_BUG_REPORT_DESCRIPTION_LENGTH = 5000
+MAX_FEEDBACK_MESSAGE_LENGTH = 2000
+MAX_SUPPORT_CONVERSATION_ID_LENGTH = 256
+MAX_SUPPORT_USER_AGENT_LENGTH = 512
+
+# === RATE LIMITING ===
+
+# Maximum bug reports per hour per authenticated user
 BUG_REPORT_RATE_LIMIT = "5/hour"
 
-# Maximum feedback submissions per hour per IP
+# Maximum feedback submissions per hour per authenticated user
 FEEDBACK_RATE_LIMIT = "10/hour"
 
 # Maximum document uploads per hour per user

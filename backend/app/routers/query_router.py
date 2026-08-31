@@ -11,7 +11,8 @@ import asyncio
 import time
 from typing import Tuple
 
-from app.core.auth import verify_firebase_token
+from app.config.security_constants import UNLIMITED_TIER_MAX_QUERIES
+from app.core.auth import require_verified_email
 from app.core.logging import logger
 from app.routers.auth_router import load_app_config
 from app.schemas.rag_schema import (
@@ -50,7 +51,7 @@ def _get_user_tier_limits(user_id: str) -> Tuple[str, int]:
     app_config = load_app_config()
 
     if tier == "UNLIMITED":
-        max_queries = 9999
+        max_queries = UNLIMITED_TIER_MAX_QUERIES
         logger.info(f"✅ UNLIMITED tier detected - max_queries set to {max_queries}")
     else:
         tier_limits = app_config["limits"].get(tier, app_config["limits"]["FREE"])
@@ -165,7 +166,7 @@ router = APIRouter(prefix="/rag", tags=["query"])
 @router.post("/query/", response_model=QueryResponse)
 async def query_document(
     request: QueryRequest,
-    user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
 ) -> QueryResponse:
     """
@@ -303,9 +304,9 @@ async def query_document(
 
 
 @router.post("/summarize/", response_model=SummarizeResponse)
-def summarize_conversation(
+async def summarize_conversation(
     request: SummarizeRequest,
-    user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
 ) -> SummarizeResponse:
     """
@@ -315,15 +316,38 @@ def summarize_conversation(
     - Useful for conversation history compression
     - Stored in Firestore for context retrieval
     """
+    slot_acquired = await query_concurrency_limiter.acquire(user_id)
+    if not slot_acquired:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="A query is already running for this account. Please wait for it to finish.",
+            headers={"Retry-After": "5"},
+        )
+    quota_reserved = False
     try:
-        logger.info(f"📝 Generating summary for user {user_id}")
-        summary = rag_service.generate_conversation_summary(
-            request.conversation_history
+        tier, max_queries = await asyncio.to_thread(_get_user_tier_limits, user_id)
+        await asyncio.to_thread(
+            _reserve_and_enforce_query_limit,
+            get_usage_service(),
+            user_id,
+            tier,
+            max_queries,
+        )
+        quota_reserved = True
+        logger.info("📝 Generating bounded conversation summary")
+        summary = await asyncio.to_thread(
+            rag_service.generate_conversation_summary, request.conversation_history
         )
         return SummarizeResponse(summary=summary)
-    except Exception as e:
-        logger.error(f"Summarization error: {e}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if quota_reserved:
+            logger.warning("⚠️ Summary failed after quota reservation; retaining slot")
+        logger.error("❌ Conversation summarization failed; details redacted")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate conversation summary.",
-        ) from e
+            detail="Unable to generate the conversation summary. Please try again.",
+        ) from exc
+    finally:
+        await query_concurrency_limiter.release(user_id)

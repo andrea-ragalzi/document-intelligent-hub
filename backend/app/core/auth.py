@@ -5,7 +5,7 @@ Provides dependency injection for FastAPI endpoints to verify Firebase Auth toke
 """
 
 from app.core.logging import logger
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from firebase_admin import auth
 
 
@@ -111,3 +111,30 @@ def get_verified_user_id(authorization: str = Header(None)) -> str:
         user_id: str = Depends(get_verified_user_id)
     """
     return verify_firebase_token(authorization)
+
+
+def require_verified_email(
+    user_id: str = Depends(verify_firebase_token),
+) -> str:
+    """Require a verified Firebase email before starting expensive work.
+
+    The UID is still derived only from the verified Firebase token.  Looking up
+    the Firebase user record keeps this guard compatible with the existing UID
+    dependency while using Firebase's authoritative verification state.
+    """
+    try:
+        user = auth.get_user(user_id)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("⚠️ Unable to verify email status for authenticated user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A verified email address is required for this operation.",
+        ) from exc
+
+    if not bool(getattr(user, "email_verified", False)):
+        logger.info("⛔ Expensive operation rejected for unverified Firebase email")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address before using this feature.",
+        )
+    return user_id

@@ -19,6 +19,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.logging import logger
+from app.core.constants import ChunkingConstants
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.services.document_classifier_service import (
     DocumentCategory,
@@ -30,6 +31,9 @@ from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.documents import Document
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
+
+MAX_EXTRACTED_DOCUMENT_TEXT = ChunkingConstants.MAX_EXTRACTED_DOCUMENT_TEXT
+MAX_DOCUMENT_CHUNKS = ChunkingConstants.MAX_DOCUMENT_CHUNKS
 
 
 class DocumentIndexingService:
@@ -110,12 +114,17 @@ class DocumentIndexingService:
         """Execute the synchronous PDF-to-Chroma portion in a worker thread."""
         try:
             documents = UnstructuredPDFLoader(temp_file_path, mode="elements").load()
+            extracted_text_size = sum(len(doc.page_content or "") for doc in documents)
+            if extracted_text_size > MAX_EXTRACTED_DOCUMENT_TEXT:
+                raise ValueError("Document contains too much extracted text.")
             full_text_preview = " ".join([doc.page_content for doc in documents[:15]])[
                 :5000
             ]
             category = self._classify_document(filename, full_text_preview)
             chunks = self._apply_chunking_strategy(documents, category, full_text_preview)
             chunks = filter_complex_metadata(chunks)
+            if len(chunks) > MAX_DOCUMENT_CHUNKS:
+                raise ValueError("Document produces too many chunks.")
             final_chunks = self._prepare_chunks_with_metadata(
                 chunks, user_id, filename, document_language, document_metadata
             )

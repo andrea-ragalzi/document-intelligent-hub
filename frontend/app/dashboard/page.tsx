@@ -664,7 +664,6 @@ export default function Page() {
           isOpen={bugReportModalOpen}
           onClose={closeBugReportModal}
           conversationId={currentConversationId}
-          userId={userId}
         />
 
         {/* Feedback Modal */}
@@ -672,7 +671,6 @@ export default function Page() {
           isOpen={feedbackModalOpen}
           onClose={closeFeedbackModal}
           conversationId={currentConversationId}
-          userId={userId}
         />
 
         {/* Invitation Code Modal */}

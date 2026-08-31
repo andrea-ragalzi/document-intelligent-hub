@@ -478,7 +478,7 @@ class TestTierLimitsEndpoint:
             assert "PRO" in data["limits"]
             assert "UNLIMITED" in data["limits"]  # Always injected
             assert data["limits"]["FREE"]["max_queries_per_day"] == 20
-            assert data["limits"]["UNLIMITED"]["max_queries_per_day"] == 9999
+            assert data["limits"]["UNLIMITED"]["max_queries_per_day"] == 500
 
     def test_get_tier_limits_with_defaults(self) -> None:
         """Test tier limits retrieval when config doesn't exist"""
@@ -672,10 +672,8 @@ class TestUsageEndpoint:
                 assert response.status_code == 200
                 data = response.json()
                 assert data["queries_today"] == 1000
-                assert data["query_limit"] == 9999
-                assert (
-                    data["remaining"] == -1
-                )  # UNLIMITED tier returns -1 for remaining
+                assert data["query_limit"] == 500
+                assert data["remaining"] == 0
                 assert data["tier"] == "UNLIMITED"
 
     def test_get_usage_unlimited_tier_high_usage(self) -> None:
@@ -746,6 +744,6 @@ class TestUsageEndpoint:
                 assert response.status_code == 200
                 data = response.json()
                 assert data["queries_today"] == 5000
-                assert data["query_limit"] == 9999
-                assert data["remaining"] == -1  # UNLIMITED always returns -1
+                assert data["query_limit"] == 500
+                assert data["remaining"] == 0
                 assert data["tier"] == "UNLIMITED"

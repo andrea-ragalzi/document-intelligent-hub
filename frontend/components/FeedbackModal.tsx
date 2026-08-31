@@ -1,19 +1,19 @@
 import { Star, X } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
   conversationId?: string | null;
-  userId?: string | null;
 }
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   isOpen,
   onClose,
   conversationId,
-  userId,
 }) => {
+  const { getIdToken } = useAuth();
   const [rating, setRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [message, setMessage] = useState("");
@@ -81,20 +81,18 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
     try {
       const payload = {
-        user_id: userId || "anonymous",
         conversation_id: conversationId || null,
         rating: rating,
         message: message.trim() || null,
-        timestamp: new Date().toISOString(),
-        user_agent: navigator.userAgent,
       };
-
-      console.log("Sending feedback:", payload);
+      const token = await getIdToken();
+      if (!token) throw new Error("Please sign in again before submitting feedback.");
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/feedback`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });

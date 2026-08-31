@@ -12,6 +12,7 @@ Setup:
 """
 
 import base64
+import html
 import os
 from typing import Optional
 
@@ -35,6 +36,11 @@ ERROR_NO_BODY = "No body"
 ERROR_SENDGRID_403_MESSAGE = (
     "⚠️ SendGrid 403: Check if sender email is verified in SendGrid dashboard!"
 )
+
+
+def _safe_subject_fragment(value: str) -> str:
+    """Prevent user-controlled identifiers from injecting email subject headers."""
+    return value.replace("\r", "").replace("\n", "")
 
 
 class EmailService:
@@ -82,7 +88,7 @@ class EmailService:
         """Build email subject for bug report."""
         subject = "🐞 Bug Report"
         if conversation_id:
-            subject += f" - Conv: {conversation_id[:8]}..."
+            subject += f" - Conv: {_safe_subject_fragment(conversation_id[:8])}..."
         if attachment_filename:
             emoji = self._get_attachment_emoji(attachment_type)
             subject += f" (with attachment {emoji})"
@@ -99,9 +105,16 @@ class EmailService:
         attachment_type: Optional[str],
     ) -> str:
         """Build HTML content for bug report email."""
+        escaped_description = html.escape(description).replace("\n", "<br>")
+        escaped_user_id = html.escape(user_id)
+        escaped_conversation_id = html.escape(conversation_id or "N/A")
+        escaped_timestamp = html.escape(timestamp or "N/A")
+        escaped_user_agent = html.escape(user_agent or "N/A")
+        escaped_filename = html.escape(attachment_filename or "")
+        escaped_attachment_type = html.escape(attachment_type or "unknown type")
         attachment_notice = ""
         if attachment_filename:
-            attachment_notice = f'<div class="attachment-notice">📎 <strong>Attachment Included:</strong> {attachment_filename} ({attachment_type or "unknown type"})</div>'
+            attachment_notice = f'<div class="attachment-notice">📎 <strong>Attachment Included:</strong> {escaped_filename} ({escaped_attachment_type})</div>'
 
         return f"""
         <html>
@@ -128,16 +141,16 @@ class EmailService:
                 <div class="content">
                     <h2>Bug Description</h2>
                     <div class="bug-description">
-                        {description.replace('\n', '<br>')}
+                        {escaped_description}
                     </div>
                     {attachment_notice}
                     <h3>Technical Details</h3>
                     <div class="details">
                         <table class="details-table">
-                            <tr><td>User ID</td><td><code>{user_id}</code></td></tr>
-                            <tr><td>Conversation ID</td><td><code>{conversation_id or 'N/A'}</code></td></tr>
-                            <tr><td>Timestamp</td><td>{timestamp or 'N/A'}</td></tr>
-                            <tr><td>User Agent</td><td style="font-size: 12px;">{user_agent or 'N/A'}</td></tr>
+                            <tr><td>User ID</td><td><code>{escaped_user_id}</code></td></tr>
+                            <tr><td>Conversation ID</td><td><code>{escaped_conversation_id}</code></td></tr>
+                            <tr><td>Timestamp</td><td>{escaped_timestamp}</td></tr>
+                            <tr><td>User Agent</td><td style="font-size: 12px;">{escaped_user_agent}</td></tr>
                         </table>
                     </div>
                     <p style="margin-top: 20px; padding: 15px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
@@ -196,9 +209,7 @@ Action Required: Review this bug report and investigate the issue.
             FileType(attachment_type or "application/octet-stream"),
         )
         message.attachment = attached_file
-        logger.info(
-            f"📎 Attachment added to email | Name: {attachment_filename} | Type: {attachment_type}"
-        )
+        logger.info("📎 Attachment added to email | Type: {}", attachment_type or "unknown")
 
     def _send_email_with_response_check(
         self, message: Mail, email_type: str, context: str = ""
@@ -217,19 +228,12 @@ Action Required: Review this bug report and investigate the issue.
                 )
                 return True
 
-            error_body = (
-                response.body.decode("utf-8") if response.body else ERROR_NO_BODY
-            )
-            logger.error(
-                f"❌ SendGrid error | Status: {response.status_code} | Body: {error_body}"
-            )
+            logger.error("❌ SendGrid error | Status: {}", response.status_code)
             if response.status_code == 403:
                 logger.warning(ERROR_SENDGRID_403_MESSAGE)
             return False
-        except Exception as e:
-            logger.error(
-                f"❌ Failed to send {email_type} email: {str(e)} | Type: {type(e).__name__}"
-            )
+        except Exception as exc:
+            logger.error("❌ Failed to send {} email | Type: {}", email_type, type(exc).__name__)
             return False
 
     def send_bug_report(
@@ -301,10 +305,7 @@ Action Required: Review this bug report and investigate the issue.
             )
 
         # Send email with response check
-        context = f" | Conv: {conversation_id or 'N/A'}"
-        if attachment_filename:
-            context += f" | 📎 {attachment_filename}"
-        return self._send_email_with_response_check(message, "Bug report", context)
+        return self._send_email_with_response_check(message, "Bug report")
 
     def _get_feedback_sentiment(self, rating: int) -> tuple[str, str, str]:
         """Get sentiment analysis for feedback rating."""
@@ -320,7 +321,7 @@ Action Required: Review this bug report and investigate the issue.
         """Build email subject for feedback."""
         subject = f"{emoji} User Feedback: {rating}/5 stars"
         if conversation_id:
-            subject += f" - Conv: {conversation_id[:8]}..."
+            subject += f" - Conv: {_safe_subject_fragment(conversation_id[:8])}..."
         return subject
 
     def _build_feedback_html(
@@ -337,9 +338,14 @@ Action Required: Review this bug report and investigate the issue.
         emoji: str,
     ) -> str:
         """Build HTML content for feedback email."""
+        escaped_user_id = html.escape(user_id)
+        escaped_conversation_id = html.escape(conversation_id or "N/A")
+        escaped_timestamp = html.escape(timestamp or "N/A")
+        escaped_user_agent = html.escape(user_agent or "N/A")
         message_html = ""
         if message:
-            message_html = f'<h2>Feedback Message</h2><div class="feedback-message">{message.replace(chr(10), "<br>")}</div>'
+            escaped_message = html.escape(message).replace(chr(10), "<br>")
+            message_html = f'<h2>Feedback Message</h2><div class="feedback-message">{escaped_message}</div>'
         else:
             message_html = '<p style="text-align: center; color: #6b7280; font-style: italic;">No message provided</p>'
 
@@ -374,11 +380,11 @@ Action Required: Review this bug report and investigate the issue.
                     <h3>User Details</h3>
                     <div class="details">
                         <table class="details-table">
-                            <tr><td>User ID</td><td><code>{user_id}</code></td></tr>
-                            <tr><td>Conversation ID</td><td><code>{conversation_id or 'N/A'}</code></td></tr>
+                            <tr><td>User ID</td><td><code>{escaped_user_id}</code></td></tr>
+                            <tr><td>Conversation ID</td><td><code>{escaped_conversation_id}</code></td></tr>
                             <tr><td>Rating</td><td><strong>{rating} / 5.0</strong> ({sentiment})</td></tr>
-                            <tr><td>Timestamp</td><td>{timestamp or 'N/A'}</td></tr>
-                            <tr><td>User Agent</td><td style="font-size: 12px;">{user_agent or 'N/A'}</td></tr>
+                            <tr><td>Timestamp</td><td>{escaped_timestamp}</td></tr>
+                            <tr><td>User Agent</td><td style="font-size: 12px;">{escaped_user_agent}</td></tr>
                         </table>
                     </div>
                     <p style="margin-top: 20px; padding: 15px; background-color: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 4px;">
@@ -492,8 +498,7 @@ Action: Review this feedback to improve user experience and system performance.
         )
 
         # Send email with response check
-        context = f" | Rating: {rating}/5 | Conv: {conversation_id or 'N/A'}"
-        return self._send_email_with_response_check(email_message, "Feedback", context)
+        return self._send_email_with_response_check(email_message, "Feedback")
 
     def send_invitation_request(
         self,

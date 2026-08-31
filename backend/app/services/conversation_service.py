@@ -13,6 +13,7 @@ Responsibilities:
 from typing import List
 
 from app.core.logging import logger
+from app.core.constants import LLMConstants
 from app.schemas.rag_schema import ConversationMessage
 from langchain_core.language_models import BaseChatModel
 
@@ -71,7 +72,9 @@ CONVERSATION:
 SUMMARY (3-5 sentences):"""
 
             # The configured LLM is shared with the rest of the RAG pipeline.
-            response = self.query_gen_llm.invoke(summary_prompt)
+            response = self.query_gen_llm.invoke(
+                summary_prompt, max_tokens=LLMConstants.MAX_SUMMARY_TOKENS
+            )
             summary = str(response.content).strip()
 
             logger.info(f"✅ Generated conversation summary ({len(summary)} chars)")

@@ -265,13 +265,12 @@ class TestUsageTrackingService:
         assert can_query is True
         assert queries_used == 1000
 
-    def test_check_query_limit_unlimited_at_threshold(self, usage_service: Any) -> None:
-        """Test unlimited tier exactly at threshold"""
+    def test_check_query_limit_rejects_at_any_finite_tier_threshold(self, usage_service: Any) -> None:
+        """The former unlimited sentinel must not bypass a finite limit."""
         with patch.object(usage_service, "get_user_queries_today", return_value=9999):
             can_query, queries_used = usage_service.check_query_limit("user123", 9999)
 
-        # Should still pass (>= 9999 means unlimited)
-        assert can_query is True
+        assert can_query is False
         assert queries_used == 9999
 
     def test_check_query_limit_zero_limit(self, usage_service: Any) -> None:
@@ -282,18 +281,16 @@ class TestUsageTrackingService:
         assert can_query is False
         assert queries_used == 0
 
-    def test_check_query_limit_unlimited_with_high_usage(
+    def test_check_query_limit_high_tier_is_still_finite(
         self, usage_service: Any
     ) -> None:
-        """Test UNLIMITED tier with usage way over normal limits (regression test for bug)"""
-        # Simulate user with 5000 queries (would exceed FREE/PRO limits)
+        """A high quota continues to enforce its configured ceiling."""
         with patch.object(usage_service, "get_user_queries_today", return_value=5000):
             can_query, queries_used = usage_service.check_query_limit(
                 "unlimited_user", 9999
             )
 
-        # UNLIMITED tier should ALWAYS allow queries regardless of count
-        assert can_query is True
+        assert can_query is True  # still below the supplied finite ceiling
         assert queries_used == 5000
 
     def test_reserve_query_slot_atomically_increments_when_under_limit(

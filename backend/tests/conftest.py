@@ -96,6 +96,7 @@ def mock_firebase_auth() -> Generator[dict[str, Mock], None, None]:
         mock_user = Mock()
         mock_user.uid = "test-user-12345"
         mock_user.email = "test@example.com"
+        mock_user.email_verified = True
         mock_user.custom_claims = {"tier": "FREE"}
         mock_get_user.return_value = mock_user
 
