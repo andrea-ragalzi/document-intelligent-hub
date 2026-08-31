@@ -90,6 +90,27 @@ def get_current_user_id(authorization: str = Header(...)) -> str:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from e
 
 
+def get_current_admin_user_id(authorization: str | None = Header(default=None)) -> str:
+    """Validate a Firebase token and require its signed ``admin: true`` claim."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401, detail="Missing or invalid authorization header"
+        )
+
+    token = authorization.removeprefix("Bearer ")
+    try:
+        decoded_token = auth.verify_id_token(token)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error(f"❌ Token verification failed: {exc}")
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
+
+    if decoded_token.get("admin") is not True:
+        logger.warning("🚫 Rejected tier assignment from a non-admin Firebase token")
+        raise HTTPException(status_code=403, detail="Administrator access required")
+
+    return str(decoded_token["uid"])
+
+
 def clear_cache() -> None:
     """
     Clear the application configuration cache.
@@ -676,13 +697,10 @@ async def get_user_usage(user_id: str = Depends(get_current_user_id)) -> Dict[st
 
 @router.post("/admin/set-tier")
 def set_user_tier_admin(
-    email: str, tier: str, _current_user_id: str = Depends(get_current_user_id)
+    email: str, tier: str, _admin_user_id: str = Depends(get_current_admin_user_id)
 ) -> Dict[str, str]:
     """
     ADMIN ENDPOINT: Set tier for a user by email.
-
-    ⚠️ TEMPORARY ENDPOINT FOR DEVELOPMENT
-    TODO: Add proper admin authentication before production
 
     Args:
         email: User email to update
@@ -718,11 +736,11 @@ def set_user_tier_admin(
             "note": "User must log out and log back in for changes to take effect",
         }
 
+    except HTTPException:
+        raise
     except auth.UserNotFoundError as exc:
         logger.error(f"❌ User not found: {email}")
         raise HTTPException(status_code=404, detail=f"User not found: {email}") from exc
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error(f"❌ Error setting tier: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to set tier: {str(e)}"
-        ) from e
+        raise HTTPException(status_code=500, detail="Failed to set tier") from e

@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional, Tuple
 
 from app.core.config import settings
-from app.core.constants import QueryConstants
+from app.core.constants import LLMConstants, QueryConstants
 from app.core.logging import logger
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.schemas.rag_schema import ConversationMessage
@@ -402,7 +402,9 @@ class AnswerGenerationService:
             Final translated answer
         """
         logger.info("💬 Invoking LLM for answer generation...")
-        llm_response = self.llm.invoke(prompt).content
+        llm_response = self.llm.invoke(
+            prompt, max_tokens=LLMConstants.MAX_TOKENS
+        ).content
         final_answer = str(llm_response).strip()
 
         detected_lang = self.language_service.detect_language(final_answer).upper()

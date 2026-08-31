@@ -1,5 +1,5 @@
 /**
- * Component to display tier limits and upgrade options
+ * Component to display tier limits.
  */
 
 import { FileText, MessageSquare, Crown } from "lucide-react";
@@ -100,28 +100,6 @@ function QueryLimitBar({
   );
 }
 
-/**
- * Renders upgrade call-to-action for users approaching limits
- */
-function UpgradeCTA({ tier }: { tier: string }) {
-  return (
-    <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-      <div className="flex items-start gap-2">
-        <Crown className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-blue-900 dark:text-blue-100 font-medium">
-            Upgrade for more capacity
-          </p>
-          <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-            Get {tier === "FREE" ? "10x" : "unlimited"} storage with{" "}
-            {tier === "FREE" ? "Pro" : "Unlimited"}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function TierLimitsDisplay({
   currentDocuments = 0,
   currentQueries = 0,
@@ -131,16 +109,12 @@ export default function TierLimitsDisplay({
   const documentPercentage = isUnlimited ? 0 : (currentDocuments / limits.maxDocuments) * 100;
   const queryPercentage = isUnlimited ? 0 : (currentQueries / limits.maxQueriesPerDay) * 100;
 
-  const isDocumentLimitClose = isLimitClose(documentPercentage);
-  const isQueryLimitClose = isLimitClose(queryPercentage);
-  const showUpgradeCTA = isDocumentLimitClose || isQueryLimitClose;
-
   return (
     <div className="space-y-4">
       {/* Tier Badge */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Your Plan</h3>
-        <TierBadge tier={tier} showUpgrade={!isUnlimited} />
+        <TierBadge tier={tier} />
       </div>
 
       {/* Limits */}
@@ -156,7 +130,6 @@ export default function TierLimitsDisplay({
             max={limits.maxQueriesPerDay}
             percentage={queryPercentage}
           />
-          {showUpgradeCTA && <UpgradeCTA tier={tier} />}
         </div>
       )}
 

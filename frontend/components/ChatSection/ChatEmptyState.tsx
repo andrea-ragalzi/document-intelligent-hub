@@ -58,7 +58,7 @@ export function ChatEmptyState({
           Query Limit Reached
         </p>
         <p className="text-sm text-orange-600 dark:text-orange-300 mt-2 text-center">
-          You&apos;ve reached your daily query limit. Upgrade your plan or try again tomorrow.
+          You&apos;ve reached your daily query limit. Please try again tomorrow.
         </p>
       </div>
     );
