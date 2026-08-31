@@ -30,7 +30,7 @@ class ConversationService:
         Initialize ConversationService.
 
         Args:
-            query_gen_llm: LLM for summary generation (gpt-4o-mini for cost efficiency)
+            query_gen_llm: Configured LLM for summary generation
         """
         self.query_gen_llm = query_gen_llm
 
@@ -70,7 +70,7 @@ CONVERSATION:
 
 SUMMARY (3-5 sentences):"""
 
-            # Use cost-effective LLM (gpt-4o-mini) for summarization
+            # The configured LLM is shared with the rest of the RAG pipeline.
             response = self.query_gen_llm.invoke(summary_prompt)
             summary = str(response.content).strip()
 

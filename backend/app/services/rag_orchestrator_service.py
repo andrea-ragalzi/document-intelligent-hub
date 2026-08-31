@@ -70,7 +70,7 @@ class RAGService:
         )
 
         self.query_gen_llm = ChatOpenAI(
-            model="gpt-4o-mini",
+            model=settings.LLM_MODEL,
             temperature=0.0,
             api_key=SecretStr(settings.OPENAI_API_KEY),
         )

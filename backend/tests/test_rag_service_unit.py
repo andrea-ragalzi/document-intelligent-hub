@@ -77,6 +77,22 @@ class TestRAGServiceInitialization:
             # Should fail because repository is required
             RAGService()  # type: ignore  # pylint: disable=no-value-for-parameter
 
+    @patch("app.services.rag_orchestrator_service.ChatOpenAI")
+    def test_all_orchestrator_llms_use_the_configured_model(
+        self, mock_openai: Mock, mock_repository: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Answer and helper LLMs must share the one LLM_MODEL setting."""
+        monkeypatch.setattr(
+            "app.services.rag_orchestrator_service.settings.LLM_MODEL", "test-model"
+        )
+
+        RAGService(repository=mock_repository)
+
+        assert [call.kwargs["model"] for call in mock_openai.call_args_list] == [
+            "test-model",
+            "test-model",
+        ]
+
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)
 class TestQueryProcessing:
