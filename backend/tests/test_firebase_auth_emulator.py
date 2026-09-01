@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from collections.abc import Generator
 from urllib.parse import urlparse
 
 import pytest
