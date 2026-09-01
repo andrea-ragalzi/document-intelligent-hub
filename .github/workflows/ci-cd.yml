@@ -28,6 +28,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
       backend_docker: ${{ steps.filter.outputs.backend_docker }}
+      firebase_auth: ${{ steps.filter.outputs.firebase_auth }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +49,23 @@ jobs:
               - 'backend/pyproject.toml'
               - 'backend/poetry.lock'
               - 'backend/assets/**'
+              - '.github/workflows/ci-cd.yml'
+            firebase_auth:
+              - 'firebase.json'
+              - 'frontend/package.json'
+              - 'frontend/package-lock.json'
+              - 'frontend/contexts/AuthContext.tsx'
+              - 'frontend/components/SignupForm.tsx'
+              - 'frontend/components/EmailVerificationCard.tsx'
+              - 'frontend/app/verify-email/**'
+              - 'frontend/components/ProtectedRoute.tsx'
+              - 'frontend/test/email-verification.test.tsx'
+              - 'backend/app/core/auth.py'
+              - 'backend/app/routers/auth_router.py'
+              - 'backend/tests/conftest.py'
+              - 'backend/tests/test_firebase_auth_emulator.py'
+              - 'backend/tests/test_auth_endpoints_integration.py'
+              - 'backend/pytest.ini'
               - '.github/workflows/ci-cd.yml'
 
   backend-ci:
@@ -185,12 +203,64 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
+  firebase-auth-emulator:
+    name: "🔥 Firebase Auth Emulator"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: changes
+    if: >-
+      needs.changes.outputs.firebase_auth == 'true' &&
+      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "📦 Set up Node.js ${{ env.NODE_VERSION }}"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: "☕ Set up Java"
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: "🐍 Set up Python ${{ env.PYTHON_VERSION }}"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/poetry.lock
+
+      - name: "📚 Install frontend tooling"
+        working-directory: ./frontend
+        run: npm ci --ignore-scripts
+
+      - name: "📦 Install Poetry"
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
+        with:
+          version: 2.4.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: "🐍 Synchronize backend dependencies"
+        working-directory: ./backend
+        run: poetry sync --no-interaction --no-ansi
+
+      - name: "🧪 Run Auth lifecycle integration tests"
+        working-directory: ./frontend
+        run: npm run test:firebase-auth-emulator
+
   ci-summary:
     name: "📊 Pipeline Summary"
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [changes, backend-ci, frontend-ci, backend-docker]
+    needs: [changes, backend-ci, frontend-ci, backend-docker, firebase-auth-emulator]
     if: >-
       always() &&
       ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
@@ -201,8 +271,9 @@ jobs:
           BACKEND: ${{ needs.backend-ci.result }}
           FRONTEND: ${{ needs.frontend-ci.result }}
           DOCKER: ${{ needs.backend-docker.result }}
+          FIREBASE_AUTH: ${{ needs.firebase-auth-emulator.result }}
         run: |
-          for result in "$BACKEND" "$FRONTEND" "$DOCKER"; do
+          for result in "$BACKEND" "$FRONTEND" "$DOCKER" "$FIREBASE_AUTH"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "A selected check failed or was cancelled: $result"
               exit 1

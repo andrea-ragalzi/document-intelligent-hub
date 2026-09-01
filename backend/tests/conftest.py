@@ -24,7 +24,9 @@ os.environ.setdefault(
 try:
     firebase_admin.get_app()
 except ValueError:
-    firebase_admin.initialize_app(options={"projectId": "document-hub-test"})
+    firebase_admin.initialize_app(
+        options={"projectId": os.getenv("FIREBASE_TEST_PROJECT_ID", "document-hub-test")}
+    )
 
 _test_firestore_db = Mock()
 _test_settings_document = Mock()
@@ -80,11 +82,15 @@ def cleanup_chroma_db_after_session() -> Generator[None, None, None]:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def mock_firebase_auth() -> Generator[dict[str, Mock], None, None]:
+def mock_firebase_auth(request: pytest.FixtureRequest) -> Generator[dict[str, Mock], None, None]:
     """
     Mock Firebase Admin SDK auth functions to avoid real auth calls in tests.
     This prevents tests from failing due to missing credentials or network issues.
     """
+    if request.node.get_closest_marker("firebase_emulator"):
+        yield {}
+        return
+
     with patch("firebase_admin.auth.verify_id_token") as mock_verify_id_token, patch(
         "firebase_admin.auth.get_user"
     ) as mock_get_user:

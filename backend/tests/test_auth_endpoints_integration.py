@@ -96,6 +96,42 @@ class TestRegistrationEndpoint:
             assert response.json()["tier"] == "PRO"
             mock_auth.set_custom_user_claims.assert_not_called()
 
+    def test_repeat_free_registration_preserves_the_existing_free_tier(self) -> None:
+        """A retry never creates another Firebase user or rewrites the FREE claim."""
+        with patch(
+            "app.routers.auth_router.load_app_config",
+            return_value={"unlimited_emails": [], "limits": {}},
+        ), patch("app.routers.auth_router.auth") as mock_auth:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "repeat_free_user",
+                "email": "repeat@example.com",
+            }
+            firebase_user = MagicMock()
+            firebase_user.custom_claims = {}
+            mock_auth.get_user.return_value = firebase_user
+
+            def record_claims(_user_id: str, claims: dict[str, str]) -> None:
+                firebase_user.custom_claims = claims
+
+            mock_auth.set_custom_user_claims.side_effect = record_claims
+
+            first_response = client.post(
+                "/auth/register",
+                json={"id_token": "valid_token", "invitation_code": None},
+            )
+            repeat_response = client.post(
+                "/auth/register",
+                json={"id_token": "valid_token", "invitation_code": None},
+            )
+
+            assert first_response.status_code == 200
+            assert repeat_response.status_code == 200
+            assert first_response.json()["tier"] == "FREE"
+            assert repeat_response.json()["tier"] == "FREE"
+            mock_auth.set_custom_user_claims.assert_called_once_with(
+                "repeat_free_user", {"tier": "FREE"}
+            )
+
     def test_register_with_valid_free_code_full_flow(self) -> None:
         """Test complete registration flow with valid FREE invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(

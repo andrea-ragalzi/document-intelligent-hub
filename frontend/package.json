@@ -15,6 +15,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:run": "vitest run",
+    "test:firebase-auth-emulator": "firebase --config ../firebase.json emulators:exec --only auth --project demo-dih-auth \"cd ../backend && FIREBASE_TEST_PROJECT_ID=demo-dih-auth poetry run pytest -m firebase_emulator\"",
     "quality:check": "npm run lint && npm run format:check && npm run type-check && npm run test:run"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
     "eslint-config-next": "16.3.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "firebase-tools": "^15.28.2",
     "jsdom": "^27.1.0",
     "postcss": "^8.5.26",
     "prettier": "^3.7.3",
