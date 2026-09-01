@@ -44,6 +44,30 @@ class TestRegistrationEndpoint:
                 "new_public_user", {"tier": "FREE"}
             )
 
+    def test_tier_assignment_preserves_existing_admin_claim(self) -> None:
+        """A registration tier assignment must never remove administrator access."""
+        with patch(
+            "app.routers.auth_router.load_app_config",
+            return_value={"unlimited_emails": [], "limits": {}},
+        ), patch("app.routers.auth_router.auth") as mock_auth:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "admin_user",
+                "email": "admin@example.com",
+            }
+            firebase_user = MagicMock()
+            firebase_user.custom_claims = {"admin": True}
+            mock_auth.get_user.return_value = firebase_user
+
+            response = client.post(
+                "/auth/register",
+                json={"id_token": "valid_token", "invitation_code": None},
+            )
+
+            assert response.status_code == 200
+            mock_auth.set_custom_user_claims.assert_called_once_with(
+                "admin_user", {"admin": True, "tier": "FREE"}
+            )
+
     def test_client_cannot_self_assign_elevated_tier(self) -> None:
         """An extra client-supplied tier field cannot bypass server assignment."""
         with patch(

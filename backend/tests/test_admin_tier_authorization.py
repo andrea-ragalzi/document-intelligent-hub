@@ -63,7 +63,7 @@ def test_explicitly_trusted_admin_can_assign_supported_tier(
     admin_client: TestClient, tier: str
 ) -> None:
     """Only Firebase tokens with the signed ``admin: true`` claim may assign tiers."""
-    target_user = SimpleNamespace(uid="target-user")
+    target_user = SimpleNamespace(uid="target-user", custom_claims={"admin": True})
     with patch("app.routers.auth_router.auth.verify_id_token") as verify_token, patch(
         "app.routers.auth_router.auth.get_user_by_email", return_value=target_user
     ) as get_user_by_email, patch(
@@ -75,4 +75,4 @@ def test_explicitly_trusted_admin_can_assign_supported_tier(
 
     assert response.status_code == 200
     get_user_by_email.assert_called_once_with("target@example.com")
-    set_claims.assert_called_once_with("target-user", {"tier": tier})
+    set_claims.assert_called_once_with("target-user", {"admin": True, "tier": tier})
