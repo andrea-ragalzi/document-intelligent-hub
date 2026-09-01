@@ -296,7 +296,10 @@ def _assign_tier_to_user(user_id: str, tier: str) -> RegistrationResponse:
         HTTPException: If assignment fails
     """
     try:
-        auth.set_custom_user_claims(user_id, {"tier": tier})
+        user = auth.get_user(user_id)
+        custom_claims = dict(user.custom_claims or {})
+        custom_claims["tier"] = tier
+        auth.set_custom_user_claims(user_id, custom_claims)
         logger.info(f"✅ Custom claim set: {user_id} -> {tier}")
         return RegistrationResponse(
             status="success",
@@ -717,8 +720,10 @@ def set_user_tier_admin(
 
         logger.info(f"🔧 Setting tier={tier} for user {email} (uid={user.uid})")
 
-        # Set custom claim
-        auth.set_custom_user_claims(user.uid, {"tier": tier})
+        # Preserve existing server-managed claims, including ``admin: true``.
+        custom_claims = dict(user.custom_claims or {})
+        custom_claims["tier"] = tier
+        auth.set_custom_user_claims(user.uid, custom_claims)
 
         logger.info(f"✅ Tier set successfully for {email}")
 
