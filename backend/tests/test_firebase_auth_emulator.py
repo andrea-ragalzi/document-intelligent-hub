@@ -2,7 +2,6 @@
 
 import os
 import uuid
-from collections.abc import Generator
 from urllib.parse import urlparse
 
 import pytest
@@ -30,8 +29,8 @@ def _emulator_base_url() -> str:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def auth_emulator_url() -> Generator[str, None, None]:
-    yield _emulator_base_url()
+def auth_emulator_url() -> str:
+    return _emulator_base_url()
 
 
 @pytest.fixture

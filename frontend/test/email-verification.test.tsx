@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -119,11 +119,11 @@ describe("email verification lifecycle", () => {
       <EmailVerificationCard email="recruiter@example.com" onResend={vi.fn()} onCheck={onCheck} />
     );
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /i.?ve verified/i }));
-    });
+    fireEvent.click(screen.getByRole("button", { name: /i.?ve verified/i }));
 
-    expect(onCheck).toHaveBeenCalledOnce();
-    expect(screen.getByText(/not verified yet/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(onCheck).toHaveBeenCalledOnce();
+      expect(screen.getByText(/not verified yet/i)).toBeInTheDocument();
+    });
   });
 });

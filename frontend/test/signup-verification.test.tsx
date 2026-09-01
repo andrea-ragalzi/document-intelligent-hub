@@ -24,10 +24,7 @@ describe("SignupForm verification handoff", () => {
     vi.clearAllMocks();
   });
 
-  it("sends a newly created email/password user to the verification page", async () => {
-    mocks.signUp.mockResolvedValue({ verificationEmailSent: true });
-    render(<SignupForm />);
-
+  const submitValidForm = () => {
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "recruiter@example.com" },
     });
@@ -36,6 +33,12 @@ describe("SignupForm verification handoff", () => {
       target: { value: "password" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Sign Up" }));
+  };
+
+  it("sends a newly created email/password user to the verification page", async () => {
+    mocks.signUp.mockResolvedValue({ verificationEmailSent: true });
+    render(<SignupForm />);
+    submitValidForm();
 
     await waitFor(() => {
       expect(mocks.signUp).toHaveBeenCalledWith("recruiter@example.com", "password");
@@ -46,15 +49,7 @@ describe("SignupForm verification handoff", () => {
   it("still shows a recovery path when the initial verification email cannot be sent", async () => {
     mocks.signUp.mockResolvedValue({ verificationEmailSent: false });
     render(<SignupForm />);
-
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "recruiter@example.com" },
-    });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "password" } });
-    fireEvent.change(screen.getByLabelText("Confirm Password"), {
-      target: { value: "password" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Sign Up" }));
+    submitValidForm();
 
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith("/verify-email?delivery=failed");

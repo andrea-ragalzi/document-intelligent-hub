@@ -81,12 +81,12 @@ export function EmailVerificationCard({
         )}
 
         {status && (
-          <p
+          <output
             className="mt-4 rounded-md border border-accent/30 bg-accent/10 p-3 text-sm text-ink"
-            role="status"
+            aria-live="polite"
           >
             {status}
-          </p>
+          </output>
         )}
         {(error || registrationError) && (
           <p
