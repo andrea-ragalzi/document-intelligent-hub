@@ -97,6 +97,16 @@ npm run test:run
 npm run test:coverage
 ```
 
+Firebase Auth lifecycle coverage runs only through the local emulator and never against DEV or
+production Firebase:
+
+```bash
+npm run test:firebase-auth-emulator
+```
+
+The command uses the isolated `demo-dih-auth` project and refuses to run when the Auth Emulator
+is not configured.
+
 Tests are under `test/`. The commands above document the available workflows; they do not claim that the current suite passes in every environment.
 
 ## Important Code Paths

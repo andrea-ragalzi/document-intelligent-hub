@@ -35,8 +35,10 @@ export default function SignupForm() {
     setLoading(true);
 
     try {
-      await signUp(email, password);
-      router.push("/");
+      const result = await signUp(email, password);
+      router.replace(
+        result.verificationEmailSent ? "/verify-email" : "/verify-email?delivery=failed"
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create account");
     } finally {
