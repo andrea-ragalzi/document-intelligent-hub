@@ -8,15 +8,16 @@ export function useChatScroll(chatHistory: unknown[], isQuerying: boolean) {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const scrollToBottom = () => {
+    const animationFrameId = requestAnimationFrame(() => {
       if (chatEndRef.current) {
-        chatEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+        chatEndRef.current.scrollIntoView({
+          behavior: isQuerying ? "auto" : "smooth",
+          block: "end",
+        });
       }
-    };
+    });
 
-    // Small delay to ensure DOM is updated
-    const timeoutId = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timeoutId);
+    return () => cancelAnimationFrame(animationFrameId);
   }, [chatHistory, isQuerying]);
 
   return chatEndRef;
