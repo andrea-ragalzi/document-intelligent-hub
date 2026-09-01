@@ -84,11 +84,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
     <>
       {/* Bulk Action Bar - Automatically appears when there are selections */}
       {isSelectionMode && (
-        <div className="sticky top-0 z-10 bg-indigo-100 dark:bg-indigo-900/50 border-2 border-indigo-300 dark:border-indigo-600 rounded-lg mb-3 p-3 shadow-md">
+        <div className="sticky top-0 z-10 bg-raised border border-line/20 rounded-lg mb-3 p-3 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={handleSelectAll}
-              className="text-sm text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-indigo-100 transition font-semibold"
+              className="text-sm text-accent hover:text-accent-hover transition font-semibold"
             >
               {selectedDocs.length === safeDocuments.length && safeDocuments.length > 0
                 ? "Deselect All"
@@ -179,16 +179,12 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
       {/* Delete Confirmation Modal */}
       {modalOpen && pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-indigo-950/80">
-          <div className="bg-indigo-50 dark:bg-indigo-950 rounded-xl shadow-xl p-6 w-full max-w-xs mx-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-xs mx-2">
             <div className="flex flex-col items-center text-center">
               <AlertCircle size={32} className="mb-2 text-red-600" />
-              <p className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
-                Delete document?
-              </p>
-              <p className="text-xs text-indigo-700 dark:text-indigo-200 mb-4 break-all">
-                {pendingDelete.filename}
-              </p>
+              <p className="text-base font-semibold text-ink mb-2">Delete document?</p>
+              <p className="text-xs text-muted mb-4 break-all">{pendingDelete.filename}</p>
               <div className="flex gap-2 w-full justify-center">
                 <button
                   onClick={() => handleDelete(pendingDelete.filename)}
@@ -204,7 +200,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 <button
                   onClick={closeDeleteModal}
                   disabled={deletingDoc === pendingDelete.filename}
-                  className="min-h-[44px] flex-1 px-3 py-2 bg-indigo-300 hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-indigo-900 dark:text-indigo-50 text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
+                  className="min-h-[44px] flex-1 px-3 py-2 bg-raised hover:bg-surface-hover text-ink text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   Cancel
                 </button>
@@ -215,29 +211,27 @@ const DocumentList: React.FC<DocumentListProps> = ({
       )}
       {/* Delete Multiple Confirmation Modal */}
       {deleteMultipleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-indigo-950/80">
-          <div className="bg-indigo-50 dark:bg-indigo-950 rounded-xl shadow-xl p-6 w-full max-w-md mx-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-md mx-2">
             <div className="flex flex-col items-center text-center">
               <AlertCircle size={32} className="mb-3 text-red-600" />
-              <p className="text-base font-semibold text-indigo-900 dark:text-indigo-50 mb-2">
+              <p className="text-base font-semibold text-ink mb-2">
                 Delete {selectedDocs.length} document
                 {selectedDocs.length > 1 ? "s" : ""}?
               </p>
-              <div className="w-full max-h-48 overflow-y-auto mb-4 bg-indigo-100 dark:bg-indigo-900 rounded-lg p-3">
+              <div className="w-full max-h-48 overflow-y-auto mb-4 bg-raised rounded-lg p-3">
                 <ul className="text-left">
                   {selectedDocs.map(filename => (
                     <li
                       key={filename}
-                      className="text-xs text-indigo-900 dark:text-indigo-50 break-all py-1.5 border-b border-indigo-300 dark:border-indigo-700 last:border-0"
+                      className="text-xs text-ink break-all py-1.5 border-b border-line/15 last:border-0"
                     >
                       • {filename}
                     </li>
                   ))}
                 </ul>
               </div>
-              <p className="text-xs text-indigo-700 dark:text-indigo-200 mb-4">
-                This action cannot be undone.
-              </p>
+              <p className="text-xs text-muted mb-4">This action cannot be undone.</p>
               <div className="flex gap-2 w-full justify-center">
                 <button
                   onClick={() => confirmDeleteSelected(onDelete)}
@@ -247,7 +241,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 </button>
                 <button
                   onClick={closeDeleteMultipleModal}
-                  className="min-h-[44px] flex-1 px-3 py-2 bg-indigo-300 hover:bg-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-indigo-900 dark:text-indigo-50 text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
+                  className="min-h-[44px] flex-1 px-3 py-2 bg-raised hover:bg-surface-hover text-ink text-xs font-medium rounded transition focus:outline-none focus:ring-3 focus:ring-focus"
                 >
                   Cancel
                 </button>

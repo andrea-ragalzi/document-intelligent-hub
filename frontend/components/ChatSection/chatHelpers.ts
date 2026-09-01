@@ -3,6 +3,15 @@
  */
 
 import { FormEvent } from "react";
+import type { ChatMessage } from "@/lib/types";
+
+/** Show the placeholder only until the current assistant response begins streaming. */
+export function shouldShowChatLoadingSkeleton(
+  chatHistory: ChatMessage[],
+  isQuerying: boolean
+): boolean {
+  return isQuerying && chatHistory.at(-1)?.type !== "assistant";
+}
 
 /**
  * Checks if chat is disabled and returns reason

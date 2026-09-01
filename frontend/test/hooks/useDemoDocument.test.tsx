@@ -76,4 +76,34 @@ describe("useDemoDocument", () => {
     expect(fetch).toHaveBeenCalledOnce();
     expect(result.current.suggestedQuestions).toEqual(["How is the Cheshire Cat described?"]);
   });
+
+  it("finishes seeding when an auth-driven rerender occurs while the request is pending", async () => {
+    let resolveSeed!: (response: Response) => void;
+    vi.mocked(fetch).mockReturnValue(
+      new Promise<Response>(resolve => {
+        resolveSeed = resolve;
+      })
+    );
+
+    const { result, rerender } = renderHook(
+      ({ onReady }) => useDemoDocument({ userId: "user-a", onReady }),
+      { initialProps: { onReady: vi.fn() } }
+    );
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    rerender({ onReady: vi.fn() });
+    resolveSeed(
+      new Response(
+        JSON.stringify({
+          status: "seeded",
+          filename: "alice-cheshire-cat-demo.pdf",
+          suggested_questions: ["What happens when the Cat disappears?"],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    expect(fetch).toHaveBeenCalledOnce();
+  });
 });

@@ -88,15 +88,12 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-50 transition-opacity"
-        onClick={handleClose}
-      />
+      <div className="fixed inset-0 bg-black/60 z-50 transition-opacity" onClick={handleClose} />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="bg-white dark:bg-indigo-900 rounded-xl shadow-2xl w-full max-w-lg border-2 border-indigo-200 dark:border-indigo-700"
+          className="bg-surface rounded-xl shadow-xl w-full max-w-lg border border-line/20"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
@@ -109,10 +106,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
 
             {/* Description Textarea */}
             <div>
-              <label
-                htmlFor="bug-description"
-                className="block text-sm font-medium text-indigo-900 dark:text-indigo-50 mb-2"
-              >
+              <label htmlFor="bug-description" className="block text-sm font-medium text-ink mb-2">
                 Describe the bug *
               </label>
               <textarea
@@ -124,10 +118,10 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                 rows={6}
                 required
                 minLength={10}
-                className="w-full px-4 py-3 bg-white dark:bg-indigo-950 border-2 border-indigo-300 dark:border-indigo-700 rounded-lg focus:outline-none focus:ring-3 focus:ring-focus focus:border-indigo-500 text-indigo-900 dark:text-indigo-50 placeholder-indigo-400 dark:placeholder-indigo-500 transition-colors resize-none disabled:opacity-50"
+                className="ui-input w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-3 focus:ring-focus focus:border-focus transition-colors resize-none disabled:opacity-50"
               />
               <div className="mt-2 flex justify-between items-center">
-                <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                <p className="text-xs text-muted">
                   📧 Your report will be sent to the support team via email.
                 </p>
                 <p
@@ -207,7 +201,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                 type="button"
                 onClick={handleClose}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-3 bg-indigo-100 hover:bg-indigo-200 active:bg-indigo-300 dark:bg-indigo-800 dark:hover:bg-indigo-700 dark:active:bg-indigo-600 text-indigo-900 dark:text-indigo-50 rounded-lg transition-colors font-medium focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px] disabled:opacity-50"
+                className="flex-1 px-4 py-3 bg-raised hover:bg-surface-hover active:bg-surface-hover text-ink rounded-lg transition-colors font-medium focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px] disabled:opacity-50"
               >
                 Cancel
               </button>

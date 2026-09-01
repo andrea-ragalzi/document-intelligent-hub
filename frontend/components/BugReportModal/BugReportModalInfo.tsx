@@ -16,8 +16,8 @@ export const BugReportModalInfo: React.FC<BugReportModalInfoProps> = ({ conversa
 
       {/* Conversation ID Display (if available) */}
       {conversationId && (
-        <div className="p-3 bg-indigo-50 dark:bg-indigo-950 rounded-lg border border-indigo-200 dark:border-indigo-800">
-          <p className="text-sm text-indigo-700 dark:text-indigo-300">
+        <div className="p-3 bg-raised rounded-lg border border-line/15">
+          <p className="text-sm text-muted">
             <span className="font-semibold">📍 Current Conversation:</span>{" "}
             <code className="text-xs break-all">{conversationId}</code>
           </p>

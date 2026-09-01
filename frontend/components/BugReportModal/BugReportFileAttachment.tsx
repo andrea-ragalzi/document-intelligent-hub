@@ -18,10 +18,7 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
 }) => {
   return (
     <div>
-      <label
-        htmlFor="bug-file-input"
-        className="block text-sm font-medium text-indigo-900 dark:text-indigo-50 mb-2"
-      >
+      <label htmlFor="bug-file-input" className="block text-sm font-medium text-ink mb-2">
         Attach File (optional, max 10MB)
       </label>
       <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
@@ -32,7 +29,7 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
       {!attachedFile && (
         <label
           htmlFor="bug-file-input"
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-700 transition-colors cursor-pointer w-fit"
+          className="flex items-center gap-2 px-4 py-2 bg-raised text-accent rounded-lg hover:bg-surface-hover transition-colors cursor-pointer w-fit"
         >
           <Paperclip size={18} />
           <span className="text-sm font-medium">Choose File</span>
@@ -51,20 +48,15 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
       {attachedFile && (
         <div className="space-y-2">
           {/* File info card */}
-          <div className="flex items-start gap-3 p-3 bg-indigo-50 dark:bg-indigo-950 rounded-lg border border-indigo-200 dark:border-indigo-700">
-            <Paperclip
-              size={20}
-              className="text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5"
-            />
+          <div className="flex items-start gap-3 p-3 bg-raised rounded-lg border border-line/15">
+            <Paperclip size={20} className="text-accent flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-indigo-900 dark:text-indigo-100 truncate">
-                {attachedFile.name}
-              </p>
+              <p className="text-sm font-medium text-ink truncate">{attachedFile.name}</p>
               <p
                 className={`text-xs mt-0.5 ${
                   attachedFile.size > 10 * 1024 * 1024
                     ? "text-red-600 dark:text-red-400 font-semibold"
-                    : "text-indigo-600 dark:text-indigo-400"
+                    : "text-accent"
                 }`}
               >
                 {(attachedFile.size / 1024 / 1024).toFixed(2)} MB
@@ -83,7 +75,7 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
 
           {/* Image/Video preview */}
           {filePreview && attachedFile && (
-            <div className="relative w-full max-h-48 overflow-hidden rounded-lg border-2 border-indigo-200 dark:border-indigo-700">
+            <div className="relative w-full max-h-48 overflow-hidden rounded-lg border border-line/20">
               {attachedFile.type.startsWith("image/") ? (
                 <div className="relative w-full h-48">
                   <Image

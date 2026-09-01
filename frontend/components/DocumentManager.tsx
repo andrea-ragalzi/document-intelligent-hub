@@ -120,8 +120,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
             type="submit"
             disabled={!file || isUploading || !userId}
             className="w-full py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2
-              bg-gradient-to-r from-blue-600 to-purple-600 text-white
-              hover:from-blue-700 hover:to-purple-700
+              bg-accent text-on-accent hover:bg-accent-hover
               disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed
               shadow-lg hover:shadow-xl disabled:shadow-none"
           >
@@ -226,7 +225,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
 
                 {/* Document Info */}
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+                  <div className="flex-shrink-0 w-9 h-9 bg-accent rounded-lg flex items-center justify-center shadow-sm">
                     <FileText size={18} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
