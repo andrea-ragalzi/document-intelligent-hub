@@ -1,12 +1,15 @@
 import { FormEvent } from "react";
-import { MessageSquare } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import { ChatMessageDisplay } from "./ChatMessageDisplay";
 import { OutputLanguageSelector } from "./OutputLanguageSelector";
 import { useChatScroll } from "./ChatSection/useChatScroll";
 import { useTextareaResize } from "./ChatSection/useTextareaResize";
 import { useLanguageFlag } from "./ChatSection/useLanguageFlag";
-import { getChatDisabledState, createSubmitHandler } from "./ChatSection/chatHelpers";
+import {
+  getChatDisabledState,
+  createSubmitHandler,
+  shouldShowChatLoadingSkeleton,
+} from "./ChatSection/chatHelpers";
 import { ChatEmptyState } from "./ChatSection/ChatEmptyState";
 import { getPlaceholderText } from "./ChatSection/placeholderText";
 import { ChatLoadingSkeleton } from "./ChatSection/ChatLoadingSkeleton";
@@ -83,7 +86,6 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
         <div className="max-w-4xl mx-auto">
           {chatHistory.length === 0 ? (
             <div className="text-center p-8 sm:p-16 text-muted">
-              <MessageSquare size={48} className="sm:size-16 mx-auto mb-4 text-quiet" />
               <ChatEmptyState
                 isCheckingDocuments={isCheckingDocuments}
                 isServerOnline={isServerOnline}
@@ -98,10 +100,12 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
           ) : (
             // Display history and optional skeleton loader
             <>
-              {chatHistory.map(msg => (
-                <ChatMessageDisplay key={`${msg.type}-${msg.text}`} msg={msg} />
+              {chatHistory.map((msg, index) => (
+                <ChatMessageDisplay key={`${msg.type}-${index}`} msg={msg} />
               ))}
-              <ChatLoadingSkeleton isQuerying={isQuerying} />
+              <ChatLoadingSkeleton
+                isQuerying={shouldShowChatLoadingSkeleton(chatHistory, isQuerying)}
+              />
             </>
           )}
           <div ref={chatEndRef} />

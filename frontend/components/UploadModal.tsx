@@ -86,7 +86,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     onUpload(e);
   };
 
-  const overlayClassName = `fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-50 transition-opacity duration-300 ${
+  const overlayClassName = `fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${
     isUploading ? "cursor-not-allowed" : "cursor-pointer"
   }`;
 

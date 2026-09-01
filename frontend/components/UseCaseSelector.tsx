@@ -92,7 +92,7 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
       {/* Backdrop - same style as conversations/documents */}
       <div
         aria-hidden="true"
-        className="fixed inset-0 bg-black/90 dark:bg-indigo-950/95 z-[100]"
+        className="fixed inset-0 bg-black/80 z-[100]"
         onClick={e => {
           e.stopPropagation();
           onClose();
@@ -103,7 +103,7 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
       {/* Mobile Bottom Sheet - with top padding to avoid topbar */}
       <div className="fixed inset-0 z-[110] flex items-end justify-center pt-20">
         <div
-          className="bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl w-full overflow-hidden flex flex-col transition-transform"
+          className="bg-surface rounded-t-3xl shadow-xl w-full overflow-hidden flex flex-col transition-transform"
           style={{
             maxHeight: "calc(100vh - 5rem)",
             transform: `translateY(${dragY}px)`,
@@ -111,12 +111,12 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
         >
           {/* Drag Handle */}
           <div
-            className="flex justify-center pt-4 pb-2 bg-white dark:bg-gray-800 cursor-grab active:cursor-grabbing"
+            className="flex justify-center pt-4 pb-2 bg-surface cursor-grab active:cursor-grabbing"
             onTouchStart={handleDragStart}
             onTouchMove={handleDragMove}
             onTouchEnd={handleDragEnd}
           >
-            <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+            <div className="w-10 h-1 bg-quiet/50 rounded-full" />
           </div>
 
           {/* Use Cases List - starting from bottom */}
@@ -130,27 +130,19 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
                   onClick={() => handleCardClick(useCase.id)}
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 text-left ${
                     isSelected
-                      ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500"
-                      : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-gray-600"
+                      ? "bg-accent/10 border-accent"
+                      : "bg-surface border-line/20 hover:border-line/40 hover:bg-surface-hover"
                   }`}
                 >
                   {/* Icon next to title */}
-                  <div
-                    className={`flex-shrink-0 ${
-                      isSelected
-                        ? "text-indigo-600 dark:text-indigo-400"
-                        : "text-gray-600 dark:text-gray-400"
-                    }`}
-                  >
+                  <div className={`flex-shrink-0 ${isSelected ? "text-accent" : "text-muted"}`}>
                     {useCase.icon}
                   </div>
 
                   {/* Title */}
                   <h3
                     className={`flex-1 text-base font-semibold ${
-                      isSelected
-                        ? "text-indigo-700 dark:text-indigo-300"
-                        : "text-gray-900 dark:text-gray-100"
+                      isSelected ? "text-accent" : "text-ink"
                     }`}
                   >
                     {useCase.name}
@@ -159,9 +151,9 @@ export const UseCaseSelector: React.FC<UseCaseSelectorProps> = ({
                   {/* Selected Indicator */}
                   {isSelected && (
                     <div className="flex-shrink-0">
-                      <div className="w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center">
+                      <div className="w-5 h-5 bg-accent rounded-full flex items-center justify-center">
                         <svg
-                          className="w-3 h-3 text-white"
+                          className="w-3 h-3 text-on-accent"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"

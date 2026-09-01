@@ -40,7 +40,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/50 dark:bg-indigo-950/80 z-50 transition-opacity duration-300"
+        className="fixed inset-0 bg-black/60 z-50 transition-opacity duration-300"
         onClick={isDeleting ? undefined : onClose}
         onKeyDown={isDeleting ? undefined : e => e.key === "Escape" && onClose()}
       />

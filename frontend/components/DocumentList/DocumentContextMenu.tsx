@@ -39,7 +39,7 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
       {/* Backdrop for mobile */}
       <div
         aria-hidden="true"
-        className="fixed inset-0 bg-black/70 dark:bg-indigo-950/90 z-[100] md:hidden"
+        className="fixed inset-0 bg-black/70 z-[100] md:hidden"
         onClick={e => {
           e.stopPropagation();
           onClose();
@@ -48,7 +48,7 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
       />
       {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}
       <div
-        className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-gradient-to-b from-indigo-900 to-indigo-950 dark:from-slate-900 dark:to-black rounded-t-3xl md:rounded-lg shadow-2xl border-0 z-[110] transition-transform overflow-hidden"
+        className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-surface rounded-t-3xl md:rounded-lg shadow-xl border border-line/15 z-[110] transition-transform overflow-hidden"
         ref={node => {
           menuRef.current = node;
         }}
@@ -64,10 +64,10 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
         onTouchEnd={onDragEnd}
       >
         {/* Drag Handle - Mobile only */}
-        <div className="md:hidden flex justify-center py-2 border-b border-indigo-700 dark:border-slate-700">
+        <div className="md:hidden flex justify-center py-2 border-b border-line/15">
           <div
             className={`w-12 h-1.5 rounded-full transition-all duration-200 ${
-              isDragging ? "bg-indigo-400" : "bg-indigo-600 dark:bg-slate-600"
+              isDragging ? "bg-accent/60" : "bg-muted"
             }`}
           />
         </div>

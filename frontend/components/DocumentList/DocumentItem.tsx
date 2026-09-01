@@ -36,8 +36,8 @@ export const DocumentItem: React.FC<DocumentItemProps> = ({
       aria-label={`Document: ${doc.filename}`}
       className={`group relative w-full text-left rounded-lg p-3 transform hover:scale-[1.01] transition-all duration-200 ease-in-out hover:shadow-sm ${
         isSelected
-          ? "bg-indigo-100 dark:bg-indigo-900/50 border-2 border-indigo-500 dark:border-indigo-400"
-          : "bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:bg-indigo-50 dark:hover:bg-gray-600 hover:border-indigo-200 dark:hover:border-indigo-800"
+          ? "bg-accent/15 border border-accent"
+          : "bg-surface border border-line/15 hover:bg-surface-hover hover:border-line/30"
       } cursor-pointer`}
       onClick={() => {
         if (isSelectionMode) {
@@ -65,15 +65,15 @@ export const DocumentItem: React.FC<DocumentItemProps> = ({
       <div className="flex items-center gap-3">
         {/* Selection indicator - Only for selected items */}
         {isSelected && (
-          <div className="flex-shrink-0 h-6 w-6 flex items-center justify-center rounded-full bg-indigo-600 dark:bg-indigo-500">
-            <CheckCircle size={16} className="text-white" />
+          <div className="flex-shrink-0 h-6 w-6 flex items-center justify-center rounded-full bg-accent">
+            <CheckCircle size={16} className="text-on-accent" />
           </div>
         )}
 
         {/* Document icon - Always visible when not selected */}
         {!isSelected && (
-          <div className="flex-shrink-0 w-6 h-6 bg-indigo-100 dark:bg-indigo-900/30 rounded flex items-center justify-center">
-            <FileText size={14} className="text-indigo-600" />
+          <div className="flex-shrink-0 w-6 h-6 bg-raised rounded flex items-center justify-center">
+            <FileText size={14} className="text-accent" />
           </div>
         )}
 

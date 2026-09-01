@@ -29,19 +29,21 @@ export function useDemoDocument({ userId, onReady }: UseDemoDocumentOptions) {
   const [state, setState] = useState<DemoDocumentState>("idle");
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const attemptedUserId = useRef<string | null>(null);
+  const activeUserId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!userId) {
+      activeUserId.current = null;
       attemptedUserId.current = null;
       setState("idle");
       setSuggestedQuestions([]);
       return;
     }
 
+    activeUserId.current = userId;
     if (attemptedUserId.current === userId) return;
     attemptedUserId.current = userId;
 
-    let cancelled = false;
     const refreshDocumentState = async () => {
       // Refresh both the list and the chat availability after either outcome:
       // a proxy can report a transient error after the backend has indexed it.
@@ -62,13 +64,13 @@ export function useDemoDocument({ userId, onReady }: UseDemoDocumentOptions) {
           if (!response.ok) throw new Error("Demo document seed failed");
 
           const data: DemoDocumentResponse = await response.json();
-          if (cancelled) return;
+          if (activeUserId.current !== userId) return;
           setSuggestedQuestions(data.suggested_questions);
           setState("ready");
           await refreshDocumentState();
           return;
         } catch (error) {
-          if (cancelled) return;
+          if (activeUserId.current !== userId) return;
           if (attempt < DEMO_SEED_MAX_ATTEMPTS) {
             await new Promise(resolve => setTimeout(resolve, DEMO_SEED_RETRY_DELAY_MS));
             continue;
@@ -82,9 +84,6 @@ export function useDemoDocument({ userId, onReady }: UseDemoDocumentOptions) {
     };
 
     void seed();
-    return () => {
-      cancelled = true;
-    };
   }, [getIdToken, onReady, userId]);
 
   return { state, suggestedQuestions };
