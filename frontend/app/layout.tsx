@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Document RAG - Intelligent Hub",
-  description: "Sistema RAG per l'interrogazione intelligente di documenti PDF",
+  title: "Document Intelligent Hub | Private PDF RAG",
+  description: "Upload private PDFs, ask questions, and get source-grounded answers.",
 };
 
 export default function RootLayout({

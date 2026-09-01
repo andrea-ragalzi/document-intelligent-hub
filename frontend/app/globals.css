@@ -48,6 +48,11 @@
     color: rgb(var(--color-ink));
   }
 
+  a,
+  a:visited {
+    color: inherit;
+  }
+
   ::selection {
     background: rgb(var(--color-accent) / 0.24);
   }
