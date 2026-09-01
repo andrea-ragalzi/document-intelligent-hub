@@ -28,4 +28,9 @@ describe("frontend theme", () => {
       expect(source, file).not.toMatch(/\b(?:purple|indigo|violet)-/i);
     }
   });
+
+  it("keeps visited links within the application color system", () => {
+    const globalStyles = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8");
+    expect(globalStyles).toMatch(/a:visited\s*\{\s*color:\s*inherit;/);
+  });
 });
