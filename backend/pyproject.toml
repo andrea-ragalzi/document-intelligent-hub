@@ -25,13 +25,14 @@ unstructured = { extras = ["pdf"], version = "^0.18.18" }
 langchain-chroma = "^1.0.0"
 langdetect = "^1.0.9"
 translate = "^3.8.0"
-sendgrid = "^6.12.5"
 python-dotenv = "^1.2.1"
 firebase-admin = "^7.1.0"
 aiofiles = "^25.1.0"
 loguru = "^0.7.0"
 sentence-transformers = "^3.0.0"
 torchvision = "0.25.0"
+pillow = "^12.3.0"
+resend = "^2.42.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
@@ -126,8 +127,6 @@ no_implicit_optional = true
 module = [
     "langdetect",
     "translate",
-    "sendgrid",
-    "sendgrid.helpers.mail",
     "firebase_admin",
     "firebase_admin.*",
     "google.cloud.firestore",

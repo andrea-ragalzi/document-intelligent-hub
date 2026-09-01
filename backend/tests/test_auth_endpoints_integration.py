@@ -423,7 +423,7 @@ class TestRegistrationEndpoint:
 class TestInvitationRequestEndpoint:
     """Test suite for /auth/request-invitation-code endpoint"""
 
-    @pytest.mark.xfail(reason="Email sending requires a valid SendGrid API key")
+    @pytest.mark.xfail(reason="Legacy integration fixture uses a module-level test client")
     @patch("app.routers.auth_router.get_email_service")
     def test_request_invitation_success(self, mock_get_email_service: Mock) -> None:
         """Test successful invitation code request"""

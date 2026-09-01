@@ -19,11 +19,9 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
   return (
     <div>
       <label htmlFor="bug-file-input" className="block text-sm font-medium text-ink mb-2">
-        Attach File (optional, max 10MB)
+        Attach screenshot (optional, max 5MB)
       </label>
-      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-        Supported: Images, PDF, Videos (MP4, WebM, MOV), Archives (ZIP, RAR, 7z, TAR.GZ)
-      </p>
+      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Supported: PNG, JPEG, WebP</p>
 
       {/* File Input Button */}
       {!attachedFile && (
@@ -36,7 +34,7 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
           <input
             id="bug-file-input"
             type="file"
-            accept="image/png,image/jpeg,image/jpg,image/gif,application/pdf,video/mp4,video/webm,video/quicktime,video/x-msvideo,application/zip,application/x-zip-compressed,application/x-rar-compressed,application/x-7z-compressed,application/gzip,application/x-tar"
+            accept="image/png,image/jpeg,image/webp"
             onChange={onFileSelect}
             disabled={isSubmitting}
             className="hidden"
@@ -54,13 +52,13 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
               <p className="text-sm font-medium text-ink truncate">{attachedFile.name}</p>
               <p
                 className={`text-xs mt-0.5 ${
-                  attachedFile.size > 10 * 1024 * 1024
+                  attachedFile.size > 5 * 1024 * 1024
                     ? "text-red-600 dark:text-red-400 font-semibold"
                     : "text-accent"
                 }`}
               >
                 {(attachedFile.size / 1024 / 1024).toFixed(2)} MB
-                {attachedFile.size > 10 * 1024 * 1024 && " - Too large! Max 10MB"}
+                {attachedFile.size > 5 * 1024 * 1024 && " - Too large! Max 5MB"}
               </p>
             </div>
             <button
@@ -73,7 +71,7 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
             </button>
           </div>
 
-          {/* Image/Video preview */}
+          {/* Screenshot preview */}
           {filePreview && attachedFile && (
             <div className="relative w-full max-h-48 overflow-hidden rounded-lg border border-line/20">
               {attachedFile.type.startsWith("image/") ? (
@@ -86,10 +84,6 @@ export const BugReportFileAttachment: React.FC<BugReportFileAttachmentProps> = (
                     unoptimized
                   />
                 </div>
-              ) : attachedFile.type.startsWith("video/") ? (
-                <video src={filePreview} controls className="w-full h-auto object-contain">
-                  Your browser does not support video playback.
-                </video>
               ) : null}
             </div>
           )}

@@ -4,7 +4,11 @@ import asyncio
 import time
 from collections import defaultdict, deque
 
-from app.config.security_constants import BUG_REPORT_RATE_LIMIT, FEEDBACK_RATE_LIMIT
+from app.config.security_constants import (
+    BUG_REPORT_RATE_LIMIT,
+    FEEDBACK_RATE_LIMIT,
+    MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS,
+)
 
 
 class SupportRateLimiter:
@@ -30,6 +34,8 @@ class SupportRateLimiter:
             events = self._events[key]
             while events and now - events[0] >= 3600:
                 events.popleft()
+            if events and now - events[-1] < MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS:
+                return False
             if len(events) >= self._limits[event_type]:
                 return False
             events.append(now)
