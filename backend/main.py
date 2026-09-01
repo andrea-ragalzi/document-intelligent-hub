@@ -8,8 +8,9 @@ from typing import Any, Callable
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Load explicit DEV-only routing/persistence first, then fill remaining local
 # secrets from the legacy/base file. Real process variables (tests, Docker and
@@ -24,6 +25,10 @@ load_dotenv(dotenv_path=env_path, override=False)
 from app.core.config import settings  # noqa: E402
 from app.core.firebase import initialize_firebase  # noqa: E402
 from app.core.logging import logger  # noqa: E402
+from app.config.security_constants import (  # noqa: E402
+    MAX_BUG_REPORT_REQUEST_SIZE,
+    MAX_FEEDBACK_REQUEST_SIZE,
+)
 from app.db.chroma_client import get_chroma_client, get_embedding_function  # noqa: E402
 from app.routers import (  # noqa: E402
     auth_router,
@@ -100,6 +105,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def reject_oversized_support_payloads(request: Request, call_next: Callable[[Request], Any]) -> Any:
+    """Reject known oversized support bodies before multipart parsing or endpoint work."""
+    limits = {
+        "/rag/report-bug/": MAX_BUG_REPORT_REQUEST_SIZE,
+        "/rag/feedback/": MAX_FEEDBACK_REQUEST_SIZE,
+    }
+    limit = limits.get(request.url.path)
+    content_length = request.headers.get("content-length")
+    if limit is not None and content_length is not None:
+        try:
+            if int(content_length) > limit:
+                return JSONResponse(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    content={"detail": "Submission payload is too large."},
+                )
+        except ValueError:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": "Invalid submission payload."},
+            )
+    return await call_next(request)
 
 
 # --- Logging Middleware ---

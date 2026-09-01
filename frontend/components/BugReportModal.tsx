@@ -102,7 +102,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             {/* Info Banner */}
-            <BugReportModalInfo conversationId={conversationId} />
+            <BugReportModalInfo />
 
             {/* Description Textarea */}
             <div>
@@ -118,12 +118,11 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                 rows={6}
                 required
                 minLength={10}
+                maxLength={1500}
                 className="ui-input w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-3 focus:ring-focus focus:border-focus transition-colors resize-none disabled:opacity-50"
               />
               <div className="mt-2 flex justify-between items-center">
-                <p className="text-xs text-muted">
-                  📧 Your report will be sent to the support team via email.
-                </p>
+                <p className="text-xs text-muted">Your report will be sent to the support team.</p>
                 <p
                   className={`text-xs font-medium ${
                     description.trim().length < 10
@@ -131,7 +130,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                       : "text-green-600 dark:text-green-400"
                   }`}
                 >
-                  {description.trim().length} / 10 chars
+                  {description.trim().length} / 1,500 chars
                 </p>
               </div>
             </div>
@@ -144,53 +143,6 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
               onFileSelect={handleFileSelect}
               onRemoveFile={handleRemoveFile}
             />
-
-            {/* Technical Details Preview (Collapsible) */}
-            <details className="group">
-              <summary className="cursor-pointer select-none flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/50 transition-colors">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  🔍 Technical Details (click to expand)
-                </span>
-                <span className="ml-auto text-gray-500 dark:text-gray-400 text-xs group-open:rotate-180 transition-transform">
-                  ▼
-                </span>
-              </summary>
-              <div className="mt-2 p-4 bg-gray-50 dark:bg-gray-900/30 rounded-lg border border-gray-200 dark:border-gray-700 space-y-2">
-                <div className="text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">User ID:</span>
-                    <code className="text-gray-600 dark:text-gray-400 break-all max-w-[60%] text-right">
-                      Verified securely by the server
-                    </code>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">
-                      Conversation:
-                    </span>
-                    <code className="text-gray-600 dark:text-gray-400 break-all max-w-[60%] text-right">
-                      {conversationId || "N/A"}
-                    </code>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">
-                      Timestamp:
-                    </span>
-                    <code className="text-gray-600 dark:text-gray-400">
-                      {new Date().toLocaleString()}
-                    </code>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">Browser:</span>
-                    <code className="text-gray-600 dark:text-gray-400 text-right text-[10px] max-w-[60%] break-all leading-tight">
-                      {navigator.userAgent.split(" ").slice(0, 3).join(" ")}...
-                    </code>
-                  </div>
-                </div>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 pt-2 border-t border-gray-300 dark:border-gray-600">
-                  💡 These details help us reproduce and fix the issue faster.
-                </p>
-              </div>
-            </details>
 
             {/* Status Messages */}
             <BugReportStatusMessages submitStatus={submitStatus} errorMessage={errorMessage} />
@@ -210,7 +162,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
                 disabled={
                   isSubmitting ||
                   description.trim().length < 10 ||
-                  (attachedFile !== null && attachedFile.size > 10 * 1024 * 1024)
+                  (attachedFile !== null && attachedFile.size > 5 * 1024 * 1024)
                 }
                 className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 dark:bg-red-600 dark:hover:bg-red-500 dark:active:bg-red-400 text-white rounded-lg transition-colors font-medium focus:outline-none focus:ring-3 focus:ring-focus min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
               >

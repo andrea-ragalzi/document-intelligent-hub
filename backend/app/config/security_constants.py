@@ -10,9 +10,12 @@ Centralized security-related constants to avoid magic numbers.
 # Used in: documents_router.py (upload_document)
 MAX_DOCUMENT_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB in bytes
 
-# Maximum size for bug report attachments (10MB)
-# Used in: support_router.py (report_bug)
-MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10MB in bytes
+# Maximum size for one bug-report screenshot (5MB).
+MAX_BUG_REPORT_SCREENSHOT_SIZE = 5 * 1024 * 1024
+
+# Fixed overhead keeps multipart bodies bounded before FastAPI parses an upload.
+MAX_BUG_REPORT_REQUEST_SIZE = MAX_BUG_REPORT_SCREENSHOT_SIZE + 64 * 1024
+MAX_FEEDBACK_REQUEST_SIZE = 16 * 1024
 
 # Chunk size for streaming file validation (8KB)
 FILE_READ_CHUNK_SIZE = 8192  # 8KB
@@ -22,18 +25,9 @@ FILE_READ_CHUNK_SIZE = 8192  # 8KB
 # Allowed document file extensions
 ALLOWED_DOCUMENT_EXTENSIONS = [".pdf"]
 
-# Allowed attachment file types for bug reports
-ALLOWED_ATTACHMENT_MIME_TYPES = [
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-    "video/mp4",
-    "video/webm",
-    "application/pdf",
-    "application/zip",
-    "application/x-zip-compressed",
-]
+# Bug reports accept only one screenshot. The server verifies magic bytes and
+# derives the MIME type and generated filename from the file content.
+ALLOWED_SCREENSHOT_MIME_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
 
 # === QUERY LIMITS ===
 
@@ -57,10 +51,11 @@ LOG_FILE_BACKUP_COUNT = 5
 # === SUPPORT LIMITS ===
 
 # Maximum free-form support content accepted by the public API.
-MAX_BUG_REPORT_DESCRIPTION_LENGTH = 5000
-MAX_FEEDBACK_MESSAGE_LENGTH = 2000
+MAX_BUG_REPORT_DESCRIPTION_LENGTH = 1500
+MAX_FEEDBACK_MESSAGE_LENGTH = 1000
 MAX_SUPPORT_CONVERSATION_ID_LENGTH = 256
 MAX_SUPPORT_USER_AGENT_LENGTH = 512
+MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS = 10
 
 # === RATE LIMITING ===
 

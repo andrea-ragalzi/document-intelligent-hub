@@ -7,7 +7,7 @@ The backend is a Python 3.12 FastAPI service for authenticated PDF ingestion, do
 - Expose REST endpoints for authentication, document lifecycle operations, RAG queries, usage, language discovery, feedback, and bug reports.
 - Turn uploaded PDFs into owned, searchable chunks and persist them in ChromaDB.
 - Retrieve only the authenticated user's context, generate an answer with OpenAI, and return source filenames.
-- Coordinate Firebase Admin, Firestore, local HuggingFace embeddings, and optional SendGrid email delivery.
+- Coordinate Firebase Admin, Firestore, local HuggingFace embeddings, and optional Resend email delivery.
 
 ## Architecture
 
@@ -88,7 +88,7 @@ Relevant files: `app/core/auth.py`, `app/core/firebase.py`, `app/routers/documen
 | ChromaDB                          | Persist embedded chunks and perform metadata-filtered retrieval/deletion          | `app/db/chroma_client.py`, `app/repositories/vector_store_repository.py`                                                                                           |
 | HuggingFace Sentence Transformers | Generate local `all-MiniLM-L6-v2` document/query embeddings                       | `app/db/chroma_client.py`                                                                                                                                          |
 | OpenAI                            | Query parsing, reformulation/expansion, and answer generation                     | `app/services/rag_orchestrator_service.py`, `query_parser_service.py`, `query_processing_service.py`, `query_expansion_service.py`, `answer_generation_service.py` |
-| SendGrid                          | Send bug-report, feedback, and invitation emails when configured                  | `app/services/email_service.py`, `app/routers/support_router.py`, `app/routers/auth_router.py`                                                                     |
+| Resend                            | Send bug-report, feedback, and invitation emails when configured                    | `app/services/email_service.py`, `app/routers/support_router.py`, `app/routers/auth_router.py`                                                                     |
 
 ## Configuration
 
@@ -106,9 +106,9 @@ The backend loads the ignored `backend/.env.development.local` first and then fi
 | `QUERY_REFORMULATION_PROMPT_PATH` | Override path for the query-reformulation prompt                        |
 | `ENVIRONMENT`                     | Selects production CORS behavior when set to `production`               |
 | `ALLOWED_ORIGINS`                 | Comma-separated production CORS origins                                 |
-| `SENDGRID_API_KEY`                | Enables SendGrid email delivery                                         |
-| `SENDGRID_FROM_EMAIL`             | Sender address for SendGrid messages                                    |
-| `SUPPORT_EMAIL`                   | Support recipient address for SendGrid messages                         |
+| `RESEND_API_KEY`                  | Enables backend-only Resend email delivery                              |
+| `RESEND_FROM_EMAIL`               | Verified Resend sender address                                          |
+| `REPORT_RECIPIENT_EMAIL`          | Fixed recipient for support and invitation notifications                |
 
 If prompt files are absent, `app/core/config.py` falls back to built-in prompt text. For local customization, copy the tracked files in `config/*.txt.example` to the corresponding ignored `.txt` filenames.
 
@@ -139,7 +139,7 @@ For a coverage report:
 poetry run pytest --cov=app --cov-report=term
 ```
 
-The repository contains unit and integration-style tests, but these commands are not a claim that the current suite passes in every environment. Firebase, OpenAI, SendGrid, and local model availability affect parts of the suite.
+The repository contains unit and integration-style tests, but these commands are not a claim that the current suite passes in every environment. Firebase, OpenAI, Resend, and local model availability affect parts of the suite.
 
 ## Important Code Paths
 

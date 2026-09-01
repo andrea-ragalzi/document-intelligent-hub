@@ -1,28 +1,13 @@
-interface BugReportModalInfoProps {
-  conversationId?: string | null;
-}
-
-export const BugReportModalInfo: React.FC<BugReportModalInfoProps> = ({ conversationId }) => {
+export const BugReportModalInfo: React.FC = () => {
   return (
     <>
       {/* Info Banner */}
       <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
         <p className="text-sm text-blue-900 dark:text-blue-200">
-          <strong>ℹ️ What will be sent:</strong> Your bug description + optional file
-          (image/video/PDF/archive) + technical context (User ID, Conversation ID, timestamp,
-          browser info) will be emailed to our support team.
+          <strong>What will be sent:</strong> Your description, optional screenshot, and safe
+          diagnostic context such as the verified account, timestamp, and browser information.
         </p>
       </div>
-
-      {/* Conversation ID Display (if available) */}
-      {conversationId && (
-        <div className="p-3 bg-raised rounded-lg border border-line/15">
-          <p className="text-sm text-muted">
-            <span className="font-semibold">📍 Current Conversation:</span>{" "}
-            <code className="text-xs break-all">{conversationId}</code>
-          </p>
-        </div>
-      )}
     </>
   );
 };

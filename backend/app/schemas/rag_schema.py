@@ -106,19 +106,10 @@ class BugReportRequest(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    """
-    Schema for user feedback with star rating.
-    Collects user satisfaction and optional comments.
-    """
+    """Plain-text feedback for the authenticated support flow."""
 
-    conversation_id: Optional[str] = Field(
-        None,
-        max_length=MAX_SUPPORT_CONVERSATION_ID_LENGTH,
-        description="ID of the conversation being rated",
-    )
-    rating: int = Field(..., ge=1, le=5, description="Star rating from 1 to 5")
-    message: Optional[str] = Field(
-        None, max_length=MAX_FEEDBACK_MESSAGE_LENGTH, description="Optional feedback message"
+    message: str = Field(
+        ..., min_length=1, max_length=MAX_FEEDBACK_MESSAGE_LENGTH, description="Feedback message"
     )
     model_config = ConfigDict(extra="forbid")
 

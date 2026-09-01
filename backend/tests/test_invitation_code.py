@@ -288,7 +288,7 @@ class TestRegistrationWithInvitationCode:
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)
 class TestInvitationCodeRequest:
-    """Test invitation code request flow - Email service tests skipped (require SendGrid config)"""
+    """Test invitation code request flow with the email service mocked."""
 
     @pytest.mark.skip(reason="Requires mock email service configuration")
     def test_request_invitation_code_success(

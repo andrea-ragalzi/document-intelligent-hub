@@ -16,6 +16,9 @@ export function validateDescription(description: string): {
       error: "Please provide at least 10 characters description",
     };
   }
+  if (trimmed.length > 1500) {
+    return { isValid: false, error: "Please keep the description under 1,500 characters" };
+  }
   return { isValid: true };
 }
 
@@ -53,9 +56,7 @@ export async function submitBugReport(formData: FormData, token: string): Promis
 
   if (!response.ok) {
     if (response.status === 413) {
-      throw new Error(
-        "File too large. Maximum size is 10MB. Please try a smaller file or compress it."
-      );
+      throw new Error("Screenshot too large. Maximum size is 5MB. Please try a smaller image.");
     }
 
     const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
