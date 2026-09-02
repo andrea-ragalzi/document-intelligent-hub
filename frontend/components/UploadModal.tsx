@@ -86,10 +86,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     onUpload(e);
   };
 
-  const handleOverlayClick = () => {
-    if (!isUploading) onClose();
-  };
-
   const overlayClassName = `fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${
     isUploading ? "cursor-not-allowed" : "cursor-pointer"
   }`;
@@ -109,29 +105,20 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   return (
     <>
       {/* Overlay */}
-      <div
+      <button
+        type="button"
         aria-label="Close upload modal"
-        className={overlayClassName}
-        onClick={isUploading ? undefined : onClose}
-        onKeyDown={
-          isUploading
-            ? undefined
-            : e => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  onClose();
-                }
-              }
-        }
+        className={`${overlayClassName} border-0 p-0`}
+        onClick={onClose}
+        disabled={isUploading}
       />
 
       {/* Modal */}
-      <div className="ui-modal-viewport z-50" onClick={handleOverlayClick}>
+      <div className="ui-modal-viewport z-50 pointer-events-none">
         <div className="flex min-h-full items-start justify-center p-3 sm:items-center sm:p-4">
           <div
             data-testid="upload-modal-dialog"
-            className="ui-modal-dialog flex w-full max-w-2xl flex-col rounded-2xl border border-line/20 bg-surface shadow-2xl transition-all duration-300"
-            onClick={e => e.stopPropagation()}
+            className="ui-modal-dialog pointer-events-auto flex w-full max-w-2xl flex-col rounded-2xl border border-line/20 bg-surface shadow-2xl transition-all duration-300"
           >
             {/* Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-line/15 p-4 sm:p-6">

@@ -88,15 +88,18 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 z-50 transition-opacity" onClick={handleClose} />
+      <button
+        type="button"
+        aria-label="Close bug report"
+        className="fixed inset-0 z-50 border-0 bg-black/60 p-0 transition-opacity"
+        onClick={handleClose}
+        disabled={isSubmitting}
+      />
 
       {/* Modal */}
-      <div className="ui-modal-viewport z-50" onClick={handleClose}>
+      <div className="ui-modal-viewport z-50 pointer-events-none">
         <div className="flex min-h-full items-start justify-center p-3 sm:items-center sm:p-4">
-          <div
-            className="ui-modal-dialog flex w-full max-w-lg flex-col rounded-xl border border-line/20 bg-surface shadow-xl"
-            onClick={e => e.stopPropagation()}
-          >
+          <div className="ui-modal-dialog pointer-events-auto flex w-full max-w-lg flex-col rounded-xl border border-line/20 bg-surface shadow-xl">
             {/* Header */}
             <BugReportModalHeader isSubmitting={isSubmitting} onClose={handleClose} />
 
