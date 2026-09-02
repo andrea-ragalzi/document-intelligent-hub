@@ -46,7 +46,7 @@ describe("AlertMessage", () => {
 
     expect(screen.getByText("Please note this information")).toBeInTheDocument();
     const container = screen.getByText("Please note this information").closest("div");
-    expect(container).toHaveClass("bg-blue-50");
+    expect(container).toHaveClass("bg-raised");
   });
 
   it("should render icon for each alert type", () => {

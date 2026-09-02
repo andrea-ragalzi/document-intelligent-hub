@@ -31,7 +31,7 @@ export const UploadProgress: React.FC<UploadProgressProps> = ({
       case "error":
         return <XCircle size={20} className="text-red-500" />;
       default:
-        return <Loader size={20} className="animate-spin text-blue-500" />;
+        return <Loader size={20} className="animate-spin text-accent" />;
     }
   };
 
@@ -42,9 +42,9 @@ export const UploadProgress: React.FC<UploadProgressProps> = ({
       case "error":
         return "bg-red-500";
       case "processing":
-        return "bg-blue-500";
+        return "bg-accent";
       default:
-        return "bg-blue-400";
+        return "bg-accent/70";
     }
   };
 

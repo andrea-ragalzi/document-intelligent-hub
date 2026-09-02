@@ -119,6 +119,19 @@
   .ui-secondary-action:hover:not(:disabled) {
     background: rgb(var(--color-surface-hover));
   }
+
+  .ui-modal-viewport {
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ui-modal-dialog {
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+  }
 }
 
 ::-webkit-scrollbar {

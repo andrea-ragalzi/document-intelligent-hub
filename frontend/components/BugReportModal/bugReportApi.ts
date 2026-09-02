@@ -48,7 +48,7 @@ export function createBugReportFormData(
  * Submits bug report to API
  */
 export async function submitBugReport(formData: FormData, token: string): Promise<void> {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/report-bug`, {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/report-bug/`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: formData,

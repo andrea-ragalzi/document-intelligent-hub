@@ -32,4 +32,23 @@ describe("BugReportModal", () => {
     const body = vi.mocked(globalThis.fetch).mock.calls[0][1]?.body as FormData;
     expect(body.get("user_id")).toBeNull();
   });
+
+  it("posts a screenshot report to the canonical multipart endpoint", async () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.example/rag";
+    vi.mocked(globalThis.fetch).mockResolvedValue({ ok: true } as Response);
+    render(<BugReportModal isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/describe the bug/i), {
+      target: { value: "The upload button did not respond." },
+    });
+    fireEvent.change(screen.getByLabelText(/attach screenshot/i), {
+      target: { files: [new File(["png"], "screen.png", { type: "image/png" })] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
+
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    const [url, options] = vi.mocked(globalThis.fetch).mock.calls[0];
+    expect(url).toBe("https://api.example/rag/report-bug/");
+    expect(options?.headers).toMatchObject({ Authorization: "Bearer firebase-test-token" });
+    expect((options?.body as FormData).get("attachment")).toBeInstanceOf(File);
+  });
 });
