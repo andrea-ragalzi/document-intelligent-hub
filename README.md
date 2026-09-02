@@ -133,9 +133,12 @@ Prerequisites: Python 3.12, Poetry, Node.js with npm, an OpenAI API key, and a d
 
 1. Prepare the ignored local configuration files:
 
-   - `backend/.env.development.local`, using `backend/.env.example` as a starting point
-   - `backend/app/config/firebase-service-account.dev.json`
-   - `frontend/.env.development.local`, using `frontend/.env.example`
+   ```bash
+   cp backend/.env.example backend/.env.local
+   cp frontend/.env.example frontend/.env.local
+   ```
+
+   Add the local Firebase service-account file at `backend/app/config/firebase-service-account.dev.json`.
 
 2. Install and start the backend:
 
