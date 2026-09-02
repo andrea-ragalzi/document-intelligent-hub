@@ -25,8 +25,7 @@ export const AlertMessage: React.FC<AlertMessageProps> = ({ alert }) => {
     case "info":
     default:
       Icon = Info;
-      classes =
-        "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300";
+      classes = "bg-raised border-line/20 text-ink";
       break;
   }
 

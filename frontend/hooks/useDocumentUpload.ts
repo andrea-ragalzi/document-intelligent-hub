@@ -31,7 +31,7 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
   const [documentsUploaded, setDocumentsUploaded] = useState<number>(0);
   const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
   const [uploadAlert, setUploadAlert] = useState<AlertState>({
-    message: "Enter a User ID and upload a PDF.",
+    message: "Select a PDF to upload.",
     type: "info",
   });
 
@@ -161,7 +161,7 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
 
   const resetAlert = useCallback(() => {
     setUploadAlert({
-      message: "Enter a User ID and upload a PDF.",
+      message: "Select a PDF to upload.",
       type: "info",
     });
   }, []);
