@@ -17,8 +17,8 @@ OpenAI    dedicated DEV key/project when available
 Create ignored local configuration from the tracked templates:
 
 ```bash
-cp frontend/.env.example frontend/.env.development.local
-cp backend/.env.example backend/.env.development.local
+cp frontend/.env.example frontend/.env.local
+cp backend/.env.example backend/.env.local
 ```
 
 The Firebase Admin key for local development must be saved as:
@@ -30,7 +30,7 @@ backend/app/config/firebase-service-account.dev.json
 For the optional local Compose path, supply the frontend DEV values explicitly:
 
 ```bash
-docker compose --env-file frontend/.env.development.local up --build
+docker compose --env-file frontend/.env.local up --build
 ```
 
 The application deliberately does not use the old generic service-account
@@ -70,7 +70,7 @@ Production values must not be copied into local environment files or Git.
 6. Do not create `invitation_codes` unless elevated-tier testing is required.
    A code document uses `tier`, `is_used`, and optional `expires_at` fields.
 7. Create a DEV service-account key and store it only at the ignored local path
-   above. Fill `frontend/.env.development.local` using the DEV Web app config.
+   above. Fill `frontend/.env.local` using the DEV Web app config.
 
 `conversations` is created by the browser, while `user_usage` is created by the
 backend on the first query. Tier claims are assigned by Firebase Admin during

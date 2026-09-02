@@ -12,12 +12,10 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Load explicit DEV-only routing/persistence first, then fill remaining local
-# secrets from the legacy/base file. Real process variables (tests, Docker and
-# Railway) stay authoritative because neither file overwrites them.
-dev_env_path = Path(__file__).parent / ".env.development.local"
-load_dotenv(dotenv_path=dev_env_path, override=False)
-env_path = Path(__file__).parent / ".env"
+# Load one ignored local configuration file. Real process variables (tests,
+# Docker, and Railway) remain authoritative because local values never
+# overwrite them.
+env_path = Path(__file__).parent / ".env.local"
 load_dotenv(dotenv_path=env_path, override=False)
 
 # Now, import other modules (after load_dotenv to load env vars first)

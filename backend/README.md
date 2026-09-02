@@ -92,7 +92,7 @@ Relevant files: `app/core/auth.py`, `app/core/firebase.py`, `app/routers/documen
 
 ## Configuration
 
-The backend loads the ignored `backend/.env.development.local` first and then fills any remaining local secrets from `backend/.env` when started through `main.py`. Existing process variables remain authoritative. Local development expects the dedicated DEV service-account file at `backend/app/config/firebase-service-account.dev.json`. Deployment images exclude both environment files, and Railway supplies the PROD credential through `FIREBASE_CREDENTIALS`; never commit either credential.
+Create the ignored local configuration with `cp backend/.env.example backend/.env.local`. The backend loads only `backend/.env.local` when started through `main.py`; existing process variables remain authoritative. Local development expects the dedicated DEV service-account file at `backend/app/config/firebase-service-account.dev.json`. Deployment images exclude local environment files, and Railway supplies the PROD credential through `FIREBASE_CREDENTIALS`; never commit either credential.
 
 | Variable                          | Controls                                                                |
 | --------------------------------- | ----------------------------------------------------------------------- |
@@ -160,7 +160,7 @@ The repository contains unit and integration-style tests, but these commands are
 
 ## Common Development Gotchas
 
-- Run Uvicorn from `backend/`: `.env`, the default prompt paths, and the relative `CHROMA_DB_PATH` are resolved from the backend working directory.
+- Run Uvicorn from `backend/`: `.env.local`, the default prompt paths, and the relative `CHROMA_DB_PATH` are resolved from the backend working directory.
 - Firebase initialization is attempted at startup. Without valid Firebase credentials the process can start, but protected/authentication routes are unavailable.
 - Registration without an invitation assigns the constrained FREE tier. Optional elevated access uses `app_config/settings.unlimited_emails` or an unused `invitation_codes` document; the assigned tier is stored as a Firebase custom claim.
 - Startup preloads the local HuggingFace embedding model and creates the persistent ChromaDB directory if needed; the first run can be slow and may require model download access.

@@ -5,7 +5,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     env_file:
-      - ./backend/.env.development.local
+      - ./backend/.env.local
     container_name: document-hub-backend
     ports:
       - "8000:8000"
