@@ -46,6 +46,18 @@ htmlcov/
 **/firebase-service-account.json
 **/*service-account*.json
 **/firebase-adminsdk-*.json
+**/*credential*.json
+**/credentials*.json
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+
+# Repository metadata and generated local state
+.git/
+**/.git/
+**/.cache/
+**/.mypy_cache/
 
 # Active prompts are local, git-ignored configuration. Deployment supplies
 # them externally; tracked *.txt.example templates remain in the context.
@@ -57,6 +69,7 @@ chroma_db*/
 # Logs
 logs/
 *.log
+*.zip
 
 # OS files
 .DS_Store

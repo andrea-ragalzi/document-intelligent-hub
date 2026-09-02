@@ -18,6 +18,24 @@ env:
   COMPLEXITY_THRESHOLD: 15
 
 jobs:
+  secret-scan:
+    name: "🔐 Secret scan"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "🔐 Scan complete Git history"
+        run: >-
+          docker run --rm
+          -v "$GITHUB_WORKSPACE:/repo:ro"
+          zricethezav/gitleaks:v8.18.2
+          detect --source=/repo --log-opts="--all"
+          --config=/repo/.gitleaks.toml --redact
+
   changes:
     name: "🔍 Detect changed areas"
     runs-on: ubuntu-latest
@@ -260,7 +278,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [changes, backend-ci, frontend-ci, backend-docker, firebase-auth-emulator]
+    needs: [secret-scan, changes, backend-ci, frontend-ci, backend-docker, firebase-auth-emulator]
     if: >-
       always() &&
       ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
@@ -272,8 +290,9 @@ jobs:
           FRONTEND: ${{ needs.frontend-ci.result }}
           DOCKER: ${{ needs.backend-docker.result }}
           FIREBASE_AUTH: ${{ needs.firebase-auth-emulator.result }}
+          SECRET_SCAN: ${{ needs.secret-scan.result }}
         run: |
-          for result in "$BACKEND" "$FRONTEND" "$DOCKER" "$FIREBASE_AUTH"; do
+          for result in "$SECRET_SCAN" "$BACKEND" "$FRONTEND" "$DOCKER" "$FIREBASE_AUTH"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "A selected check failed or was cancelled: $result"
               exit 1
@@ -288,9 +307,11 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
+    needs: secret-scan
     if: >-
-      (github.event_name == 'pull_request' && github.base_ref == 'main') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      needs.secret-scan.result == 'success' &&
+      ((github.event_name == 'pull_request' && github.base_ref == 'main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     steps:
       - uses: actions/checkout@v4
 

@@ -148,6 +148,15 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local credentials and private keys. Keep public Firebase web configuration
+# in frontend/.env.example only; never commit server credentials.
+*.pem
+*.key
+*.p12
+*.pfx
+**/*credential*.json
+**/credentials*.json
+
 # Firebase credentials (NEVER commit service account keys!)
 backend/app/config/firebase-service-account.json
 
@@ -219,6 +228,14 @@ __marimo__/
 **/*service-account*.json
 **/serviceAccountKey.json
 firebase-adminsdk-*.json
+
+# Local runtime data and generated output
+**/chroma_db*/
+**/logs/
+**/*.log
+**/.next/
+**/.cache/
+**/.mypy_cache/
 
 # Proprietary prompts and AI configuration
 backend/config/*.txt
