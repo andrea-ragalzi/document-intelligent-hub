@@ -28,6 +28,7 @@ import { useServerStatus } from "@/hooks/useServerStatus";
 import { useUserTier } from "@/hooks/useUserTier";
 import { useQueryUsage } from "@/hooks/useQueryUsage";
 import { useDemoDocument } from "@/hooks/useDemoDocument";
+import { useVisualViewportHeight } from "@/hooks/useVisualViewportHeight";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -40,6 +41,8 @@ import {
 } from "@/hooks/queries/useConversationsQuery";
 
 export default function Page() {
+  const dashboardViewportRef = useRef<HTMLDivElement>(null);
+  useVisualViewportHeight(dashboardViewportRef);
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { userId, isAuthReady } = useUserId();
@@ -509,7 +512,10 @@ export default function Page() {
 
   return (
     <ProtectedRoute>
-      <div className="app-shell h-screen h-[100dvh] flex flex-col font-sans transition-colors duration-300">
+      <div
+        ref={dashboardViewportRef}
+        className="app-shell h-screen h-[100dvh] flex flex-col font-sans transition-colors duration-300"
+      >
         {/* Top Bar */}
         <TopBar
           onOpenLeftSidebar={() => {
