@@ -51,7 +51,8 @@ class DocumentFileStorage:
             return None
         trusted_directory = os.path.realpath(user_directory)
         candidate = os.path.realpath(os.path.join(trusted_directory, str(storage_name)))
-        if os.path.commonpath((trusted_directory, candidate)) != trusted_directory:
+        trusted_prefix = f"{trusted_directory}{os.sep}"
+        if not candidate.startswith(trusted_prefix):
             return None
         return Path(candidate)
 
