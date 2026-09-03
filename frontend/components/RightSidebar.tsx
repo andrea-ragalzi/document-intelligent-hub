@@ -9,6 +9,7 @@ import { SettingsView } from "./RightSidebar/SettingsView";
 import { DocumentsView } from "./RightSidebar/DocumentsView";
 import { SidebarHeader } from "./RightSidebar/SidebarHeader";
 import { MenuProfileSection } from "./RightSidebar/MenuProfileSection";
+import type { TierLimits, UserTier } from "@/hooks/useUserTier";
 
 interface RightSidebarProps {
   userId: string | null;
@@ -25,6 +26,9 @@ interface RightSidebarProps {
   onOpenFeedback: () => void;
   isServerOnline?: boolean;
   currentQueries?: number;
+  tier: UserTier;
+  tierLimits: TierLimits;
+  isTierLoading: boolean;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -40,6 +44,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onOpenFeedback,
   isServerOnline = true,
   currentQueries = 0,
+  tier,
+  tierLimits,
+  isTierLoading,
 }) => {
   const [activeView, setActiveView] = useState<"menu" | "documents" | "settings">("menu");
   const { user, logout } = useAuth();
@@ -110,6 +117,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             displayName={displayName}
             documents={documents}
             currentQueries={currentQueries}
+            tier={tier}
+            tierLimits={tierLimits}
+            isTierLoading={isTierLoading}
             onClose={onClose}
             onLogout={handleLogout}
           />

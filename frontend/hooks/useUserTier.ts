@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export type UserTier = "FREE" | "PRO" | "UNLIMITED";
 
-interface TierLimits {
+export interface TierLimits {
   maxDocuments: number;
   maxQueriesPerDay: number;
   canUploadMultiple: boolean;

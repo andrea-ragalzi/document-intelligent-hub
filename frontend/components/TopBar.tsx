@@ -2,18 +2,23 @@
 
 import { Menu, User } from "lucide-react";
 import TierBadge from "./TierBadge";
-import { useUserTier } from "@/hooks/useUserTier";
+import type { UserTier } from "@/hooks/useUserTier";
 
 interface TopBarProps {
   onOpenLeftSidebar: () => void;
   onOpenRightSidebar: () => void;
   onNewConversation: () => void;
   hasConversation: boolean;
+  tier: UserTier;
+  isTierLoading: boolean;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ onOpenLeftSidebar, onOpenRightSidebar }) => {
-  const { tier, isLoading } = useUserTier();
-
+export const TopBar: React.FC<TopBarProps> = ({
+  onOpenLeftSidebar,
+  onOpenRightSidebar,
+  tier,
+  isTierLoading,
+}) => {
   return (
     <div className="w-full bg-raised border-b border-line/15 transition-colors duration-200 ease-in-out font-[Inter]">
       <div className="flex items-center justify-between px-4 py-3">
@@ -36,7 +41,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onOpenLeftSidebar, onOpenRightSi
             Document Intelligent Hub
           </h1>
           {/* Tier badge - hidden on small screens */}
-          {!isLoading && (
+          {!isTierLoading && (
             <div className="hidden md:block">
               <TierBadge tier={tier} />
             </div>
