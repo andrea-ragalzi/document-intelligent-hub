@@ -52,4 +52,37 @@ describe("useChatAI", () => {
       headers: { Authorization: "Bearer refreshed-token" },
     });
   });
+
+  it("preserves source annotations on the matching assistant message", () => {
+    vi.mocked(useChat).mockReturnValue({
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "The answer is grounded in the document.",
+          annotations: [
+            { type: "sources", sources: ["alice-cheshire-cat-demo.pdf", "policy.pdf"] },
+          ],
+        },
+      ],
+      input: "",
+      handleInputChange: vi.fn(),
+      handleSubmit: submitChat,
+      isLoading: false,
+      error: undefined,
+      setMessages: vi.fn(),
+    } as unknown as ReturnType<typeof useChat>);
+
+    const { result } = renderHook(() =>
+      useChatAI({ userId: "user-a", selectedOutputLanguage: "en" })
+    );
+
+    expect(result.current.chatHistory).toEqual([
+      {
+        type: "assistant",
+        text: "The answer is grounded in the document.",
+        sources: ["alice-cheshire-cat-demo.pdf", "policy.pdf"],
+      },
+    ]);
+  });
 });

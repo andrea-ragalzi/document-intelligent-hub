@@ -6,6 +6,7 @@ import { UploadProgress } from "./UploadProgress";
 import { AlertMessage } from "./AlertMessage";
 import { LanguageSelector } from "./LanguageSelector";
 import type { AlertState } from "@/lib/types";
+import type { DuplicateAction } from "@/hooks/useDocumentUpload";
 
 interface UploadProgressState {
   progress: number;
@@ -20,24 +21,98 @@ interface UploadProgressState {
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  file: File | null;
+  files: File[];
   isUploading: boolean;
   uploadAlert: AlertState;
+  pendingDuplicate: File | null;
   onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onUpload: (e: FormEvent) => void;
+  onResolveDuplicate: (action: DuplicateAction) => void;
   uploadProgress?: UploadProgressState;
   selectedLanguage: string;
   onLanguageChange: (lang: string) => void;
 }
 
+const SelectedFiles: React.FC<{ files: File[] }> = ({ files }) => {
+  if (!files.length) return null;
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-line/20 bg-raised p-4">
+      <FileText size={24} className="flex-shrink-0 text-accent" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-ink">
+          {files.length} PDF{files.length === 1 ? "" : "s"} selected
+        </p>
+        <ul className="mt-1 max-h-24 space-y-1 overflow-y-auto text-xs text-muted">
+          {files.map((file, index) => (
+            <li key={`${file.name}-${file.lastModified}-${index}`} className="truncate">
+              {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+interface DuplicateFileOptionsProps {
+  file: File | null;
+  onResolve: (action: DuplicateAction) => void;
+}
+
+const DuplicateFileOptions: React.FC<DuplicateFileOptionsProps> = ({ file, onResolve }) => {
+  if (!file) return null;
+
+  return (
+    <section
+      aria-label="Duplicate file options"
+      className="rounded-lg border border-line/20 bg-raised p-4"
+    >
+      <h3 className="text-sm font-semibold text-ink">A document already has this name</h3>
+      <p className="mt-1 break-words text-sm text-muted">{file.name}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onResolve("replace")}
+          className="ui-primary-action rounded-lg px-3 py-2 text-sm font-medium"
+        >
+          Replace
+        </button>
+        <button
+          type="button"
+          onClick={() => onResolve("rename")}
+          className="ui-secondary-action rounded-lg px-3 py-2 text-sm font-medium"
+        >
+          Rename copy
+        </button>
+        <button
+          type="button"
+          onClick={() => onResolve("skip")}
+          className="ui-secondary-action rounded-lg px-3 py-2 text-sm font-medium"
+        >
+          Skip
+        </button>
+      </div>
+    </section>
+  );
+};
+
+const getUploadButtonLabel = (fileCount: number, isUploading: boolean): string => {
+  if (isUploading) return "Uploading...";
+  if (fileCount === 1) return "Upload Document";
+  return `Upload ${fileCount} Documents`;
+};
+
 export const UploadModal: React.FC<UploadModalProps> = ({
   isOpen,
   onClose,
-  file,
+  files,
   isUploading,
   uploadAlert,
+  pendingDuplicate,
   onFileChange,
   onUpload,
+  onResolveDuplicate,
   uploadProgress,
   selectedLanguage,
   onLanguageChange,
@@ -100,7 +175,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   const iconClassName = isDragging ? "text-accent" : "text-muted";
 
-  const dropZoneText = isDragging ? "Drop your PDF here" : "Drag & drop your PDF here";
+  const dropZoneText = isDragging ? "Drop your PDFs here" : "Drag & drop your PDFs here";
 
   return (
     <>
@@ -172,6 +247,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                     id="file-input"
                     aria-label="Select PDF to upload"
                     accept=".pdf"
+                    multiple
                     onChange={onFileChange}
                     disabled={isUploading}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
@@ -179,16 +255,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 </div>
               </button>
 
-              {/* Selected File */}
-              {file && (
-                <div className="flex items-center gap-3 rounded-lg border border-line/20 bg-raised p-4">
-                  <FileText size={24} className="flex-shrink-0 text-accent" />
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium text-ink">{file.name}</p>
-                    <p className="text-xs text-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                  </div>
-                </div>
-              )}
+              <SelectedFiles files={files} />
+              <DuplicateFileOptions file={pendingDuplicate} onResolve={onResolveDuplicate} />
 
               {/* Language Selector */}
               <LanguageSelector
@@ -226,11 +294,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={!file || isUploading}
+                  disabled={!files.length || isUploading || !!pendingDuplicate}
                   className="ui-primary-action flex items-center gap-2 rounded-lg px-6 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Upload size={16} />
-                  {isUploading ? "Uploading..." : "Upload Document"}
+                  {getUploadButtonLabel(files.length, isUploading)}
                 </button>
               </div>
             </form>

@@ -8,6 +8,29 @@ interface UseChatAIProps {
   selectedOutputLanguage?: string;
 }
 
+const getSourceFilenames = (annotations: Message["annotations"]): string[] => {
+  const sourcesAnnotation = annotations?.find(
+    annotation =>
+      typeof annotation === "object" &&
+      annotation !== null &&
+      !Array.isArray(annotation) &&
+      "type" in annotation &&
+      annotation.type === "sources" &&
+      "sources" in annotation
+  );
+
+  if (
+    !sourcesAnnotation ||
+    typeof sourcesAnnotation !== "object" ||
+    Array.isArray(sourcesAnnotation) ||
+    !Array.isArray(sourcesAnnotation.sources)
+  ) {
+    return [];
+  }
+
+  return sourcesAnnotation.sources.filter((source): source is string => typeof source === "string");
+};
+
 export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
   const { getIdToken } = useAuth();
 
@@ -59,7 +82,7 @@ export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
     .map((msg: Message) => ({
       type: msg.role === "user" ? ("user" as const) : ("assistant" as const),
       text: msg.content,
-      sources: [], // Le fonti verranno gestite diversamente con lo streaming
+      sources: msg.role === "assistant" ? getSourceFilenames(msg.annotations) : [],
     }));
 
   return {

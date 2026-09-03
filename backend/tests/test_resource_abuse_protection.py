@@ -187,6 +187,9 @@ async def test_concurrent_upload_at_document_limit_does_not_start_second_index(
     release = Event()
 
     class RAG:
+        def user_document_exists(self, *_args: object) -> bool:
+            return False
+
         async def index_document(self, **_kwargs: object) -> tuple[int, str]:
             started.set()
             assert await asyncio.to_thread(release.wait, 1)
@@ -216,6 +219,84 @@ async def test_concurrent_upload_at_document_limit_does_not_start_second_index(
     assert error.value.status_code == 429
     release.set()
     assert (await first).chunks_indexed == 1
+
+
+@pytest.mark.asyncio
+async def test_duplicate_upload_requires_an_explicit_server_side_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A client cannot silently add another document with an owned filename."""
+    monkeypatch.setattr(documents_router, "upload_concurrency_limiter", QueryConcurrencyLimiter())
+    rag = Mock()
+    rag.user_document_exists.return_value = True
+    document_storage = Mock()
+
+    upload_attempt = documents_router.upload_document(
+        None,
+        UploadFile(file=BytesIO(b"%PDF-new"), filename="report.pdf"),
+        "owner-uid",
+        rag,
+        document_storage,
+        duplicate_action="reject",
+    )
+    with pytest.raises(HTTPException) as error:
+        await upload_attempt
+
+    assert error.value.status_code == 409
+    document_storage.store.assert_not_called()
+    rag.index_document.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_upload_can_be_renamed_without_replacing_the_original(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rename generates the next owned filename and leaves the original in place."""
+    monkeypatch.setattr(documents_router, "upload_concurrency_limiter", QueryConcurrencyLimiter())
+    monkeypatch.setattr(documents_router, "_check_file_limits", lambda *_args: (1024, 1.0))
+    rag = Mock()
+    rag.user_document_exists.side_effect = [True, False]
+    rag.index_document = AsyncMock(return_value=(2, "EN"))
+    document_storage = Mock()
+
+    response = await documents_router.upload_document(
+        None,
+        UploadFile(file=BytesIO(b"%PDF-new"), filename="report.pdf"),
+        "owner-uid",
+        rag,
+        document_storage,
+        duplicate_action="rename",
+    )
+
+    assert response.filename == "report (1).pdf"
+    assert rag.index_document.await_args.kwargs["file"].filename == "report (1).pdf"
+    rag.delete_user_document.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_upload_can_replace_without_consuming_an_extra_file_slot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Replacing an owned name deletes its prior chunks before indexing the replacement."""
+    monkeypatch.setattr(documents_router, "upload_concurrency_limiter", QueryConcurrencyLimiter())
+    rag = Mock()
+    rag.user_document_exists.return_value = True
+    rag.delete_user_document.return_value = 3
+    rag.index_document = AsyncMock(return_value=(2, "EN"))
+    document_storage = Mock()
+
+    response = await documents_router.upload_document(
+        None,
+        UploadFile(file=BytesIO(b"%PDF-new"), filename="report.pdf"),
+        "owner-uid",
+        rag,
+        document_storage,
+        duplicate_action="replace",
+    )
+
+    assert response.filename == "report.pdf"
+    rag.delete_user_document.assert_called_once_with("owner-uid", "report.pdf")
+    rag.index_document.assert_awaited_once()
 
 
 @pytest.mark.asyncio

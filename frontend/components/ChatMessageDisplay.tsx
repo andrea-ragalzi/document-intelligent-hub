@@ -13,6 +13,44 @@ const cleanDocumentMarkers = (text: string): string => {
   return text.replaceAll(/\s?\[DOCUMENT \d+\]/gi, "");
 };
 
+const LEGACY_SOURCE_HEADINGS = new Set(["sources", "fonti", "fuentes", "quellen"]);
+
+const splitLegacySources = (text: string): { answer: string; sources: string[] } => {
+  const lines = text.split("\n");
+  let lastContentLine = lines.length - 1;
+
+  while (lastContentLine >= 0 && !lines[lastContentLine].trim()) {
+    lastContentLine -= 1;
+  }
+
+  let firstSourceLine = lastContentLine;
+  while (firstSourceLine >= 0 && lines[firstSourceLine].trimStart().startsWith("- ")) {
+    firstSourceLine -= 1;
+  }
+
+  if (firstSourceLine === lastContentLine) return { answer: text, sources: [] };
+
+  const heading = lines[firstSourceLine]?.trim() || "";
+  const separatorIndex = heading.indexOf(":");
+  const headingLabel = heading.slice(0, separatorIndex).replace("📚", "").trim().toLowerCase();
+  const hasLegacyHeading =
+    separatorIndex > 0 && heading.startsWith("📚") && LEGACY_SOURCE_HEADINGS.has(headingLabel);
+  const hasBlankSeparator = firstSourceLine > 0 && !lines[firstSourceLine - 1].trim();
+
+  if (!hasLegacyHeading || !hasBlankSeparator) return { answer: text, sources: [] };
+
+  return {
+    answer: lines
+      .slice(0, firstSourceLine - 1)
+      .join("\n")
+      .trimEnd(),
+    sources: lines
+      .slice(firstSourceLine + 1, lastContentLine + 1)
+      .map(line => line.replace(/^\s*-\s+/, "").trim())
+      .filter(Boolean),
+  };
+};
+
 const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
   <div
     className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
@@ -26,8 +64,9 @@ const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
 export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) => {
   const isUser = msg.type === "user";
 
-  // Clean up the message text to remove [DOCUMENT X] markers
-  const cleanedText = cleanDocumentMarkers(msg.text);
+  const { answer, sources: legacySources } = splitLegacySources(msg.text);
+  const cleanedText = cleanDocumentMarkers(answer);
+  const sources = [...new Set([...msg.sources, ...legacySources])];
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 sm:mb-6 px-1 sm:px-2`}>
@@ -59,35 +98,26 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
           ) : (
             <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">{cleanedText}</p>
           )}
-
-          {/* Sources */}
-          {!isUser && msg.sources.length > 0 && !msg.isThinking && (
-            <div className="mt-3 pt-2 border-t border-line/15">
-              <span className="text-xs font-semibold text-muted flex items-center mb-1">
-                <LinkIcon size={12} className="mr-1.5" />
-                Sources ({msg.sources.length}):
-              </span>
-              <ul className="list-disc list-inside text-xs text-ink space-y-0.5 max-h-24 overflow-y-auto pr-2">
-                {msg.sources.map((source, i) => (
-                  <li
-                    key={`source-${i}-${source.substring(0, 30)}`}
-                    className="truncate hover:text-accent transition-colors"
-                  >
-                    <a
-                      href={source}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={source}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      {source}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
+
+        {!isUser && sources.length > 0 && !msg.isThinking && (
+          <section
+            aria-label="Sources"
+            className="mt-2 rounded-lg border border-line/15 bg-raised/50 px-3 py-2"
+          >
+            <h3 className="mb-1 flex items-center text-xs font-semibold text-muted">
+              <LinkIcon size={12} className="mr-1.5" />
+              Sources
+            </h3>
+            <ul className="max-h-24 space-y-0.5 overflow-y-auto pr-2 text-xs text-ink">
+              {sources.map(source => (
+                <li key={source} className="truncate" title={source}>
+                  {source}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
       {isUser && <Avatar isUser={true} />}
