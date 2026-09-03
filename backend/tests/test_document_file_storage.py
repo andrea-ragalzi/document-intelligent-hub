@@ -29,3 +29,20 @@ def test_deleting_original_removes_only_that_users_file(tmp_path: Path) -> None:
     other_file = storage.get("other-uid", "shared.pdf")
     assert other_file is not None
     assert other_file.read_bytes() == b"other"
+
+
+def test_reupload_replaces_an_original_with_a_new_random_storage_name(tmp_path: Path) -> None:
+    """Client filenames must never become stable filesystem paths."""
+    storage = DocumentFileStorage(tmp_path)
+
+    storage.store("owner-uid", "report.pdf", b"first version")
+    first_file = storage.get("owner-uid", "report.pdf")
+
+    storage.store("owner-uid", "report.pdf", b"second version")
+    second_file = storage.get("owner-uid", "report.pdf")
+
+    assert first_file is not None
+    assert second_file is not None
+    assert second_file != first_file
+    assert not first_file.exists()
+    assert second_file.read_bytes() == b"second version"
