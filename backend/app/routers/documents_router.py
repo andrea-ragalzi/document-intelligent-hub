@@ -477,14 +477,21 @@ async def get_document_content(
     document_storage: DocumentFileStorage = Depends(get_document_file_storage),
 ) -> FileResponse:
     """Return an authenticated user's original PDF for preview or download."""
-    safe_filename = _validate_and_sanitize_filename(filename)
-    if not rag_service.user_document_exists(user_id, safe_filename):
+    owned_document = next(
+        (
+            document
+            for document in rag_service.get_user_documents(user_id)
+            if document.filename == filename
+        ),
+        None,
+    )
+    if owned_document is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
         )
 
-    original_file = document_storage.get(user_id, safe_filename)
+    original_file = document_storage.get(user_id, owned_document.filename)
     if original_file is None:
         # Documents indexed before original-file storage was introduced remain
         # usable for RAG but cannot be reconstructed from ChromaDB chunks.
@@ -496,7 +503,7 @@ async def get_document_content(
     return FileResponse(
         path=original_file,
         media_type="application/pdf",
-        filename=safe_filename,
+        filename=owned_document.filename,
         content_disposition_type="attachment" if download else "inline",
     )
 

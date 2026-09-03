@@ -198,9 +198,10 @@ def test_document_content_uses_verified_uid_not_client_user_id(
     client, rag_service = protected_client
     storage = DocumentFileStorage(tmp_path)
     storage.store(AUTHENTICATED_USER, "private.pdf", b"%PDF-1.4 owner")
-    rag_service.user_document_exists.side_effect = (
-        lambda user_id, filename: user_id == AUTHENTICATED_USER and filename == "private.pdf"
-    )
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(filename="private.pdf", chunks_count=1, language="EN")
+    ]
+    rag_service.user_document_exists.return_value = False
     app.dependency_overrides[get_document_file_storage] = lambda: storage
 
     try:
@@ -219,9 +220,8 @@ def test_document_content_uses_verified_uid_not_client_user_id(
     assert response.status_code == 200
     assert response.content == b"%PDF-1.4 owner"
     assert "inline" in response.headers["content-disposition"]
-    rag_service.user_document_exists.assert_called_once_with(
-        AUTHENTICATED_USER, "private.pdf"
-    )
+    rag_service.get_user_documents.assert_called_once_with(AUTHENTICATED_USER)
+    rag_service.user_document_exists.assert_not_called()
 
 
 def test_document_content_rejects_unauthenticated_requests(
@@ -236,6 +236,34 @@ def test_document_content_rejects_unauthenticated_requests(
     assert response.status_code == 401
     verify_id_token.assert_not_called()
     rag_service.user_document_exists.assert_not_called()
+
+
+def test_document_content_does_not_read_unowned_filenames(
+    protected_client: tuple[TestClient, Mock],
+) -> None:
+    """A requested name outside the authenticated user's list cannot reach storage."""
+    client, rag_service = protected_client
+    document_storage = Mock(spec=DocumentFileStorage)
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(filename="owned.pdf", chunks_count=1, language="EN")
+    ]
+    app.dependency_overrides[get_document_file_storage] = lambda: document_storage
+
+    try:
+        with patch(
+            "app.core.auth.auth.verify_id_token",
+            return_value={"uid": AUTHENTICATED_USER},
+        ):
+            response = client.get(
+                "/rag/documents/content",
+                params={"filename": "unowned.pdf"},
+                headers=VALID_AUTH_HEADER,
+            )
+    finally:
+        app.dependency_overrides.pop(get_document_file_storage, None)
+
+    assert response.status_code == 404
+    document_storage.get.assert_not_called()
 
 
 def test_query_uses_verified_uid_and_ignores_spoofed_user_id(
