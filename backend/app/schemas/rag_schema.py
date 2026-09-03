@@ -277,6 +277,12 @@ class DocumentInfo(BaseModel):
     uploaded_at: Optional[str] = Field(
         None, description="Upload timestamp if available."
     )
+    original_available: bool = Field(
+        False, description="Whether the authenticated user can preview or download the original file."
+    )
+    is_demo_document: bool = Field(
+        False, description="Whether this is the bundled demo document, excluded from personal quotas."
+    )
 
 
 class DocumentListResponse(BaseModel):

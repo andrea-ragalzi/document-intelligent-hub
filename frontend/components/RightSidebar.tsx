@@ -20,6 +20,8 @@ interface RightSidebarProps {
   documents: Document[] | undefined;
   isLoadingDocuments?: boolean;
   onDeleteDocument: (filename: string) => void;
+  onPreviewDocument: (filename: string) => Promise<void>;
+  onDownloadDocument: (filename: string) => Promise<void>;
   onRefreshDocuments?: () => Promise<void>;
   onDeleteAccount: () => void;
   onOpenBugReport: () => void;
@@ -39,6 +41,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onToggleTheme,
   documents,
   onDeleteDocument,
+  onPreviewDocument,
+  onDownloadDocument,
   onDeleteAccount,
   onOpenBugReport,
   onOpenFeedback,
@@ -200,6 +204,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             <DocumentsView
               documents={documents}
               onDeleteDocument={onDeleteDocument}
+              onPreviewDocument={onPreviewDocument}
+              onDownloadDocument={onDownloadDocument}
               isServerOnline={isServerOnline}
             />
           ) : null}

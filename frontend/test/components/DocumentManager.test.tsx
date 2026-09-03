@@ -18,6 +18,8 @@ describe("DocumentManager", () => {
   const mockOnFileChange = vi.fn();
   const mockOnUpload = vi.fn();
   const mockDeleteDocument = vi.fn();
+  const mockPreviewDocument = vi.fn();
+  const mockDownloadDocument = vi.fn();
   const mockRefreshDocuments = vi.fn();
 
   const defaultProps = {
@@ -28,6 +30,11 @@ describe("DocumentManager", () => {
     statusAlert: null,
     onFileChange: mockOnFileChange,
     onUpload: mockOnUpload,
+  };
+
+  const documentActions = {
+    previewDocument: mockPreviewDocument,
+    downloadDocument: mockDownloadDocument,
   };
 
   const mockDocuments = [
@@ -54,6 +61,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
   });
@@ -126,6 +134,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -145,6 +154,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -171,6 +181,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -186,6 +197,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -214,6 +226,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -236,6 +249,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -259,6 +273,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -285,6 +300,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -343,6 +359,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 
@@ -371,6 +388,7 @@ describe("DocumentManager", () => {
       error: null,
       refreshDocuments: mockRefreshDocuments,
       deleteDocument: mockDeleteDocument,
+      ...documentActions,
       deleteAllDocuments: vi.fn(),
     });
 

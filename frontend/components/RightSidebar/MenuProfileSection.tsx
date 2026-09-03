@@ -8,7 +8,11 @@ interface Document {
   filename: string;
   chunks_count: number;
   language?: string;
+  is_demo_document?: boolean;
 }
+
+export const getPersonalDocumentCount = (documents: Document[] | undefined): number =>
+  documents?.filter(document => document.is_demo_document !== true).length || 0;
 
 interface MenuProfileSectionProps {
   user: User | null;
@@ -69,7 +73,7 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
 
       <div className="mb-3">
         <TierLimitsDisplay
-          currentDocuments={documents?.length || 0}
+          currentDocuments={getPersonalDocumentCount(documents)}
           currentQueries={currentQueries}
           tier={tier}
           limits={tierLimits}

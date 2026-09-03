@@ -10,6 +10,10 @@ from firebase_admin import auth
 from app.routers import query_router
 from app.schemas.rag_schema import DocumentInfo, FileFilterResponse
 from app.services.rag_orchestrator_service import RAGService, get_rag_service
+from app.services.document_file_storage import (
+    DocumentFileStorage,
+    get_document_file_storage,
+)
 from main import app
 
 
@@ -115,6 +119,8 @@ def test_document_list_uses_verified_uid_and_ignores_spoofed_user_id(
                 "chunks_count": 1,
                 "language": "EN",
                 "uploaded_at": None,
+                "original_available": False,
+                "is_demo_document": False,
             }
         ],
         "total_count": 1,
@@ -183,6 +189,111 @@ def test_delete_cannot_target_another_user_via_client_user_id(
         user_id=AUTHENTICATED_USER,
         filename="shared.pdf",
     )
+
+
+def test_document_content_uses_verified_uid_not_client_user_id(
+    protected_client: tuple[TestClient, Mock], tmp_path,
+) -> None:
+    """Original PDF access is scoped to the Firebase UID in the token."""
+    client, rag_service = protected_client
+    storage = DocumentFileStorage(tmp_path)
+    storage.store(AUTHENTICATED_USER, "private.pdf", b"%PDF-1.4 owner")
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(filename="private.pdf", chunks_count=1, language="EN")
+    ]
+    rag_service.user_document_exists.return_value = False
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+
+    try:
+        with patch(
+            "app.core.auth.auth.verify_id_token",
+            return_value={"uid": AUTHENTICATED_USER},
+        ):
+            response = client.get(
+                "/rag/documents/content",
+                params={"filename": "private.pdf", "user_id": OTHER_USER},
+                headers=VALID_AUTH_HEADER,
+            )
+    finally:
+        app.dependency_overrides.pop(get_document_file_storage, None)
+
+    assert response.status_code == 200
+    assert response.content == b"%PDF-1.4 owner"
+    assert "inline" in response.headers["content-disposition"]
+    rag_service.get_user_documents.assert_called_once_with(AUTHENTICATED_USER)
+    rag_service.user_document_exists.assert_not_called()
+
+
+def test_document_content_rejects_unauthenticated_requests(
+    protected_client: tuple[TestClient, Mock],
+) -> None:
+    """A browser cannot retrieve an original merely by knowing its filename."""
+    client, rag_service = protected_client
+
+    with patch("app.core.auth.auth.verify_id_token") as verify_id_token:
+        response = client.get("/rag/documents/content", params={"filename": "private.pdf"})
+
+    assert response.status_code == 401
+    verify_id_token.assert_not_called()
+    rag_service.user_document_exists.assert_not_called()
+
+
+def test_document_content_does_not_read_unowned_filenames(
+    protected_client: tuple[TestClient, Mock],
+) -> None:
+    """A requested name outside the authenticated user's list cannot reach storage."""
+    client, rag_service = protected_client
+    document_storage = Mock(spec=DocumentFileStorage)
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(filename="owned.pdf", chunks_count=1, language="EN")
+    ]
+    app.dependency_overrides[get_document_file_storage] = lambda: document_storage
+
+    try:
+        with patch(
+            "app.core.auth.auth.verify_id_token",
+            return_value={"uid": AUTHENTICATED_USER},
+        ):
+            response = client.get(
+                "/rag/documents/content",
+                params={"filename": "unowned.pdf"},
+                headers=VALID_AUTH_HEADER,
+            )
+    finally:
+        app.dependency_overrides.pop(get_document_file_storage, None)
+
+    assert response.status_code == 404
+    document_storage.get.assert_not_called()
+
+
+def test_document_content_rejects_files_outside_storage_root(
+    protected_client: tuple[TestClient, Mock], tmp_path,
+) -> None:
+    """A storage defect cannot make an external file available to a user."""
+    client, rag_service = protected_client
+    storage = DocumentFileStorage(tmp_path / "originals")
+    outside_file = tmp_path / "outside.pdf"
+    outside_file.write_bytes(b"%PDF-1.4 outside")
+    storage.get = Mock(return_value=outside_file)  # type: ignore[method-assign]
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(filename="owned.pdf", chunks_count=1, language="EN")
+    ]
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+
+    try:
+        with patch(
+            "app.core.auth.auth.verify_id_token",
+            return_value={"uid": AUTHENTICATED_USER},
+        ):
+            response = client.get(
+                "/rag/documents/content",
+                params={"filename": "owned.pdf"},
+                headers=VALID_AUTH_HEADER,
+            )
+    finally:
+        app.dependency_overrides.pop(get_document_file_storage, None)
+
+    assert response.status_code == 404
 
 
 def test_query_uses_verified_uid_and_ignores_spoofed_user_id(

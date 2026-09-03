@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { Download, Eye, Trash2 } from "lucide-react";
 import { createPortal } from "react-dom";
 
 interface DocumentContextMenuProps {
@@ -7,10 +7,13 @@ interface DocumentContextMenuProps {
   dragY: number;
   isDragging: boolean;
   selectedDoc: string | null;
+  originalAvailable: boolean;
   isServerOnline?: boolean;
   menuRef: React.MutableRefObject<HTMLDivElement | null>;
   onClose: () => void;
   onDelete: (filename: string) => void;
+  onPreview: (filename: string) => Promise<void>;
+  onDownload: (filename: string) => Promise<void>;
   onDragStart: (e: React.TouchEvent) => void;
   onDragMove: (e: React.TouchEvent) => void;
   onDragEnd: () => void;
@@ -23,16 +26,20 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
   dragY,
   isDragging,
   selectedDoc,
+  originalAvailable,
   isServerOnline = true,
   menuRef,
   onClose,
   onDelete,
+  onPreview,
+  onDownload,
   onDragStart,
   onDragMove,
   onDragEnd,
   runActionAndCloseMenu,
 }) => {
   if (!isOpen || !menuPosition || !selectedDoc) return null;
+  const documentActionsDisabled = isServerOnline === false || !originalAvailable;
 
   return createPortal(
     <>
@@ -75,12 +82,33 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
         {/* Menu Items */}
         <div className="p-2">
           <button
+            onClick={() => runActionAndCloseMenu(() => onPreview(selectedDoc))}
+            disabled={documentActionsDisabled}
+            className="w-full text-left px-4 py-3 rounded-lg text-ink hover:bg-surface-hover transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Preview document"
+            title="Preview document"
+          >
+            <Eye size={18} />
+            <span className="font-medium">Preview</span>
+          </button>
+          <button
+            onClick={() => runActionAndCloseMenu(() => onDownload(selectedDoc))}
+            disabled={documentActionsDisabled}
+            className="w-full text-left px-4 py-3 rounded-lg text-ink hover:bg-surface-hover transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Download document"
+            title="Download document"
+          >
+            <Download size={18} />
+            <span className="font-medium">Download</span>
+          </button>
+          <button
             onClick={() => runActionAndCloseMenu(() => onDelete(selectedDoc))}
             disabled={isServerOnline === false}
             className="w-full text-left px-4 py-3 rounded-lg text-red-300 hover:bg-red-900/30 transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             title={
               isServerOnline === false ? "Server offline - delete unavailable" : "Delete document"
             }
+            aria-label="Delete document"
           >
             <Trash2 size={18} />
             <span className="font-medium">Delete</span>

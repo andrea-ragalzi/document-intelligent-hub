@@ -99,6 +99,7 @@ Create the ignored local configuration with `cp backend/.env.example backend/.en
 | `OPENAI_API_KEY`                  | OpenAI calls used by query processing, expansion, and answer generation |
 | `LLM_MODEL`                       | Main OpenAI chat model used by the RAG services                         |
 | `CHROMA_DB_PATH`                  | Persistent ChromaDB storage path                                        |
+| `DOCUMENT_STORAGE_PATH`           | Private original-PDF storage for authenticated preview/download          |
 | `FIREBASE_CREDENTIALS`            | Firebase service-account JSON supplied as an environment value          |
 | `FIREBASE_SERVICE_ACCOUNT_PATH`   | Alternate path to a Firebase service-account JSON file                  |
 | `RAG_SYSTEM_PROMPT_PATH`          | Override path for the RAG system prompt                                 |
@@ -111,6 +112,8 @@ Create the ignored local configuration with `cp backend/.env.example backend/.en
 | `REPORT_RECIPIENT_EMAIL`          | Fixed recipient for support and invitation notifications                |
 
 If prompt files are absent, `app/core/config.py` falls back to built-in prompt text. For local customization, copy the tracked files in `config/*.txt.example` to the corresponding ignored `.txt` filenames.
+
+Uploaded PDF originals are retained separately from ChromaDB data structures so their owner can preview or download them. For Railway, set `DOCUMENT_STORAGE_PATH` to a mounted persistent volume path (for example `/data/uploads`); without a volume, originals disappear on a redeploy while indexed chunks may remain.
 
 ## Running Locally
 

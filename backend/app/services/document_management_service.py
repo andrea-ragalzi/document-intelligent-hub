@@ -70,6 +70,7 @@ class DocumentManagementService:
                         "filename": filename,
                         "language": metadata.get("original_language_code", "unknown"),
                         "uploaded_at": metadata.get("uploaded_at"),
+                        "is_demo_document": bool(metadata.get("is_demo_document", False)),
                         "chunks": 1,
                     }
                 else:
@@ -82,6 +83,8 @@ class DocumentManagementService:
                     chunks_count=doc["chunks"],
                     language=doc["language"],
                     uploaded_at=str(doc["uploaded_at"]) if doc["uploaded_at"] else None,
+                    original_available=False,
+                    is_demo_document=doc["is_demo_document"],
                 )
                 for doc in documents_map.values()
             ]

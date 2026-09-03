@@ -157,6 +157,9 @@ venv.bak/
 **/*credential*.json
 **/credentials*.json
 
+# Private originals retained locally for authenticated document preview/download.
+backend/uploads/
+
 # Firebase credentials (NEVER commit service account keys!)
 backend/app/config/firebase-service-account.json
 

@@ -9,6 +9,7 @@ export interface Document {
   chunks_count: number;
   language?: string;
   uploaded_at?: string;
+  original_available?: boolean;
 }
 
 interface DocumentsResponse {
@@ -23,6 +24,8 @@ interface UseDocumentsResult {
   error: string | null;
   refreshDocuments: () => Promise<void>;
   deleteDocument: (filename: string) => Promise<void>;
+  previewDocument: (filename: string) => Promise<void>;
+  downloadDocument: (filename: string) => Promise<void>;
   deleteAllDocuments: () => Promise<void>;
 }
 
@@ -179,6 +182,53 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
     await refreshDocuments();
   }, [userId, refreshDocuments]);
 
+  const getDocumentContent = useCallback(
+    async (filename: string, download = false) => {
+      try {
+        const token = await getIdToken();
+        if (!token) {
+          return null;
+        }
+        const query = new URLSearchParams({ filename });
+        if (download) query.set("download", "true");
+        const response = await fetch(`${API_BASE_URL}/documents/content?${query.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          return null;
+        }
+        return response.blob();
+      } catch {
+        return null;
+      }
+    },
+    [getIdToken]
+  );
+
+  const previewDocument = useCallback(
+    async (filename: string) => {
+      const file = await getDocumentContent(filename);
+      if (!file) return;
+      const objectUrl = URL.createObjectURL(file);
+      globalThis.window.open(objectUrl, "_blank", "noopener,noreferrer");
+    },
+    [getDocumentContent]
+  );
+
+  const downloadDocument = useCallback(
+    async (filename: string) => {
+      const file = await getDocumentContent(filename, true);
+      if (!file) return;
+      const objectUrl = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    },
+    [getDocumentContent]
+  );
+
   // Load documents on mount and when userId changes
   useEffect(() => {
     refreshDocuments();
@@ -193,6 +243,8 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
     error,
     refreshDocuments,
     deleteDocument,
+    previewDocument,
+    downloadDocument,
     deleteAllDocuments,
   };
 };

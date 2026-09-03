@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from app.routers.auth_router import clear_cache
+from app.services.email_service import get_email_service
 from fastapi.testclient import TestClient
 from main import app
 
@@ -467,26 +468,22 @@ class TestInvitationRequestEndpoint:
 
         assert response.status_code == 422  # Pydantic validation error
 
-    @patch("app.routers.auth_router.get_email_service")
-    def test_request_invitation_email_failure(
-        self, mock_get_email_service: Mock
-    ) -> None:
+    def test_request_invitation_email_failure(self) -> None:
         """Test invitation request when email service fails"""
-        # Mock email service failure
         mock_email_service = MagicMock()
-        mock_email_service.send_invitation_request = AsyncMock(
-            side_effect=Exception("Email service error")
-        )
-        mock_get_email_service.return_value = mock_email_service
-
-        response = client.post(
-            "/auth/request-invitation-code",
-            json={
-                "first_name": "Test",
-                "last_name": "User",
-                "email": "test@example.com",
-            },
-        )
+        mock_email_service.send_invitation_request.return_value = False
+        app.dependency_overrides[get_email_service] = lambda: mock_email_service
+        try:
+            response = client.post(
+                "/auth/request-invitation-code",
+                json={
+                    "first_name": "Test",
+                    "last_name": "User",
+                    "email": "test@example.com",
+                },
+            )
+        finally:
+            app.dependency_overrides.pop(get_email_service, None)
 
         assert response.status_code == 500
 
