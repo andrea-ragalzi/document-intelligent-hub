@@ -310,9 +310,6 @@ class AnswerGenerationService:
                 final_llm_query, target_language
             )
             source_documents = self._extract_source_files(context_docs)
-            final_answer = self._append_sources_to_answer(
-                final_answer, source_documents, target_language
-            )
             return final_answer, source_documents
 
         except Exception as e:  # pylint: disable=broad-exception-caught

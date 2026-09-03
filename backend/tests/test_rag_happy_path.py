@@ -83,10 +83,7 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
 
     network_connect.assert_not_called()
 
-    assert answer == (
-        "Records are retained for seven years.\n\n"
-        "📚 Sources:\n- policy-update.pdf\n- retention-policy.pdf"
-    )
+    assert answer == "Records are retained for seven years."
     assert sources == ["policy-update.pdf", "retention-policy.pdf"]
 
     query_processing.reformulate_query.assert_called_once_with("What changed?", [])
