@@ -6,7 +6,12 @@ import { getPlaceholderText } from "@/components/ChatSection/placeholderText";
 
 const freeTierProps = {
   tier: "FREE" as const,
-  limits: { maxDocuments: 5, maxQueriesPerDay: 20, canUploadMultiple: false, hasAdvancedFeatures: false },
+  limits: {
+    maxDocuments: 5,
+    maxQueriesPerDay: 20,
+    canUploadMultiple: false,
+    hasAdvancedFeatures: false,
+  },
   isLoading: false,
 };
 
