@@ -184,10 +184,13 @@ async def _read_and_validate_file_size(
 async def seed_demo_document(
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
+    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
 ) -> DemoDocumentSeedResponse:
     """Index the bundled Alice excerpt privately for the verified Firebase UID."""
     try:
-        result = await DemoDocumentService(rag_service).seed_for_user(user_id)
+        result = await DemoDocumentService(
+            rag_service, document_storage
+        ).seed_for_user(user_id)
         return DemoDocumentSeedResponse(
             status=result.status,
             message=(

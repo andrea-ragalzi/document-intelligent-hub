@@ -23,13 +23,16 @@ VALID_AUTH_HEADER = {"Authorization": "Bearer verified-user-a-token"}
 
 
 @pytest.fixture
-def protected_client() -> Generator[tuple[TestClient, Mock], None, None]:
+def protected_client(tmp_path) -> Generator[tuple[TestClient, Mock], None, None]:
     """Use real authentication with a fake RAG service and no app lifespan."""
     previous_overrides = app.dependency_overrides.copy()
     rag_service = Mock(spec=RAGService)
 
     app.dependency_overrides.clear()
     app.dependency_overrides[get_rag_service] = lambda: rag_service
+    app.dependency_overrides[get_document_file_storage] = lambda: DocumentFileStorage(
+        tmp_path / "document-originals"
+    )
     client = TestClient(app)
 
     try:
