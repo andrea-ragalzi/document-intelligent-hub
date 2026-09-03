@@ -266,6 +266,36 @@ def test_document_content_does_not_read_unowned_filenames(
     document_storage.get.assert_not_called()
 
 
+def test_document_content_rejects_files_outside_storage_root(
+    protected_client: tuple[TestClient, Mock], tmp_path,
+) -> None:
+    """A storage defect cannot make an external file available to a user."""
+    client, rag_service = protected_client
+    storage = DocumentFileStorage(tmp_path / "originals")
+    outside_file = tmp_path / "outside.pdf"
+    outside_file.write_bytes(b"%PDF-1.4 outside")
+    storage.get = Mock(return_value=outside_file)  # type: ignore[method-assign]
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(filename="owned.pdf", chunks_count=1, language="EN")
+    ]
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+
+    try:
+        with patch(
+            "app.core.auth.auth.verify_id_token",
+            return_value={"uid": AUTHENTICATED_USER},
+        ):
+            response = client.get(
+                "/rag/documents/content",
+                params={"filename": "owned.pdf"},
+                headers=VALID_AUTH_HEADER,
+            )
+    finally:
+        app.dependency_overrides.pop(get_document_file_storage, None)
+
+    assert response.status_code == 404
+
+
 def test_query_uses_verified_uid_and_ignores_spoofed_user_id(
     protected_client: tuple[TestClient, Mock],
 ) -> None:

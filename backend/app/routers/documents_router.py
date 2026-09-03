@@ -12,6 +12,7 @@ All endpoints require valid Firebase Auth token in Authorization header.
 """
 
 import asyncio
+import os
 from io import BytesIO
 from typing import Any, Dict, Tuple
 
@@ -500,8 +501,21 @@ async def get_document_content(
             detail="The original file is unavailable for this document.",
         )
 
+    storage_root = os.path.realpath(document_storage.root_path)
+    safe_file_path = os.path.realpath(original_file)
+    if not safe_file_path.startswith(f"{storage_root}{os.sep}"):
+        logger.warning(
+            f"Blocked original document outside storage root | "
+            f"User: {sanitize_log_value(user_id)} | "
+            f"File: {sanitize_log_value(owned_document.filename)}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
+        )
+
     return FileResponse(
-        path=original_file,
+        path=safe_file_path,
         media_type="application/pdf",
         filename=owned_document.filename,
         content_disposition_type="attachment" if download else "inline",
