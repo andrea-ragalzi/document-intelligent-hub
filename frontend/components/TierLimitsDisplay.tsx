@@ -3,12 +3,15 @@
  */
 
 import { FileText, MessageSquare, Crown } from "lucide-react";
-import { useUserTier } from "@/hooks/useUserTier";
+import type { TierLimits, UserTier } from "@/hooks/useUserTier";
 import TierBadge from "./TierBadge";
 
 interface TierLimitsDisplayProps {
   readonly currentDocuments?: number;
   readonly currentQueries?: number;
+  readonly tier: UserTier;
+  readonly limits: TierLimits;
+  readonly isLoading: boolean;
 }
 
 /**
@@ -95,22 +98,31 @@ function QueryLimitBar({
 export default function TierLimitsDisplay({
   currentDocuments = 0,
   currentQueries = 0,
+  tier,
+  limits,
+  isLoading,
 }: TierLimitsDisplayProps) {
-  const { tier, limits, isUnlimited } = useUserTier();
+  const isUnlimited = tier === "UNLIMITED";
 
   const documentPercentage = isUnlimited ? 0 : (currentDocuments / limits.maxDocuments) * 100;
   const queryPercentage = isUnlimited ? 0 : (currentQueries / limits.maxQueriesPerDay) * 100;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-busy={isLoading}>
       {/* Tier Badge */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted">Your Plan</h3>
-        <TierBadge tier={tier} />
+        {!isLoading && <TierBadge tier={tier} />}
       </div>
 
+      {isLoading && (
+        <p className="text-xs text-muted" role="status">
+          Loading plan…
+        </p>
+      )}
+
       {/* Limits */}
-      {!isUnlimited && (
+      {!isLoading && !isUnlimited && (
         <div className="space-y-3">
           <DocumentLimitBar
             current={currentDocuments}
@@ -126,7 +138,7 @@ export default function TierLimitsDisplay({
       )}
 
       {/* Unlimited Badge */}
-      {isUnlimited && (
+      {!isLoading && isUnlimited && (
         <div className="p-3 bg-warning/10 border border-warning/25 rounded-lg">
           <div className="flex items-center gap-2">
             <Crown className="w-4 h-4 text-warning" />

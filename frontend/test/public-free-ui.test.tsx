@@ -4,17 +4,30 @@ import TierLimitsDisplay from "@/components/TierLimitsDisplay";
 import { ChatEmptyState } from "@/components/ChatSection/ChatEmptyState";
 import { getPlaceholderText } from "@/components/ChatSection/placeholderText";
 
-vi.mock("@/hooks/useUserTier", () => ({
-  useUserTier: () => ({
-    tier: "FREE",
-    limits: { maxDocuments: 5, maxQueriesPerDay: 20 },
-    isUnlimited: false,
-  }),
-}));
+const freeTierProps = {
+  tier: "FREE" as const,
+  limits: { maxDocuments: 5, maxQueriesPerDay: 20, canUploadMultiple: false, hasAdvancedFeatures: false },
+  isLoading: false,
+};
 
 describe("public FREE-only UI", () => {
+  it("does not show FREE counters while the authenticated tier is loading", () => {
+    render(
+      <TierLimitsDisplay
+        currentDocuments={5}
+        currentQueries={20}
+        {...freeTierProps}
+        isLoading={true}
+      />
+    );
+
+    expect(screen.getByText("Your Plan")).toBeInTheDocument();
+    expect(screen.queryByText("5 / 5")).not.toBeInTheDocument();
+    expect(screen.getByText("Loading plan…")).toBeInTheDocument();
+  });
+
   it("does not advertise an upgrade when a FREE user nears a limit", () => {
-    render(<TierLimitsDisplay currentDocuments={5} currentQueries={20} />);
+    render(<TierLimitsDisplay currentDocuments={5} currentQueries={20} {...freeTierProps} />);
 
     expect(screen.getByText("Your Plan")).toBeInTheDocument();
     expect(screen.queryByText(/Upgrade for more capacity/i)).not.toBeInTheDocument();

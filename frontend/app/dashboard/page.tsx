@@ -44,7 +44,7 @@ export default function Page() {
   const { theme, toggleTheme } = useTheme();
   const { userId, isAuthReady } = useUserId();
   const { user } = useAuth();
-  const { tier, isLoading: isTierLoading, refreshTier } = useUserTier();
+  const { tier, limits: tierLimits, isLoading: isTierLoading, refreshTier } = useUserTier();
   const { queriesUsed, isLimitReached, refetch: refetchQueryUsage } = useQueryUsage();
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
@@ -520,6 +520,8 @@ export default function Page() {
           }}
           onNewConversation={handleNewConversation}
           hasConversation={chatHistory.length > 0}
+          tier={tier}
+          isTierLoading={isTierLoading}
         />
 
         {/* Server Offline Banner */}
@@ -609,6 +611,9 @@ export default function Page() {
               onOpenFeedback={openFeedbackModal}
               isServerOnline={isServerOnline}
               currentQueries={queriesUsed}
+              tier={tier}
+              tierLimits={tierLimits}
+              isTierLoading={isTierLoading}
             />
           </div>
 
@@ -630,6 +635,9 @@ export default function Page() {
                 onOpenFeedback={openFeedbackModal}
                 isServerOnline={isServerOnline}
                 currentQueries={queriesUsed}
+                tier={tier}
+                tierLimits={tierLimits}
+                isTierLoading={isTierLoading}
               />
             </div>
           )}

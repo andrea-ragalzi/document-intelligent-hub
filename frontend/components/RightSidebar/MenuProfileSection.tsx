@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import Image from "next/image";
 import TierLimitsDisplay from "../TierLimitsDisplay";
 import { User } from "firebase/auth";
+import type { TierLimits, UserTier } from "@/hooks/useUserTier";
 
 interface Document {
   filename: string;
@@ -15,6 +16,9 @@ interface MenuProfileSectionProps {
   displayName: string;
   documents: Document[] | undefined;
   currentQueries: number;
+  tier: UserTier;
+  tierLimits: TierLimits;
+  isTierLoading: boolean;
   onClose: () => void;
   onLogout: () => void;
 }
@@ -25,6 +29,9 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
   displayName,
   documents,
   currentQueries,
+  tier,
+  tierLimits,
+  isTierLoading,
   onClose,
   onLogout,
 }) => {
@@ -64,6 +71,9 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
         <TierLimitsDisplay
           currentDocuments={documents?.length || 0}
           currentQueries={currentQueries}
+          tier={tier}
+          limits={tierLimits}
+          isLoading={isTierLoading}
         />
       </div>
 
