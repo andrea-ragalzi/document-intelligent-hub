@@ -194,12 +194,14 @@ async def test_concurrent_upload_at_document_limit_does_not_start_second_index(
 
     monkeypatch.setattr(documents_router, "upload_concurrency_limiter", QueryConcurrencyLimiter())
     monkeypatch.setattr(documents_router, "_check_file_limits", lambda *_args: (1024, 1.0))
+    document_storage = Mock()
     first = asyncio.create_task(
         documents_router.upload_document(
             None,
             UploadFile(file=BytesIO(b"%PDF-one"), filename="one.pdf"),
             "same-user",
             RAG(),
+            document_storage,
         )
     )
     assert await asyncio.to_thread(started.wait, 1)
@@ -209,6 +211,7 @@ async def test_concurrent_upload_at_document_limit_does_not_start_second_index(
             UploadFile(file=BytesIO(b"%PDF-two"), filename="two.pdf"),
             "same-user",
             RAG(),
+            document_storage,
         )
     assert error.value.status_code == 429
     release.set()
