@@ -16,6 +16,7 @@ from io import BytesIO
 from typing import Any, Dict, Tuple
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 
 from app.config.security_constants import FILE_READ_CHUNK_SIZE
 from app.core.auth import require_verified_email, verify_firebase_token
@@ -36,6 +37,10 @@ from app.services.demo_document_service import (
     DEMO_DOCUMENT_FILENAME,
     DEMO_SUGGESTED_QUESTIONS,
     DemoDocumentService,
+)
+from app.services.document_file_storage import (
+    DocumentFileStorage,
+    get_document_file_storage,
 )
 from app.services.rag_orchestrator_service import RAGService, get_rag_service
 from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
@@ -212,6 +217,7 @@ async def upload_document(
     file: UploadFile = File(..., description="The PDF document to be indexed."),
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
+    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
 ) -> UploadResponse:
     """
     **Upload and index a PDF document.**
@@ -243,12 +249,17 @@ async def upload_document(
         file_content = await _read_and_validate_file_size(
             file, max_size_bytes, max_size_mb, user_id
         )
-        safe_file = UploadFile(
-            file=BytesIO(file_content), filename=safe_filename
-        )
-        chunks_indexed, detected_language = await rag_service.index_document(
-            file=safe_file, user_id=user_id, document_language=None
-        )
+        document_storage.store(user_id, safe_filename, file_content)
+        try:
+            safe_file = UploadFile(
+                file=BytesIO(file_content), filename=safe_filename
+            )
+            chunks_indexed, detected_language = await rag_service.index_document(
+                file=safe_file, user_id=user_id, document_language=None
+            )
+        except Exception:
+            document_storage.delete(user_id, safe_filename)
+            raise
 
         logger.info(
             f"✅ Document indexed | User: {sanitize_log_value(user_id)} | "
@@ -370,6 +381,7 @@ async def check_documents(
 async def list_documents(
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
+    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
 ) -> DocumentListResponse:
     """
     **List all documents uploaded by a user.**
@@ -377,7 +389,15 @@ async def list_documents(
     **🔒 Security:** Requires valid Firebase Auth token. Multi-tenancy enforced.
     """
     try:
-        documents = rag_service.get_user_documents(user_id)
+        documents = [
+            document.model_copy(
+                update={
+                    "original_available": document_storage.get(user_id, document.filename)
+                    is not None
+                }
+            )
+            for document in rag_service.get_user_documents(user_id)
+        ]
         return DocumentListResponse(
             documents=documents, total_count=len(documents), user_id=user_id
         )
@@ -394,6 +414,7 @@ async def delete_document(
     filename: str,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
+    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
 ) -> DocumentDeleteResponse:
     """
     **Delete a specific document by filename.**
@@ -420,6 +441,7 @@ async def delete_document(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Document '{filename}' not found for user {user_id}",
             )
+        document_storage.delete(user_id, filename)
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning(
@@ -446,11 +468,45 @@ async def delete_document(
         ) from e
 
 
+@router.get("/documents/content")
+async def get_document_content(
+    filename: str,
+    download: bool = False,
+    user_id: str = Depends(verify_firebase_token),
+    rag_service: RAGService = Depends(get_rag_service),
+    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+) -> FileResponse:
+    """Return an authenticated user's original PDF for preview or download."""
+    safe_filename = _validate_and_sanitize_filename(filename)
+    if not rag_service.user_document_exists(user_id, safe_filename):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
+        )
+
+    original_file = document_storage.get(user_id, safe_filename)
+    if original_file is None:
+        # Documents indexed before original-file storage was introduced remain
+        # usable for RAG but cannot be reconstructed from ChromaDB chunks.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="The original file is unavailable for this document.",
+        )
+
+    return FileResponse(
+        path=original_file,
+        media_type="application/pdf",
+        filename=safe_filename,
+        content_disposition_type="attachment" if download else "inline",
+    )
+
+
 @router.delete("/documents/delete-all")
 async def delete_all_documents(
     request: Request,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
+    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
 ) -> Dict[str, Any]:
     """
     **Delete ALL documents for a user.**
@@ -475,6 +531,7 @@ async def delete_all_documents(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"No documents found for user {user_id}",
             )
+        document_storage.delete_all(user_id)
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).error(

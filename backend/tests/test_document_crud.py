@@ -56,6 +56,9 @@ class TestDocumentCRUD:
         assert data["total_count"] >= 1
         docs = data["documents"]
         assert any(d["filename"] == "test_crud.pdf" for d in docs)
+        assert next(d for d in docs if d["filename"] == "test_crud.pdf")[
+            "original_available"
+        ] is True
 
     def test_delete_document(
         self, client: Any, sample_pdf: Any, unique_user_id: str

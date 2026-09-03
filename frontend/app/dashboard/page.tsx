@@ -76,6 +76,8 @@ export default function Page() {
     isLoading: isLoadingDocuments,
     refreshDocuments,
     deleteDocument,
+    previewDocument,
+    downloadDocument,
   } = useDocuments(userId);
 
   // Ensure documents is always an array
@@ -605,6 +607,8 @@ export default function Page() {
               documents={documents}
               isLoadingDocuments={isLoadingDocuments}
               onDeleteDocument={deleteDocument}
+              onPreviewDocument={previewDocument}
+              onDownloadDocument={downloadDocument}
               onRefreshDocuments={refreshDocuments}
               onDeleteAccount={() => setDeleteAccountModalOpen(true)}
               onOpenBugReport={openBugReportModal}
@@ -629,6 +633,8 @@ export default function Page() {
                 documents={documents}
                 isLoadingDocuments={isLoadingDocuments}
                 onDeleteDocument={deleteDocument}
+                onPreviewDocument={previewDocument}
+                onDownloadDocument={downloadDocument}
                 onRefreshDocuments={refreshDocuments}
                 onDeleteAccount={() => setDeleteAccountModalOpen(true)}
                 onOpenBugReport={openBugReportModal}

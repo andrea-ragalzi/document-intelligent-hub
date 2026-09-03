@@ -66,6 +66,9 @@ config/*.txt
 # ChromaDB (will be mounted as volume)
 chroma_db*/
 
+# Private user originals are runtime data, never image build input.
+uploads/
+
 # Logs
 logs/
 *.log

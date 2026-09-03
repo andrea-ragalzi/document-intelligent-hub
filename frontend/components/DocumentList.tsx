@@ -11,12 +11,15 @@ export interface Document {
   filename: string;
   chunks_count: number;
   language?: string;
+  original_available?: boolean;
 }
 
 interface DocumentListProps {
   documents: Document[] | undefined;
   deletingDoc: string | null;
   onDelete: (filename: string) => void;
+  onPreview: (filename: string) => Promise<void>;
+  onDownload: (filename: string) => Promise<void>;
   isServerOnline?: boolean;
 }
 
@@ -24,6 +27,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
   documents,
   deletingDoc,
   onDelete,
+  onPreview,
+  onDownload,
   isServerOnline = true,
 }) => {
   // Safety check: ensure documents is always an array
@@ -164,6 +169,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
         dragY={dragY}
         isDragging={isDragging}
         selectedDoc={openKebabId}
+        originalAvailable={
+          safeDocuments.find(document => document.filename === openKebabId)?.original_available ===
+          true
+        }
         isServerOnline={isServerOnline}
         menuRef={menuRef}
         onClose={closeContextMenu}
@@ -171,6 +180,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
           const doc = safeDocuments.find(d => d.filename === filename);
           if (doc) openDeleteModal(doc);
         }}
+        onPreview={onPreview}
+        onDownload={onDownload}
         onDragStart={handleDragStart}
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}

@@ -52,6 +52,7 @@ describe("useDocuments", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("should initialize with loading state", () => {
@@ -168,6 +169,57 @@ describe("useDocuments", () => {
       expect(result.current.documents).toHaveLength(1);
       expect(result.current.documents[0].filename).toBe("document2.pdf");
     });
+  });
+
+  it("requests the authenticated original document for preview", async () => {
+    const { result } = renderHook(() => useDocuments(mockUserId));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    vi.mocked(fetch).mockClear();
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      blob: async () => new Blob(["pdf"], { type: "application/pdf" }),
+    } as Response);
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    const createObjectUrl = vi.fn().mockReturnValue("blob:preview-document");
+    vi.stubGlobal("URL", { createObjectURL: createObjectUrl, revokeObjectURL: vi.fn() });
+
+    await act(async () => result.current.previewDocument("document1.pdf"));
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/documents/content?filename=document1.pdf"),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer mock-token" }),
+      })
+    );
+    expect(openSpy).toHaveBeenCalledWith("blob:preview-document", "_blank", "noopener,noreferrer");
+  });
+
+  it("downloads the authenticated original document", async () => {
+    const { result } = renderHook(() => useDocuments(mockUserId));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    vi.mocked(fetch).mockClear();
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      blob: async () => new Blob(["pdf"], { type: "application/pdf" }),
+    } as Response);
+    const click = vi.fn();
+    const anchor = { href: "", download: "", click } as unknown as HTMLAnchorElement;
+    vi.spyOn(document, "createElement").mockReturnValue(anchor);
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn().mockReturnValue("blob:download-document"),
+      revokeObjectURL: vi.fn(),
+    });
+
+    await act(async () => result.current.downloadDocument("document1.pdf"));
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/documents/content?filename=document1.pdf&download=true"),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer mock-token" }),
+      })
+    );
+    expect(anchor.download).toBe("document1.pdf");
+    expect(click).toHaveBeenCalledOnce();
   });
 
   it("should handle delete error", async () => {

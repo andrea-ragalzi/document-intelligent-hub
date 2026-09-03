@@ -56,6 +56,9 @@ class Settings(BaseSettings):
 
     # === RAG CONFIGURATION ===
     CHROMA_DB_PATH: str = "chroma_db"
+    # Original uploads are kept separately from ChromaDB so authenticated users
+    # can preview or download the file they indexed.
+    DOCUMENT_STORAGE_PATH: str = "chroma_db/originals"
     EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"
     # Single source of truth for every OpenAI chat call. Local DEV templates use
     # gpt-4o-mini; Railway production overrides this with gpt-5.6-luna.
