@@ -161,7 +161,10 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
       const result = await submitDocument(file, selectedLanguage, action, getIdToken);
       if (result.status === "conflict") {
         resolutionsRef.current.delete(index);
-        pauseForDuplicate(file, `“${file.name}” now conflicts with an existing document. Choose how to continue.`);
+        pauseForDuplicate(
+          file,
+          `“${file.name}” now conflicts with an existing document. Choose how to continue.`
+        );
         return;
       }
       if (result.status === "failure") {

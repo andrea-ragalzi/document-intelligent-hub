@@ -40,7 +40,10 @@ const splitLegacySources = (text: string): { answer: string; sources: string[] }
   if (!hasLegacyHeading || !hasBlankSeparator) return { answer: text, sources: [] };
 
   return {
-    answer: lines.slice(0, firstSourceLine - 1).join("\n").trimEnd(),
+    answer: lines
+      .slice(0, firstSourceLine - 1)
+      .join("\n")
+      .trimEnd(),
     sources: lines
       .slice(firstSourceLine + 1, lastContentLine + 1)
       .map(line => line.replace(/^\s*-\s+/, "").trim())
@@ -95,7 +98,6 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
           ) : (
             <p className="whitespace-pre-wrap text-sm leading-relaxed break-words">{cleanedText}</p>
           )}
-
         </div>
 
         {!isUser && sources.length > 0 && !msg.isThinking && (
