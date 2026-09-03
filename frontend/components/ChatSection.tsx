@@ -76,13 +76,9 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   );
 
   return (
-    <div className="w-full h-full flex flex-col bg-canvas transition-colors duration-200 ease-in-out font-[Inter] relative pb-0">
-      {/* Scrollable Chat Area: Altezza calcolata per lasciare spazio all'input bar */}
-      <div
-        className="p-4 sm:p-6 overflow-y-auto w-full flex-grow pb-0"
-        // Adjust height to allow for the sticky input bar (approx 100px height for the bar)
-        style={{ height: "calc(100vh - 100px)" }}
-      >
+    <div className="relative flex h-full min-h-0 w-full flex-col bg-canvas pb-0 font-[Inter] transition-colors duration-200 ease-in-out">
+      {/* The message list owns scrolling; the composer remains in the flex flow. */}
+      <div className="min-h-0 w-full flex-1 overflow-y-auto p-4 pb-0 sm:p-6 sm:pb-0">
         <div className="max-w-4xl mx-auto">
           {chatHistory.length === 0 ? (
             <div className="text-center p-8 sm:p-16 text-muted">
@@ -112,10 +108,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
         </div>
       </div>
 
-      {/* Gemini-style Input Bar - Sticky bottom with elegant spacing */}
+      {/* Gemini-style input bar. Safe-area padding keeps controls above mobile browser UI. */}
       <form
         onSubmit={handleSubmit}
-        className="sticky bottom-0 left-0 right-0 bg-transparent pt-0 pb-0 -mx-4 md:mx-0 md:pt-4 md:pb-3 md:px-4 transition-all duration-200 ease-in-out z-10"
+        className="z-10 shrink-0 bg-transparent px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-all duration-200 ease-in-out md:px-4 md:pt-4 md:pb-3"
       >
         <div className="max-w-4xl md:mx-auto">
           {/* Gemini-inspired Input Container */}

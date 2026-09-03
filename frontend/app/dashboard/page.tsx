@@ -509,7 +509,7 @@ export default function Page() {
 
   return (
     <ProtectedRoute>
-      <div className="app-shell h-screen flex flex-col font-sans transition-colors duration-300">
+      <div className="app-shell h-screen h-[100dvh] flex flex-col font-sans transition-colors duration-300">
         {/* Top Bar */}
         <TopBar
           onOpenLeftSidebar={() => {
@@ -539,7 +539,7 @@ export default function Page() {
         />
 
         {/* Main content area - grows to fill remaining space */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Left Sidebar - Always visible on desktop (lg+), toggle on mobile */}
           <div className="hidden lg:block">
             <Sidebar
@@ -575,7 +575,7 @@ export default function Page() {
           )}
 
           {/* Chat area - takes remaining space */}
-          <div className="flex-1 flex flex-col p-0 sm:p-4 lg:p-6 overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0 sm:p-4 lg:p-6">
             <ChatSection
               chatHistory={chatHistory}
               query={input}

@@ -72,4 +72,34 @@ describe("ChatSection", () => {
     ).toBe(false);
     consoleError.mockRestore();
   });
+
+  it("uses a shrinkable scroll area and a safe-area-aware composer", () => {
+    const { container } = render(
+      <ChatSection
+        chatHistory={[]}
+        query=""
+        isQuerying={false}
+        userId="user-a"
+        onQueryChange={vi.fn()}
+        onQuerySubmit={vi.fn()}
+        hasDocuments
+        isCheckingDocuments={false}
+        onOpenUploadModal={vi.fn()}
+        selectedOutputLanguage="EN"
+        onSelectOutputLanguage={vi.fn()}
+        demoDocumentState="idle"
+        suggestedQuestions={[]}
+        onSuggestedQuestion={vi.fn()}
+      />
+    );
+
+    const chatRoot = container.firstElementChild;
+    const scrollArea = chatRoot?.firstElementChild;
+    const composer = container.querySelector("form");
+
+    expect(chatRoot).toHaveClass("min-h-0");
+    expect(scrollArea).toHaveClass("min-h-0", "flex-1");
+    expect(scrollArea).not.toHaveAttribute("style");
+    expect(composer).toHaveClass("shrink-0", "pb-[max(0.75rem,env(safe-area-inset-bottom))]");
+  });
 });
