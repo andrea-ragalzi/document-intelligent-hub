@@ -56,23 +56,6 @@ export default function Page() {
   const [invitationCodeModalOpen, setInvitationCodeModalOpen] = useState(false);
   const [selectedOutputLanguage, setSelectedOutputLanguage] = useState<string>("en");
 
-  const {
-    file,
-    isUploading,
-    uploadAlert,
-    handleFileChange,
-    handleUpload,
-    resetAlert,
-    documentsUploaded: _documentsUploaded,
-    selectedLanguage,
-    setSelectedLanguage,
-  } = useDocumentUpload({
-    onSuccess: () => {
-      setUploadModalOpen(false);
-      resetAlert();
-    },
-  });
-
   // Document management
   const {
     documents: rawDocuments,
@@ -85,6 +68,26 @@ export default function Page() {
 
   // Ensure documents is always an array
   const documents = rawDocuments || [];
+
+  const {
+    files,
+    isUploading,
+    uploadAlert,
+    handleFileChange,
+    handleUpload,
+    pendingDuplicate,
+    resolveDuplicate,
+    resetAlert,
+    documentsUploaded: _documentsUploaded,
+    selectedLanguage,
+    setSelectedLanguage,
+  } = useDocumentUpload({
+    onSuccess: () => {
+      void refreshDocuments();
+      setUploadModalOpen(false);
+      resetAlert();
+    },
+  });
 
   const handleDemoDocumentReady = useCallback(async () => {
     await refreshDocuments();
@@ -453,10 +456,11 @@ export default function Page() {
 
   const submitUpload = async (e: FormEvent) => {
     if (userId) {
-      await handleUpload(e, userId);
-      // Refresh documents list and close modal on success
-      await refreshDocuments();
-      setUploadModalOpen(false);
+      await handleUpload(
+        e,
+        userId,
+        documents.map(document => document.filename)
+      );
     } else {
       setStatusAlert({
         message: "Cannot upload: User ID not available.",
@@ -662,11 +666,13 @@ export default function Page() {
             setUploadModalOpen(false);
             resetAlert();
           }}
-          file={file}
+          files={files}
           isUploading={isUploading}
           uploadAlert={uploadAlert}
+          pendingDuplicate={pendingDuplicate}
           onFileChange={handleFileChange}
           onUpload={submitUpload}
+          onResolveDuplicate={resolveDuplicate}
           selectedLanguage={selectedLanguage}
           onLanguageChange={setSelectedLanguage}
         />

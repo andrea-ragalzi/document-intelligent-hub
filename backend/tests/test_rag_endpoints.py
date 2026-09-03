@@ -59,7 +59,10 @@ class TestUploadEndpoint:
             "app.services.rag_orchestrator_service.RAGService.index_document",
             new_callable=AsyncMock,
             return_value=(2, "EN"),
-        ) as index_document, open(sample_pdf, "rb") as f:
+        ) as index_document, patch(
+            "app.services.rag_orchestrator_service.RAGService.user_document_exists",
+            return_value=False,
+        ), open(sample_pdf, "rb") as f:
             files = {"file": ("test.pdf", f, "application/pdf")}
 
             response = client.post("/rag/upload/", files=files)
@@ -101,7 +104,10 @@ class TestUploadEndpoint:
         # Don't set user_id context - simulate missing auth
         client.test_user_context["user_id"] = None
 
-        with open(sample_pdf, "rb") as f:
+        with patch(
+            "app.services.rag_orchestrator_service.RAGService.user_document_exists",
+            return_value=False,
+        ), open(sample_pdf, "rb") as f:
             files = {"file": ("test.pdf", f, "application/pdf")}
 
             response = client.post("/rag/upload/", files=files)
@@ -249,7 +255,10 @@ class TestEndToEndFlow:
         client.test_user_context["user_id"] = test_user_id
 
         # Step 1: Upload document
-        with open(sample_pdf, "rb") as f:
+        with patch(
+            "app.services.rag_orchestrator_service.RAGService.user_document_exists",
+            return_value=False,
+        ), open(sample_pdf, "rb") as f:
             files = {"file": ("test_doc.pdf", f, "application/pdf")}
 
             upload_response = client.post("/rag/upload/", files=files)

@@ -137,6 +137,7 @@ class UploadResponse(BaseModel):
     """Schema for successful document upload response."""
 
     message: str = Field(..., description="Success message.")
+    filename: str = Field(..., description="The final unique filename that was indexed.")
     status: str = Field(..., description="Status code (success/error).")
     chunks_indexed: int = Field(..., description="Number of document chunks indexed.")
     detected_language: str = Field(

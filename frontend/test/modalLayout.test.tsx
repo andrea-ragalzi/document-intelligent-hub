@@ -19,17 +19,19 @@ const mobileViewports = [
 ];
 
 const UploadModalHarness = () => {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
   return (
     <UploadModal
       isOpen
       onClose={vi.fn()}
-      file={file}
+      files={files}
       isUploading={false}
       uploadAlert={{ message: "Select a PDF to upload.", type: "info" }}
-      onFileChange={event => setFile(event.target.files?.[0] ?? null)}
+      pendingDuplicate={null}
+      onFileChange={event => setFiles(Array.from(event.target.files || []))}
       onUpload={vi.fn()}
+      onResolveDuplicate={vi.fn()}
       selectedLanguage="en"
       onLanguageChange={vi.fn()}
     />
@@ -49,12 +51,18 @@ describe("mobile modal scroll layout", () => {
 
       const { unmount } = render(<UploadModalHarness />);
       fireEvent.change(screen.getByLabelText(/select pdf to upload/i), {
-        target: { files: [new File(["pdf"], "guide.pdf", { type: "application/pdf" })] },
+        target: {
+          files: [
+            new File(["pdf"], "guide.pdf", { type: "application/pdf" }),
+            new File(["pdf"], "notes.pdf", { type: "application/pdf" }),
+          ],
+        },
       });
-      expect(screen.getByText("guide.pdf")).toBeVisible();
+      expect(screen.getByText(/guide\.pdf/)).toBeVisible();
+      expect(screen.getByText(/notes\.pdf/)).toBeVisible();
       expect(screen.getByTestId("upload-modal-body")).toHaveClass("overflow-y-auto");
       expect(screen.getByTestId("upload-modal-dialog")).toHaveClass("ui-modal-dialog");
-      expect(screen.getByRole("button", { name: /upload document/i })).toBeVisible();
+      expect(screen.getByRole("button", { name: /upload.*documents?/i })).toBeVisible();
       unmount();
 
       render(<BugReportModal isOpen onClose={vi.fn()} />);

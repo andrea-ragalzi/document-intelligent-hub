@@ -14,9 +14,9 @@ All endpoints require valid Firebase Auth token in Authorization header.
 import asyncio
 import os
 from io import BytesIO
-from typing import Any, Dict, Tuple
+from typing import Annotated, Any, Dict, Literal, Tuple
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.config.security_constants import FILE_READ_CHUNK_SIZE
@@ -55,6 +55,7 @@ router = APIRouter(prefix="/rag", tags=["documents"])
 # intentional in-process guard for the current single-replica public demo.
 upload_concurrency_limiter = QueryConcurrencyLimiter()
 language_preview_concurrency_limiter = QueryConcurrencyLimiter()
+MAX_RENAMED_FILENAME_ATTEMPTS = 1_000
 
 
 def _validate_and_sanitize_filename(filename: str | None) -> str:
@@ -85,6 +86,21 @@ def _validate_and_sanitize_filename(filename: str | None) -> str:
         )
 
     return safe_filename
+
+
+def _get_next_available_filename(
+    user_id: str, filename: str, rag_service: RAGService
+) -> str:
+    """Return a server-chosen PDF name that does not collide for this user."""
+    stem, extension = os.path.splitext(filename)
+    for suffix in range(1, MAX_RENAMED_FILENAME_ATTEMPTS + 1):
+        candidate = f"{stem} ({suffix}){extension}"
+        if not rag_service.user_document_exists(user_id, candidate):
+            return candidate
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Unable to create a unique filename. Please rename the file and try again.",
+    )
 
 
 def _check_file_limits(user_id: str, rag_service: RAGService) -> Tuple[int, float]:
@@ -222,6 +238,9 @@ async def upload_document(
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    duplicate_action: Annotated[
+        Literal["reject", "replace", "rename"], Form()
+    ] = "reject",
 ) -> UploadResponse:
     """
     **Upload and index a PDF document.**
@@ -247,12 +266,39 @@ async def upload_document(
         # Keep the admission lock through count check and indexing.  This makes
         # the existing document-count rule race-free for a single UID.
         safe_filename = _validate_and_sanitize_filename(file.filename)
-        max_size_bytes, max_size_mb = await asyncio.to_thread(
-            _check_file_limits, user_id, rag_service
-        )
+        document_exists = rag_service.user_document_exists(user_id, safe_filename)
+
+        if document_exists and duplicate_action == "reject":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A document with this name already exists. Choose replace, rename, or skip it.",
+            )
+
+        if document_exists and duplicate_action == "rename":
+            safe_filename = _get_next_available_filename(
+                user_id, safe_filename, rag_service
+            )
+
+        if duplicate_action != "replace" or not document_exists:
+            max_size_bytes, max_size_mb = await asyncio.to_thread(
+                _check_file_limits, user_id, rag_service
+            )
+        else:
+            max_size_bytes = get_max_upload_size_bytes(user_id)
+            max_size_mb = get_safe_file_size_mb(max_size_bytes)
+
         file_content = await _read_and_validate_file_size(
             file, max_size_bytes, max_size_mb, user_id
         )
+
+        if document_exists and duplicate_action == "replace":
+            deleted_count = rag_service.delete_user_document(user_id, safe_filename)
+            if deleted_count == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="The document changed before it could be replaced. Refresh and try again.",
+                )
+
         document_storage.store(user_id, safe_filename, file_content)
         try:
             safe_file = UploadFile(
@@ -272,6 +318,7 @@ async def upload_document(
 
         return UploadResponse(
             message=f"Document '{safe_filename}' indexed successfully",
+            filename=safe_filename,
             status="success",
             chunks_indexed=chunks_indexed,
             detected_language=detected_language or "Unknown",
