@@ -23,12 +23,17 @@ class DocumentFileStorage:
     def _digest(value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
+    def _path_below_root(self, *path_parts: str) -> Path:
+        """Return a normalized path only when it remains below the configured root."""
+        trusted_root = os.path.realpath(self.root_path)
+        candidate = os.path.realpath(os.path.join(trusted_root, *path_parts))
+        if not candidate.startswith(f"{trusted_root}{os.sep}"):
+            raise ValueError("Invalid document storage path")
+        return Path(candidate)
+
     def _user_directory(self, user_id: str) -> Path:
         """Build a trusted, opaque directory for an authenticated user."""
-        user_directory = (self.root_path / self._digest(user_id)).resolve()
-        if user_directory.parent != self.root_path:
-            raise ValueError("Invalid document storage directory")
-        return user_directory
+        return self._path_below_root(self._digest(user_id))
 
     @staticmethod
     def _document_key(filename: str) -> str:
@@ -49,12 +54,10 @@ class DocumentFileStorage:
         """Resolve a server-generated filename and enforce directory containment."""
         if not self._is_storage_name(storage_name):
             return None
-        trusted_directory = os.path.realpath(user_directory)
-        candidate = os.path.realpath(os.path.join(trusted_directory, str(storage_name)))
-        trusted_prefix = f"{trusted_directory}{os.sep}"
-        if not candidate.startswith(trusted_prefix):
+        candidate = self._path_below_root(user_directory.name, str(storage_name))
+        if candidate.parent != user_directory:
             return None
-        return Path(candidate)
+        return candidate
 
     def _manifest_path(self, user_directory: Path) -> Path:
         return user_directory / self._MANIFEST_FILENAME
