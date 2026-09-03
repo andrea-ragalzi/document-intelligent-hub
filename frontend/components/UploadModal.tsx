@@ -97,6 +97,12 @@ const DuplicateFileOptions: React.FC<DuplicateFileOptionsProps> = ({ file, onRes
   );
 };
 
+const getUploadButtonLabel = (fileCount: number, isUploading: boolean): string => {
+  if (isUploading) return "Uploading...";
+  if (fileCount === 1) return "Upload Document";
+  return `Upload ${fileCount} Documents`;
+};
+
 export const UploadModal: React.FC<UploadModalProps> = ({
   isOpen,
   onClose,
@@ -292,9 +298,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   className="ui-primary-action flex items-center gap-2 rounded-lg px-6 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Upload size={16} />
-                  {isUploading
-                    ? "Uploading..."
-                    : `Upload ${files.length === 1 ? "Document" : `${files.length} Documents`}`}
+                  {getUploadButtonLabel(files.length, isUploading)}
                 </button>
               </div>
             </form>

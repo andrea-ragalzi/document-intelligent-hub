@@ -36,6 +36,50 @@ interface UploadSummary {
   failed: number;
 }
 
+type UploadRequestResult =
+  | { status: "success"; filename: string }
+  | { status: "conflict" }
+  | { status: "failure"; message: string };
+
+const getSelectionMessage = (pdfCount: number, ignoredCount: number): string => {
+  const pdfLabel = `${pdfCount} PDF${pdfCount === 1 ? "" : "s"}`;
+  if (ignoredCount === 0) return `${pdfLabel} ready for indexing.`;
+
+  const ignoredLabel = `${ignoredCount} non-PDF file${ignoredCount === 1 ? " was" : "s were"}`;
+  return `${pdfLabel} selected; ${ignoredLabel} ignored.`;
+};
+
+const submitDocument = async (
+  file: File,
+  language: string,
+  action: DuplicateAction | undefined,
+  getIdToken: () => Promise<string | null>
+): Promise<UploadRequestResult> => {
+  try {
+    const token = await getIdToken();
+    if (!token) return { status: "failure", message: "unable to connect to the backend." };
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("document_language", language.toUpperCase());
+    if (action === "replace" || action === "rename") formData.append("duplicate_action", action);
+
+    const response = await fetch(`${API_BASE_URL}/upload/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const data: { detail?: string; filename?: string } = await response.json().catch(() => ({}));
+
+    if (response.status === 409) return { status: "conflict" };
+    if (!response.ok) return { status: "failure", message: data.detail || "Upload failed." };
+
+    return { status: "success", filename: data.filename || file.name };
+  } catch {
+    return { status: "failure", message: "unable to connect to the backend." };
+  }
+};
+
 export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult => {
   const { onSuccess } = options || {};
   const { getIdToken } = useAuth();
@@ -75,6 +119,18 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     if (uploaded > 0) onSuccess?.();
   }, [onSuccess]);
 
+  const pauseForDuplicate = useCallback((file: File, message: string) => {
+    setIsUploading(false);
+    setPendingDuplicate(file);
+    setUploadAlert({ message, type: "info" });
+  }, []);
+
+  const recordUploadFailure = useCallback((file: File, message: string) => {
+    summaryRef.current.failed += 1;
+    setUploadAlert({ message: `${file.name}: ${message}`, type: "error" });
+    currentIndexRef.current += 1;
+  }, []);
+
   const processQueue = useCallback(async () => {
     const currentUserId = currentUserIdRef.current;
     if (!currentUserId) return;
@@ -86,12 +142,7 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
       const action = resolutionsRef.current.get(index);
 
       if (existingName && !action) {
-        setIsUploading(false);
-        setPendingDuplicate(file);
-        setUploadAlert({
-          message: `“${file.name}” already exists. Choose how to continue.`,
-          type: "info",
-        });
+        pauseForDuplicate(file, `“${file.name}” already exists. Choose how to continue.`);
         return;
       }
 
@@ -107,63 +158,25 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
         type: "info",
       });
 
-      try {
-        const token = await getIdToken();
-        if (!token) throw new Error("No authentication token available");
-
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("document_language", selectedLanguage.toUpperCase());
-        if (action === "replace" || action === "rename") {
-          formData.append("duplicate_action", action);
-        }
-
-        const response = await fetch(`${API_BASE_URL}/upload/`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-        const data = await response.json().catch(() => ({}));
-
-        if (response.status === 409) {
-          resolutionsRef.current.delete(index);
-          setIsUploading(false);
-          setPendingDuplicate(file);
-          setUploadAlert({
-            message: `“${file.name}” now conflicts with an existing document. Choose how to continue.`,
-            type: "info",
-          });
-          return;
-        }
-
-        if (!response.ok) {
-          summaryRef.current.failed += 1;
-          setUploadAlert({
-            message: `${file.name}: ${data.detail || "Upload failed."}`,
-            type: "error",
-          });
-          currentIndexRef.current += 1;
-          continue;
-        }
-
-        const finalFilename =
-          typeof data.filename === "string" && data.filename ? data.filename : file.name;
-        knownFilenamesRef.current.add(finalFilename);
-        summaryRef.current.uploaded += 1;
-        setDocumentsUploaded(previous => previous + 1);
-        currentIndexRef.current += 1;
-      } catch {
-        summaryRef.current.failed += 1;
-        setUploadAlert({
-          message: `${file.name}: unable to connect to the backend.`,
-          type: "error",
-        });
-        currentIndexRef.current += 1;
+      const result = await submitDocument(file, selectedLanguage, action, getIdToken);
+      if (result.status === "conflict") {
+        resolutionsRef.current.delete(index);
+        pauseForDuplicate(file, `“${file.name}” now conflicts with an existing document. Choose how to continue.`);
+        return;
       }
+      if (result.status === "failure") {
+        recordUploadFailure(file, result.message);
+        continue;
+      }
+
+      knownFilenamesRef.current.add(result.filename);
+      summaryRef.current.uploaded += 1;
+      setDocumentsUploaded(previous => previous + 1);
+      currentIndexRef.current += 1;
     }
 
     finishQueue();
-  }, [finishQueue, getIdToken, selectedLanguage]);
+  }, [finishQueue, getIdToken, pauseForDuplicate, recordUploadFailure, selectedLanguage]);
 
   const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files || []);
@@ -180,13 +193,7 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     }
 
     const ignoredCount = selectedFiles.length - pdfFiles.length;
-    setUploadAlert({
-      message:
-        ignoredCount > 0
-          ? `${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"} selected; ${ignoredCount} non-PDF file${ignoredCount === 1 ? " was" : "s were"} ignored.`
-          : `${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"} ready for indexing.`,
-      type: "info",
-    });
+    setUploadAlert({ message: getSelectionMessage(pdfFiles.length, ignoredCount), type: "info" });
   }, []);
 
   const handleUpload = useCallback(

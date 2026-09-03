@@ -231,15 +231,16 @@ async def test_duplicate_upload_requires_an_explicit_server_side_resolution(
     rag.user_document_exists.return_value = True
     document_storage = Mock()
 
+    upload_attempt = documents_router.upload_document(
+        None,
+        UploadFile(file=BytesIO(b"%PDF-new"), filename="report.pdf"),
+        "owner-uid",
+        rag,
+        document_storage,
+        duplicate_action="reject",
+    )
     with pytest.raises(HTTPException) as error:
-        await documents_router.upload_document(
-            None,
-            UploadFile(file=BytesIO(b"%PDF-new"), filename="report.pdf"),
-            "owner-uid",
-            rag,
-            document_storage,
-            duplicate_action="reject",
-        )
+        await upload_attempt
 
     assert error.value.status_code == 409
     document_storage.store.assert_not_called()

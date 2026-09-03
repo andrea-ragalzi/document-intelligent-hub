@@ -13,17 +13,36 @@ const cleanDocumentMarkers = (text: string): string => {
   return text.replaceAll(/\s?\[DOCUMENT \d+\]/gi, "");
 };
 
-const LEGACY_SOURCES_BLOCK =
-  /\n{2}📚\s+(?:Sources|Fonti|Fuentes|Quellen):\s*\n((?:-\s+[^\n]+\n?)+)\s*$/i;
+const LEGACY_SOURCE_HEADINGS = new Set(["sources", "fonti", "fuentes", "quellen"]);
 
 const splitLegacySources = (text: string): { answer: string; sources: string[] } => {
-  const match = text.match(LEGACY_SOURCES_BLOCK);
-  if (!match) return { answer: text, sources: [] };
+  const lines = text.split("\n");
+  let lastContentLine = lines.length - 1;
+
+  while (lastContentLine >= 0 && !lines[lastContentLine].trim()) {
+    lastContentLine -= 1;
+  }
+
+  let firstSourceLine = lastContentLine;
+  while (firstSourceLine >= 0 && lines[firstSourceLine].trimStart().startsWith("- ")) {
+    firstSourceLine -= 1;
+  }
+
+  if (firstSourceLine === lastContentLine) return { answer: text, sources: [] };
+
+  const heading = lines[firstSourceLine]?.trim() || "";
+  const separatorIndex = heading.indexOf(":");
+  const headingLabel = heading.slice(0, separatorIndex).replace("📚", "").trim().toLowerCase();
+  const hasLegacyHeading =
+    separatorIndex > 0 && heading.startsWith("📚") && LEGACY_SOURCE_HEADINGS.has(headingLabel);
+  const hasBlankSeparator = firstSourceLine > 0 && !lines[firstSourceLine - 1].trim();
+
+  if (!hasLegacyHeading || !hasBlankSeparator) return { answer: text, sources: [] };
 
   return {
-    answer: text.slice(0, match.index).trimEnd(),
-    sources: match[1]
-      .split("\n")
+    answer: lines.slice(0, firstSourceLine - 1).join("\n").trimEnd(),
+    sources: lines
+      .slice(firstSourceLine + 1, lastContentLine + 1)
       .map(line => line.replace(/^\s*-\s+/, "").trim())
       .filter(Boolean),
   };

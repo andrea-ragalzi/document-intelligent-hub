@@ -103,6 +103,50 @@ def _get_next_available_filename(
     )
 
 
+def _resolve_duplicate_filename(
+    user_id: str,
+    filename: str,
+    duplicate_action: Literal["reject", "replace", "rename"],
+    rag_service: RAGService,
+) -> Tuple[str, bool]:
+    """Resolve a duplicate according to the explicit server-validated action."""
+    document_exists = rag_service.user_document_exists(user_id, filename)
+    if not document_exists:
+        return filename, False
+    if duplicate_action == "reject":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A document with this name already exists. Choose replace, rename, or skip it.",
+        )
+    if duplicate_action == "rename":
+        return _get_next_available_filename(user_id, filename, rag_service), False
+    return filename, True
+
+
+async def _get_upload_size_limits(
+    user_id: str, rag_service: RAGService, is_replacing: bool
+) -> Tuple[int, float]:
+    """Keep a replacement within its size limit without charging another file slot."""
+    if is_replacing:
+        max_size_bytes = get_max_upload_size_bytes(user_id)
+        return max_size_bytes, get_safe_file_size_mb(max_size_bytes)
+    return await asyncio.to_thread(_check_file_limits, user_id, rag_service)
+
+
+def _delete_replaced_document(
+    user_id: str, filename: str, rag_service: RAGService, is_replacing: bool
+) -> None:
+    """Remove the owned chunks only after a replacement was explicitly requested."""
+    if not is_replacing:
+        return
+    deleted_count = rag_service.delete_user_document(user_id, filename)
+    if deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The document changed before it could be replaced. Refresh and try again.",
+        )
+
+
 def _check_file_limits(user_id: str, rag_service: RAGService) -> Tuple[int, float]:
     """
     Check if user has reached file count limit.
@@ -266,38 +310,18 @@ async def upload_document(
         # Keep the admission lock through count check and indexing.  This makes
         # the existing document-count rule race-free for a single UID.
         safe_filename = _validate_and_sanitize_filename(file.filename)
-        document_exists = rag_service.user_document_exists(user_id, safe_filename)
-
-        if document_exists and duplicate_action == "reject":
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="A document with this name already exists. Choose replace, rename, or skip it.",
-            )
-
-        if document_exists and duplicate_action == "rename":
-            safe_filename = _get_next_available_filename(
-                user_id, safe_filename, rag_service
-            )
-
-        if duplicate_action != "replace" or not document_exists:
-            max_size_bytes, max_size_mb = await asyncio.to_thread(
-                _check_file_limits, user_id, rag_service
-            )
-        else:
-            max_size_bytes = get_max_upload_size_bytes(user_id)
-            max_size_mb = get_safe_file_size_mb(max_size_bytes)
+        safe_filename, is_replacing = _resolve_duplicate_filename(
+            user_id, safe_filename, duplicate_action, rag_service
+        )
+        max_size_bytes, max_size_mb = await _get_upload_size_limits(
+            user_id, rag_service, is_replacing
+        )
 
         file_content = await _read_and_validate_file_size(
             file, max_size_bytes, max_size_mb, user_id
         )
 
-        if document_exists and duplicate_action == "replace":
-            deleted_count = rag_service.delete_user_document(user_id, safe_filename)
-            if deleted_count == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="The document changed before it could be replaced. Refresh and try again.",
-                )
+        _delete_replaced_document(user_id, safe_filename, rag_service, is_replacing)
 
         document_storage.store(user_id, safe_filename, file_content)
         try:
