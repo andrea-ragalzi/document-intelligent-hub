@@ -6,7 +6,7 @@ describe("POST /api/chat", () => {
     vi.unstubAllGlobals();
   });
 
-  it("preserves backend source filenames as structured assistant annotations", async () => {
+  it("preserves backend source citations as structured assistant annotations", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -14,6 +14,7 @@ describe("POST /api/chat", () => {
           JSON.stringify({
             answer: "Grounded answer",
             source_documents: ["alice-cheshire-cat-demo.pdf"],
+            citations: [{ filename: "alice-cheshire-cat-demo.pdf", page_number: 7 }],
           }),
           { status: 200 }
         )
@@ -32,7 +33,7 @@ describe("POST /api/chat", () => {
     );
 
     expect(await response.text()).toContain(
-      '8:[{"type":"sources","sources":["alice-cheshire-cat-demo.pdf"]}]'
+      '8:[{"type":"sources","sources":[{"filename":"alice-cheshire-cat-demo.pdf","page_number":7}]}]'
     );
   });
 });

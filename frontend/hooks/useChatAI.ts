@@ -1,6 +1,6 @@
 import { useChat } from "ai/react";
 import type { Message } from "ai/react";
-import { ChatMessage } from "@/lib/types";
+import { ChatMessage, SourceCitation } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface UseChatAIProps {
@@ -8,7 +8,7 @@ interface UseChatAIProps {
   selectedOutputLanguage?: string;
 }
 
-const getSourceFilenames = (annotations: Message["annotations"]): string[] => {
+const getSourceCitations = (annotations: Message["annotations"]): SourceCitation[] => {
   const sourcesAnnotation = annotations?.find(
     annotation =>
       typeof annotation === "object" &&
@@ -28,7 +28,31 @@ const getSourceFilenames = (annotations: Message["annotations"]): string[] => {
     return [];
   }
 
-  return sourcesAnnotation.sources.filter((source): source is string => typeof source === "string");
+  return sourcesAnnotation.sources.flatMap((source): SourceCitation[] => {
+    if (typeof source === "string") return [{ filename: source }];
+    if (
+      typeof source !== "object" ||
+      source === null ||
+      Array.isArray(source) ||
+      !("filename" in source) ||
+      typeof source.filename !== "string"
+    ) {
+      return [];
+    }
+    if (
+      "page_number" in source &&
+      source.page_number !== undefined &&
+      (typeof source.page_number !== "number" || source.page_number <= 0)
+    ) {
+      return [];
+    }
+    return [
+      {
+        filename: source.filename,
+        ...(typeof source.page_number === "number" ? { page_number: source.page_number } : {}),
+      },
+    ];
+  });
 };
 
 export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
@@ -82,7 +106,7 @@ export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
     .map((msg: Message) => ({
       type: msg.role === "user" ? ("user" as const) : ("assistant" as const),
       text: msg.content,
-      sources: msg.role === "assistant" ? getSourceFilenames(msg.annotations) : [],
+      sources: msg.role === "assistant" ? getSourceCitations(msg.annotations) : [],
     }));
 
   return {

@@ -8,6 +8,20 @@ interface Message {
   content: string;
 }
 
+interface BackendCitation {
+  filename: string;
+  page_number?: number | null;
+}
+
+const isBackendCitation = (citation: unknown): citation is BackendCitation =>
+  typeof citation === "object" &&
+  citation !== null &&
+  "filename" in citation &&
+  typeof citation.filename === "string" &&
+  (!("page_number" in citation) ||
+    citation.page_number === null ||
+    (typeof citation.page_number === "number" && citation.page_number > 0));
+
 export async function POST(req: Request) {
   try {
     // Extract Authorization header from the incoming request
@@ -74,11 +88,19 @@ export async function POST(req: Request) {
     const data = await response.json();
 
     let answer = data.answer || "No response available";
-    const sourceDocuments = Array.isArray(data.source_documents)
+    const sourceDocuments: string[] = Array.isArray(data.source_documents)
       ? data.source_documents.filter(
           (source: unknown): source is string => typeof source === "string"
         )
       : [];
+    const sourceCitations = Array.isArray(data.citations)
+      ? (data.citations as unknown[]).filter(isBackendCitation).map(citation => ({
+          filename: citation.filename,
+          ...(typeof citation.page_number === "number"
+            ? { page_number: citation.page_number }
+            : {}),
+        }))
+      : sourceDocuments.map(filename => ({ filename }));
 
     // Clean up [DOCUMENT X] markers from the answer
     // These are internal reference markers that shouldn't appear in user-facing text
@@ -96,8 +118,8 @@ export async function POST(req: Request) {
           await new Promise(resolve => setTimeout(resolve, 10));
         }
 
-        if (sourceDocuments.length > 0) {
-          const sourcesAnnotation = [{ type: "sources", sources: sourceDocuments }];
+        if (sourceCitations.length > 0) {
+          const sourcesAnnotation = [{ type: "sources", sources: sourceCitations }];
           controller.enqueue(encoder.encode(`8:${JSON.stringify(sourcesAnnotation)}\n`));
         }
 

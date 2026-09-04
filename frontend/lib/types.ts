@@ -1,9 +1,16 @@
 // Tipi e interfacce per l'applicazione RAG
 
+export interface SourceCitation {
+  filename: string;
+  page_number?: number;
+}
+
+export type ChatSource = string | SourceCitation;
+
 export interface ChatMessage {
   type: "user" | "assistant";
   text: string;
-  sources: string[];
+  sources: ChatSource[];
   isThinking?: boolean;
 }
 

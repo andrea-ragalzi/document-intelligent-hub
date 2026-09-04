@@ -31,6 +31,7 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
                 "source": "verified-user",
                 "original_filename": "retention-policy.pdf",
                 "chapter_title": "Retention",
+                "page_number": 7,
             },
         ),
         Document(
@@ -39,6 +40,15 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
                 "source": "verified-user",
                 "original_filename": "policy-update.pdf",
                 "chapter_title": "Effective date",
+            },
+        ),
+        Document(
+            page_content="Retention is reviewed annually.",
+            metadata={
+                "source": "verified-user",
+                "original_filename": "retention-policy.pdf",
+                "chapter_title": "Review",
+                "page_number": "7",
             },
         ),
     ]
@@ -84,7 +94,10 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
     network_connect.assert_not_called()
 
     assert answer == "Records are retained for seven years."
-    assert sources == ["policy-update.pdf", "retention-policy.pdf"]
+    assert sources == [
+        {"filename": "retention-policy.pdf", "page_number": 7},
+        {"filename": "policy-update.pdf", "page_number": None},
+    ]
 
     query_processing.reformulate_query.assert_called_once_with("What changed?", [])
     query_processing.classify_query.assert_called_once_with(
