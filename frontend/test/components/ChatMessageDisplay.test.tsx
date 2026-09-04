@@ -3,33 +3,37 @@ import { describe, expect, it } from "vitest";
 import { ChatMessageDisplay } from "@/components/ChatMessageDisplay";
 
 describe("ChatMessageDisplay sources", () => {
-  it("renders one filename in a compact Sources section", () => {
+  it("renders one filename and retrieved page number in a compact Sources section", () => {
     render(
       <ChatMessageDisplay
         msg={{
           type: "assistant",
           text: "Grounded answer",
-          sources: ["alice-cheshire-cat-demo.pdf"],
+          sources: [{ filename: "alice-cheshire-cat-demo.pdf", page_number: 7 }],
         }}
       />
     );
 
     expect(screen.getByText("Sources")).toBeInTheDocument();
-    expect(screen.getByText("alice-cheshire-cat-demo.pdf")).not.toHaveAttribute("href");
+    expect(screen.getByText("alice-cheshire-cat-demo.pdf — p. 7")).not.toHaveAttribute("href");
   });
 
-  it("renders multiple source filenames without adding unsupported metadata", () => {
+  it("deduplicates citations and falls back to filename-only when page metadata is missing", () => {
     render(
       <ChatMessageDisplay
         msg={{
           type: "assistant",
           text: "Grounded answer",
-          sources: ["alice-cheshire-cat-demo.pdf", "policy.pdf"],
+          sources: [
+            { filename: "alice-cheshire-cat-demo.pdf", page_number: 7 },
+            { filename: "alice-cheshire-cat-demo.pdf", page_number: 7 },
+            { filename: "policy.pdf" },
+          ],
         }}
       />
     );
 
-    expect(screen.getByText("alice-cheshire-cat-demo.pdf")).toBeInTheDocument();
+    expect(screen.getAllByText("alice-cheshire-cat-demo.pdf — p. 7")).toHaveLength(1);
     expect(screen.getByText("policy.pdf")).toBeInTheDocument();
     expect(screen.queryByText(/Section:/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Page:/i)).not.toBeInTheDocument();

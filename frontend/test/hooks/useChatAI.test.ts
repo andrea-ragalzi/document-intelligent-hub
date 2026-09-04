@@ -81,7 +81,7 @@ describe("useChatAI", () => {
       {
         type: "assistant",
         text: "The answer is grounded in the document.",
-        sources: ["alice-cheshire-cat-demo.pdf", "policy.pdf"],
+        sources: [{ filename: "alice-cheshire-cat-demo.pdf" }, { filename: "policy.pdf" }],
       },
     ]);
   });

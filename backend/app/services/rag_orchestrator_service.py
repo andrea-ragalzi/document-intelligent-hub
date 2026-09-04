@@ -157,7 +157,7 @@ class RAGService:
         output_language: Optional[str] = None,
         include_files: Optional[List[str]] = None,
         exclude_files: Optional[List[str]] = None,
-    ) -> Tuple[str, List[str]]:
+    ) -> Tuple[str, List[dict[str, str | int | None]]]:
         """
         Process query and generate answer using RAG pipeline.
 
@@ -175,7 +175,7 @@ class RAGService:
             exclude_files: Optional file filter (exclude)
 
         Returns:
-            Tuple of (answer_with_sources, source_filenames)
+            Tuple of (answer, retrieved source citations)
         """
         conversation_history = conversation_history or []
 

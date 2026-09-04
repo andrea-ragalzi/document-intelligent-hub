@@ -9,7 +9,7 @@ Handles query operations:
 
 import asyncio
 import time
-from typing import Tuple
+from typing import Any, Tuple
 
 from app.config.security_constants import UNLIMITED_TIER_MAX_QUERIES
 from app.core.auth import require_verified_email
@@ -18,6 +18,7 @@ from app.routers.auth_router import load_app_config
 from app.schemas.rag_schema import (
     QueryRequest,
     QueryResponse,
+    SourceCitation,
     SummarizeRequest,
     SummarizeResponse,
 )
@@ -135,15 +136,36 @@ def _log_request_details(request: QueryRequest, user_id: str) -> None:
     logger.info(f"{'='*80}")
 
 
+def _normalize_citations(sources: list[Any]) -> list[SourceCitation]:
+    """Preserve structured retrieval citations and keep legacy filename mocks compatible."""
+    citations: list[SourceCitation] = []
+    seen: set[tuple[str, int | None]] = set()
+    for source in sources:
+        if isinstance(source, str):
+            citation = SourceCitation(filename=source)
+        elif isinstance(source, dict):
+            try:
+                citation = SourceCitation.model_validate(source)
+            except ValueError:
+                continue
+        else:
+            continue
+        citation_key = (citation.filename, citation.page_number)
+        if citation_key not in seen:
+            seen.add(citation_key)
+            citations.append(citation)
+    return citations[:5]
+
+
 def _log_response_details(
-    answer: str, sources: list[str], tier: str, new_count: int, max_queries: int
+    answer: str, citations: list[SourceCitation], tier: str, new_count: int, max_queries: int
 ) -> None:
     """
     Log detailed response information.
 
     Args:
         answer: Generated answer
-        sources: Source documents list
+        citations: Retrieved source citations
         tier: User tier
         new_count: Updated query count
         max_queries: Maximum queries allowed
@@ -152,9 +174,9 @@ def _log_response_details(
     logger.info("📤 [ROUTER] QUERY RESPONSE")
     logger.info(f"{'='*80}")
     logger.info(f"✅ Answer length: {len(answer)} characters")
-    logger.info(f"📚 Sources: {len(sources)} documents")
-    if sources:
-        logger.info(f"   Files: {', '.join(sources[:5])}")
+    logger.info(f"📚 Sources: {len(citations)} citations")
+    if citations:
+        logger.info(f"   Files: {', '.join(citation.filename for citation in citations)}")
     logger.info(f"📝 Answer preview: {answer[:200]}...")
     logger.info(f"📊 Query slot reserved: {new_count}/{max_queries} ({tier})")
     logger.info(f"{'='*80}")
@@ -273,9 +295,13 @@ async def query_document(
             f"⏱️ Query timing | total="
             f"{(time.perf_counter() - request_started) * 1000:.2f}ms"
         )
-        _log_response_details(answer, sources, tier, reserved_count, max_queries)
+        citations = _normalize_citations(sources)
+        source_documents = list(dict.fromkeys(citation.filename for citation in citations))
+        _log_response_details(answer, citations, tier, reserved_count, max_queries)
 
-        return QueryResponse(answer=answer, source_documents=sources)
+        return QueryResponse(
+            answer=answer, source_documents=source_documents, citations=citations
+        )
 
     except HTTPException:
         raise

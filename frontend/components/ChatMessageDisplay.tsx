@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, ChatSource, SourceCitation } from "@/lib/types";
 import { MessageSquare, User as UserIcon, Loader, Link as LinkIcon } from "lucide-react";
 
 interface ChatMessageDisplayProps {
@@ -51,6 +51,25 @@ const splitLegacySources = (text: string): { answer: string; sources: string[] }
   };
 };
 
+const normalizeSourceCitation = (source: ChatSource): SourceCitation =>
+  typeof source === "string" ? { filename: source } : source;
+
+const deduplicateCitations = (sources: ChatSource[]): SourceCitation[] => {
+  const seen = new Set<string>();
+  return sources
+    .map(normalizeSourceCitation)
+    .filter(source => {
+      const key = `${source.filename}:${source.page_number ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
+};
+
+const formatCitation = (citation: SourceCitation): string =>
+  citation.page_number ? `${citation.filename} — p. ${citation.page_number}` : citation.filename;
+
 const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
   <div
     className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
@@ -66,7 +85,7 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
 
   const { answer, sources: legacySources } = splitLegacySources(msg.text);
   const cleanedText = cleanDocumentMarkers(answer);
-  const sources = [...new Set([...msg.sources, ...legacySources])];
+  const sources = deduplicateCitations([...msg.sources, ...legacySources]);
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 sm:mb-6 px-1 sm:px-2`}>
@@ -111,8 +130,12 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
             </h3>
             <ul className="max-h-24 space-y-0.5 overflow-y-auto pr-2 text-xs text-ink">
               {sources.map(source => (
-                <li key={source} className="truncate" title={source}>
-                  {source}
+                <li
+                  key={`${source.filename}:${source.page_number ?? ""}`}
+                  className="truncate"
+                  title={formatCitation(source)}
+                >
+                  {formatCitation(source)}
                 </li>
               ))}
             </ul>

@@ -27,6 +27,9 @@ from app.services.reranking_service import RerankingService
 from app.services.translation_service import TranslationService
 from langchain_core.language_models import BaseChatModel
 
+MAX_SOURCE_CITATIONS = 5
+SourceCitationData = dict[str, str | int | None]
+
 
 def _build_rag_prompt(context: str, question: str) -> str:
     """Build RAG prompt without conversation history."""
@@ -92,7 +95,7 @@ class AnswerGenerationService:
         *,  # Force keyword-only arguments below
         include_files: Optional[List[str]] = None,
         exclude_files: Optional[List[str]] = None,
-    ) -> Tuple[str, List[str]]:
+    ) -> Tuple[str, List[SourceCitationData]]:
         """
         Generate answer using RAG pipeline: retrieval, reranking, LLM invocation.
 
@@ -105,7 +108,7 @@ class AnswerGenerationService:
             exclude_files: Optional list of filenames to exclude
 
         Returns:
-            Tuple of (formatted_answer_with_sources, list_of_source_filenames)
+            Tuple of (formatted_answer, retrieved source citations)
         """
         conversation_history = conversation_history or []
 
@@ -286,7 +289,7 @@ class AnswerGenerationService:
         context_docs: List[Any],
         conversation_history: List[ConversationMessage],
         target_language: str,
-    ) -> Tuple[str, List[str]]:
+    ) -> Tuple[str, List[SourceCitationData]]:
         """
         Generate LLM response with context and history.
 
@@ -297,7 +300,7 @@ class AnswerGenerationService:
             target_language: Target response language code
 
         Returns:
-            Tuple of (formatted_answer, source_files)
+            Tuple of (formatted_answer, retrieved source citations)
         """
         history_str = self._format_conversation_history(conversation_history)
         context_str = self._format_context_documents(context_docs)
@@ -309,8 +312,7 @@ class AnswerGenerationService:
             final_answer = self._invoke_llm_and_translate(
                 final_llm_query, target_language
             )
-            source_documents = self._extract_source_files(context_docs)
-            return final_answer, source_documents
+            return final_answer, self._extract_source_citations(context_docs)
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error during LLM invocation: {e}")
@@ -414,19 +416,35 @@ class AnswerGenerationService:
         return final_answer
 
     @staticmethod
-    def _extract_source_files(context_docs: List[Any]) -> List[str]:
-        """
-        Extract unique source filenames from documents.
+    def _normalize_page_number(value: Any) -> int | None:
+        """Return a valid one-based PDF page number from trusted chunk metadata."""
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+        if isinstance(value, str) and value.isdecimal() and int(value) > 0:
+            return int(value)
+        return None
 
-        Args:
-            context_docs: Retrieved documents
+    def _extract_source_citations(
+        self, context_docs: List[Any]
+    ) -> List[SourceCitationData]:
+        """Keep the first reranked filename/page pairs, capped for compact UI output."""
+        citations: List[SourceCitationData] = []
+        seen: set[tuple[str, int | None]] = set()
 
-        Returns:
-            Sorted list of unique filenames
-        """
-        return sorted(
-            {doc.metadata.get("original_filename", "Unknown") for doc in context_docs}
-        )
+        for document in context_docs:
+            filename = document.metadata.get("original_filename")
+            if not isinstance(filename, str) or not filename:
+                continue
+            page_number = self._normalize_page_number(document.metadata.get("page_number"))
+            citation_key = (filename, page_number)
+            if citation_key in seen:
+                continue
+            seen.add(citation_key)
+            citations.append({"filename": filename, "page_number": page_number})
+            if len(citations) == MAX_SOURCE_CITATIONS:
+                break
+
+        return citations
 
     def _append_sources_to_answer(
         self, answer: str, source_documents: List[str], target_language: str
@@ -464,7 +482,9 @@ class AnswerGenerationService:
             "An unexpected error occurred during answer generation.", query_lang
         )
 
-    def _handle_no_documents(self, query_language: str) -> Tuple[str, List[str]]:
+    def _handle_no_documents(
+        self, query_language: str
+    ) -> Tuple[str, List[SourceCitationData]]:
         """
         Handle case when no documents are retrieved.
 

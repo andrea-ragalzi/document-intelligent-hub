@@ -174,6 +174,7 @@ class TestQueryEndpoint:
         assert response.json() == {
             "answer": "The policy changed in January.",
             "source_documents": ["policy.pdf"],
+            "citations": [{"filename": "policy.pdf", "page_number": None}],
         }
         assert filter_parser.call_args.kwargs["query"] == payload["query"]
         answer_query.assert_called_once_with(
@@ -184,6 +185,33 @@ class TestQueryEndpoint:
             include_files=["policy.pdf"],
             exclude_files=["draft.pdf"],
         )
+
+    def test_query_returns_structured_page_citations(
+        self,
+        client: Any,
+        test_user_id: str,
+        mock_external_rag_calls: dict[str, Any],
+    ) -> None:
+        """Citations remain structured rather than being flattened into answer text."""
+        client.test_user_context["user_id"] = test_user_id
+        mock_external_rag_calls["filter_parser"].return_value = FileFilterResponse(
+            include_files=[], exclude_files=[], original_query="Where?", cleaned_query="Where?"
+        )
+        mock_external_rag_calls["answer_query"].return_value = (
+            "Grounded answer.",
+            [
+                {"filename": "handbook.pdf", "page_number": 7},
+                {"filename": "appendix.pdf", "page_number": None},
+            ],
+        )
+
+        response = client.post("/rag/query/", json={"query": "Where?"})
+
+        assert response.status_code == 200
+        assert response.json()["citations"] == [
+            {"filename": "handbook.pdf", "page_number": 7},
+            {"filename": "appendix.pdf", "page_number": None},
+        ]
 
     def test_query_long_text(self, client: Any, test_user_id: str) -> None:
         """Test query with longer question"""
