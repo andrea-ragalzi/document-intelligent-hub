@@ -1,5 +1,10 @@
+"use client";
+
 import type { ChatMessage, ChatSource, SourceCitation } from "@/lib/types";
 import { MessageSquare, User as UserIcon, Loader, Link as LinkIcon } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE_URL } from "@/lib/constants";
 
 interface ChatMessageDisplayProps {
   msg: ChatMessage;
@@ -70,6 +75,8 @@ const deduplicateCitations = (sources: ChatSource[]): SourceCitation[] => {
 const formatCitation = (citation: SourceCitation): string =>
   citation.page_number ? `${citation.filename} — p. ${citation.page_number}` : citation.filename;
 
+const BLOB_URL_REVOKE_DELAY_MS = 60_000;
+
 const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
   <div
     className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
@@ -79,6 +86,70 @@ const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
     {isUser ? <UserIcon size={16} /> : <MessageSquare size={16} />}
   </div>
 );
+
+const CitationSources: React.FC<{ sources: SourceCitation[] }> = ({ sources }) => {
+  const { getIdToken } = useAuth();
+  const [citationError, setCitationError] = useState<string | null>(null);
+
+  const openCitation = async (citation: SourceCitation) => {
+    setCitationError(null);
+    const previewWindow = window.open("about:blank", "_blank");
+    if (!previewWindow) {
+      setCitationError("Allow pop-ups to open this document.");
+      return;
+    }
+
+    try {
+      previewWindow.opener = null;
+      const token = await getIdToken();
+      if (!token) throw new Error("Missing authentication token");
+
+      const query = new URLSearchParams({ filename: citation.filename });
+      const response = await fetch(`${API_BASE_URL}/documents/content?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Document content request failed");
+
+      const blobUrl = URL.createObjectURL(await response.blob());
+      previewWindow.location.href = `${blobUrl}#page=${citation.page_number || 1}`;
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), BLOB_URL_REVOKE_DELAY_MS);
+    } catch {
+      previewWindow.close();
+      setCitationError("Unable to open this document.");
+    }
+  };
+
+  return (
+    <section
+      aria-label="Sources"
+      className="mt-2 rounded-lg border border-line/15 bg-raised/50 px-3 py-2"
+    >
+      <h3 className="mb-1 flex items-center text-xs font-semibold text-muted">
+        <LinkIcon size={12} className="mr-1.5" />
+        Sources
+      </h3>
+      <ul className="max-h-24 space-y-0.5 overflow-y-auto pr-2 text-xs text-ink">
+        {sources.map(source => (
+          <li key={`${source.filename}:${source.page_number ?? ""}`}>
+            <button
+              type="button"
+              onClick={() => void openCitation(source)}
+              className="block w-full truncate text-left underline decoration-line/40 underline-offset-2 transition-colors hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent/70 focus:ring-offset-2 focus:ring-offset-raised"
+              title={`Open ${formatCitation(source)}`}
+            >
+              {formatCitation(source)}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {citationError && (
+        <p role="alert" className="mt-2 text-xs text-danger">
+          {citationError}
+        </p>
+      )}
+    </section>
+  );
+};
 
 export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) => {
   const isUser = msg.type === "user";
@@ -119,28 +190,7 @@ export const ChatMessageDisplay: React.FC<ChatMessageDisplayProps> = ({ msg }) =
           )}
         </div>
 
-        {!isUser && sources.length > 0 && !msg.isThinking && (
-          <section
-            aria-label="Sources"
-            className="mt-2 rounded-lg border border-line/15 bg-raised/50 px-3 py-2"
-          >
-            <h3 className="mb-1 flex items-center text-xs font-semibold text-muted">
-              <LinkIcon size={12} className="mr-1.5" />
-              Sources
-            </h3>
-            <ul className="max-h-24 space-y-0.5 overflow-y-auto pr-2 text-xs text-ink">
-              {sources.map(source => (
-                <li
-                  key={`${source.filename}:${source.page_number ?? ""}`}
-                  className="truncate"
-                  title={formatCitation(source)}
-                >
-                  {formatCitation(source)}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        {!isUser && sources.length > 0 && !msg.isThinking && <CitationSources sources={sources} />}
       </div>
 
       {isUser && <Avatar isUser={true} />}
