@@ -15,6 +15,7 @@ Architecture Pattern: Repository Pattern
 """
 
 from collections import Counter
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from chromadb import Collection
@@ -23,6 +24,20 @@ from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStoreRetriever
 
 from app.core.logging import logger
+
+
+@dataclass
+class _LexicalCandidateState:
+    """Mutable state shared by the bounded lexical-candidate helpers."""
+
+    max_candidates: int
+    documents: List[Document] = field(default_factory=list)
+    seen_ids: set[str] = field(default_factory=set)
+    matched_filenames: Counter[str] = field(default_factory=Counter)
+    title_matches: Counter[str] = field(default_factory=Counter)
+    page_fragments: Dict[Tuple[str, str], List[str]] = field(default_factory=dict)
+    page_metadata: Dict[Tuple[str, str], Dict[str, Any]] = field(default_factory=dict)
+    page_fragment_ids: Dict[Tuple[str, str], set[str]] = field(default_factory=dict)
 
 
 class VectorStoreRepository:
@@ -199,52 +214,78 @@ class VectorStoreRepository:
         It is deliberately a bounded candidate source; reranking remains responsible
         for deciding whether these chunks are actual evidence.
         """
-        max_candidates = 60
-        max_expanded_documents = 3
-        documents: List[Document] = []
-        seen_ids: set[str] = set()
-        matched_filenames: Counter[str] = Counter()
-        title_matches: Counter[str] = Counter()
-        page_fragments: Dict[Tuple[str, str], List[str]] = {}
-        page_metadata: Dict[Tuple[str, str], Dict[str, Any]] = {}
-        page_fragment_ids: Dict[Tuple[str, str], set[str]] = {}
+        state = _LexicalCandidateState(max_candidates=60)
+        self._collect_term_candidates(user_id, terms, limit_per_term, state)
+        self._collect_title_matches(user_id, terms, state)
+        ranked_filenames = self._rank_expansion_filenames(state, limit=3)
+        self._collect_document_context(user_id, ranked_filenames, state)
+        self._append_fragmented_page_contexts(state)
 
-        def append_results(
-            results: Mapping[str, Any],
-            *,
-            add_candidates: bool,
-            collect_page_context: bool = False,
-            record_matches: bool = False,
-        ) -> None:
-            result_ids = results.get("ids", []) or []
-            result_documents = results.get("documents", []) or []
-            result_metadatas = results.get("metadatas", []) or []
-            for chunk_id, content, metadata in zip(
-                result_ids, result_documents, result_metadatas
+        logger.debug("Lexical candidate search returned %s chunks", len(state.documents))
+        return state.documents
+
+    @staticmethod
+    def _append_lexical_results(
+        results: Mapping[str, Any],
+        state: _LexicalCandidateState,
+        *,
+        add_candidates: bool,
+        collect_page_context: bool = False,
+        record_matches: bool = False,
+    ) -> None:
+        """Merge one bounded Chroma result into lexical-candidate state."""
+        result_ids = results.get("ids", []) or []
+        result_documents = results.get("documents", []) or []
+        result_metadatas = results.get("metadatas", []) or []
+        for chunk_id, content, metadata in zip(
+            result_ids, result_documents, result_metadatas
+        ):
+            if not isinstance(content, str) or not isinstance(metadata, dict):
+                continue
+            filename = metadata.get("original_filename")
+            if isinstance(filename, str) and filename:
+                if record_matches:
+                    state.matched_filenames[filename] += 1
+                if collect_page_context:
+                    VectorStoreRepository._append_page_fragment(
+                        state, str(chunk_id), content, filename, metadata
+                    )
+            if (
+                add_candidates
+                and chunk_id not in state.seen_ids
+                and len(state.documents) < state.max_candidates
             ):
-                if not isinstance(content, str) or not isinstance(metadata, dict):
-                    continue
-                filename = metadata.get("original_filename")
-                if isinstance(filename, str) and filename:
-                    if record_matches:
-                        matched_filenames[filename] += 1
-                    if collect_page_context:
-                        page_number = str(metadata.get("page_number", ""))
-                        page_key = (filename, page_number)
-                        collected_ids = page_fragment_ids.setdefault(page_key, set())
-                        if chunk_id not in collected_ids:
-                            collected_ids.add(chunk_id)
-                            page_fragments.setdefault(page_key, []).append(content)
-                            page_metadata.setdefault(page_key, metadata)
-                if (
-                    add_candidates
-                    and chunk_id not in seen_ids
-                    and len(documents) < max_candidates
-                ):
-                    seen_ids.add(chunk_id)
-                    documents.append(Document(page_content=content, metadata=metadata))
+                state.seen_ids.add(str(chunk_id))
+                state.documents.append(Document(page_content=content, metadata=metadata))
 
-        for term in dict.fromkeys(term for term in terms if len(term.strip()) >= 3):
+    @staticmethod
+    def _append_page_fragment(
+        state: _LexicalCandidateState,
+        chunk_id: str,
+        content: str,
+        filename: str,
+        metadata: Dict[str, Any],
+    ) -> None:
+        """Collect one unique structural fragment for temporary page aggregation."""
+        page_number = str(metadata.get("page_number", ""))
+        page_key = (filename, page_number)
+        collected_ids = state.page_fragment_ids.setdefault(page_key, set())
+        if chunk_id in collected_ids:
+            return
+        collected_ids.add(chunk_id)
+        state.page_fragments.setdefault(page_key, []).append(content)
+        state.page_metadata.setdefault(page_key, metadata)
+
+    def _collect_term_candidates(
+        self,
+        user_id: str,
+        terms: List[str],
+        limit_per_term: int,
+        state: _LexicalCandidateState,
+    ) -> None:
+        """Fetch bounded exact-content matches for distinctive query terms."""
+        eligible_terms = dict.fromkeys(term for term in terms if len(term.strip()) >= 3)
+        for term in eligible_terms:
             try:
                 results = self.collection.get(
                     where={"source": user_id},
@@ -253,58 +294,68 @@ class VectorStoreRepository:
                     limit=limit_per_term,
                 )
             except Exception as error:  # pylint: disable=broad-exception-caught
-                logger.warning("Lexical candidate lookup failed for a query term: %s", type(error).__name__)
+                logger.warning(
+                    "Lexical candidate lookup failed for a query term: %s",
+                    type(error).__name__,
+                )
                 continue
+            self._append_lexical_results(
+                results, state, add_candidates=True, record_matches=True
+            )
 
-            append_results(results, add_candidates=True, record_matches=True)
-
-        # Table-oriented PDFs often keep the entity in a filename or heading while
-        # the chunk containing the value has no repeated entity name. Search the
-        # authenticated user's metadata too, then expand only matching documents.
-        # This remains a bounded local Chroma read and never crosses tenant scope.
+    def _collect_title_matches(
+        self, user_id: str, terms: List[str], state: _LexicalCandidateState
+    ) -> None:
+        """Find tenant-scoped filenames containing distinctive query terms."""
         try:
-            metadata_results = self.collection.get(
+            results = self.collection.get(
                 where={"source": user_id}, include=["metadatas"], limit=10_000
             )
         except Exception as error:  # pylint: disable=broad-exception-caught
-            logger.warning("Document title candidate lookup failed: %s", type(error).__name__)
-        else:
-            normalized_terms = [
-                term.lower() for term in terms if len(term.strip()) >= 3
-            ]
-            for metadata in metadata_results.get("metadatas", []) or []:
-                if not isinstance(metadata, dict):
-                    continue
-                filename = metadata.get("original_filename")
-                if not isinstance(filename, str) or not filename:
-                    continue
-                if any(term in filename.lower() for term in normalized_terms):
-                    title_matches[filename] += 1
+            logger.warning(
+                "Document title candidate lookup failed: %s", type(error).__name__
+            )
+            return
 
-        # Inspect only the strongest few matched documents. Content matches rank
-        # above title-only matches; a weak filename overlap cannot fan out across
-        # the user's complete corpus.
+        normalized_terms = [term.lower() for term in terms if len(term.strip()) >= 3]
+        for metadata in results.get("metadatas", []) or []:
+            if not isinstance(metadata, dict):
+                continue
+            filename = metadata.get("original_filename")
+            if isinstance(filename, str) and filename and any(
+                term in filename.lower() for term in normalized_terms
+            ):
+                state.title_matches[filename] += 1
+
+    @staticmethod
+    def _rank_expansion_filenames(
+        state: _LexicalCandidateState, *, limit: int
+    ) -> List[str]:
+        """Rank a small set of documents for structural-context expansion."""
         expansion_scores = {
-            filename: match_count * 2 + title_matches.get(filename, 0)
-            for filename, match_count in matched_filenames.items()
+            filename: match_count * 2 + state.title_matches.get(filename, 0)
+            for filename, match_count in state.matched_filenames.items()
         }
-        for filename, match_count in title_matches.items():
+        for filename, match_count in state.title_matches.items():
             expansion_scores.setdefault(filename, match_count)
-
-        ranked_filenames = sorted(
+        return sorted(
             expansion_scores,
             key=lambda filename: (
                 expansion_scores[filename],
-                title_matches.get(filename, 0),
+                state.title_matches.get(filename, 0),
                 filename,
             ),
             reverse=True,
-        )[:max_expanded_documents]
+        )[:limit]
 
-        # Structural extraction can separate table labels from their values.
-        # Expansion is used to build a temporary page context, not to add every
-        # chunk from a matched document to the reranking pool.
-        for filename in ranked_filenames:
+    def _collect_document_context(
+        self,
+        user_id: str,
+        filenames: List[str],
+        state: _LexicalCandidateState,
+    ) -> None:
+        """Collect bounded fragments from the strongest matching documents."""
+        for filename in filenames:
             try:
                 results = self.collection.get(
                     where={
@@ -317,32 +368,31 @@ class VectorStoreRepository:
                     limit=40,
                 )
             except Exception as error:  # pylint: disable=broad-exception-caught
-                logger.warning("Document candidate expansion failed: %s", type(error).__name__)
+                logger.warning(
+                    "Document candidate expansion failed: %s", type(error).__name__
+                )
                 continue
-            append_results(
+            self._append_lexical_results(
                 results,
-                add_candidates=bool(title_matches.get(filename)),
+                state,
+                add_candidates=bool(state.title_matches.get(filename)),
                 collect_page_context=True,
             )
 
-        # Unstructured can emit table labels and values as individual chunks. A
-        # short, in-memory page context lets ranking select the actual table as
-        # one piece of evidence; it is never written back to Chroma.
-        for page_key, fragments in page_fragments.items():
+    @staticmethod
+    def _append_fragmented_page_contexts(state: _LexicalCandidateState) -> None:
+        """Create temporary aggregates only for genuinely fragmented pages."""
+        for page_key, fragments in state.page_fragments.items():
             short_fragments = sum(len(fragment.strip()) <= 50 for fragment in fragments)
             is_fragmented_page = (
-                len(fragments) >= 6
-                and short_fragments / len(fragments) >= 0.6
+                len(fragments) >= 6 and short_fragments / len(fragments) >= 0.6
             )
-            if not is_fragmented_page or len(documents) >= max_candidates:
+            if not is_fragmented_page or len(state.documents) >= state.max_candidates:
                 continue
-            metadata = dict(page_metadata[page_key])
+            metadata = dict(state.page_metadata[page_key])
             metadata["context_aggregation"] = True
             page_content = "\n".join(fragments)[:6_000]
-            documents.append(Document(page_content=page_content, metadata=metadata))
-
-        logger.debug("Lexical candidate search returned %s chunks", len(documents))
-        return documents
+            state.documents.append(Document(page_content=page_content, metadata=metadata))
 
     def get_retriever(
         self,

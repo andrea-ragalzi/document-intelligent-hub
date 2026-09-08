@@ -191,7 +191,6 @@ class RerankingService:
         if not documents:
             return []
 
-        # 1. Estrazione Keywords
         # Expansion variants improve recall, but must not redefine relevance:
         # their generated vocabulary can otherwise outrank a direct answer to
         # the user's original question.
@@ -206,13 +205,46 @@ class RerankingService:
         )
         print(f"DEBUG [Reranking]: Sample keywords: {list(keywords)[:5]}")
 
-        document_coverage = self._document_coverage(documents, keywords)
+        replaceable_atomic_ids = self._replaceable_atomic_ids(documents)
+        scored_docs = self._score_documents(
+            documents, keywords, subquery_keywords, all_queries
+        )
+        top_docs, seen_content = self._select_required_group_documents(
+            documents,
+            required_query_groups or [],
+            replaceable_atomic_ids,
+            top_n,
+        )
+        eligible_scored_docs = [
+            (score, document)
+            for score, document in scored_docs
+            if id(document) not in replaceable_atomic_ids
+        ]
+        self._extend_with_distinct_evidence(
+            top_docs,
+            seen_content,
+            eligible_scored_docs,
+            keywords,
+            original_query,
+            top_n,
+        )
+
+        print(f"DEBUG [Reranking]: Reranked {len(documents)} → {len(top_docs)} documents")
+        top_3_scores = [
+            round(scored_docs[i][0], 3) for i in range(min(3, len(scored_docs)))
+        ]
+        print(f"DEBUG [Reranking]: Top 3 scores: {top_3_scores}")
+
+        return top_docs
+
+    def _replaceable_atomic_ids(self, documents: List[Document]) -> set[int]:
+        """Find atomic chunks fully preserved by an aggregate from the same page."""
         page_aggregates = [
             document
             for document in documents
             if document.metadata.get("context_aggregation") is True
         ]
-        replaceable_atomic_ids = {
+        return {
             id(document)
             for document in documents
             if document.metadata.get("context_aggregation") is not True
@@ -222,149 +254,207 @@ class RerankingService:
             )
         }
 
-        # 2. Scoring di ogni documento
-        scored_docs: List[Tuple[float, Document]] = []
-        total_docs = len(documents)
-
-        for i, doc in enumerate(documents):
-
-            # Vector Similarity Score (basato sulla posizione)
-            # Rank-based decay: 1.0 per il primo, decresce linearmente fino a quasi 0.0
-            vector_score = 1.0 - (i / total_docs)
-
-            # Keyword Score: basato sulla Term Frequency (TF) migliorata
-            keyword_score = self._calculate_tf_score(doc.page_content, keywords)
-            subquery_score = max(
-                (
-                    self._calculate_tf_score(doc.page_content, query_keywords)
-                    for query_keywords in subquery_keywords
-                    if query_keywords
-                ),
-                default=0.0,
+    def _score_documents(
+        self,
+        documents: List[Document],
+        keywords: Set[str],
+        subquery_keywords: List[Set[str]],
+        queries: List[str],
+    ) -> List[Tuple[float, Document]]:
+        """Apply hybrid relevance scoring while preserving initial vector rank."""
+        coverage = self._document_coverage(documents, keywords)
+        scored_documents = [
+            self._score_document(
+                document,
+                index,
+                len(documents),
+                keywords,
+                subquery_keywords,
+                queries,
+                coverage,
             )
-            metadata_score = self._metadata_score(doc, keywords)
-            filename = str(doc.metadata.get("original_filename", ""))
-            document_score = document_coverage.get(filename, 0.0)
-            identifier_score = self._identifier_score(doc, all_queries)
-            context_score = (
-                0.5
-                if doc.metadata.get("context_aggregation") is True and keyword_score > 0
-                else 0.0
-            )
+            for index, document in enumerate(documents)
+        ]
+        scored_documents.sort(key=lambda item: item[0], reverse=True)
+        return scored_documents
 
-            # Combined score: weighted sum
-            combined_score = (
-                self.vector_weight * vector_score
-                + self.keyword_weight * keyword_score
-                + self.metadata_weight * max(metadata_score, document_score)
-                + 0.35 * identifier_score
-                + 0.25 * subquery_score
-                + context_score
-            )
-            doc.metadata["rerank_score"] = round(combined_score, 6)
+    def _score_document(  # pylint: disable=too-many-arguments
+        self,
+        document: Document,
+        index: int,
+        total_documents: int,
+        keywords: Set[str],
+        subquery_keywords: List[Set[str]],
+        queries: List[str],
+        coverage: dict[str, float],
+    ) -> Tuple[float, Document]:
+        """Calculate and record the combined relevance score for one chunk."""
+        vector_score = 1.0 - (index / total_documents)
+        keyword_score = self._calculate_tf_score(document.page_content, keywords)
+        subquery_score = max(
+            (
+                self._calculate_tf_score(document.page_content, query_keywords)
+                for query_keywords in subquery_keywords
+                if query_keywords
+            ),
+            default=0.0,
+        )
+        metadata_score = self._metadata_score(document, keywords)
+        filename = str(document.metadata.get("original_filename", ""))
+        identifier_score = self._identifier_score(document, queries)
+        context_score = (
+            0.5
+            if document.metadata.get("context_aggregation") is True
+            and keyword_score > 0
+            else 0.0
+        )
+        combined_score = (
+            self.vector_weight * vector_score
+            + self.keyword_weight * keyword_score
+            + self.metadata_weight * max(metadata_score, coverage.get(filename, 0.0))
+            + 0.35 * identifier_score
+            + 0.25 * subquery_score
+            + context_score
+        )
+        document.metadata["rerank_score"] = round(combined_score, 6)
+        return combined_score, document
 
-            scored_docs.append((combined_score, doc))
-
-        # 3. Ordinamento e Selezione Top N
-        scored_docs.sort(key=lambda x: x[0], reverse=True)
-
-        top_docs: List[Document] = []
+    def _select_required_group_documents(
+        self,
+        documents: List[Document],
+        query_groups: List[str],
+        replaceable_atomic_ids: set[int],
+        top_n: int,
+    ) -> Tuple[List[Document], set[str]]:
+        """Reserve one strong evidence candidate for each compound-query part."""
+        selected: List[Document] = []
         seen_content: set[str] = set()
-
-        # Compound questions need one strong candidate for each independently
-        # retrievable fact before global relevance fills the remaining positions.
-        for query_group in required_query_groups or []:
-            group_keywords = self._extract_keywords([query_group])
-            if not group_keywords:
-                continue
-            group_candidates = sorted(
-                (
-                    (
-                        self._calculate_tf_score(document.page_content, group_keywords)
-                        + self._metadata_score(document, group_keywords),
-                        document,
-                    )
-                    for document in documents
-                ),
-                key=lambda candidate: candidate[0],
-                reverse=True,
+        for query_group in query_groups:
+            candidate = self._best_group_candidate(
+                documents, query_group, replaceable_atomic_ids
             )
-            eligible_candidates = [
-                candidate
-                for candidate in group_candidates
-                if candidate[0] > 0
-                and id(candidate[1]) not in replaceable_atomic_ids
-            ]
-            if not eligible_candidates:
+            if candidate is None:
                 continue
-            candidate = eligible_candidates[0][1]
             supported_groups = candidate.metadata.setdefault(
                 "supported_query_groups", []
             )
             if query_group not in supported_groups:
                 supported_groups.append(query_group)
-            normalized_content = " ".join(candidate.page_content.lower().split())
+            normalized_content = self._normalize_content(candidate)
             if normalized_content not in seen_content:
                 seen_content.add(normalized_content)
-                top_docs.append(candidate)
-            if len(top_docs) == top_n:
+                selected.append(candidate)
+            if len(selected) == top_n:
                 break
+        return selected, seen_content
 
-        eligible_scored_docs = [
-            (score, document)
-            for score, document in scored_docs
-            if id(document) not in replaceable_atomic_ids
-        ]
-        best_score = eligible_scored_docs[0][0] if eligible_scored_docs else 0.0
-        covered_keywords: set[str] = set()
-        selected_filenames: set[str] = set()
-        for document in top_docs:
-            covered_keywords.update(
-                self._content_keyword_matches(document, keywords)
-            )
-            selected_filenames.add(
-                str(document.metadata.get("original_filename", ""))
-            )
+    def _best_group_candidate(
+        self,
+        documents: List[Document],
+        query_group: str,
+        replaceable_atomic_ids: set[int],
+    ) -> Document | None:
+        """Return the strongest eligible chunk for one retrieval subquery."""
+        group_keywords = self._extract_keywords([query_group])
+        if not group_keywords:
+            return None
+        candidates = sorted(
+            (
+                (
+                    self._calculate_tf_score(document.page_content, group_keywords)
+                    + self._metadata_score(document, group_keywords),
+                    document,
+                )
+                for document in documents
+            ),
+            key=lambda candidate: candidate[0],
+            reverse=True,
+        )
+        return next(
+            (
+                document
+                for score, document in candidates
+                if score > 0 and id(document) not in replaceable_atomic_ids
+            ),
+            None,
+        )
 
+    def _extend_with_distinct_evidence(  # pylint: disable=too-many-arguments
+        self,
+        selected: List[Document],
+        seen_content: set[str],
+        scored_documents: List[Tuple[float, Document]],
+        keywords: Set[str],
+        original_query: str,
+        top_n: int,
+    ) -> None:
+        """Fill remaining positions only with evidence adding distinct support."""
+        best_score = scored_documents[0][0] if scored_documents else 0.0
+        covered_keywords, selected_filenames = self._selection_coverage(
+            selected, keywords
+        )
         requests_multiple_sources = bool(
             MULTI_SOURCE_REQUEST_PATTERN.search(original_query)
         )
-
-        for score, document in eligible_scored_docs:
-            if len(top_docs) == top_n:
+        for score, document in scored_documents:
+            if len(selected) == top_n:
                 break
-            normalized_content = " ".join(document.page_content.lower().split())
+            normalized_content = self._normalize_content(document)
             if normalized_content in seen_content:
                 continue
-            if top_docs:
-                content_matches = self._content_keyword_matches(document, keywords)
-                contributes_new_support = bool(content_matches - covered_keywords)
-                filename = str(document.metadata.get("original_filename", ""))
-                contributes_requested_source = (
-                    requests_multiple_sources
-                    and filename not in selected_filenames
-                    and score >= best_score * 0.7
-                )
-                if score < best_score * 0.55 or not (
-                    contributes_new_support or contributes_requested_source
-                ):
-                    continue
+            content_matches = self._content_keyword_matches(document, keywords)
+            filename = str(document.metadata.get("original_filename", ""))
+            if selected and not self._adds_distinct_support(
+                score,
+                best_score,
+                content_matches,
+                covered_keywords,
+                filename,
+                selected_filenames,
+                requests_multiple_sources,
+            ):
+                continue
             seen_content.add(normalized_content)
-            top_docs.append(document)
-            covered_keywords.update(
-                self._content_keyword_matches(document, keywords)
-            )
-            selected_filenames.add(
-                str(document.metadata.get("original_filename", ""))
-            )
+            selected.append(document)
+            covered_keywords.update(content_matches)
+            selected_filenames.add(filename)
 
-        print(f"DEBUG [Reranking]: Reranked {total_docs} → {len(top_docs)} documents")
-        top_3_scores = [
-            round(scored_docs[i][0], 3) for i in range(min(3, len(scored_docs)))
-        ]
-        print(f"DEBUG [Reranking]: Top 3 scores: {top_3_scores}")
+    @staticmethod
+    def _adds_distinct_support(  # pylint: disable=too-many-arguments
+        score: float,
+        best_score: float,
+        content_matches: Set[str],
+        covered_keywords: Set[str],
+        filename: str,
+        selected_filenames: Set[str],
+        requests_multiple_sources: bool,
+    ) -> bool:
+        """Decide whether another ranked chunk adds material answer support."""
+        contributes_new_support = bool(content_matches - covered_keywords)
+        contributes_requested_source = (
+            requests_multiple_sources
+            and filename not in selected_filenames
+            and score >= best_score * 0.7
+        )
+        return score >= best_score * 0.55 and (
+            contributes_new_support or contributes_requested_source
+        )
 
-        return top_docs
+    def _selection_coverage(
+        self, selected: List[Document], keywords: Set[str]
+    ) -> Tuple[Set[str], Set[str]]:
+        """Collect covered query terms and filenames for selected evidence."""
+        covered_keywords: Set[str] = set()
+        selected_filenames: Set[str] = set()
+        for document in selected:
+            covered_keywords.update(self._content_keyword_matches(document, keywords))
+            selected_filenames.add(str(document.metadata.get("original_filename", "")))
+        return covered_keywords, selected_filenames
+
+    @staticmethod
+    def _normalize_content(document: Document) -> str:
+        """Normalize chunk text for exact duplicate suppression."""
+        return " ".join(document.page_content.lower().split())
 
     def _content_keyword_matches(
         self, document: Document, keywords: Set[str]
