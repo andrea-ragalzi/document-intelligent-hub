@@ -45,7 +45,9 @@ class RerankingService:
         self.metadata_weight = metadata_weight
         # Pre-compila il pattern una sola volta per l'efficienza
         self._word_pattern = re.compile(r"\b\w+\b")
-        self._identifier_pattern = re.compile(r"\b[\w]+(?:[_-][\w]+)+\b")
+        # ``\w`` includes underscores. Excluding separators from each segment
+        # makes the expression unambiguous and avoids exponential backtracking.
+        self._identifier_pattern = re.compile(r"\b[^\W_-]+(?:[_-][^\W_-]+)+\b")
 
     @staticmethod
     def _stem(token: str) -> str:

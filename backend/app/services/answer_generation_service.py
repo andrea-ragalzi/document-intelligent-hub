@@ -47,7 +47,10 @@ QUESTION_WORDS = {
     "How",
     "Why",
 }
-LEXICAL_TERM_PATTERN = re.compile(r"\b[A-ZÀ-ÖØ-Þ][\w-]*\b|\b[\w]+(?:[_-][\w]+)+\b")
+PROPER_NOUN_PATTERN = re.compile(r"\b[A-ZÀ-ÖØ-Þ][\w-]*\b")
+# ``\w`` includes underscores, so it must not overlap with the separator class.
+# Keeping identifier segments and separators disjoint prevents regex backtracking.
+IDENTIFIER_PATTERN = re.compile(r"\b[^\W_-]+(?:[_-][^\W_-]+)+\b")
 GENERIC_LEXICAL_TERMS = {"InGen"}
 
 
@@ -329,7 +332,7 @@ class AnswerGenerationService:
 
         proper_nouns = [
             token
-            for token in re.findall(r"\b[A-ZÀ-ÖØ-Þ][\w-]*\b", query)
+            for token in PROPER_NOUN_PATTERN.findall(query)
             if token not in QUESTION_WORDS
         ]
         anchor = next(
@@ -348,7 +351,9 @@ class AnswerGenerationService:
         """Keep a few high-signal IDs or proper names for bounded lexical recall."""
         terms = []
         for query in queries:
-            for term in LEXICAL_TERM_PATTERN.findall(query):
+            query_terms = PROPER_NOUN_PATTERN.findall(query)
+            query_terms.extend(IDENTIFIER_PATTERN.findall(query))
+            for term in query_terms:
                 if term in QUESTION_WORDS or term in GENERIC_LEXICAL_TERMS:
                     continue
                 if term not in terms:
