@@ -38,9 +38,11 @@ describe("POST /api/chat", () => {
   });
 
   it("sends only the most recent fourteen history messages to the backend", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ answer: "Grounded answer" }), { status: 200 })
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ answer: "Grounded answer" }), { status: 200 })
+      );
     vi.stubGlobal("fetch", fetchMock);
     const history = Array.from({ length: 16 }, (_, index) => ({
       role: index % 2 === 0 ? "user" : "assistant",
