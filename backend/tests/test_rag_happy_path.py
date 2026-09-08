@@ -6,6 +6,7 @@ from langchain_core.documents import Document
 
 from app.core.constants import QueryConstants
 from app.repositories.vector_store_repository import VectorStoreRepository
+from app.schemas.rag_schema import AnswerWithEvidence
 from app.services.answer_generation_service import AnswerGenerationService
 from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
@@ -63,9 +64,10 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
     reranker.rerank_documents.side_effect = lambda **kwargs: kwargs["documents"]
 
     llm = Mock()
-    llm_response = Mock()
-    llm_response.content = "Records are retained for seven years."
-    llm.invoke.return_value = llm_response
+    structured_llm = llm.with_structured_output.return_value
+    structured_llm.invoke.return_value = AnswerWithEvidence(
+        answer="Records are retained for seven years.", evidence_ids=["C1", "C2"]
+    )
 
     language_service = Mock(spec=LanguageService)
     language_service.detect_language.return_value = "EN"
@@ -123,8 +125,8 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
     assert rerank_call["alternative_queries"] == ["retention policy changes"]
     assert rerank_call["top_n"] == QueryConstants.FINAL_RETRIEVAL_K
 
-    llm.invoke.assert_called_once()
-    prompt = llm.invoke.call_args.args[0]
+    structured_llm.invoke.assert_called_once()
+    prompt = structured_llm.invoke.call_args.args[0]
     assert "Records are retained for seven years." in prompt
     assert "The updated policy applies from January." in prompt
     assert "retention-policy.pdf" in prompt

@@ -14,7 +14,8 @@ Architecture Pattern: Repository Pattern
 - Testable: can be mocked without real database
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from collections import Counter
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from chromadb import Collection
 from langchain_community.vectorstores import Chroma
@@ -188,6 +189,160 @@ class VectorStoreRepository:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Similarity search failed: {e}")
             return []
+
+    def lexical_candidate_search(
+        self, user_id: str, terms: List[str], limit_per_term: int = 20
+    ) -> List[Document]:
+        """Return tenant-scoped chunks containing distinctive query terms.
+
+        This supplements semantic search for exact technical IDs and named entities.
+        It is deliberately a bounded candidate source; reranking remains responsible
+        for deciding whether these chunks are actual evidence.
+        """
+        max_candidates = 60
+        max_expanded_documents = 3
+        documents: List[Document] = []
+        seen_ids: set[str] = set()
+        matched_filenames: Counter[str] = Counter()
+        title_matches: Counter[str] = Counter()
+        page_fragments: Dict[Tuple[str, str], List[str]] = {}
+        page_metadata: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        page_fragment_ids: Dict[Tuple[str, str], set[str]] = {}
+
+        def append_results(
+            results: Mapping[str, Any],
+            *,
+            add_candidates: bool,
+            collect_page_context: bool = False,
+            record_matches: bool = False,
+        ) -> None:
+            result_ids = results.get("ids", []) or []
+            result_documents = results.get("documents", []) or []
+            result_metadatas = results.get("metadatas", []) or []
+            for chunk_id, content, metadata in zip(
+                result_ids, result_documents, result_metadatas
+            ):
+                if not isinstance(content, str) or not isinstance(metadata, dict):
+                    continue
+                filename = metadata.get("original_filename")
+                if isinstance(filename, str) and filename:
+                    if record_matches:
+                        matched_filenames[filename] += 1
+                    if collect_page_context:
+                        page_number = str(metadata.get("page_number", ""))
+                        page_key = (filename, page_number)
+                        collected_ids = page_fragment_ids.setdefault(page_key, set())
+                        if chunk_id not in collected_ids:
+                            collected_ids.add(chunk_id)
+                            page_fragments.setdefault(page_key, []).append(content)
+                            page_metadata.setdefault(page_key, metadata)
+                if (
+                    add_candidates
+                    and chunk_id not in seen_ids
+                    and len(documents) < max_candidates
+                ):
+                    seen_ids.add(chunk_id)
+                    documents.append(Document(page_content=content, metadata=metadata))
+
+        for term in dict.fromkeys(term for term in terms if len(term.strip()) >= 3):
+            try:
+                results = self.collection.get(
+                    where={"source": user_id},
+                    where_document={"$contains": term},
+                    include=["documents", "metadatas"],
+                    limit=limit_per_term,
+                )
+            except Exception as error:  # pylint: disable=broad-exception-caught
+                logger.warning("Lexical candidate lookup failed for a query term: %s", type(error).__name__)
+                continue
+
+            append_results(results, add_candidates=True, record_matches=True)
+
+        # Table-oriented PDFs often keep the entity in a filename or heading while
+        # the chunk containing the value has no repeated entity name. Search the
+        # authenticated user's metadata too, then expand only matching documents.
+        # This remains a bounded local Chroma read and never crosses tenant scope.
+        try:
+            metadata_results = self.collection.get(
+                where={"source": user_id}, include=["metadatas"], limit=10_000
+            )
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            logger.warning("Document title candidate lookup failed: %s", type(error).__name__)
+        else:
+            normalized_terms = [
+                term.lower() for term in terms if len(term.strip()) >= 3
+            ]
+            for metadata in metadata_results.get("metadatas", []) or []:
+                if not isinstance(metadata, dict):
+                    continue
+                filename = metadata.get("original_filename")
+                if not isinstance(filename, str) or not filename:
+                    continue
+                if any(term in filename.lower() for term in normalized_terms):
+                    title_matches[filename] += 1
+
+        # Inspect only the strongest few matched documents. Content matches rank
+        # above title-only matches; a weak filename overlap cannot fan out across
+        # the user's complete corpus.
+        expansion_scores = {
+            filename: match_count * 2 + title_matches.get(filename, 0)
+            for filename, match_count in matched_filenames.items()
+        }
+        for filename, match_count in title_matches.items():
+            expansion_scores.setdefault(filename, match_count)
+
+        ranked_filenames = sorted(
+            expansion_scores,
+            key=lambda filename: (
+                expansion_scores[filename],
+                title_matches.get(filename, 0),
+                filename,
+            ),
+            reverse=True,
+        )[:max_expanded_documents]
+
+        # Structural extraction can separate table labels from their values.
+        # Expansion is used to build a temporary page context, not to add every
+        # chunk from a matched document to the reranking pool.
+        for filename in ranked_filenames:
+            try:
+                results = self.collection.get(
+                    where={
+                        "$and": [
+                            {"source": user_id},
+                            {"original_filename": filename},
+                        ]
+                    },
+                    include=["documents", "metadatas"],
+                    limit=40,
+                )
+            except Exception as error:  # pylint: disable=broad-exception-caught
+                logger.warning("Document candidate expansion failed: %s", type(error).__name__)
+                continue
+            append_results(
+                results,
+                add_candidates=bool(title_matches.get(filename)),
+                collect_page_context=True,
+            )
+
+        # Unstructured can emit table labels and values as individual chunks. A
+        # short, in-memory page context lets ranking select the actual table as
+        # one piece of evidence; it is never written back to Chroma.
+        for page_key, fragments in page_fragments.items():
+            short_fragments = sum(len(fragment.strip()) <= 50 for fragment in fragments)
+            is_fragmented_page = (
+                len(fragments) >= 6
+                and short_fragments / len(fragments) >= 0.6
+            )
+            if not is_fragmented_page or len(documents) >= max_candidates:
+                continue
+            metadata = dict(page_metadata[page_key])
+            metadata["context_aggregation"] = True
+            page_content = "\n".join(fragments)[:6_000]
+            documents.append(Document(page_content=page_content, metadata=metadata))
+
+        logger.debug("Lexical candidate search returned %s chunks", len(documents))
+        return documents
 
     def get_retriever(
         self,

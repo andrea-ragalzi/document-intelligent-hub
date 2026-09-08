@@ -61,19 +61,26 @@ const normalizeSourceCitation = (source: ChatSource): SourceCitation =>
 
 const deduplicateCitations = (sources: ChatSource[]): SourceCitation[] => {
   const seen = new Set<string>();
-  return sources
-    .map(normalizeSourceCitation)
-    .filter(source => {
-      const key = `${source.filename}:${source.page_number ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 5);
+  return sources.map(normalizeSourceCitation).filter(source => {
+    const key = `${source.filename}:${source.page_number ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 const formatCitation = (citation: SourceCitation): string =>
   citation.page_number ? `${citation.filename} — p. ${citation.page_number}` : citation.filename;
+
+const groupCitationsByDocument = (sources: SourceCitation[]): Map<string, SourceCitation[]> => {
+  const grouped = new Map<string, SourceCitation[]>();
+  for (const source of sources) {
+    const citations = grouped.get(source.filename) || [];
+    citations.push(source);
+    grouped.set(source.filename, citations);
+  }
+  return grouped;
+};
 
 const BLOB_URL_REVOKE_DELAY_MS = 60_000;
 
@@ -90,6 +97,7 @@ const Avatar: React.FC<{ isUser: boolean }> = ({ isUser }) => (
 const CitationSources: React.FC<{ sources: SourceCitation[] }> = ({ sources }) => {
   const { getIdToken } = useAuth();
   const [citationError, setCitationError] = useState<string | null>(null);
+  const citationsByDocument = groupCitationsByDocument(sources);
 
   const openCitation = async (citation: SourceCitation) => {
     setCitationError(null);
@@ -129,18 +137,51 @@ const CitationSources: React.FC<{ sources: SourceCitation[] }> = ({ sources }) =
         Sources
       </h3>
       <ul className="max-h-24 space-y-0.5 overflow-y-auto pr-2 text-xs text-ink">
-        {sources.map(source => (
-          <li key={`${source.filename}:${source.page_number ?? ""}`}>
-            <button
-              type="button"
-              onClick={() => void openCitation(source)}
-              className="block w-full truncate text-left underline decoration-line/40 underline-offset-2 transition-colors hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent/70 focus:ring-offset-2 focus:ring-offset-raised"
-              title={`Open ${formatCitation(source)}`}
-            >
-              {formatCitation(source)}
-            </button>
-          </li>
-        ))}
+        {[...citationsByDocument].map(([filename, documentCitations]) => {
+          const pageCitations = documentCitations.filter(
+            citation => citation.page_number !== undefined
+          );
+          const filenameOnlyCitation = documentCitations.find(
+            citation => citation.page_number === undefined
+          );
+
+          return (
+            <li key={filename} className="break-words">
+              {filenameOnlyCitation ? (
+                <button
+                  type="button"
+                  onClick={() => void openCitation(filenameOnlyCitation)}
+                  className="text-left underline decoration-line/40 underline-offset-2 transition-colors hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent/70 focus:ring-offset-2 focus:ring-offset-raised"
+                  title={`Open ${filename}`}
+                  aria-label={`Open ${filename}`}
+                >
+                  {filename}
+                </button>
+              ) : (
+                <span>{filename}</span>
+              )}
+              {pageCitations.length > 0 && (
+                <>
+                  <span>{filenameOnlyCitation ? "; " : " — "}</span>
+                  {pageCitations.map((citation, index) => (
+                    <span key={`${citation.filename}:${citation.page_number}`}>
+                      {index > 0 && ", "}
+                      <button
+                        type="button"
+                        onClick={() => void openCitation(citation)}
+                        className="text-left underline decoration-line/40 underline-offset-2 transition-colors hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent/70 focus:ring-offset-2 focus:ring-offset-raised"
+                        title={`Open ${formatCitation(citation)}`}
+                        aria-label={`Open ${formatCitation(citation)}`}
+                      >
+                        p. {citation.page_number}
+                      </button>
+                    </span>
+                  ))}
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
       {citationError && (
         <p role="alert" className="mt-2 text-xs text-danger">

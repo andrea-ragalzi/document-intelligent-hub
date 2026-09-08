@@ -39,7 +39,9 @@ describe("ChatMessageDisplay sources", () => {
     );
 
     expect(screen.getByText("Sources")).toBeInTheDocument();
-    expect(screen.getByText("alice-cheshire-cat-demo.pdf — p. 7")).not.toHaveAttribute("href");
+    expect(
+      screen.getByRole("button", { name: "Open alice-cheshire-cat-demo.pdf — p. 7" })
+    ).not.toHaveAttribute("href");
   });
 
   it("deduplicates citations and falls back to filename-only when page metadata is missing", () => {
@@ -57,10 +59,50 @@ describe("ChatMessageDisplay sources", () => {
       />
     );
 
-    expect(screen.getAllByText("alice-cheshire-cat-demo.pdf — p. 7")).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: "Open alice-cheshire-cat-demo.pdf — p. 7" })
+    ).toHaveLength(1);
     expect(screen.getByText("policy.pdf")).toBeInTheDocument();
     expect(screen.queryByText(/Section:/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Page:/i)).not.toBeInTheDocument();
+  });
+
+  it("groups multiple pages from the same document onto one source line", () => {
+    render(
+      <ChatMessageDisplay
+        msg={{
+          type: "assistant",
+          text: "Grounded answer",
+          sources: [
+            { filename: "alice-cheshire-cat-demo.pdf", page_number: 3 },
+            { filename: "alice-cheshire-cat-demo.pdf", page_number: 4 },
+          ],
+        }}
+      />
+    );
+
+    const sourceItems = screen.getAllByRole("listitem");
+    expect(sourceItems).toHaveLength(1);
+    expect(sourceItems[0]).toHaveTextContent("alice-cheshire-cat-demo.pdf — p. 3, p. 4");
+    expect(screen.getByRole("button", { name: "Open alice-cheshire-cat-demo.pdf — p. 3" }));
+    expect(screen.getByRole("button", { name: "Open alice-cheshire-cat-demo.pdf — p. 4" }));
+  });
+
+  it("does not truncate distinct server-validated evidence citations", () => {
+    render(
+      <ChatMessageDisplay
+        msg={{
+          type: "assistant",
+          text: "Answer with distinct supported claims.",
+          sources: Array.from({ length: 6 }, (_, index) => ({
+            filename: "brief.pdf",
+            page_number: index + 1,
+          })),
+        }}
+      />
+    );
+
+    expect(screen.getAllByRole("button")).toHaveLength(6);
   });
 
   it("moves legacy embedded sources out of the answer into the Sources card", () => {
@@ -92,7 +134,7 @@ describe("ChatMessageDisplay sources", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "alice-demo.pdf — p. 7" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open alice-demo.pdf — p. 7" }));
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
@@ -111,7 +153,7 @@ describe("ChatMessageDisplay sources", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "policy.pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open policy.pdf" }));
 
     await waitFor(() => {
       expect(openWindow.mock.results[0].value.location.href).toBe("blob:private-document#page=1");
@@ -126,7 +168,7 @@ describe("ChatMessageDisplay sources", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "deleted.pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open deleted.pdf" }));
 
     expect(screen.queryByRole("link", { name: "deleted.pdf" })).not.toBeInTheDocument();
     expect(openWindow).toHaveBeenCalledWith("about:blank", "_blank");

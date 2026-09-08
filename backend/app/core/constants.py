@@ -49,8 +49,8 @@ class QueryConstants:
     )
 
     # Query expansion
-    BASE_RETRIEVAL_K = 30  # Documents to retrieve before reranking
-    FINAL_RETRIEVAL_K = 15  # Documents after reranking
+    BASE_RETRIEVAL_K = 12  # Bounded candidates per distinct retrieval query
+    FINAL_RETRIEVAL_K = 3  # Strongest chunks passed to answer generation
 
     # Conversational patterns for reformulation detection
     CONVERSATIONAL_PATTERNS = [

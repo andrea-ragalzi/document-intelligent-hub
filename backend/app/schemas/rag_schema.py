@@ -237,6 +237,18 @@ class SourceCitation(BaseModel):
     )
 
 
+class AnswerWithEvidence(BaseModel):
+    """Structured model output used only while generating a RAG response."""
+
+    answer: str = Field(
+        ..., min_length=1, description="Answer grounded only in the supplied context."
+    )
+    evidence_ids: List[str] = Field(
+        default_factory=list,
+        description="Minimum sufficient IDs of context passages supporting the answer.",
+    )
+
+
 class QueryResponse(BaseModel):
     """Schema for the outgoing RAG query response."""
 

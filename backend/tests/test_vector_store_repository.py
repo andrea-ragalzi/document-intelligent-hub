@@ -192,6 +192,59 @@ class TestRepositoryBasicOperations:
         # Should find the Python document as most relevant
         assert any("Python" in doc.page_content for doc in results)
 
+    def test_lexical_candidate_search_is_scoped_to_the_authenticated_user(
+        self, test_repository: Any
+    ) -> None:
+        """Exact entity hits supplement semantic candidates without cross-user exposure."""
+        test_repository.add_documents(
+            [
+                Document(
+                    page_content="Specie erbivora con esigenze alimentari monitorate.",
+                    metadata={
+                        "source": "test-repo-user-1",
+                        "original_filename": "Rapporto Brachiosauro.pdf",
+                        "page_number": 2,
+                        "chunk_index": 0,
+                    },
+                ),
+                Document(
+                    page_content="Consumo giornaliero stimato: 200 kg di vegetazione.",
+                    metadata={
+                        "source": "test-repo-user-1",
+                        "original_filename": "Rapporto Brachiosauro.pdf",
+                        "page_number": 2,
+                        "chunk_index": 1,
+                    },
+                ),
+                Document(
+                    page_content="Brachiosauro: consumption data for another user.",
+                    metadata={
+                        "source": "test-repo-user-2",
+                        "original_filename": "private.pdf",
+                        "chunk_index": 0,
+                    },
+                ),
+            ]
+        )
+
+        results = test_repository.lexical_candidate_search(
+            user_id="test-repo-user-1", terms=["Brachiosauro"], limit_per_term=10
+        )
+
+        assert all(
+            document.metadata["original_filename"] == "Rapporto Brachiosauro.pdf"
+            for document in results
+        )
+        # Normal prose remains atomic; title expansion may add its bounded
+        # sibling chunks without manufacturing a page-wide context.
+        combined_content = " ".join(document.page_content for document in results)
+        assert "Specie erbivora" in combined_content
+        assert "200 kg" in combined_content
+        assert not any(
+            document.metadata.get("context_aggregation") is True
+            for document in results
+        )
+
     def test_delete_document(self, test_repository: Any) -> None:
         """Test deleting a specific document"""
         # Add document
