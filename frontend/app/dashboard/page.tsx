@@ -3,8 +3,8 @@
 import { useRef, useEffect, FormEvent, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
-import type { Message } from "ai/react";
 import type { SavedConversation } from "@/lib/types";
+import { toAiSdkMessages } from "@/lib/chatMessagePersistence";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserId } from "@/hooks/useUserId";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
@@ -306,12 +306,8 @@ export default function Page() {
     console.log("📂 Loading conversation:", conv.name);
     console.log("  Messages:", conv.history.length);
 
-    // Convert from ChatMessage to Message (Vercel AI format)
-    const convertedMessages: Message[] = conv.history.map((msg, index) => ({
-      id: `loaded-${conv.id}-${index}`,
-      role: msg.type === "user" ? "user" : "assistant",
-      content: msg.text,
-    }));
+    // Restore Firestore source metadata as AI SDK annotations for rendering.
+    const convertedMessages = toAiSdkMessages(conv.id, conv.history);
 
     // Use setMessages to load messages into chat
     setMessages(convertedMessages);

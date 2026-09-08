@@ -37,6 +37,7 @@ def mock_repository() -> Mock:  # pylint: disable=W0621
     mock_repo.get_user_chunks_sample.return_value = ([], [])
     mock_repo.count_document_chunks.return_value = 0
     mock_repo.similarity_search.return_value = []
+    mock_repo.lexical_candidate_search.return_value = []
     mock_repo.delete_document.return_value = 5
     mock_repo.delete_all_user_documents.return_value = 20
 

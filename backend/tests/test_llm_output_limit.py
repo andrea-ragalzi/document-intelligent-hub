@@ -3,7 +3,7 @@
 from unittest.mock import Mock
 
 from app.core.constants import LLMConstants
-from app.schemas.rag_schema import QueryRequest
+from app.schemas.rag_schema import AnswerWithEvidence, QueryRequest
 from app.services.answer_generation_service import AnswerGenerationService
 
 
@@ -23,12 +23,16 @@ def _service(llm: Mock) -> AnswerGenerationService:
 def test_final_answer_invocation_has_server_controlled_output_limit() -> None:
     """The final model call always receives the central 1000-token ceiling."""
     llm = Mock()
-    llm.invoke.return_value.content = "Grounded answer"
+    structured_llm = llm.with_structured_output.return_value
+    structured_llm.invoke.return_value = AnswerWithEvidence(
+        answer="Grounded answer", evidence_ids=["C1"]
+    )
 
-    answer = _service(llm)._invoke_llm_and_translate("prompt", "EN")
+    answer, evidence_ids = _service(llm)._invoke_llm_and_translate("prompt", "EN")
 
     assert answer == "Grounded answer"
-    llm.invoke.assert_called_once_with("prompt", max_tokens=LLMConstants.MAX_TOKENS)
+    assert evidence_ids == ["C1"]
+    structured_llm.invoke.assert_called_once_with("prompt", max_tokens=LLMConstants.MAX_TOKENS)
     assert LLMConstants.MAX_TOKENS == 1000
 
 
@@ -36,9 +40,14 @@ def test_client_supplied_output_limit_cannot_override_server_limit() -> None:
     """Unknown request fields do not change the server-side final answer ceiling."""
     request = QueryRequest(query="What is in the document?", max_tokens=999_999)
     llm = Mock()
-    llm.invoke.return_value.content = "Grounded answer"
+    structured_llm = llm.with_structured_output.return_value
+    structured_llm.invoke.return_value = AnswerWithEvidence(
+        answer="Grounded answer", evidence_ids=[]
+    )
 
     _service(llm)._invoke_llm_and_translate(request.query, "EN")
 
     assert "max_tokens" not in request.model_fields_set
-    llm.invoke.assert_called_once_with(request.query, max_tokens=LLMConstants.MAX_TOKENS)
+    structured_llm.invoke.assert_called_once_with(
+        request.query, max_tokens=LLMConstants.MAX_TOKENS
+    )

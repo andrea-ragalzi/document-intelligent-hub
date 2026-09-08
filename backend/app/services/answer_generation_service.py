@@ -12,23 +12,46 @@ Responsibilities:
 - Format sources and metadata
 """
 
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Optional, Tuple
+
+from langchain_core.language_models import BaseChatModel
 
 from app.core.config import settings
 from app.core.constants import LLMConstants, QueryConstants
 from app.core.logging import logger
 from app.repositories.vector_store_repository import VectorStoreRepository
-from app.schemas.rag_schema import ConversationMessage
+from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
 from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.reranking_service import RerankingService
 from app.services.translation_service import TranslationService
-from langchain_core.language_models import BaseChatModel
-
-MAX_SOURCE_CITATIONS = 5
 SourceCitationData = dict[str, str | int | None]
+COMPOUND_QUERY_SPLIT = re.compile(
+    r"\s+(?:e|ed)\s+(?=(?:quale|quali|perché|perche|chi|cosa|come)\b)", re.IGNORECASE
+)
+QUESTION_WORDS = {
+    "Qual",
+    "Quale",
+    "Quali",
+    "Che",
+    "Chi",
+    "Come",
+    "Perché",
+    "Perche",
+    "What",
+    "Which",
+    "Who",
+    "How",
+    "Why",
+}
+PROPER_NOUN_PATTERN = re.compile(r"\b[A-ZÀ-ÖØ-Þ][\w-]*\b")
+# ``\w`` includes underscores, so it must not overlap with the separator class.
+# Keeping identifier segments and separators disjoint prevents regex backtracking.
+IDENTIFIER_PATTERN = re.compile(r"\b[^\W_-]+(?:[_-][^\W_-]+)+\b")
+GENERIC_LEXICAL_TERMS = {"InGen"}
 
 
 def _build_rag_prompt(context: str, question: str) -> str:
@@ -200,6 +223,7 @@ class AnswerGenerationService:
         alternative_queries = self.query_expansion_service.generate_alternative_queries(
             translated_query
         )
+        compound_queries = self._split_compound_retrieval_queries(original_query)
         expansion_ms = (time.perf_counter() - expansion_started) * 1000
         logger.info(f"📝 Generated {len(alternative_queries)} alternative queries")
         logger.info(f"⏱️ RAG timing | query_expansion={expansion_ms:.2f}ms")
@@ -209,7 +233,7 @@ class AnswerGenerationService:
         # reranker inputs unchanged for distinct queries.
         all_queries = []
         seen_queries = set()
-        for candidate in [translated_query] + alternative_queries:
+        for candidate in [translated_query] + alternative_queries + compound_queries:
             normalized = " ".join(candidate.lower().split())
             if normalized and normalized not in seen_queries:
                 seen_queries.add(normalized)
@@ -254,6 +278,21 @@ class AnswerGenerationService:
                     all_retrieved_docs.append(doc)
                     doc_ids.add(doc_id)
 
+        lexical_terms = self._extract_lexical_terms([original_query] + compound_queries)
+        if lexical_terms:
+            lexical_docs = self.repository.lexical_candidate_search(user_id, lexical_terms)
+            logger.info(
+                "🔤 Lexical candidate lookup for %s distinctive terms returned %s chunks",
+                len(lexical_terms),
+                len(lexical_docs),
+            )
+            for document in lexical_docs:
+                metadata_tuple = tuple(sorted(document.metadata.items()))
+                document_id = hash((document.page_content, metadata_tuple))
+                if document_id not in doc_ids:
+                    all_retrieved_docs.append(document)
+                    doc_ids.add(document_id)
+
         unique_files = {
             doc.metadata.get("original_filename", "Unknown")
             for doc in all_retrieved_docs
@@ -272,8 +311,9 @@ class AnswerGenerationService:
         context_docs = self.reranking_service.rerank_documents(
             documents=all_retrieved_docs,
             original_query=original_query,
-            alternative_queries=alternative_queries,
+            alternative_queries=alternative_queries + compound_queries,
             top_n=QueryConstants.FINAL_RETRIEVAL_K,
+            required_query_groups=compound_queries,
         )
         logger.info(f"✨ Reranking completed: {len(context_docs)} documents")
         logger.info(
@@ -282,6 +322,45 @@ class AnswerGenerationService:
         )
 
         return context_docs
+
+    @staticmethod
+    def _split_compound_retrieval_queries(query: str) -> List[str]:
+        """Split only clearly independent Italian question clauses for retrieval."""
+        parts = [part.strip(" ,?.") for part in COMPOUND_QUERY_SPLIT.split(query) if part.strip()]
+        if len(parts) < 2:
+            return []
+
+        proper_nouns = [
+            token
+            for token in PROPER_NOUN_PATTERN.findall(query)
+            if token not in QUESTION_WORDS
+        ]
+        anchor = next(
+            (token for token in proper_nouns if token.isupper() or "-" in token),
+            proper_nouns[0] if proper_nouns else "",
+        )
+
+        retrieval_queries = [parts[0]]
+        retrieval_queries.extend(
+            f"{anchor} {part}".strip() if anchor else part for part in parts[1:]
+        )
+        return retrieval_queries
+
+    @staticmethod
+    def _extract_lexical_terms(queries: List[str]) -> List[str]:
+        """Keep a few high-signal IDs or proper names for bounded lexical recall."""
+        terms = []
+        for query in queries:
+            query_terms = PROPER_NOUN_PATTERN.findall(query)
+            query_terms.extend(IDENTIFIER_PATTERN.findall(query))
+            for term in query_terms:
+                if term in QUESTION_WORDS or term in GENERIC_LEXICAL_TERMS:
+                    continue
+                if term not in terms:
+                    terms.append(term)
+        identifiers = [term for term in terms if term.isupper() or "-" in term or "_" in term]
+        names = [term for term in terms if term not in identifiers]
+        return (identifiers + names)[:3]
 
     def _generate_llm_response(
         self,
@@ -303,16 +382,21 @@ class AnswerGenerationService:
             Tuple of (formatted_answer, retrieved source citations)
         """
         history_str = self._format_conversation_history(conversation_history)
-        context_str = self._format_context_documents(context_docs)
+        context_by_id = {
+            f"C{index}": document for index, document in enumerate(context_docs, start=1)
+        }
+        context_str = self._format_context_documents(context_by_id)
         final_llm_query = self._build_final_prompt(
             context_str, history_str, query, target_language
         )
 
         try:
-            final_answer = self._invoke_llm_and_translate(
+            final_answer, evidence_ids = self._invoke_llm_and_translate(
                 final_llm_query, target_language
             )
-            return final_answer, self._extract_source_citations(context_docs)
+            return final_answer, self._citations_from_evidence_ids(
+                context_by_id, evidence_ids
+            )
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"❌ Error during LLM invocation: {e}")
@@ -343,7 +427,7 @@ class AnswerGenerationService:
 
         return "\n".join(history_formatted)
 
-    def _format_context_documents(self, context_docs: List[Any]) -> str:
+    def _format_context_documents(self, context_by_id: dict[str, Any]) -> str:
         """
         Format retrieved documents as context string.
 
@@ -355,10 +439,12 @@ class AnswerGenerationService:
         """
         return "\n---\n".join(
             [
-                f"Section: {doc.metadata.get('chapter_title', 'Document Start')}\n"
-                f"Source: {doc.metadata.get('original_filename', 'Unknown')}\n"
-                f"Content:\n{doc.page_content.strip()}"
-                for doc in context_docs
+                f"[{context_id}]\n"
+                f"Section: {document.metadata.get('chapter_title', 'Document Start')}\n"
+                f"Source: {document.metadata.get('original_filename', 'Unknown')}\n"
+                f"Page: {document.metadata.get('page_number', 'Unknown')}\n"
+                f"Content:\n{document.page_content.strip()}"
+                for context_id, document in context_by_id.items()
             ]
         )
 
@@ -386,10 +472,18 @@ class AnswerGenerationService:
             f"{rag_prompt}\n\n"
             f"--- FINAL INSTRUCTION ---\n"
             f"You MUST respond ENTIRELY in the target language: {target_language}. "
-            f"Do not include source citations; they will be handled separately."
+            "Return a structured response with `answer` and `evidence_ids`. "
+            "Answer only from the supplied context. Select only IDs of passages that "
+            "materially support the answer; do not select merely related context. "
+            "Use the minimum sufficient evidence, normally no more than three IDs, "
+            "unless additional IDs support distinct claims. Never invent IDs or source "
+            "details. If the context does not support an answer, follow the existing "
+            "insufficient-evidence behavior and return an empty evidence_ids list."
         )
 
-    def _invoke_llm_and_translate(self, prompt: str, target_language: str) -> str:
+    def _invoke_llm_and_translate(
+        self, prompt: str, target_language: str
+    ) -> Tuple[str, List[str]]:
         """
         Invoke LLM and translate response if needed.
 
@@ -398,13 +492,17 @@ class AnswerGenerationService:
             target_language: Target response language
 
         Returns:
-            Final translated answer
+            Final translated answer and context IDs selected as evidence
         """
         logger.info("💬 Invoking LLM for answer generation...")
-        llm_response = self.llm.invoke(
+        structured_llm = self.llm.with_structured_output(AnswerWithEvidence)
+        llm_response = structured_llm.invoke(
             prompt, max_tokens=LLMConstants.MAX_TOKENS
-        ).content
-        final_answer = str(llm_response).strip()
+        )
+        if not isinstance(llm_response, AnswerWithEvidence):
+            llm_response = AnswerWithEvidence.model_validate(llm_response)
+
+        final_answer = llm_response.answer.strip()
 
         detected_lang = self.language_service.detect_language(final_answer).upper()
         if target_language != "EN" and detected_lang == "EN":
@@ -413,7 +511,7 @@ class AnswerGenerationService:
             )
             logger.debug(f"🔄 Answer translated to {target_language}")
 
-        return final_answer
+        return final_answer, llm_response.evidence_ids
 
     @staticmethod
     def _normalize_page_number(value: Any) -> int | None:
@@ -424,14 +522,22 @@ class AnswerGenerationService:
             return int(value)
         return None
 
-    def _extract_source_citations(
-        self, context_docs: List[Any]
+    def _citations_from_evidence_ids(
+        self, context_by_id: dict[str, Any], evidence_ids: List[str]
     ) -> List[SourceCitationData]:
-        """Keep the first reranked filename/page pairs, capped for compact UI output."""
+        """Map valid selected context IDs to trusted filename/page metadata."""
         citations: List[SourceCitationData] = []
         seen: set[tuple[str, int | None]] = set()
+        selected_ids = {
+            evidence_id
+            for evidence_id in evidence_ids
+            if isinstance(evidence_id, str) and evidence_id in context_by_id
+        }
 
-        for document in context_docs:
+        # Preserve reranking order for the subset chosen by the model.
+        for context_id, document in context_by_id.items():
+            if context_id not in selected_ids:
+                continue
             filename = document.metadata.get("original_filename")
             if not isinstance(filename, str) or not filename:
                 continue
@@ -441,8 +547,6 @@ class AnswerGenerationService:
                 continue
             seen.add(citation_key)
             citations.append({"filename": filename, "page_number": page_number})
-            if len(citations) == MAX_SOURCE_CITATIONS:
-                break
 
         return citations
 
