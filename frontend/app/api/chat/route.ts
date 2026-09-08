@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/rag";
+const MAX_CONVERSATION_HISTORY_MESSAGES = 14;
 
 interface Message {
   role: "user" | "assistant";
@@ -48,10 +49,13 @@ export async function POST(req: Request) {
     const userQuery = lastMessage.content;
 
     // Prepare history for the backend, excluding the latest user message.
-    const chatHistory = messages.slice(0, -1).map((msg: Message) => ({
-      role: msg.role === "user" ? "user" : "assistant",
-      content: msg.content,
-    }));
+    const chatHistory = messages
+      .slice(0, -1)
+      .slice(-MAX_CONVERSATION_HISTORY_MESSAGES)
+      .map((msg: Message) => ({
+        role: msg.role === "user" ? "user" : "assistant",
+        content: msg.content,
+      }));
 
     // Prepare request body
     const requestBody: Record<string, unknown> = {
