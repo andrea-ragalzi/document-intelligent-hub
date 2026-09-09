@@ -15,6 +15,7 @@ Architecture:
 from typing import Any, List, Optional, Tuple
 
 from app.core.config import settings
+from app.core.llm_configuration import chat_model_options
 from app.core.logging import logger
 from app.repositories.dependencies import get_vector_store_repository
 from app.repositories.vector_store_repository import VectorStoreRepository
@@ -64,15 +65,15 @@ class RAGService:
 
         # Initialize LLMs
         self.llm = ChatOpenAI(
-            model=settings.LLM_MODEL,
-            temperature=0.0,
-            api_key=SecretStr(settings.OPENAI_API_KEY),
+            **chat_model_options(
+                settings.LLM_MODEL, SecretStr(settings.OPENAI_API_KEY), temperature=0.0
+            )
         )
 
         self.query_gen_llm = ChatOpenAI(
-            model=settings.LLM_MODEL,
-            temperature=0.0,
-            api_key=SecretStr(settings.OPENAI_API_KEY),
+            **chat_model_options(
+                settings.LLM_MODEL, SecretStr(settings.OPENAI_API_KEY), temperature=0.0
+            )
         )
 
         # Initialize shared services
