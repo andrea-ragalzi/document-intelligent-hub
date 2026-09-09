@@ -10,6 +10,7 @@ Translates user queries to the document language to improve semantic similarity 
 from typing import Dict
 
 from app.core.config import settings
+from app.core.llm_configuration import chat_completion_options
 from openai import OpenAI
 from pydantic import SecretStr
 
@@ -69,12 +70,11 @@ class TranslationService:
 
         try:
             response = self.openai_client.chat.completions.create(
-                model=self.model,
+                **chat_completion_options(self.model, temperature=0.0),
                 messages=[
                     {"role": "system", "content": "You are a professional translator."},
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.0,
             )
             content = response.choices[0].message.content
             return content.strip() if content else query
@@ -111,7 +111,7 @@ class TranslationService:
 
         try:
             response = self.openai_client.chat.completions.create(
-                model=self.model,
+                **chat_completion_options(self.model, temperature=0.0),
                 messages=[
                     {
                         "role": "system",
@@ -119,7 +119,6 @@ class TranslationService:
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.0,
             )
             content = response.choices[0].message.content
             translated = content.strip() if content else query

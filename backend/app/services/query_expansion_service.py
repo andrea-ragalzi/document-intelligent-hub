@@ -12,6 +12,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from app.core.config import settings
+from app.core.llm_configuration import chat_model_options
 
 # Prompt template for concise, independently retrievable search phrases.
 MULTI_QUERY_PROMPT = (
@@ -52,9 +53,9 @@ class QueryExpansionService:
 
         # Use higher temperature for creative, diverse query generation
         self.llm = ChatOpenAI(
-            model=settings.LLM_MODEL,
-            temperature=0.8,  # Increased temperature for diversity
-            api_key=SecretStr(api_key_value),
+            **chat_model_options(
+                settings.LLM_MODEL, SecretStr(api_key_value), temperature=0.8
+            )
         )
 
     def generate_alternative_queries(

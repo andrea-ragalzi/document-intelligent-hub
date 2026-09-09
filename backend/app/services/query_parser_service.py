@@ -21,6 +21,7 @@ Examples:
 from typing import List
 
 from app.core.config import settings
+from app.core.llm_configuration import chat_model_options
 from app.core.logging import logger
 from app.db.chroma_client import get_embedding_function
 from app.schemas.rag_schema import FileFilterResponse
@@ -72,9 +73,9 @@ class QueryParserService:
     def __init__(self) -> None:
         """Initialize the query parser with the configured OpenAI model."""
         self.llm = ChatOpenAI(
-            model=settings.LLM_MODEL,
-            temperature=0,
-            api_key=SecretStr(settings.OPENAI_API_KEY),
+            **chat_model_options(
+                settings.LLM_MODEL, SecretStr(settings.OPENAI_API_KEY), temperature=0.0
+            )
         )
 
         # Parser for structured output
