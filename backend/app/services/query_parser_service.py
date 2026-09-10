@@ -48,6 +48,8 @@ class FileFilterExtraction(BaseModel):
         ...,
         description="The query with all file references removed, grammar corrected, and unnecessary words removed",
     )
+    is_compound: bool = Field(default=False)
+    retrieval_queries: List[str] = Field(default_factory=list)
 
 
 class QueryParserService:
@@ -150,6 +152,15 @@ class QueryParserService:
 
             # Use cleaned query from LLM
             cleaned_query = result["cleaned_query"].strip()
+            raw_retrieval_queries = result.get("retrieval_queries", [])
+            if not isinstance(raw_retrieval_queries, list):
+                raw_retrieval_queries = []
+            retrieval_queries = [
+                str(item).strip()
+                for item in raw_retrieval_queries[:2]
+                if str(item).strip()
+            ]
+            is_compound = bool(result.get("is_compound")) and len(retrieval_queries) == 2
 
             # Ensure cleaned query is not empty
             if not cleaned_query or len(cleaned_query) < 3:
@@ -166,6 +177,8 @@ class QueryParserService:
                 exclude_files=validated_exclude,
                 original_query=query,
                 cleaned_query=cleaned_query,
+                is_compound=is_compound,
+                retrieval_queries=retrieval_queries if is_compound else [],
             )
 
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -205,6 +218,8 @@ QUERY CLEANING RULES:
 - Remove redundant words while preserving meaning
 - Keep the query concise and clear for semantic search
 - Preserve the original language (Italian stays Italian, English stays English)
+- If the request contains two distinct information needs, set is_compound to true and return at most two standalone retrieval_queries.
+- Do not split merely because "and" appears; omit response language, formatting, tone, and length instructions from retrieval_queries.
 
 AVAILABLE FILES (for reference):
 {available_files}

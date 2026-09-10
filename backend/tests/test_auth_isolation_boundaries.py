@@ -350,6 +350,7 @@ def test_query_uses_verified_uid_and_ignores_spoofed_user_id(
         None,
         include_files=None,
         exclude_files=None,
+        raw_user_query="Private question",
     )
     usage_service.reserve_query_slot.assert_called_once_with(
         AUTHENTICATED_USER,

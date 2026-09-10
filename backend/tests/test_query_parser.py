@@ -271,3 +271,30 @@ class TestCaseInsensitiveMatching:
         assert len(result.include_files) == 0
         assert len(result.exclude_files) == 1
         assert result.exclude_files[0] == "report.pdf"
+
+
+@patch("app.services.query_parser_service.ChatOpenAI")
+@patch.object(StrOutputParser, "invoke")
+def test_compound_analysis_returns_at_most_two_retrieval_queries(
+    mock_str_parser_invoke: Any, mock_openai: Any
+) -> None:
+    """Compound decomposition is structured and excludes presentation text."""
+    mock_str_parser_invoke.return_value = """
+    {
+        "include_files": [],
+        "exclude_files": [],
+        "cleaned_query": "¿Quién es Alice y qué hace el Gato?",
+        "is_compound": true,
+        "retrieval_queries": [
+            "¿Quién es Alice?",
+            "¿Qué hace el Gato?"
+        ]
+    }
+    """
+
+    result = QueryParserService().extract_file_filters(
+        "¿Quién es Alice y qué hace el Gato? Answer in English.", []
+    )
+
+    assert result.is_compound is True
+    assert result.retrieval_queries == ["¿Quién es Alice?", "¿Qué hace el Gato?"]

@@ -6,7 +6,7 @@ The backend is a Python 3.12 FastAPI service for authenticated PDF ingestion, do
 
 - Expose REST endpoints for authentication, document lifecycle operations, RAG queries, usage, language discovery, feedback, and bug reports.
 - Turn uploaded PDFs into owned, searchable chunks and persist them in ChromaDB.
-- Retrieve only the authenticated user's context, generate an answer with OpenAI, and return source filenames.
+- Retrieve only the authenticated user's context, generate an answer with OpenAI, and return evidence-backed filename/page citations.
 - Coordinate Firebase Admin, Firestore, local HuggingFace embeddings, and optional Resend email delivery.
 
 ## Architecture
@@ -34,7 +34,7 @@ HTTP request
 → Pydantic response model / JSON response
 ```
 
-For example, `POST /rag/upload/` is handled by `app/routers/documents_router.py`, delegates to `RAGService.index_document()`, and reaches `DocumentIndexingService` and `VectorStoreRepository`. `POST /rag/query/` is handled by `app/routers/query_router.py`, parses file filters, calls `RAGService.answer_query()`, and returns `QueryResponse` from `app/schemas/rag_schema.py`.
+For example, `POST /rag/upload/` is handled by `app/routers/documents_router.py`, resolves an explicit filename conflict action, delegates to `RAGService.index_document()`, and reaches `DocumentIndexingService` and `VectorStoreRepository`. `POST /rag/query/` is handled by `app/routers/query_router.py`, parses file filters, calls `RAGService.answer_query()`, and returns `QueryResponse` from `app/schemas/rag_schema.py`.
 
 ## RAG Flow
 
@@ -42,36 +42,39 @@ The implementation is split between the following services:
 
 ```text
 PDF upload
-→ documents_router.py validation and temporary upload handling
+→ documents_router.py verified-email, size/count, duplicate-action, and temporary-file handling
 → DocumentIndexingService.index_document()
 → UnstructuredPDFLoader (element parsing)
 → DocumentClassifierService classification and structural-density check
 → structural or fixed-size chunking
-→ metadata enrichment (user, filename, language, section, timestamp)
+→ Lingua detection from the complete extracted text
+→ metadata enrichment (user, filename, lowercase ISO language, section, timestamp)
 → HuggingFace embeddings in db/chroma_client.py
-→ VectorStoreRepository.add_documents() / ChromaDB indexing
+→ VectorStoreRepository.add_documents() / ChromaDB indexing and private-original retention
 ```
 
 ```text
 RAG query
-→ query_router.py extracts include/exclude file filters with QueryParserService
-→ RAGService.answer_query() conditionally reformulates conversational queries
-→ QueryProcessingService classification/reformulation
-→ AnswerGenerationService language handling and query preparation
-→ QueryExpansionService generates alternative queries
-→ VectorStoreRepository.get_retriever() applies user/file metadata filters
-→ retrieval results are deduplicated and reranked by RerankingService
-→ AnswerGenerationService builds the prompt with context and conversation history
-→ OpenAI chat model generates the answer
-→ source filenames are extracted and returned in QueryResponse
+→ query_router.py reserves the authenticated user's quota and extracts include/exclude file filters
+→ QueryProcessingService classifies only semantic category with Pydantic Structured Output, then conditionally reformulates contextual queries for retrieval
+→ QueryExpansionService produces English retrieval alternatives while retaining identifiers
+→ VectorStoreRepository combines user/file-filtered semantic retrieval with lexical candidates
+→ RerankingService scores semantic rank, lexical coverage, and title/document signals, then keeps distinct evidence
+→ AnswerGenerationService receives the raw current message separately from the reformulated retrieval query, then prompts with compact Q/H/C sections and citation-safe context IDs
+→ OpenAI returns an answer and the minimum sufficient supporting context IDs
+→ trusted filename/page metadata becomes `citations` in QueryResponse
 ```
 
-The answer path translates non-English queries to English for retrieval when needed, then translates the answer back to the requested/query language. The API returns a complete JSON response; it does not stream tokens from the model.
+The answer path may translate a retrieval query to English, but `LanguageService` resolves the answer language before answer generation: explicit `output_language` override, current-message request, current-message detection, then recent user history only for ambiguous follow-ups. That value reaches the answer model as authoritative `LANG:<code>`. Document language never selects the answer language. `Q` is the raw current user message, `H` is bounded historical context in `U|`/`A|` lines, and `C` contains compact `[C1|filename|p7]` evidence blocks. Retrieved documents and history are untrusted data: they provide evidence or context, never executable instructions. `QueryRequest.conversation_history` is bounded by message count and total content length before any model work. The API returns a complete JSON response; it does not stream tokens from the model.
+
+The three runtime prompts have separate responsibilities: classification returns only a Pydantic Structured Output category; reformulation returns one standalone retrieval query; answer generation owns grounding, response language, presentation, and insufficient-information wording. The legacy `PromptTemplateService` TOON query-rewriter helper is retained only for its isolated use-case utility and is not part of the production RAG request path.
+
+`POST /rag/upload/` accepts a PDF multipart field and optional `duplicate_action`: `reject` (default, returns `409` for a colliding owned filename), `replace`, or `rename` (server assigns `name (n).pdf`). `POST /rag/query/` accepts `query`, bounded `conversation_history`, and optional `output_language`; it returns `answer`, compatibility `source_documents`, and `citations`, whose items contain `filename` and an optional one-based `page_number`. Both endpoints require a verified-email Firebase identity. Stored originals are available only to the owner through authenticated `GET /rag/documents/content`, which serves inline content by default or a download when `download=true`.
 
 ## Authentication & User Isolation
 
 - `app/core/auth.py::verify_firebase_token` reads the `Authorization: Bearer <token>` header and calls Firebase Admin `auth.verify_id_token()`.
-- The verified Firebase `uid` is injected as `user_id` through `Depends(verify_firebase_token)` in protected routers. Client-supplied ownership is not used for document operations.
+- The verified Firebase `uid` is injected as `user_id` through protected router dependencies, which also require a verified email for document and query access. Client-supplied ownership is not used for document operations.
 - `DocumentIndexingService._prepare_chunks_with_metadata()` writes the verified user ID to each chunk's `source` metadata field and stores `original_filename` alongside language and section metadata.
 - `VectorStoreRepository` applies `source=<user_id>` when listing, retrieving, and deleting chunks. Optional filename filters are combined with the same ownership condition.
 
@@ -97,7 +100,7 @@ Create the ignored local configuration with `cp backend/.env.example backend/.en
 | Variable                          | Controls                                                                |
 | --------------------------------- | ----------------------------------------------------------------------- |
 | `OPENAI_API_KEY`                  | OpenAI calls used by query processing, expansion, and answer generation |
-| `LLM_MODEL`                       | Main OpenAI chat model used by the RAG services                         |
+| `LLM_MODEL`                       | Main OpenAI chat model; known capability limits such as Luna's temperature restriction are applied centrally |
 | `CHROMA_DB_PATH`                  | Persistent ChromaDB storage path                                        |
 | `DOCUMENT_STORAGE_PATH`           | Private original-PDF storage for authenticated preview/download          |
 | `FIREBASE_CREDENTIALS`            | Firebase service-account JSON supplied as an environment value          |
@@ -142,7 +145,7 @@ For a coverage report:
 poetry run pytest --cov=app --cov-report=term
 ```
 
-The repository contains unit and integration-style tests, but these commands are not a claim that the current suite passes in every environment. Firebase, OpenAI, Resend, and local model availability affect parts of the suite.
+The suite covers unit and integration-style behavior, including language-detection fallbacks, document lifecycle and duplicate handling, authenticated isolation, request-history limits, retrieval/reranking selection, evidence-to-citation mapping, and model capability options. These commands are not a claim that the current suite passes in every environment; Firebase, OpenAI, Resend, and local model availability affect parts of the suite.
 
 ## Important Code Paths
 

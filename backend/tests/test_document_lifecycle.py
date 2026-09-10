@@ -23,7 +23,7 @@ def indexing_dependencies() -> tuple[Mock, Mock, Mock]:
         DocumentCategory.INFORMATIVO_NON_STRUTTURATO
     )
     classifier_service.has_structural_density.return_value = False
-    language_service.detect_language.return_value = "IT"
+    language_service.detect_language.return_value = "it"
     return repository, language_service, classifier_service
 
 
@@ -65,7 +65,7 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
         )
 
     assert chunks_indexed > 0
-    assert language == "IT"
+    assert language == "it"
     classifier_service.classify_document.assert_called_once()
     language_service.detect_language.assert_called_once()
     repository.add_documents.assert_called_once()
@@ -79,7 +79,7 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
         for chunk in indexed_chunks
     )
     assert all(
-        chunk.metadata["original_language_code"] == "IT"
+        chunk.metadata["original_language_code"] == "it"
         for chunk in indexed_chunks
     )
     assert all("uploaded_at" in chunk.metadata for chunk in indexed_chunks)

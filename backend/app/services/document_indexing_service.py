@@ -117,20 +117,23 @@ class DocumentIndexingService:
             extracted_text_size = sum(len(doc.page_content or "") for doc in documents)
             if extracted_text_size > MAX_EXTRACTED_DOCUMENT_TEXT:
                 raise ValueError("Document contains too much extracted text.")
-            full_text_preview = " ".join([doc.page_content for doc in documents[:15]])[
-                :5000
-            ]
+            full_text = " ".join(doc.page_content or "" for doc in documents)
+            full_text_preview = full_text[:5000]
+            detected_language = (
+                document_language
+                if document_language is not None
+                else self.language_service.detect_language(full_text)
+            )
+            detected_language = detected_language.lower()
             category = self._classify_document(filename, full_text_preview)
             chunks = self._apply_chunking_strategy(documents, category, full_text_preview)
             chunks = filter_complex_metadata(chunks)
             if len(chunks) > MAX_DOCUMENT_CHUNKS:
                 raise ValueError("Document produces too many chunks.")
             final_chunks = self._prepare_chunks_with_metadata(
-                chunks, user_id, filename, document_language, document_metadata
+                chunks, user_id, filename, detected_language, document_metadata
             )
-            resolved_language = self._resolve_document_language(
-                document_language, final_chunks
-            )
+            resolved_language = detected_language
             total_chunks_indexed = (
                 self._batch_index_chunks(final_chunks) if final_chunks else 0
             )
@@ -291,7 +294,7 @@ class DocumentIndexingService:
         final_chunks: List[Document] = []
         current_chapter = "Document Start"
         uploaded_at = int(time.time() * 1000)  # Milliseconds timestamp
-        detected_language = doc_language
+        detected_language = doc_language.lower() if doc_language else "en"
 
         for chunk in chunks:
             # Track hierarchical structure from document elements
@@ -301,17 +304,6 @@ class DocumentIndexingService:
             if "Title" in element_type or "Header" in element_type:
                 current_chapter = chunk.page_content.strip()
                 chunk.metadata["element_type"] = element_type
-
-            # Use provided language or auto-detect from content
-            if detected_language is None and len(chunk.page_content) > 50:
-                # Auto-detect language from first substantial chunk
-                detected_lang_code = self.language_service.detect_language(
-                    chunk.page_content
-                )
-                detected_language = detected_lang_code.upper()
-                logger.debug(f"🌍 Auto-detected document language: {detected_language}")
-            elif detected_language is None:
-                detected_language = "EN"  # Default fallback
 
             # Add structural, language, and user metadata to every chunk
             chunk.metadata["chapter_title"] = current_chapter

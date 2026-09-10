@@ -402,3 +402,5 @@ class FileFilterResponse(BaseModel):
     cleaned_query: str = Field(
         ..., description="Query with file references removed for better semantic search"
     )
+    is_compound: bool = Field(default=False)
+    retrieval_queries: List[str] = Field(default=[])

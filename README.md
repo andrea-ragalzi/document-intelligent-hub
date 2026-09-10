@@ -1,6 +1,6 @@
 # Document Intelligent Hub
 
-Document Intelligent Hub is an independently built, full-stack application for people and teams who need to search private PDF collections and ask questions grounded in their own documents. Its core is a Python 3.12 and FastAPI REST API that authenticates users with Firebase, indexes document content in ChromaDB with local HuggingFace embeddings, and returns RAG-generated answers with the source filenames used as context.
+Document Intelligent Hub is an independently built, full-stack application for people and teams who need to search private PDF collections and ask questions grounded in their own documents. Its core is a Python 3.12 and FastAPI REST API that authenticates users with Firebase, indexes document content in ChromaDB with local HuggingFace embeddings, and returns RAG-generated answers with evidence-backed filename and page citations.
 
 The project is full-stack but intentionally backend-heavy. It demonstrates authenticated API design, third-party integrations, document-processing workflows, application-level user isolation, maintainable service boundaries, and automated testing around an applied Retrieval-Augmented Generation (RAG) system.
 
@@ -11,8 +11,8 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 
 ## What It Does
 
-- Authenticated users can upload, manage, and search private PDF collections.
-- Natural-language questions are answered from retrieved document context, with source filenames returned for grounding.
+- Verified users can batch-upload, manage, and search private PDF collections, choosing how to resolve owned filename collisions.
+- Natural-language questions are answered from retrieved document context, with source filenames and available page citations returned for grounding.
 - File-aware and multilingual queries support conversations over indexed documents.
 - Saved conversations are persisted in Firestore through the client application.
 
@@ -20,19 +20,19 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 
 - **REST API design:** FastAPI routers and Pydantic schemas define authentication, document, query, usage, and support contracts, with OpenAPI documentation available at runtime.
 - **Authentication boundary:** Firebase Admin verifies bearer tokens; protected routes derive the user ID from the verified token rather than trusting a client-selected owner.
-- **Backend integrations:** the service coordinates Firebase, Firestore, OpenAI, ChromaDB, local HuggingFace embeddings, and SendGrid-backed support workflows.
+- **Backend integrations:** the service coordinates Firebase, Firestore, OpenAI, ChromaDB, local HuggingFace embeddings, and Resend-backed support workflows.
 - **Maintainable boundaries:** HTTP handling, schemas, application services, vector-store access, configuration, and dependency construction are separated under `backend/app/`.
 - **Multi-user isolation:** indexed chunks carry the verified Firebase user ID in metadata, and repository operations apply that metadata filter when listing, retrieving, and deleting documents.
 - **Document processing:** PDF parsing, document classification, adaptive chunking, language detection, metadata enrichment, batch indexing, and cleanup are isolated in dedicated services.
-- **Applied RAG:** query parsing, conditional reformulation, expansion, filtered retrieval, local reranking, answer generation, and source extraction form an explicit pipeline.
+- **Applied RAG:** query parsing, conditional reformulation, expansion, filtered retrieval, hybrid reranking, evidence selection, answer generation, and citation extraction form an explicit pipeline.
 - **Automated tests:** pytest covers backend services, repositories, authentication helpers, and API behavior; Vitest and React Testing Library cover frontend hooks, stores, and components.
 
 ## Key Capabilities
 
 - Structural or fixed-size chunking selected from document characteristics
 - Persistent vector storage with optional filename filters
-- Lightweight rank-and-term-frequency reranking
-- Language detection, translated retrieval, and configurable answer language
+- Hybrid semantic, lexical, and document-title reranking with distinct-evidence selection
+- Automatic language detection and translated retrieval; answer generation selects language from the current request and bounded history
 - Responsive Next.js client for document management and chat
 
 ## Architecture
@@ -43,7 +43,7 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 │                                                             │
 │ • Firebase Authentication                                   │
 │ • Firestore conversation persistence                        │
-│ • Document management and chat UI                           │
+│ • Document management, chat, and citation UI                │
 └───────────────────────┬─────────────────────────────────────┘
                         │ REST API + Firebase bearer token
                         ▼
@@ -71,7 +71,8 @@ Authenticated PDF upload
 → element extraction with UnstructuredPDFLoader
 → document classification and structural-density check
 → structural or fixed-size chunking
-→ ownership, filename, language, section, and timestamp metadata
+→ full-document language detection with Lingua
+→ ownership, filename, lowercase ISO language, section, and timestamp metadata
 → local HuggingFace embeddings
 → batched ChromaDB indexing
 ```
@@ -79,19 +80,20 @@ Authenticated PDF upload
 ### Query and Answer Generation
 
 ```text
-Firebase token verification
+Verified-email Firebase context
 → natural-language file-filter extraction
 → conditional query reformulation from conversation context
-→ query-language detection and retrieval-language handling
-→ alternative-query generation
-→ ChromaDB retrieval filtered by verified user metadata
-→ duplicate removal and local reranking
-→ prompt construction with retrieved context and conversation history
+→ retrieval-language detection and translation when needed; response language is resolved from the current raw user message before answer generation
+→ English retrieval-query expansion that preserves identifiers
+→ ChromaDB retrieval filtered by verified user and optional filename metadata
+→ lexical candidates, duplicate removal, and hybrid reranking
+→ minimum-sufficient evidence selection from trusted retrieved passages
+→ answer prompt construction from raw current query (`Q`), compact bounded history (`H`), and citation-safe retrieved context (`C`)
 → OpenAI answer generation
-→ source-filename extraction and API response
+→ trusted filename/page citation mapping and API response
 ```
 
-The API returns source filenames, not page-level citations or retrieval scores.
+The API returns `source_documents` for compatibility and structured `citations` containing a filename and, when present in chunk metadata, a one-based PDF page number. It does not expose retrieval scores.
 
 ## Tech Stack
 
@@ -193,7 +195,7 @@ document-intelligent-hub/
 - Full RAG usage requires external Firebase and OpenAI configuration.
 - The FastAPI backend returns a complete JSON answer. The frontend then emits that completed text character by character, so this is not end-to-end model streaming.
 - Dockerfiles and a Compose configuration are present, but the complete clean-clone deployment workflow has not yet been verified.
-- Source attribution is currently filename-level rather than page-level citation.
+- Citations can identify a page only when the selected chunk carries valid PDF page metadata; otherwise the source remains filename-level.
 
 ## Component Documentation
 

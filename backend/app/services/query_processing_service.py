@@ -10,15 +10,16 @@ Responsibilities:
 - Detect conversational patterns and query intent
 """
 
+import re
 from typing import List
+
+from langchain_core.language_models import BaseChatModel
+from langchain_core.prompts import PromptTemplate
 
 from app.core.config import settings
 from app.core.constants import QueryConstants
 from app.core.logging import logger
 from app.schemas.rag_schema import ConversationMessage, QueryClassification
-from langchain_core.language_models import BaseChatModel
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.prompts import PromptTemplate
 
 # Query categories for classification
 CATEGORIES = [
@@ -33,7 +34,7 @@ CATEGORIES = [
 def _build_classification_prompt() -> PromptTemplate:
     """Build classification prompt from settings."""
     return PromptTemplate(
-        input_variables=["categories", "format_instructions", "query"],
+        input_variables=["categories", "query"],
         template=settings.CLASSIFICATION_PROMPT_TEMPLATE,
     )
 
@@ -69,37 +70,19 @@ class QueryProcessingService:
             Category tag string (e.g., 'GENERAL_SEARCH')
         """
         try:
-            parser = JsonOutputParser(pydantic_object=QueryClassification)
-
             classification_prompt = _build_classification_prompt().partial(
                 categories=str(CATEGORIES),
-                format_instructions=parser.get_format_instructions(),
             )
 
-            chain = classification_prompt | self.query_gen_llm | parser
-
-            result = chain.invoke({"query": query})
-
-            # Handle both 'category_tag' (correct) and 'category' (LLM mistake)
-            if isinstance(result, dict):
-                if "category_tag" in result:
-                    return str(result["category_tag"]).upper()
-                elif "category" in result:
-                    # Fallback: LLM used wrong key name
-                    logger.warning(
-                        f"⚠️ LLM returned 'category' instead of 'category_tag': {result}"
-                    )
-                    return str(result["category"]).upper()
-                else:
-                    logger.error(
-                        f"❌ Classification parsing failed - missing both keys. Result: {result}"
-                    )
-                    return "GENERAL_SEARCH"
-            else:
-                logger.error(
-                    f"❌ Classification parsing failed - not a dict. Result: {result}"
-                )
-                return "GENERAL_SEARCH"
+            structured_llm = self.query_gen_llm.with_structured_output(
+                QueryClassification
+            )
+            result = structured_llm.invoke(
+                classification_prompt.format(query=query)
+            )
+            if not isinstance(result, QueryClassification):
+                result = QueryClassification.model_validate(result)
+            return result.category_tag.upper()
 
         except (ValueError, KeyError, RuntimeError, TypeError) as e:
             logger.error(f"❌ Error classifying query: {e}")
@@ -121,7 +104,7 @@ class QueryProcessingService:
         Returns:
             Reformulated complete question, or original query if no reformulation needed
         """
-        if not self._needs_reformulation(query, conversation_history):
+        if not self.requires_conversation_context(query, conversation_history):
             logger.debug(
                 "✅ Query is complete and self-contained, no reformulation needed"
             )
@@ -147,6 +130,12 @@ class QueryProcessingService:
         Returns:
             True if reformulation is needed
         """
+        return self.requires_conversation_context(query, conversation_history)
+
+    def requires_conversation_context(
+        self, query: str, conversation_history: List[ConversationMessage]
+    ) -> bool:
+        """Return whether this turn needs history to resolve a reference."""
         query_lower = query.lower().strip()
         min_length = QueryConstants.MIN_QUERY_LENGTH_FOR_REFORMULATION
         is_short = len(query) < min_length
@@ -154,7 +143,13 @@ class QueryProcessingService:
             pattern in query_lower for pattern in QueryConstants.CONVERSATIONAL_PATTERNS
         )
 
-        return (is_short or has_conversational_pattern) and bool(conversation_history)
+        if not ((is_short or has_conversational_pattern) and conversation_history):
+            return False
+
+        # A short question with a named subject is already self-contained.
+        words = re.findall(r"\b[A-ZÀ-ÖØ-Þ][\w-]*\b", query)
+        has_named_subject = len(words) > 1 or (len(words) == 1 and not query.startswith(words[0]))
+        return not has_named_subject
 
     def _attempt_reformulation(
         self, query: str, conversation_history: List[ConversationMessage]
@@ -206,10 +201,10 @@ class QueryProcessingService:
         """
         history_context = []
         for msg in conversation_history[-6:]:  # Last 3 exchanges = 6 messages
-            role_label = "User" if msg.role == "user" else "Assistant"
-            history_context.append(f"{role_label}: {msg.content}")
+            role_label = "U" if msg.role == "user" else "A"
+            history_context.append(f"{role_label}|{msg.content}")
 
-        return "\n".join(history_context) if history_context else "No previous context"
+        return "\n".join(history_context)
 
     def _build_reformulation_prompt(self, history_text: str, query: str) -> str:
         """

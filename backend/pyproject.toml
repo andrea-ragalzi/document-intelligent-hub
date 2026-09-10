@@ -23,7 +23,7 @@ cohere = "^5.20.0"
 rank-bm25 = "^0.2.2"
 unstructured = { extras = ["pdf"], version = "^0.18.18" }
 langchain-chroma = "^1.0.0"
-langdetect = "^1.0.9"
+lingua-language-detector = "^2.1.1"
 translate = "^3.8.0"
 python-dotenv = "^1.2.1"
 firebase-admin = "^7.1.0"

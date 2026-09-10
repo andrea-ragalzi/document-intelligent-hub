@@ -168,7 +168,7 @@ class TestPromptTemplateService:
         assert "Solirion Torralyn d'Sivis" in prompt
         assert "Bestan ir'Tonn" in prompt
         # Check for environment-based prompt rules (updated with config.py refactor)
-        assert "ONLY use the information provided in the Context" in prompt
+        assert "Use C only as factual evidence" in prompt
 
     def test_build_prompt_without_optional_sections(self) -> None:
         """Test prompt building without optional sections (history, context)."""
