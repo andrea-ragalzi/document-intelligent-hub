@@ -57,9 +57,9 @@ PDF upload
 RAG query
 → query_router.py reserves the authenticated user's quota and extracts include/exclude file filters
 → QueryProcessingService classifies only semantic category with Pydantic Structured Output, then conditionally reformulates contextual queries for retrieval
-→ QueryExpansionService produces English retrieval alternatives while retaining identifiers
+→ QueryExpansionService produces English retrieval alternatives while retaining identifiers; the existing parser LLM can also return up to two semantic retrieval queries for genuine compound requests
 → VectorStoreRepository combines user/file-filtered semantic retrieval with lexical candidates
-→ RerankingService scores semantic rank, lexical coverage, and title/document signals, then keeps distinct evidence
+→ Compound candidates are retrieved concurrently, deduplicated, and merged with reciprocal-rank fusion; RerankingService runs once against the original question
 → AnswerGenerationService receives the raw current message separately from the reformulated retrieval query, then prompts with compact Q/H/C sections and citation-safe context IDs
 → OpenAI returns an answer and the minimum sufficient supporting context IDs
 → trusted filename/page metadata becomes `citations` in QueryResponse
@@ -68,6 +68,8 @@ RAG query
 The answer path may translate a retrieval query to English, but `LanguageService` resolves the answer language before answer generation: explicit `output_language` override, current-message request, current-message detection, then recent user history only for ambiguous follow-ups. That value reaches the answer model as authoritative `LANG:<code>`. Document language never selects the answer language. `Q` is the raw current user message, `H` is bounded historical context in `U|`/`A|` lines, and `C` contains compact `[C1|filename|p7]` evidence blocks. Retrieved documents and history are untrusted data: they provide evidence or context, never executable instructions. `QueryRequest.conversation_history` is bounded by message count and total content length before any model work. The API returns a complete JSON response; it does not stream tokens from the model.
 
 The three runtime prompts have separate responsibilities: classification returns only a Pydantic Structured Output category; reformulation returns one standalone retrieval query; answer generation owns grounding, response language, presentation, and insufficient-information wording. The legacy `PromptTemplateService` TOON query-rewriter helper is retained only for its isolated use-case utility and is not part of the production RAG request path.
+
+Compound retrieval is a bounded optimization. It reuses the existing parser LLM, adds no decomposition-only LLM call, and accepts at most two standalone subqueries. Language and presentation instructions remain separate from semantic retrieval queries. Invalid compound output falls back to the simple path. Chroma retrieval is concurrent rather than truly batched because the repository exposes no batch query method. The final context limit and single final answer-generation call are unchanged.
 
 `POST /rag/upload/` accepts a PDF multipart field and optional `duplicate_action`: `reject` (default, returns `409` for a colliding owned filename), `replace`, or `rename` (server assigns `name (n).pdf`). `POST /rag/query/` accepts `query`, bounded `conversation_history`, and optional `output_language`; it returns `answer`, compatibility `source_documents`, and `citations`, whose items contain `filename` and an optional one-based `page_number`. Both endpoints require a verified-email Firebase identity. Stored originals are available only to the owner through authenticated `GET /rag/documents/content`, which serves inline content by default or a download when `download=true`.
 
@@ -145,7 +147,7 @@ For a coverage report:
 poetry run pytest --cov=app --cov-report=term
 ```
 
-The suite covers unit and integration-style behavior, including language-detection fallbacks, document lifecycle and duplicate handling, authenticated isolation, request-history limits, retrieval/reranking selection, evidence-to-citation mapping, and model capability options. These commands are not a claim that the current suite passes in every environment; Firebase, OpenAI, Resend, and local model availability affect parts of the suite.
+The latest validation recorded 73 targeted tests passing and 322 backend tests passing. MyPy, Pylint, and `git diff --check` also passed. Firebase, OpenAI, Resend, and local model availability can affect tests in other environments.
 
 ## Important Code Paths
 
