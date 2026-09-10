@@ -28,7 +28,7 @@ The backend base URL is defined by `NEXT_PUBLIC_API_BASE_URL` and consumed as `A
 | ---------------------------- | ---------------------------------------------------------------------------------------- |
 | `hooks/useDocumentStatus.ts` | Check whether the user has indexed documents (`/rag/documents/check`)                    |
 | `hooks/useDocuments.ts`      | List and delete one/all user documents (`/rag/documents/list`, `/delete`, `/delete-all`) |
-| `hooks/useDocumentUpload.ts` | Upload/index PDFs and resolve duplicate conflicts (`/rag/upload/`)                      |
+| `hooks/useDocumentUpload.ts` | Upload/index PDFs and resolve duplicate conflicts (`/rag/upload/`)                       |
 | `hooks/useQueryUsage.ts`     | Read authenticated usage and tier data (`/auth/usage`)                                   |
 | `hooks/useRegistration.ts`   | Register a Firebase user and refresh custom claims (`/auth/register`)                    |
 | `app/api/chat/route.ts`      | Forward the active chat query to `/rag/query/`                                           |
