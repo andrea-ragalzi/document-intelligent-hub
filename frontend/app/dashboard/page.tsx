@@ -54,7 +54,6 @@ export default function Page() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
   const [invitationCodeModalOpen, setInvitationCodeModalOpen] = useState(false);
-  const [selectedOutputLanguage, setSelectedOutputLanguage] = useState<string>("en");
 
   // Document management
   const {
@@ -79,8 +78,6 @@ export default function Page() {
     resolveDuplicate,
     resetAlert,
     documentsUploaded: _documentsUploaded,
-    selectedLanguage,
-    setSelectedLanguage,
   } = useDocumentUpload({
     onSuccess: () => {
       void refreshDocuments();
@@ -156,7 +153,6 @@ export default function Page() {
   const { chatHistory, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChatAI(
     {
       userId: userId || "",
-      selectedOutputLanguage,
     }
   );
 
@@ -592,8 +588,6 @@ export default function Page() {
               hasDocuments={hasDocuments}
               isCheckingDocuments={isChecking}
               onOpenUploadModal={() => setUploadModalOpen(true)}
-              selectedOutputLanguage={selectedOutputLanguage}
-              onSelectOutputLanguage={setSelectedOutputLanguage}
               isServerOnline={isServerOnline}
               isLimitReached={isLimitReached}
               demoDocumentState={demoDocumentState}
@@ -669,8 +663,6 @@ export default function Page() {
           onFileChange={handleFileChange}
           onUpload={submitUpload}
           onResolveDuplicate={resolveDuplicate}
-          selectedLanguage={selectedLanguage}
-          onLanguageChange={setSelectedLanguage}
         />
 
         {/* Delete Account Modal */}

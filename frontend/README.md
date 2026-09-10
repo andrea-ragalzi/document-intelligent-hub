@@ -6,7 +6,7 @@ The frontend is a Next.js 16 client for authentication, document management, cha
 
 - Render login, registration, protected dashboard, document upload/list/delete, and chat interfaces.
 - Keep Firebase authentication state and pass the current user's ID token to protected API calls.
-- Manage the active chat, saved conversations, language selection, usage/tier display, and UI feedback.
+- Manage the active chat, saved conversations, usage/tier display, citations, and UI feedback.
 - Coordinate browser-side calls to the FastAPI API and persist conversations through Firestore.
 
 ## Architecture
@@ -14,7 +14,7 @@ The frontend is a Next.js 16 client for authentication, document management, cha
 - `app/` contains Next.js routes and the server-side `/api/chat` adapter. The dashboard composes the main client workflows.
 - `components/` contains UI components for authentication, documents, chat, sidebars, modals, and status messages.
 - `hooks/` contains client workflows such as document operations, authentication-derived data, chat, server status, and usage/tier queries.
-- `lib/` contains Firebase initialization, API constants, Firestore conversation functions, shared types, and language metadata.
+- `lib/` contains Firebase initialization, API constants, Firestore conversation functions, and shared types.
 - `contexts/AuthContext.tsx` provides the authenticated Firebase user and ID-token accessor.
 - `stores/uiStore.ts` contains shared UI state such as the current conversation, modal visibility, save status, and server status.
 - `providers/QueryProvider.tsx` configures TanStack Query for cached server state.
@@ -28,13 +28,12 @@ The backend base URL is defined by `NEXT_PUBLIC_API_BASE_URL` and consumed as `A
 | ---------------------------- | ---------------------------------------------------------------------------------------- |
 | `hooks/useDocumentStatus.ts` | Check whether the user has indexed documents (`/rag/documents/check`)                    |
 | `hooks/useDocuments.ts`      | List and delete one/all user documents (`/rag/documents/list`, `/delete`, `/delete-all`) |
-| `hooks/useDocumentUpload.ts` | Upload and index a PDF (`/rag/upload/`)                                                  |
+| `hooks/useDocumentUpload.ts` | Upload/index PDFs and resolve duplicate conflicts (`/rag/upload/`)                      |
 | `hooks/useQueryUsage.ts`     | Read authenticated usage and tier data (`/auth/usage`)                                   |
 | `hooks/useRegistration.ts`   | Register a Firebase user and refresh custom claims (`/auth/register`)                    |
-| `lib/languages.ts`           | Load supported languages (`/rag/languages/`)                                             |
 | `app/api/chat/route.ts`      | Forward the active chat query to `/rag/query/`                                           |
 
-Protected hooks call `useAuth().getIdToken()` and attach `Authorization: Bearer <token>`. The Next.js chat route receives the same authorization header from `useChatAI`, converts the AI SDK message list to the backend's `conversation_history` shape, and forwards it to FastAPI. Registration is a special case: it sends the Firebase ID token in the `/auth/register` request body and then forces a token refresh.
+Protected hooks call `useAuth().getIdToken()` and attach `Authorization: Bearer <token>`. The Next.js chat route receives the same authorization header from `useChatAI`, forwards at most the 14 preceding messages as `conversation_history`, and relays the backend's structured citations as AI SDK annotations. The active client does not choose an upload or answer language: backend services detect document and query language automatically, including recognized language instructions in the query. Registration is a special case: it sends the Firebase ID token in the `/auth/register` request body and then forces a token refresh.
 
 Most document and usage requests run directly from the browser. Therefore, `localhost` refers to the device running the browser; when testing from a tablet or phone, set `NEXT_PUBLIC_API_BASE_URL` to a backend address reachable on the LAN.
 
@@ -49,7 +48,9 @@ Most document and usage requests run directly from the browser. Therefore, `loca
 
 Conversations are stored in the Firestore `conversations` collection by `lib/conversationsService.ts`. The service creates, loads, updates, renames, and deletes conversation documents and filters loads by `userId`. Firestore rules also require an authenticated non-anonymous owner for conversation access.
 
-The active dashboard uses `hooks/queries/useConversationsQuery.ts` with TanStack Query. `app/dashboard/page.tsx` loads a selected conversation into the AI SDK message state and automatically saves completed chat history, creating a conversation when needed or updating the current one. `app/api/chat/route.ts` sends previous messages (excluding the current question) to FastAPI as `conversation_history`.
+The active dashboard uses `hooks/queries/useConversationsQuery.ts` with TanStack Query. `app/dashboard/page.tsx` loads a selected conversation into the AI SDK message state and automatically saves completed chat history, creating a conversation when needed or updating the current one. `app/api/chat/route.ts` sends previous messages, excluding the current question and limited to the 14 most recent, as `conversation_history`.
+
+Assistant messages persist structured source citations. The chat UI groups them by filename and opens an authenticated PDF blob from `/rag/documents/content`; a page citation opens the corresponding page fragment when its page metadata is available.
 
 `hooks/useConversations.ts` and the `rag_conversations` local-storage key provide the older fallback/migration path. Firestore remains the primary store in the active dashboard flow.
 
@@ -107,7 +108,7 @@ npm run test:firebase-auth-emulator
 The command uses the isolated `demo-dih-auth` project and refuses to run when the Auth Emulator
 is not configured.
 
-Tests are under `test/`. The commands above document the available workflows; they do not claim that the current suite passes in every environment.
+Tests are under `test/`, including coverage for upload conflicts, bounded chat forwarding, citation persistence/display, and authenticated original-PDF opening. The commands above document the available workflows; they do not claim that the current suite passes in every environment.
 
 ## Important Code Paths
 
@@ -130,5 +131,5 @@ Tests are under `test/`. The commands above document the available workflows; th
 
 - Restart the Next.js dev server after changing `frontend/.env.local`; public environment variables are loaded at startup/build time.
 - From a tablet or phone, `localhost` points to that device. Use the development machine's LAN address in `NEXT_PUBLIC_API_BASE_URL` and ensure the backend is reachable there.
-- The backend must be reachable both for direct browser requests (documents, usage, languages) and for the Next.js chat adapter.
+- The backend must be reachable both for direct browser requests (documents and usage) and for the Next.js chat adapter.
 - The FastAPI response is complete before `app/api/chat/route.ts` emits characters with a short delay; this is simulated progressive display, not end-to-end token streaming.

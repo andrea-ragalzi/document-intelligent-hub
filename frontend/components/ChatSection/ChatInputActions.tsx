@@ -6,10 +6,7 @@ interface ChatInputActionsProps {
   isQuerying: boolean;
   query: string;
   isChatDisabled: boolean;
-  languageFlag: string;
-  selectedOutputLanguage: string;
   onOpenUploadModal: () => void;
-  onOpenLanguageSelector: () => void;
 }
 
 export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
@@ -18,10 +15,7 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   isQuerying,
   query,
   isChatDisabled,
-  languageFlag,
-  selectedOutputLanguage,
   onOpenUploadModal,
-  onOpenLanguageSelector,
 }) => {
   return (
     <div className="flex items-center justify-between px-4 pb-4 sm:pb-4">
@@ -39,18 +33,6 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
           aria-label="Upload document"
         >
           <Paperclip size={20} />
-        </button>
-
-        {/* Language Selector Button */}
-        <button
-          type="button"
-          onClick={onOpenLanguageSelector}
-          disabled={!userId}
-          className="min-h-[44px] flex items-center justify-center h-10 px-3 rounded-full text-muted hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-lg focus:outline-none focus:ring-3 focus:ring-focus"
-          title={`Response Language: ${selectedOutputLanguage.toUpperCase()}`}
-          aria-label="Select output language"
-        >
-          {languageFlag}
         </button>
       </div>
 

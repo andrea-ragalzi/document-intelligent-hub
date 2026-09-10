@@ -7,14 +7,6 @@ vi.mock("@/components/ChatSection/useChatScroll", () => ({
   useChatScroll: () => ({ current: null }),
 }));
 
-vi.mock("@/components/ChatSection/useLanguageFlag", () => ({
-  useLanguageFlag: () => ({
-    isLanguageSelectorOpen: false,
-    setIsLanguageSelectorOpen: vi.fn(),
-    languageFlag: "🇬🇧",
-  }),
-}));
-
 const defaultProps: ComponentProps<typeof ChatSection> = {
   chatHistory: [],
   query: "",
@@ -25,8 +17,6 @@ const defaultProps: ComponentProps<typeof ChatSection> = {
   hasDocuments: true,
   isCheckingDocuments: false,
   onOpenUploadModal: vi.fn(),
-  selectedOutputLanguage: "EN",
-  onSelectOutputLanguage: vi.fn(),
   demoDocumentState: "idle",
   suggestedQuestions: [],
   onSuggestedQuestion: vi.fn(),

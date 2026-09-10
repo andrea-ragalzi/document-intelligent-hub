@@ -26,8 +26,6 @@ interface UseUploadResult {
   resolveDuplicate: (action: DuplicateAction) => Promise<void>;
   resetAlert: () => void;
   documentsUploaded: number;
-  selectedLanguage: string;
-  setSelectedLanguage: (language: string) => void;
 }
 
 interface UploadSummary {
@@ -51,7 +49,6 @@ const getSelectionMessage = (pdfCount: number, ignoredCount: number): string => 
 
 const submitDocument = async (
   file: File,
-  language: string,
   action: DuplicateAction | undefined,
   getIdToken: () => Promise<string | null>
 ): Promise<UploadRequestResult> => {
@@ -61,7 +58,6 @@ const submitDocument = async (
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("document_language", language.toUpperCase());
     if (action === "replace" || action === "rename") formData.append("duplicate_action", action);
 
     const response = await fetch(`${API_BASE_URL}/upload/`, {
@@ -86,7 +82,6 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [documentsUploaded, setDocumentsUploaded] = useState(0);
-  const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [pendingDuplicate, setPendingDuplicate] = useState<File | null>(null);
   const [uploadAlert, setUploadAlert] = useState<AlertState>({
     message: "Select a PDF to upload.",
@@ -158,7 +153,7 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
         type: "info",
       });
 
-      const result = await submitDocument(file, selectedLanguage, action, getIdToken);
+      const result = await submitDocument(file, action, getIdToken);
       if (result.status === "conflict") {
         resolutionsRef.current.delete(index);
         pauseForDuplicate(
@@ -179,7 +174,7 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     }
 
     finishQueue();
-  }, [finishQueue, getIdToken, pauseForDuplicate, recordUploadFailure, selectedLanguage]);
+  }, [finishQueue, getIdToken, pauseForDuplicate, recordUploadFailure]);
 
   const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files || []);
@@ -245,7 +240,5 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     resolveDuplicate,
     resetAlert,
     documentsUploaded,
-    selectedLanguage,
-    setSelectedLanguage,
   };
 };

@@ -9,10 +9,6 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ getIdToken: vi.fn() }),
 }));
 
-vi.mock("@/components/LanguageSelector", () => ({
-  LanguageSelector: () => <div>Document language</div>,
-}));
-
 const mobileViewports = [
   { width: 412, height: 915 },
   { width: 412, height: 892 },
@@ -32,8 +28,6 @@ const UploadModalHarness = () => {
       onFileChange={event => setFiles(Array.from(event.target.files || []))}
       onUpload={vi.fn()}
       onResolveDuplicate={vi.fn()}
-      selectedLanguage="en"
-      onLanguageChange={vi.fn()}
     />
   );
 };

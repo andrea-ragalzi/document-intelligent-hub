@@ -15,7 +15,6 @@ const themedSourceFiles = [
   "components/DocumentList/DocumentItem.tsx",
   "components/DocumentManager.tsx",
   "components/FeedbackModal.tsx",
-  "components/OutputLanguageSelector.tsx",
   "components/RenameModal.tsx",
   "components/UploadModal.tsx",
   "components/UseCaseSelector.tsx",

@@ -4,7 +4,6 @@ import { X, Upload, FileText } from "lucide-react";
 import { FormEvent, ChangeEvent, useState, DragEvent, useEffect } from "react";
 import { UploadProgress } from "./UploadProgress";
 import { AlertMessage } from "./AlertMessage";
-import { LanguageSelector } from "./LanguageSelector";
 import type { AlertState } from "@/lib/types";
 import type { DuplicateAction } from "@/hooks/useDocumentUpload";
 
@@ -29,8 +28,6 @@ interface UploadModalProps {
   onUpload: (e: FormEvent) => void;
   onResolveDuplicate: (action: DuplicateAction) => void;
   uploadProgress?: UploadProgressState;
-  selectedLanguage: string;
-  onLanguageChange: (lang: string) => void;
 }
 
 const SelectedFiles: React.FC<{ files: File[] }> = ({ files }) => {
@@ -114,8 +111,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onUpload,
   onResolveDuplicate,
   uploadProgress,
-  selectedLanguage,
-  onLanguageChange,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -257,13 +252,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
               <SelectedFiles files={files} />
               <DuplicateFileOptions file={pendingDuplicate} onResolve={onResolveDuplicate} />
-
-              {/* Language Selector */}
-              <LanguageSelector
-                selectedLanguage={selectedLanguage}
-                onLanguageChange={onLanguageChange}
-                disabled={isUploading}
-              />
 
               {/* Upload Progress */}
               {isUploading && uploadProgress && (

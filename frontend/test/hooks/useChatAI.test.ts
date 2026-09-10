@@ -35,9 +35,7 @@ describe("useChatAI", () => {
 
   it("gets a current Firebase token for every chat submission", async () => {
     getIdToken.mockResolvedValueOnce("first-token").mockResolvedValueOnce("refreshed-token");
-    const { result } = renderHook(() =>
-      useChatAI({ userId: "user-a", selectedOutputLanguage: "it" })
-    );
+    const { result } = renderHook(() => useChatAI({ userId: "user-a" }));
 
     await act(async () => {
       await result.current.handleSubmit({ preventDefault: vi.fn() });
@@ -51,6 +49,15 @@ describe("useChatAI", () => {
     expect(submitChat).toHaveBeenNthCalledWith(2, undefined, {
       headers: { Authorization: "Bearer refreshed-token" },
     });
+  });
+
+  it("leaves response language selection to backend autodetection", () => {
+    renderHook(() => useChatAI({ userId: "user-a" }));
+
+    expect(vi.mocked(useChat)).toHaveBeenCalledWith(
+      expect.objectContaining({ body: { userId: "user-a" } })
+    );
+    expect(vi.mocked(useChat).mock.calls[0][0]).not.toHaveProperty("body.output_language");
   });
 
   it("preserves source annotations on the matching assistant message", () => {
@@ -73,9 +80,7 @@ describe("useChatAI", () => {
       setMessages: vi.fn(),
     } as unknown as ReturnType<typeof useChat>);
 
-    const { result } = renderHook(() =>
-      useChatAI({ userId: "user-a", selectedOutputLanguage: "en" })
-    );
+    const { result } = renderHook(() => useChatAI({ userId: "user-a" }));
 
     expect(result.current.chatHistory).toEqual([
       {
