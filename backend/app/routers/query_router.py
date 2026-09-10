@@ -277,14 +277,20 @@ async def query_document(
 
         # Call RAG service
         rag_started = time.perf_counter()
+        rag_kwargs: dict[str, Any] = {
+            "include_files": include_files,
+            "exclude_files": exclude_files,
+            "raw_user_query": request.query,
+        }
+        if filter_result.is_compound:
+            rag_kwargs["retrieval_queries"] = filter_result.retrieval_queries
         answer, sources = await asyncio.to_thread(
             rag_service.answer_query,
             query_for_rag,
             user_id,
             request.conversation_history,
             request.output_language,
-            include_files=include_files,
-            exclude_files=exclude_files,
+            **rag_kwargs,
         )
         logger.info(
             f"⏱️ Query timing | rag_answer="

@@ -158,6 +158,8 @@ class RAGService:
         output_language: Optional[str] = None,
         include_files: Optional[List[str]] = None,
         exclude_files: Optional[List[str]] = None,
+        raw_user_query: Optional[str] = None,
+        retrieval_queries: Optional[List[str]] = None,
     ) -> Tuple[str, List[dict[str, str | int | None]]]:
         """
         Process query and generate answer using RAG pipeline.
@@ -179,25 +181,48 @@ class RAGService:
             Tuple of (answer, retrieved source citations)
         """
         conversation_history = conversation_history or []
+        current_user_query = raw_user_query or query
+
+        response_language = self.language_service.resolve_response_language(
+            current_user_query,
+            output_language=output_language,
+            recent_user_messages=(
+                message.content
+                for message in reversed(conversation_history)
+                if message.role == "user"
+            ),
+        )
+        use_history = self.query_processing_service.requires_conversation_context(
+            query, conversation_history
+        )
+        relevant_history = conversation_history if use_history else []
 
         # Step 1: Reformulate query if needed (handles conversational context)
         reformulated_query = self.query_processing_service.reformulate_query(
-            query, conversation_history
+            query, relevant_history
         )
+        retrieval_language = self.language_service.detect_language(reformulated_query)
 
         # Step 2: Classify query (for future optimizations)
         query_tag = self.query_processing_service.classify_query(reformulated_query)
         logger.info(f"🏷️  Query classified as: {query_tag}")
 
         # Step 3: Generate answer with full RAG pipeline
-        return self.answer_generation_service.generate_answer(
+        answer_args: dict[str, Any] = dict(
             query=reformulated_query,
             user_id=user_id,
-            conversation_history=conversation_history,
-            output_language=output_language,
+            conversation_history=relevant_history,
+            query_language=retrieval_language,
+            response_language=response_language,
+            current_user_message=current_user_query,
             include_files=include_files,
             exclude_files=exclude_files,
         )
+        if retrieval_queries:
+            return self.answer_generation_service.generate_answer(
+                **answer_args, retrieval_queries=retrieval_queries
+            )
+        return self.answer_generation_service.generate_answer(**answer_args)
 
     # === DOCUMENT MANAGEMENT OPERATIONS ===
 

@@ -1,10 +1,8 @@
 import { FormEvent } from "react";
 import type { ChatMessage } from "@/lib/types";
 import { ChatMessageDisplay } from "./ChatMessageDisplay";
-import { OutputLanguageSelector } from "./OutputLanguageSelector";
 import { useChatScroll } from "./ChatSection/useChatScroll";
 import { useTextareaResize } from "./ChatSection/useTextareaResize";
-import { useLanguageFlag } from "./ChatSection/useLanguageFlag";
 import {
   getChatDisabledState,
   createSubmitHandler,
@@ -26,8 +24,6 @@ interface ChatSectionProps {
   hasDocuments: boolean;
   isCheckingDocuments: boolean;
   onOpenUploadModal: () => void;
-  selectedOutputLanguage: string;
-  onSelectOutputLanguage: (code: string) => void;
   isServerOnline?: boolean;
   isLimitReached?: boolean;
   demoDocumentState: DemoDocumentState;
@@ -44,8 +40,6 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   hasDocuments,
   isCheckingDocuments,
   onOpenUploadModal,
-  selectedOutputLanguage,
-  onSelectOutputLanguage,
   isServerOnline = true,
   isLimitReached = false,
   demoDocumentState,
@@ -54,9 +48,6 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
 }) => {
   const chatEndRef = useChatScroll(chatHistory, isQuerying);
   const { textareaRef, resetHeight, handleChange } = useTextareaResize();
-  const { isLanguageSelectorOpen, setIsLanguageSelectorOpen, languageFlag } =
-    useLanguageFlag(selectedOutputLanguage);
-
   // Calculate specific disable reasons
   const { isChatDisabled, noDocuments } = getChatDisabledState(
     hasDocuments,
@@ -148,22 +139,11 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
               isQuerying={isQuerying}
               query={query}
               isChatDisabled={isChatDisabled}
-              languageFlag={languageFlag}
-              selectedOutputLanguage={selectedOutputLanguage}
               onOpenUploadModal={onOpenUploadModal}
-              onOpenLanguageSelector={() => setIsLanguageSelectorOpen(true)}
             />
           </div>
         </div>
       </form>
-
-      {/* Output Language Selector Modal */}
-      <OutputLanguageSelector
-        isOpen={isLanguageSelectorOpen}
-        selectedLanguageCode={selectedOutputLanguage}
-        onSelectLanguage={onSelectOutputLanguage}
-        onClose={() => setIsLanguageSelectorOpen(false)}
-      />
     </div>
   );
 };

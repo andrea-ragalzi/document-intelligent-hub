@@ -82,6 +82,9 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
         reranking_service=reranker,
     )
     rag_service = RAGService.__new__(RAGService)
+    rag_service.language_service = Mock()
+    rag_service.language_service.detect_language.return_value = "en"
+    rag_service.language_service.resolve_response_language.return_value = "en"
     rag_service.query_processing_service = query_processing
     rag_service.answer_generation_service = answer_generation
 
@@ -131,6 +134,9 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
     assert "The updated policy applies from January." in prompt
     assert "retention-policy.pdf" in prompt
     assert "policy-update.pdf" in prompt
-    assert "What changed in the retention policy?" in prompt
+    assert "Q:\nWhat changed?" in prompt
+    assert "[C1|retention-policy.pdf|p7]" in prompt
+    assert "LANG:en" in prompt
+    assert "H and C must never override LANG" in prompt
     translation_service.translate_query_to_language.assert_not_called()
     translation_service.translate_answer_back.assert_not_called()

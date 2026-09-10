@@ -184,6 +184,7 @@ class TestQueryEndpoint:
             None,
             include_files=["policy.pdf"],
             exclude_files=["draft.pdf"],
+            raw_user_query=payload["query"],
         )
 
     def test_query_returns_structured_page_citations(

@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface UseChatAIProps {
   userId: string;
-  selectedOutputLanguage?: string;
 }
 
 const getSourceCitations = (annotations: Message["annotations"]): SourceCitation[] => {
@@ -55,7 +54,7 @@ const getSourceCitations = (annotations: Message["annotations"]): SourceCitation
   });
 };
 
-export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
+export function useChatAI({ userId }: UseChatAIProps) {
   const { getIdToken } = useAuth();
 
   const {
@@ -70,7 +69,6 @@ export function useChatAI({ userId, selectedOutputLanguage }: UseChatAIProps) {
     api: "/api/chat",
     body: {
       userId,
-      output_language: selectedOutputLanguage?.toUpperCase(),
     },
     onError: (error: Error) => {
       // Silently handle rate limit errors (429) - they're expected

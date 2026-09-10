@@ -1,38 +1,166 @@
 # backend/app/services/language_service.py
 
-from langdetect import detect
+import re
+import unicodedata
+from collections.abc import Iterable
+from typing import Optional
+
+from lingua import LanguageDetectorBuilder  # pylint: disable=no-name-in-module
 from translate import Translator
 
-# TARGET LANGUAGE for RAG retrieval and indexing (forcing consistency)
+from app.core.constants import LanguageConstants
+
+# English is a retrieval-translation target, never a final-answer language rule.
 RETRIEVAL_TARGET_LANGUAGE = "English"
 
 
 class LanguageService:
     """
     Service dedicato per la gestione del rilevamento e della traduzione
-    del linguaggio utilizzando librerie locali e gratuite (langdetect, translate).
+    del linguaggio utilizzando librerie locali e gratuite (Lingua, translate).
 
-    NOTA: Il linguaggio target per l'indicizzazione è sempre 'English'.
+    English is used only when a retrieval query needs translation.
     """
 
     def __init__(self, target_lang: str = RETRIEVAL_TARGET_LANGUAGE) -> None:
-        # Il linguaggio target è fisso su 'English' per la strategia RAG
+        # Retrieval translation stays independent from final answer generation.
         self.target_lang = target_lang
+        self._detector = LanguageDetectorBuilder.from_all_languages().build()
 
-    def detect_language(self, content: str) -> str:
-        """Rileva il codice lingua (due lettere, es. 'EN', 'IT') di un contenuto."""
+    def detect_language(
+        self, content: str, fallback_language: Optional[str] = "en"
+    ) -> str:
+        """Detect a reliable ISO 639-1 code, falling back when confidence is low."""
+        return self.detect_language_reliably(content) or fallback_language or "en"
+
+    def resolve_response_language(
+        self,
+        content: str,
+        fallback_language: Optional[str] = "en",
+        *,
+        output_language: Optional[str] = None,
+        recent_user_messages: Optional[Iterable[str]] = None,
+    ) -> str:
+        """Resolve the response language from the current turn before the answer LLM."""
+        if output_language:
+            return output_language.lower()
+        explicit_language = self._explicit_response_language(content)
+        if explicit_language:
+            return explicit_language
+
+        detected_language = self.detect_language_reliably(content)
+        if detected_language:
+            return detected_language
+
+        if recent_user_messages:
+            for recent_message in recent_user_messages:
+                recent_language = self.detect_language_reliably(recent_message)
+                if recent_language:
+                    return recent_language
+        return fallback_language or "en"
+
+    def detect_language_reliably(  # pylint: disable=too-many-return-statements
+        self, content: str
+    ) -> Optional[str]:
+        """Return a detected code only when Lingua has sufficient confidence."""
         if not content or len(content.strip()) < 5:
-            return "EN"  # Fallback per contenuti troppo corti
+            return None
 
         try:
-            # langdetect restituisce un codice a due lettere (es. 'en', 'it')
-            lang_code = detect(content)
-            return str(lang_code).upper()  # Restituisce il codice in maiuscolo
+            lexical_language = self._language_from_lexical_evidence(content)
+            if lexical_language:
+                return lexical_language
+
+            confidence_values = list(
+                self._detector.compute_language_confidence_values(content)
+            )
+            confidence_values.sort(key=lambda value: value.value, reverse=True)
+            if not confidence_values:
+                return None
+
+            top = confidence_values[0]
+            second_value = confidence_values[1].value if len(confidence_values) > 1 else 0.0
+            # Calibrated from the observed short-query cases: stable examples
+            # have top >= .098 and a margin >= .025; "Chi e Alice?" has .078
+            # and .010, so its top result is intentionally treated as ambiguous.
+            if top.value < 0.09 or top.value - second_value < 0.02:
+                return self._language_from_lexical_evidence(content)
+
+            language_code = top.language.iso_code_639_1.name.lower()
+            if language_code.upper() not in LanguageConstants.SUPPORTED_LANGUAGES:
+                return self._language_from_lexical_evidence(content)
+            return language_code
 
         except Exception as e:
-            # langdetect genera un'eccezione per stringhe molto brevi/ambigue
-            print(f"Error detecting language with langdetect: {e}. Falling back to EN.")
-            return "EN"  # Fallback sicuro
+            print(f"Error detecting language with Lingua: {e}. Falling back to EN.")
+            return None
+
+    @staticmethod
+    def _normalize_text(content: str) -> str:
+        return "".join(
+            char
+            for char in unicodedata.normalize("NFD", content.lower())
+            if unicodedata.category(char) != "Mn"
+        )
+
+    def _explicit_response_language(self, content: str) -> Optional[str]:
+        normalized = self._normalize_text(content)
+        language_names = {
+            "italiano": "it",
+            "italian": "it",
+            "inglese": "en",
+            "english": "en",
+            "spagnolo": "es",
+            "espanol": "es",
+            "spanish": "es",
+            "francese": "fr",
+            "francais": "fr",
+            "french": "fr",
+            "tedesco": "de",
+            "deutsch": "de",
+            "german": "de",
+        }
+        request_markers = (
+            "answer",
+            "respond",
+            "reply",
+            "rispondi",
+            "rispondere",
+            "responde",
+            "responder",
+            "reponds",
+            "antworte",
+            "antworten",
+        )
+        for name, code in language_names.items():
+            if re.search(rf"\b{name}\b", normalized) and any(
+                marker in normalized for marker in request_markers
+            ):
+                return code
+        return None
+
+    def _language_from_lexical_evidence(self, content: str) -> Optional[str]:
+        """Recognize common short question forms before all-language Lingua scoring."""
+        normalized = self._normalize_text(content)
+        patterns = {
+            "en": (r"\bwho\s+(?:is|was|are)\b", r"\band\s+him\b"),
+            "it": (
+                r"\bchi\s+(?:e|è)\b",
+                r"\bperche\b",
+                r"\bcosa\s+succede\b",
+            ),
+            "es": (
+                r"\bquien\s+(?:es|eres)\b",
+                r"\besta\s+(?:muerto|muerta)\b",
+                r"\by\s+el\b",
+            ),
+            "fr": (r"\bqui\s+est\b",),
+            "de": (r"\bwer\s+ist\b",),
+        }
+        for language_code, language_patterns in patterns.items():
+            if any(re.search(pattern, normalized) for pattern in language_patterns):
+                return language_code
+        return None
 
     def translate_to_target(self, content: str) -> str:
         """Traduce il contenuto al linguaggio target (di default: English) per l'indicizzazione."""

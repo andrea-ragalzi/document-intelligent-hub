@@ -18,7 +18,7 @@ from langchain_core.documents import Document
 
 import app.services.rag_orchestrator_service
 from app.repositories.vector_store_repository import VectorStoreRepository
-from app.schemas.rag_schema import ConversationMessage
+from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
 from app.services.rag_orchestrator_service import RAGService
 
 
@@ -114,6 +114,9 @@ class TestQueryProcessing:
         rag_service.answer_generation_service.generate_answer = Mock(
             return_value=("History-aware answer", ["history.pdf"])
         )
+        rag_service.language_service = Mock()
+        rag_service.language_service.detect_language.return_value = "en"
+        rag_service.language_service.resolve_response_language.return_value = "en"
 
         answer, sources = rag_service.answer_query(
             query="Follow-up question",
@@ -127,7 +130,9 @@ class TestQueryProcessing:
             query="Reformulated follow-up question",
             user_id="test-user",
             conversation_history=conversation_history,
-            output_language=None,
+            query_language="en",
+            response_language="en",
+            current_user_message="Follow-up question",
             include_files=None,
             exclude_files=None,
         )
@@ -135,7 +140,7 @@ class TestQueryProcessing:
     def test_answer_query_no_relevant_documents(
         self, rag_service: Any, mock_repository: Any
     ) -> None:
-        """No retrieved chunks returns the existing grounded fallback without an LLM."""
+        """No retrieved chunks use the answer model's grounded fallback contract."""
         retriever = Mock()
         retriever.invoke.return_value = []
         mock_repository.get_retriever.return_value = retriever
@@ -150,6 +155,12 @@ class TestQueryProcessing:
             []
         )
         answer_service.llm = Mock()
+        answer_service.llm.with_structured_output.return_value.invoke.return_value = (
+            AnswerWithEvidence(
+                answer="I cannot answer this question based on the documents provided.",
+                evidence_ids=[],
+            )
+        )
 
         answer, sources = answer_service.generate_answer(
             query="Nonexistent topic",
@@ -158,7 +169,9 @@ class TestQueryProcessing:
 
         assert answer == "I cannot answer this question based on the documents provided."
         assert sources == []
-        answer_service.llm.invoke.assert_not_called()
+        prompt = answer_service.llm.with_structured_output.return_value.invoke.call_args.args[0]
+        assert "LANGUAGE" in prompt
+        assert "insufficient" in prompt.lower()
 
     def test_retrieval_runs_distinct_multi_queries_concurrently(
         self, rag_service: Any, mock_repository: Any

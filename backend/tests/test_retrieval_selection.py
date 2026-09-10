@@ -27,6 +27,69 @@ def _answer_service() -> AnswerGenerationService:
     )
 
 
+def test_simple_query_keeps_single_query_expansion_path() -> None:
+    service = _answer_service()
+    service.query_expansion_service.generate_alternative_queries.return_value = []
+    service.repository.lexical_candidate_search.return_value = []
+    service.repository.get_retriever.return_value.invoke.return_value = [
+        _document("Alice follows the Cat.", "Alice.pdf")
+    ]
+    service.reranking_service.rerank_documents.return_value = []
+
+    service._retrieve_and_rerank(
+        "What happens when the Cat disappears?",
+        "What happens when the Cat disappears?",
+        "user",
+        include_files=None,
+        exclude_files=None,
+    )
+
+    service.query_expansion_service.generate_alternative_queries.assert_called_once()
+    service.repository.get_retriever.assert_called_once()
+    assert service.repository.get_retriever.call_args.kwargs["k"] == 12
+
+
+def test_compound_query_uses_bounded_queries_and_deduplicates_candidates() -> None:
+    service = _answer_service()
+    duplicate_a = _document("Alice follows the Cat.", "Alice.pdf")
+    duplicate_b = _document("Alice follows the Cat.", "Alice.pdf")
+    second = _document("The Cat disappears.", "Alice.pdf", page=2)
+    service.repository.get_retriever.return_value.invoke.side_effect = [
+        [duplicate_a, second],
+        [duplicate_b],
+        [second],
+    ]
+    service.repository.lexical_candidate_search.return_value = []
+    service.reranking_service.rerank_documents.return_value = []
+
+    service._retrieve_and_rerank(
+        "Who is Alice and what happens when the Cat disappears?",
+        "Who is Alice and what happens when the Cat disappears?",
+        "user",
+        include_files=None,
+        exclude_files=None,
+        retrieval_queries=["Who is Alice?", "What happens when the Cat disappears?"],
+    )
+
+    service.query_expansion_service.generate_alternative_queries.assert_not_called()
+    assert service.repository.get_retriever.call_args.kwargs["k"] == 6
+    rerank_kwargs = service.reranking_service.rerank_documents.call_args.kwargs
+    assert len(rerank_kwargs["documents"]) == 2
+    assert rerank_kwargs["required_query_groups"] == [
+        "Who is Alice?",
+        "What happens when the Cat disappears?",
+    ]
+
+
+def test_invalid_compound_output_falls_back_to_simple_retrieval() -> None:
+    service = _answer_service()
+
+    assert service._validated_compound_queries(None) == []
+    assert service._validated_compound_queries(["only one"]) == []
+    assert service._validated_compound_queries(["a", "b", "c"]) == []
+    assert service._validated_compound_queries(["a", 1]) == []
+
+
 def test_inspection_result_outranks_related_vehicle_material() -> None:
     query = "Quale veicolo T-CAR ha superato il test di override manuale e quali invece lo hanno fallito?"
     documents = [
