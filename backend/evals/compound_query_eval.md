@@ -16,3 +16,13 @@ Expected invariant: simple queries use the existing single-query path and all
 answers use one final generation call. Compound queries may use two retrieval
 queries, one reranking pass, and one final generation call. Retrieval changes
 must improve coverage without changing grounding or response-language rules.
+
+Manual evaluation notes: factual and straightforward compound questions showed
+strong results, and undocumented numeric questions showed good resistance to
+hallucination. Harder cases requiring synthesis across several documents remain
+weaker; this limitation is intentionally unresolved.
+
+Validation recorded: 73 targeted tests passed, 322 backend tests passed, MyPy
+passed, Pylint passed, and `git diff --check` passed. These results do not
+claim measured latency or token savings; no representative benchmark has been
+run.
