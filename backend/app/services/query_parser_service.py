@@ -18,15 +18,13 @@ Examples:
 - "qual'è" → "Qual è" (grammar fix)
 """
 
-from app.core.config import settings
-from app.core.llm_configuration import chat_model_options
 from app.core.logging import logger
-from app.db.chroma_client import get_embedding_function
 from app.schemas.rag_schema import FileFilterResponse
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field
 
 __all__ = ["FileFilterResponse", "QueryParserService"]
 
@@ -70,23 +68,17 @@ class QueryParserService:
     - Structured JSON output (no parsing errors)
     """
 
-    def __init__(self) -> None:
-        """Initialize the query parser with the configured OpenAI model."""
-        self.llm = ChatOpenAI(
-            **chat_model_options(
-                settings.LLM_MODEL, SecretStr(settings.OPENAI_API_KEY), temperature=0.0
-            )
-        )
+    def __init__(self, llm: BaseChatModel, embeddings: Embeddings) -> None:
+        """Initialize the query parser with injected model capabilities."""
+        self.llm = llm
 
         # Parser for structured output
         self.parser = JsonOutputParser(pydantic_object=FileFilterExtraction)
 
         # Get embedding function for file validation (HuggingFace - free)
-        self.embeddings = get_embedding_function()
+        self.embeddings = embeddings
 
-        logger.debug(
-            f"✅ QueryParserService initialized with {settings.LLM_MODEL}"
-        )
+        logger.debug("✅ QueryParserService initialized")
 
     def extract_file_filters(
         self, query: str, available_files: list[str]
@@ -332,9 +324,3 @@ Now extract from the user query above and apply all rules.
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"   Error computing similarity: {e}")
             return None
-
-
-# --- Global Service Instance ---
-
-# Singleton instance for dependency injection
-query_parser_service = QueryParserService()

@@ -7,11 +7,7 @@ Uses multi-query generation to capture different phrasings and keywords.
 
 import re
 
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
-
-from app.core.config import settings
-from app.core.llm_configuration import chat_model_options
+from langchain_core.language_models import BaseChatModel
 
 # Prompt template for concise, independently retrievable search phrases.
 MULTI_QUERY_PROMPT = (
@@ -41,21 +37,9 @@ class QueryExpansionService:
     and semantic angles.
     """
 
-    def __init__(self) -> None:
-        """Initialize the query expansion service with LLM."""
-        # Extract API key securely
-        api_key_value = (
-            settings.OPENAI_API_KEY.get_secret_value()
-            if isinstance(settings.OPENAI_API_KEY, SecretStr)
-            else str(settings.OPENAI_API_KEY)
-        )
-
-        # Use higher temperature for creative, diverse query generation
-        self.llm = ChatOpenAI(
-            **chat_model_options(
-                settings.LLM_MODEL, SecretStr(api_key_value), temperature=0.8
-            )
-        )
+    def __init__(self, llm: BaseChatModel) -> None:
+        """Initialize the query expansion service with an injected model."""
+        self.llm = llm
 
     def generate_alternative_queries(
         self, query: str, num_queries: int = 5
@@ -143,7 +127,3 @@ class QueryExpansionService:
         # Generate 5 alternatives, resulting in a pool of 6 (original + 5 alternatives)
         alternatives = self.generate_alternative_queries(original_query, num_queries=5)
         return [original_query] + alternatives
-
-
-# Singleton instance
-query_expansion_service = QueryExpansionService()

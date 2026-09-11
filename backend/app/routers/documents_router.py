@@ -27,7 +27,8 @@ from app.core.security import (
     sanitize_filename,
     sanitize_log_value,
 )
-from app.dependencies import get_rag_service
+from app.dependencies import get_document_file_storage, get_rag_service
+from app.ports.file_storage import FileStoragePort
 from app.schemas.rag_schema import (
     DetectLanguageResponse,
     DemoDocumentSeedResponse,
@@ -39,10 +40,6 @@ from app.services.demo_document_service import (
     DEMO_DOCUMENT_FILENAME,
     DEMO_SUGGESTED_QUESTIONS,
     DemoDocumentService,
-)
-from app.services.document_file_storage import (
-    DocumentFileStorage,
-    get_document_file_storage,
 )
 from app.services.rag_orchestrator_service import RAGService
 from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
@@ -245,7 +242,7 @@ async def _read_and_validate_file_size(
 async def seed_demo_document(
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DemoDocumentSeedResponse:
     """Index the bundled Alice excerpt privately for the verified Firebase UID."""
     try:
@@ -282,7 +279,7 @@ async def upload_document(
     file: UploadFile = File(..., description="The PDF document to be indexed."),
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
     duplicate_action: Annotated[
         Literal["reject", "replace", "rename"], Form()
     ] = "reject",
@@ -457,7 +454,7 @@ async def check_documents(
 async def list_documents(
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DocumentListResponse:
     """
     **List all documents uploaded by a user.**
@@ -490,7 +487,7 @@ async def delete_document(
     filename: str,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DocumentDeleteResponse:
     """
     **Delete a specific document by filename.**
@@ -550,7 +547,7 @@ async def get_document_content(
     download: bool = False,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> FileResponse:
     """Return an authenticated user's original PDF for preview or download."""
     owned_document = next(
@@ -602,7 +599,7 @@ async def delete_all_documents(
     request: Request,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> dict[str, Any]:
     """
     **Delete ALL documents for a user.**

@@ -18,6 +18,7 @@ from langchain_core.language_models import BaseChatModel
 
 from app.core.logging import logger
 from app.ports.uploaded_file import UploadedFilePort
+from app.ports.translation import TranslationPort
 from app.ports.vector_store import VectorStorePort
 from app.schemas.rag_schema import ConversationMessage
 from app.services.answer_generation_service import AnswerGenerationService
@@ -30,10 +31,9 @@ from app.services.document_management_service import DocumentManagementService
 
 # Existing services (used by specialized services)
 from app.services.language_service import LanguageService
-from app.services.query_expansion_service import query_expansion_service
+from app.services.query_expansion_service import QueryExpansionService
 from app.services.query_processing_service import QueryProcessingService
 from app.services.reranking_service import reranking_service
-from app.services.translation_service import translation_service
 
 
 class RAGService:
@@ -56,6 +56,8 @@ class RAGService:
         repository: VectorStorePort,
         llm: BaseChatModel,
         query_gen_llm: BaseChatModel,
+        translation_service: TranslationPort,
+        query_expansion_service: QueryExpansionService,
     ) -> None:
         """
         Initialize RAG service with repository and specialized services.

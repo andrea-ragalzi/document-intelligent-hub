@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.core.logging import logger
+from app.dependencies import get_email_service, get_usage_service
 from app.infrastructure import firebase_config
 from app.schemas.auth_schema import (
     InvitationCodeRequest,
@@ -15,8 +16,6 @@ from app.schemas.auth_schema import (
     RegistrationData,
     RegistrationResponse,
 )
-from app.services.email_service import get_email_service
-from app.services.usage_tracking_service import get_usage_service
 from fastapi import APIRouter, Depends, Header, HTTPException
 from firebase_admin import auth
 from google.cloud.firestore import SERVER_TIMESTAMP

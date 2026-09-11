@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from app.services.document_file_storage import DocumentFileStorage
+from app.ports.file_storage import FileStoragePort
 from app.services.rag_orchestrator_service import RAGService
 
 DEMO_DOCUMENT_FILENAME = "alice-cheshire-cat-demo.pdf"
@@ -50,7 +50,7 @@ class DemoDocumentService:
     def __init__(
         self,
         rag_service: RAGService,
-        document_storage: DocumentFileStorage,
+        document_storage: FileStoragePort,
         document_path: Path = DEMO_DOCUMENT_PATH,
     ):
         self.rag_service = rag_service

@@ -62,6 +62,8 @@ def rag_service(mock_repository: Any) -> Any:  # pylint: disable=W0621
         repository=mock_repository,
         llm=Mock(spec=BaseChatModel),
         query_gen_llm=Mock(spec=BaseChatModel),
+        translation_service=Mock(),
+        query_expansion_service=Mock(),
     )
 
 
@@ -75,6 +77,8 @@ class TestRAGServiceInitialization:
             repository=mock_repository,
             llm=Mock(spec=BaseChatModel),
             query_gen_llm=Mock(spec=BaseChatModel),
+            translation_service=Mock(),
+            query_expansion_service=Mock(),
         )
 
         assert service.repository == mock_repository

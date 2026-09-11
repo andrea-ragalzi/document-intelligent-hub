@@ -5,6 +5,7 @@ from collections.abc import Generator
 from chromadb import Collection
 from fastapi import Depends
 from firebase_admin import auth
+from openai import OpenAI
 from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
@@ -12,12 +13,20 @@ from pydantic import SecretStr
 from app.core.config import settings
 from app.core.llm_configuration import chat_model_options
 from app.db.chroma_client import get_chroma_collection_direct, get_vector_store
+from app.db.chroma_client import get_embedding_function
 from app.ports.vector_store import VectorStorePort
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.infrastructure.firebase_config import load_app_config
+from app.infrastructure.firestore_usage_tracker import get_usage_service as get_usage_service
+from app.infrastructure.local_file_storage import (
+    get_document_file_storage as get_document_file_storage,
+)
+from app.infrastructure.openai_translation_adapter import OpenAITranslationAdapter
+from app.infrastructure.resend_email_adapter import get_email_service as get_email_service
+from app.services.query_expansion_service import QueryExpansionService
+from app.services.query_parser_service import QueryParserService
 from app.services.query_quota_service import QueryQuotaService
 from app.services.rag_orchestrator_service import RAGService
-from app.services.usage_tracking_service import get_usage_service
 
 
 def get_vector_store_repository(
@@ -44,15 +53,31 @@ def get_query_quota_service() -> QueryQuotaService:
     )
 
 
-def _build_chat_model() -> ChatOpenAI:
+def _build_chat_model(temperature: float = 0.0) -> ChatOpenAI:
     """Create one configured OpenAI adapter for the RAG application."""
     return ChatOpenAI(
         **chat_model_options(
             settings.LLM_MODEL,
             SecretStr(settings.OPENAI_API_KEY),
-            temperature=0.0,
+            temperature=temperature,
         )
     )
+
+
+def _build_translation_adapter() -> OpenAITranslationAdapter:
+    """Create the concrete OpenAI translation adapter."""
+    api_key = (
+        settings.OPENAI_API_KEY.get_secret_value()
+        if isinstance(settings.OPENAI_API_KEY, SecretStr)
+        else str(settings.OPENAI_API_KEY)
+    )
+    return OpenAITranslationAdapter(OpenAI(api_key=api_key), settings.LLM_MODEL)
+
+
+translation_service = _build_translation_adapter()
+query_expansion_service = QueryExpansionService(
+    _build_chat_model(temperature=0.8)
+)
 
 
 def get_rag_service(
@@ -63,4 +88,11 @@ def get_rag_service(
         repository=repository,
         llm=_build_chat_model(),
         query_gen_llm=_build_chat_model(),
+        translation_service=translation_service,
+        query_expansion_service=query_expansion_service,
     )
+
+
+query_parser_service = QueryParserService(
+    llm=_build_chat_model(), embeddings=get_embedding_function()
+)

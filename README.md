@@ -21,7 +21,7 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 - **REST API design:** FastAPI routers and Pydantic schemas define authentication, document, query, usage, and support contracts, with OpenAPI documentation available at runtime.
 - **Authentication boundary:** Firebase Admin verifies bearer tokens; protected routes derive the user ID from the verified token rather than trusting a client-selected owner.
 - **Backend integrations:** the service coordinates Firebase, Firestore, OpenAI, ChromaDB, local HuggingFace embeddings, and Resend-backed support workflows.
-- **Maintainable boundaries:** HTTP handling, schemas, application services, vector-store access, configuration, and dependency construction are separated under `backend/app/`.
+- **Pragmatic ports and adapters:** routers handle HTTP, application services coordinate workflows, application-owned ports describe required capabilities, and infrastructure adapters isolate Firestore, OpenAI, filesystem, Resend, and Chroma integrations.
 - **Multi-user isolation:** indexed chunks carry the verified Firebase user ID in metadata, and repository operations apply that metadata filter when listing, retrieving, and deleting documents.
 - **Document processing:** PDF parsing, document classification, adaptive chunking, language detection, metadata enrichment, batch indexing, and cleanup are isolated in dedicated services.
 - **Applied RAG:** query parsing, conditional reformulation, expansion, filtered retrieval, hybrid reranking, evidence selection, answer generation, and citation extraction form an explicit pipeline.
@@ -50,16 +50,17 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 ┌─────────────────────────────────────────────────────────────┐
 │ FastAPI + Pydantic                                          │
 │                                                             │
-│ Routers → Services → Repository                             │
-│    │          │          │                                  │
-│    │          │          └─ ChromaDB                        │
-│    │          ├─ OpenAI chat models                         │
-│    │          └─ HuggingFace embeddings                     │
-│    └─ Firebase Admin / Firestore                             │
+│ Routers → Application services → Ports                     │
+│    │                 ↑                                      │
+│    │                 └─ Infrastructure adapters             │
+│    │                                      │                 │
+│    └─ Firebase identity                   └─ External SDKs  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Firebase handles identity, while Firestore stores conversations and backend usage/configuration data. ChromaDB stores PDF chunks and embeddings. OpenAI is used for language-model operations; document embeddings are generated locally with HuggingFace Sentence Transformers.
+`app/dependencies.py` is the composition root: it constructs concrete adapters and configured LLM clients, then injects them into application services and routers. Repositories are used only for meaningful storage-oriented operations, so services and repositories do not have a one-to-one relationship. This is a pragmatic ports-and-adapters structure rather than a fully pure hexagonal architecture.
+
+Firebase handles identity, while Firestore stores conversations and backend usage/configuration data. ChromaDB stores PDF chunks and embeddings. OpenAI is used for language-model operations; document embeddings are generated locally with HuggingFace Sentence Transformers. Tier resolution still contains Firebase/configuration coupling, and document indexing still contains LangChain PDF/chunking coupling.
 
 ## RAG Pipeline
 

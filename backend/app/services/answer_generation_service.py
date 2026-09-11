@@ -22,11 +22,11 @@ from app.core.config import settings
 from app.core.constants import LLMConstants, QueryConstants
 from app.core.logging import logger
 from app.ports.vector_store import VectorStorePort
+from app.ports.translation import TranslationPort
 from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
 from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.reranking_service import RerankingService
-from app.services.translation_service import TranslationService
 SourceCitationData = dict[str, str | int | None]
 COMPOUND_QUERY_SPLIT = re.compile(
     r"\s+(?:e|ed)\s+(?=(?:quale|quali|perché|perche|chi|cosa|come)\b)", re.IGNORECASE
@@ -82,7 +82,7 @@ class AnswerGenerationService:
         llm: BaseChatModel,
         repository: VectorStorePort,
         language_service: LanguageService,
-        translation_service: TranslationService,
+        translation_service: TranslationPort,
         *,  # Force keyword-only arguments below
         query_expansion_service: QueryExpansionService,
         reranking_service: RerankingService,

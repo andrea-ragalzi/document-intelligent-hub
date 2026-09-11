@@ -13,7 +13,7 @@ from typing import Any
 
 from app.core.auth import require_verified_email
 from app.core.logging import logger
-from app.dependencies import get_query_quota_service, get_rag_service
+from app.dependencies import get_query_quota_service, get_rag_service, query_parser_service
 from app.schemas.rag_schema import (
     QueryRequest,
     QueryResponse,
@@ -21,7 +21,6 @@ from app.schemas.rag_schema import (
     SummarizeRequest,
     SummarizeResponse,
 )
-from app.services.query_parser_service import query_parser_service
 from app.services.query_concurrency_limiter import query_concurrency_limiter
 from app.services.query_quota_service import QueryLimitExceededError, QueryQuotaService
 from app.services.rag_orchestrator_service import RAGService
