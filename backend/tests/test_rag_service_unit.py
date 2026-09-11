@@ -347,7 +347,7 @@ class TestServiceIsolation:
         assert "import chromadb" not in source
 
         # Should have repository import
-        assert "VectorStoreRepository" in source
+        assert "VectorStorePort" in source
 
     def test_service_only_calls_repository_methods(self, mock_repository: Any) -> None:
         """Verify service only interacts through repository interface"""

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { API_BASE_URL } from "@/lib/constants";
+import { fetchDocumentContent } from "@/lib/documentApi";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface Document {
@@ -189,15 +190,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
         if (!token) {
           return null;
         }
-        const query = new URLSearchParams({ filename });
-        if (download) query.set("download", "true");
-        const response = await fetch(`${API_BASE_URL}/documents/content?${query.toString()}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          return null;
-        }
-        return response.blob();
+        return await fetchDocumentContent(filename, token, download);
       } catch {
         return null;
       }

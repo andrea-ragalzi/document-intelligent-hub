@@ -18,19 +18,20 @@ import tempfile
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.core.logging import logger
-from app.core.constants import ChunkingConstants
-from app.repositories.vector_store_repository import VectorStoreRepository
-from app.services.document_classifier_service import (
-    DocumentCategory,
-    DocumentClassifierService,
-)
-from app.services.language_service import LanguageService
 from fastapi import UploadFile
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.documents import Document
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
+
+from app.core.logging import logger
+from app.core.constants import ChunkingConstants
+from app.repositories.ports import VectorStorePort
+from app.services.document_classifier_service import (
+    DocumentCategory,
+    DocumentClassifierService,
+)
+from app.services.language_service import LanguageService
 
 MAX_EXTRACTED_DOCUMENT_TEXT = ChunkingConstants.MAX_EXTRACTED_DOCUMENT_TEXT
 MAX_DOCUMENT_CHUNKS = ChunkingConstants.MAX_DOCUMENT_CHUNKS
@@ -45,7 +46,7 @@ class DocumentIndexingService:
 
     def __init__(
         self,
-        repository: VectorStoreRepository,
+        repository: VectorStorePort,
         language_service: LanguageService,
         classifier_service: DocumentClassifierService,
     ) -> None:
