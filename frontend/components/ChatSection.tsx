@@ -1,6 +1,7 @@
-import { FormEvent } from "react";
+import { FormEvent, useState } from "react";
 import type { ChatMessage } from "@/lib/types";
 import { ChatMessageDisplay } from "./ChatMessageDisplay";
+import { AlertMessage } from "./AlertMessage";
 import { useChatScroll } from "./ChatSection/useChatScroll";
 import { useTextareaResize } from "./ChatSection/useTextareaResize";
 import {
@@ -8,6 +9,7 @@ import {
   createSubmitHandler,
   shouldShowChatLoadingSkeleton,
 } from "./ChatSection/chatHelpers";
+import { MAX_QUERY_LENGTH } from "./ChatSection/chatHelpers";
 import { ChatEmptyState } from "./ChatSection/ChatEmptyState";
 import { getPlaceholderText } from "./ChatSection/placeholderText";
 import { ChatLoadingSkeleton } from "./ChatSection/ChatLoadingSkeleton";
@@ -46,6 +48,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   suggestedQuestions,
   onSuggestedQuestion,
 }) => {
+  const [queryError, setQueryError] = useState<string | null>(null);
   const chatEndRef = useChatScroll(chatHistory, isQuerying);
   const { textareaRef, resetHeight, handleChange } = useTextareaResize();
   // Calculate specific disable reasons
@@ -63,7 +66,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
     userId,
     isChatDisabled,
     onQuerySubmit,
-    resetHeight
+    resetHeight,
+    () => {
+      setQueryError(`Message must be ${MAX_QUERY_LENGTH} characters or fewer.`);
+    }
   );
 
   return (
@@ -118,7 +124,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
               <textarea
                 ref={textareaRef}
                 value={query}
-                onChange={e => handleChange(e, onQueryChange)}
+                onChange={e => {
+                  setQueryError(null);
+                  handleChange(e, onQueryChange);
+                }}
                 disabled={isQuerying || !userId || isChatDisabled}
                 placeholder={getPlaceholderText(isServerOnline, isLimitReached, isChatDisabled)}
                 rows={1}
@@ -143,6 +152,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
             />
           </div>
         </div>
+        <AlertMessage alert={queryError ? { message: queryError, type: "error" } : null} />
       </form>
     </div>
   );

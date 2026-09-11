@@ -5,6 +5,8 @@
 import { FormEvent } from "react";
 import type { ChatMessage } from "@/lib/types";
 
+export const MAX_QUERY_LENGTH = 1000;
+
 /** Show the placeholder only until the current assistant response begins streaming. */
 export function shouldShowChatLoadingSkeleton(
   chatHistory: ChatMessage[],
@@ -37,7 +39,9 @@ export function canSubmitQuery(
   userId: string | null,
   isChatDisabled: boolean
 ): boolean {
-  return Boolean(query.trim() && !isQuerying && userId && !isChatDisabled);
+  return Boolean(
+    query.trim() && query.length <= MAX_QUERY_LENGTH && !isQuerying && userId && !isChatDisabled
+  );
 }
 
 /**
@@ -49,10 +53,16 @@ export function createSubmitHandler(
   userId: string | null,
   isChatDisabled: boolean,
   onQuerySubmit: (e: FormEvent) => void,
-  resetTextareaHeight: () => void
+  resetTextareaHeight: () => void,
+  onQueryTooLong?: () => void
 ) {
   return (e: FormEvent) => {
     e.preventDefault();
+
+    if (query.length > MAX_QUERY_LENGTH) {
+      onQueryTooLong?.();
+      return;
+    }
 
     if (!canSubmitQuery(query, isQuerying, userId, isChatDisabled)) {
       return;

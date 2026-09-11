@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { shouldShowChatLoadingSkeleton } from "@/components/ChatSection/chatHelpers";
+import { describe, expect, it, vi } from "vitest";
+import type { FormEvent } from "react";
+import {
+  createSubmitHandler,
+  shouldShowChatLoadingSkeleton,
+} from "@/components/ChatSection/chatHelpers";
 
 describe("shouldShowChatLoadingSkeleton", () => {
   it("shows a placeholder before the assistant starts replying", () => {
@@ -18,5 +22,19 @@ describe("shouldShowChatLoadingSkeleton", () => {
         true
       )
     ).toBe(false);
+  });
+});
+
+describe("query length validation", () => {
+  it("does not submit queries over the backend limit", () => {
+    const submit = vi.fn();
+    const tooLong = "x".repeat(1001);
+    const event = { preventDefault: vi.fn() } as unknown as FormEvent;
+
+    const onTooLong = vi.fn();
+    createSubmitHandler(tooLong, false, "user-a", false, submit, vi.fn(), onTooLong)(event);
+
+    expect(submit).not.toHaveBeenCalled();
+    expect(onTooLong).toHaveBeenCalledOnce();
   });
 });

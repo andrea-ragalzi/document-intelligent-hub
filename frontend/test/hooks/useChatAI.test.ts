@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChat } from "ai/react";
+import type { Message } from "ai/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatAI } from "@/hooks/useChatAI";
 
@@ -58,6 +59,29 @@ describe("useChatAI", () => {
       expect.objectContaining({ body: { userId: "user-a" } })
     );
     expect(vi.mocked(useChat).mock.calls[0][0]).not.toHaveProperty("body.output_language");
+  });
+
+  it("removes an optimistic user message when the request fails", () => {
+    const setMessages = vi.fn();
+    vi.mocked(useChat).mockReturnValue({
+      messages: [],
+      input: "question",
+      handleInputChange: vi.fn(),
+      handleSubmit: submitChat,
+      isLoading: false,
+      error: undefined,
+      setMessages,
+    } as unknown as ReturnType<typeof useChat>);
+
+    renderHook(() => useChatAI({ userId: "user-a" }));
+    const options = vi.mocked(useChat).mock.calls[0][0];
+    if (!options) throw new Error("useChat options were not captured");
+    options.onError?.(new Error("Backend error"));
+
+    const updateMessages = setMessages.mock.calls[0][0] as (messages: Message[]) => Message[];
+    expect(updateMessages([{ id: "user-1", role: "user", content: "failed question" }])).toEqual(
+      []
+    );
   });
 
   it("preserves source annotations on the matching assistant message", () => {
