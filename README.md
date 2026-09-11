@@ -84,7 +84,7 @@ Verified-email Firebase context
 → natural-language file-filter extraction
 → conditional query reformulation from conversation context
 → retrieval-language detection and translation when needed; response language is resolved from the current raw user message before answer generation
-→ English retrieval-query expansion that preserves identifiers
+→ English retrieval-query expansion that preserves identifiers; genuine compound requests may use up to two bounded retrieval subqueries
 → ChromaDB retrieval filtered by verified user and optional filename metadata
 → lexical candidates, duplicate removal, and hybrid reranking
 → minimum-sufficient evidence selection from trusted retrieved passages
