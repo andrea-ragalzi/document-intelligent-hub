@@ -21,7 +21,7 @@ from langchain_core.language_models import BaseChatModel
 from app.core.config import settings
 from app.core.constants import LLMConstants, QueryConstants
 from app.core.logging import logger
-from app.repositories.vector_store_repository import VectorStoreRepository
+from app.repositories.ports import VectorStorePort
 from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
 from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
@@ -80,7 +80,7 @@ class AnswerGenerationService:
     def __init__(  # pylint: disable=too-many-arguments
         self,
         llm: BaseChatModel,
-        repository: VectorStoreRepository,
+        repository: VectorStorePort,
         language_service: LanguageService,
         translation_service: TranslationService,
         *,  # Force keyword-only arguments below

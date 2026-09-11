@@ -14,7 +14,7 @@ Responsibilities:
 from typing import List
 
 from app.core.logging import logger
-from app.repositories.vector_store_repository import VectorStoreRepository
+from app.repositories.ports import VectorStorePort
 from app.schemas.rag_schema import DocumentInfo
 
 
@@ -26,7 +26,7 @@ class DocumentManagementService:
     Provides CRUD operations for user documents.
     """
 
-    def __init__(self, repository: VectorStoreRepository) -> None:
+    def __init__(self, repository: VectorStorePort) -> None:
         """
         Initialize DocumentManagementService.
 

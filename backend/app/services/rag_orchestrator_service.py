@@ -14,11 +14,15 @@ Architecture:
 
 from typing import Any, List, Optional, Tuple
 
+from fastapi import Depends, UploadFile
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
+
 from app.core.config import settings
 from app.core.llm_configuration import chat_model_options
 from app.core.logging import logger
 from app.repositories.dependencies import get_vector_store_repository
-from app.repositories.vector_store_repository import VectorStoreRepository
+from app.repositories.ports import VectorStorePort
 from app.schemas.rag_schema import ConversationMessage
 from app.services.answer_generation_service import AnswerGenerationService
 from app.services.conversation_service import ConversationService
@@ -34,9 +38,6 @@ from app.services.query_expansion_service import query_expansion_service
 from app.services.query_processing_service import QueryProcessingService
 from app.services.reranking_service import reranking_service
 from app.services.translation_service import translation_service
-from fastapi import Depends, UploadFile
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
 
 
 class RAGService:
@@ -54,7 +55,7 @@ class RAGService:
     - ConversationService (82 lines)
     """
 
-    def __init__(self, repository: VectorStoreRepository) -> None:
+    def __init__(self, repository: VectorStorePort) -> None:
         """
         Initialize RAG service with repository and specialized services.
 
@@ -303,7 +304,7 @@ class RAGService:
 
 # Dependency injector for FastAPI
 def get_rag_service(
-    repository: VectorStoreRepository = Depends(get_vector_store_repository),
+    repository: VectorStorePort = Depends(get_vector_store_repository),
 ) -> RAGService:
     """Dependency injector for RAGService."""
     return RAGService(repository=repository)
