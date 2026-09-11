@@ -4,8 +4,6 @@ Authentication and Registration Schemas
 Pydantic models for user authentication and tier assignment via invitation codes.
 """
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -19,7 +17,7 @@ class RegistrationData(BaseModel):
     """
 
     id_token: str = Field(..., description="Firebase ID token")
-    invitation_code: Optional[str] = Field(
+    invitation_code: str | None = Field(
         None, description="Optional invitation code for elevated tier assignment"
     )
 

@@ -16,6 +16,7 @@ from app.schemas.rag_schema import FileFilterResponse, QueryRequest
 from app.services.document_classifier_service import DocumentCategory
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
+from app.services.query_quota_service import QueryQuotaReservation
 
 
 @pytest.mark.asyncio
@@ -63,10 +64,6 @@ async def test_independent_rag_queries_progress_concurrently(
 ) -> None:
     """Blocking retrieval/LLM work must run in worker threads per request."""
 
-    class UsageService:
-        def reserve_query_slot(self, _user_id: str, _max_queries: int) -> tuple[bool, int]:
-            return True, 1
-
     class RAGService:
         def get_user_documents(self, _user_id: str) -> list[Any]:
             return []
@@ -78,9 +75,8 @@ async def test_independent_rag_queries_progress_concurrently(
     parser_result = FileFilterResponse(
         include_files=[], exclude_files=[], original_query="question", cleaned_query="question"
     )
-    monkeypatch.setattr(query_router, "_get_user_tier_limits", lambda _uid: ("FREE", 20))
-    monkeypatch.setattr(query_router, "_reserve_and_enforce_query_limit", lambda *_args: 1)
-    monkeypatch.setattr(query_router, "get_usage_service", lambda: UsageService())
+    quota_service = Mock()
+    quota_service.reserve.return_value = QueryQuotaReservation("FREE", 20, 1)
     monkeypatch.setattr(
         query_router.query_parser_service, "extract_file_filters", lambda **_kwargs: parser_result
     )
@@ -88,8 +84,8 @@ async def test_independent_rag_queries_progress_concurrently(
     request = QueryRequest(query="question", conversation_history=[])
     start = time.monotonic()
     responses = await asyncio.gather(
-        query_router.query_document(request, "user-a", RAGService()),
-        query_router.query_document(request, "user-b", RAGService()),
+        query_router.query_document(request, "user-a", RAGService(), quota_service),
+        query_router.query_document(request, "user-b", RAGService(), quota_service),
     )
 
     assert time.monotonic() - start < 0.28
@@ -107,10 +103,6 @@ async def test_second_same_user_query_is_rejected_while_first_is_running(
     started = Event()
     release = Event()
 
-    class UsageService:
-        def reserve_query_slot(self, _user_id: str, _max_queries: int) -> tuple[bool, int]:
-            return True, 1
-
     class RAGService:
         def get_user_documents(self, _user_id: str) -> list[Any]:
             return []
@@ -123,8 +115,8 @@ async def test_second_same_user_query_is_rejected_while_first_is_running(
     parser_result = FileFilterResponse(
         include_files=[], exclude_files=[], original_query="question", cleaned_query="question"
     )
-    monkeypatch.setattr(query_router, "_get_user_tier_limits", lambda _uid: ("FREE", 20))
-    monkeypatch.setattr(query_router, "get_usage_service", lambda: UsageService())
+    quota_service = Mock()
+    quota_service.reserve.return_value = QueryQuotaReservation("FREE", 20, 1)
     monkeypatch.setattr(
         query_router,
         "query_concurrency_limiter",
@@ -136,12 +128,12 @@ async def test_second_same_user_query_is_rejected_while_first_is_running(
 
     request = QueryRequest(query="question", conversation_history=[])
     first_query = asyncio.create_task(
-        query_router.query_document(request, "user-a", RAGService())
+        query_router.query_document(request, "user-a", RAGService(), quota_service)
     )
     assert await asyncio.to_thread(started.wait, 1)
 
     with pytest.raises(HTTPException, match="already running") as error:
-        await query_router.query_document(request, "user-a", RAGService())
+        await query_router.query_document(request, "user-a", RAGService(), quota_service)
 
     assert getattr(error.value, "status_code", None) == 429
     release.set()

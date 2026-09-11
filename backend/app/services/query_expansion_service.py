@@ -6,7 +6,6 @@ Uses multi-query generation to capture different phrasings and keywords.
 """
 
 import re
-from typing import List
 
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
@@ -60,7 +59,7 @@ class QueryExpansionService:
 
     def generate_alternative_queries(
         self, query: str, num_queries: int = 5
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Generate alternative phrasings of a user query.
 
@@ -131,7 +130,7 @@ class QueryExpansionService:
 
         return True
 
-    def expand_query_pool(self, original_query: str) -> List[str]:
+    def expand_query_pool(self, original_query: str) -> list[str]:
         """
         Create a full query pool including the original and alternatives.
 

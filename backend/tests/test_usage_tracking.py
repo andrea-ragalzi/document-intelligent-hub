@@ -12,9 +12,10 @@ Tests cover:
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Generator
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Any, Generator
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest

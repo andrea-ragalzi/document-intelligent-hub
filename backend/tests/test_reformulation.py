@@ -6,9 +6,8 @@ The module-level guard keeps this external test out of the default pytest suite.
 
 from typing import Any
 
-from app.repositories.dependencies import get_vector_store_repository
+from app.dependencies import get_rag_service, get_vector_store_repository
 from app.schemas.rag_schema import ConversationMessage
-from app.services.rag_orchestrator_service import RAGService
 
 # Test cases
 test_cases: list[dict[str, Any]] = [
@@ -41,7 +40,7 @@ def run_reformulation_smoke_test() -> None:
     """Exercise query reformulation against the configured OpenAI service."""
     repository_dependency = get_vector_store_repository()
     repository = next(repository_dependency)
-    rag_service = RAGService(repository=repository)
+    rag_service = get_rag_service(repository=repository)
 
     try:
         print("=" * 80)

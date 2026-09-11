@@ -6,8 +6,6 @@ with their characteristics, optimal output formats, and prompt constraints.
 """
 
 from enum import Enum
-from typing import Dict
-
 from pydantic import BaseModel, Field
 
 
@@ -54,7 +52,7 @@ class UseCaseDefinition(BaseModel):
 
 
 # Dictionary mapping use case types to their full definitions
-USE_CASE_DEFINITIONS: Dict[UseCaseType, UseCaseDefinition] = {
+USE_CASE_DEFINITIONS: dict[UseCaseType, UseCaseDefinition] = {
     UseCaseType.GENERIC: UseCaseDefinition(
         code=UseCaseType.GENERIC,
         name="Generic Query",

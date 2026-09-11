@@ -18,6 +18,11 @@ from app.services.conversation_service import ConversationService
 from app.services.document_classifier_service import DocumentCategory
 from app.services.document_indexing_service import DocumentIndexingService
 from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
+from app.services.query_quota_service import (
+    QueryLimitExceededError,
+    QueryQuotaReservation,
+    QueryQuotaService,
+)
 from main import app
 
 
@@ -114,30 +119,64 @@ def test_summary_uses_explicit_server_side_token_limit() -> None:
 
 
 def test_unlimited_tier_has_a_finite_hard_cap() -> None:
-    user = Mock()
-    user.custom_claims = {"tier": "UNLIMITED"}
-    with patch("app.routers.query_router.auth.get_user", return_value=user):
-        tier, max_queries = query_router._get_user_tier_limits("any-user")
-    assert tier == "UNLIMITED"
-    assert max_queries == UNLIMITED_TIER_MAX_QUERIES
-    assert max_queries < 9999
+    usage = Mock()
+    usage.reserve_query_slot.return_value = (True, 1)
+    service = QueryQuotaService(lambda _uid: "UNLIMITED", lambda: {}, usage)
+
+    reservation = service.reserve("any-user")
+
+    assert reservation.tier == "UNLIMITED"
+    assert reservation.max_queries == UNLIMITED_TIER_MAX_QUERIES
+    assert reservation.max_queries < 9999
+
+
+def test_query_quota_service_resolves_tier_and_reserves_atomically() -> None:
+    usage = Mock()
+    usage.reserve_query_slot.return_value = (True, 4)
+    service = QueryQuotaService(
+        lambda _uid: "PRO",
+        lambda: {
+            "limits": {
+                "FREE": {"max_queries_per_day": 20},
+                "PRO": {"max_queries_per_day": 500},
+            }
+        },
+        usage,
+    )
+
+    reservation = service.reserve("user-1")
+
+    assert reservation == QueryQuotaReservation("PRO", 500, 4)
+    usage.reserve_query_slot.assert_called_once_with("user-1", 500)
+
+
+def test_query_quota_service_reports_exhausted_limit() -> None:
+    usage = Mock()
+    usage.reserve_query_slot.return_value = (False, 20)
+    service = QueryQuotaService(
+        lambda _uid: "FREE",
+        lambda: {"limits": {"FREE": {"max_queries_per_day": 20}}},
+        usage,
+    )
+
+    with pytest.raises(QueryLimitExceededError, match="20/20"):
+        service.reserve("user-1")
 
 
 @pytest.mark.asyncio
 async def test_summarize_rejects_exhausted_quota_before_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    class Usage:
-        def reserve_query_slot(self, *_args: object) -> tuple[bool, int]:
-            return False, 20
-
     rag = Mock()
     rag.generate_conversation_summary = Mock()
-    monkeypatch.setattr(query_router, "_get_user_tier_limits", lambda _uid: ("FREE", 20))
-    monkeypatch.setattr(query_router, "get_usage_service", lambda: Usage())
+    quota_service = Mock(spec=QueryQuotaService)
+    quota_service.reserve.side_effect = QueryLimitExceededError(20, 20)
     monkeypatch.setattr(query_router, "query_concurrency_limiter", QueryConcurrencyLimiter())
 
     with pytest.raises(HTTPException, match="Daily query limit") as error:
         await query_router.summarize_conversation(
-            SummarizeRequest(conversation_history=[]), "verified-user", rag
+            SummarizeRequest(conversation_history=[]),
+            "verified-user",
+            rag,
+            quota_service,
         )
 
     assert error.value.status_code == 429
@@ -150,19 +189,16 @@ async def test_valid_summary_reserves_quota_before_invoking_model(
 ) -> None:
     calls: list[str] = []
 
-    class Usage:
-        def reserve_query_slot(self, *_args: object) -> tuple[bool, int]:
-            calls.append("reserved")
-            return True, 1
-
     rag = Mock()
     rag.generate_conversation_summary = Mock(return_value="summary")
-    monkeypatch.setattr(query_router, "_get_user_tier_limits", lambda _uid: ("FREE", 20))
-    monkeypatch.setattr(query_router, "get_usage_service", lambda: Usage())
+    quota_service = Mock(spec=QueryQuotaService)
+    quota_service.reserve.side_effect = lambda _uid: (
+        calls.append("reserved") or QueryQuotaReservation("FREE", 20, 1)
+    )
     monkeypatch.setattr(query_router, "query_concurrency_limiter", QueryConcurrencyLimiter())
 
     response = await query_router.summarize_conversation(
-        SummarizeRequest(conversation_history=[]), "verified-user", rag
+        SummarizeRequest(conversation_history=[]), "verified-user", rag, quota_service
     )
 
     assert response.summary == "summary"

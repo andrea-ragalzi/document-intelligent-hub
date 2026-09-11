@@ -3,11 +3,11 @@ Pytest configuration and fixtures for backend tests.
 """
 
 import os
+from collections.abc import Generator
 
 # New imports for ChromaDB cleanup
 import shutil
 import tempfile
-from typing import Generator
 from unittest.mock import Mock, patch
 
 import firebase_admin
@@ -54,8 +54,9 @@ _firestore_client_patcher = patch.object(
 )
 _firestore_client_patcher.start()
 
-from app.core.config import settings  # pylint: disable=wrong-import-position
-from main import app  # pylint: disable=wrong-import-position
+# These imports must follow the test environment and Firebase patches above.
+from app.core.config import settings  # noqa: E402  # pylint: disable=wrong-import-position
+from main import app  # noqa: E402  # pylint: disable=wrong-import-position
 
 
 class TestClientWithContext(TestClient):
@@ -313,10 +314,10 @@ def mock_usage_service() -> Generator[Mock, None, None]:
     """
     Mock the usage tracking service to prevent hitting rate limits in tests.
     This fixture will automatically be used in all tests.
-    Patches both query_router and auth_router usage service imports.
+    Patches both the composition root and auth router usage service imports.
     """
     with patch(
-        "app.routers.query_router.get_usage_service"
+        "app.dependencies.get_usage_service"
     ) as mock_get_service_query, patch(
         "app.routers.auth_router.get_usage_service"
     ) as mock_get_service_auth:

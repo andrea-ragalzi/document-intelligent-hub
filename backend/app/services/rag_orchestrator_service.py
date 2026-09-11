@@ -12,17 +12,13 @@ Architecture:
 - ConversationService: Conversation summarization
 """
 
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
-from fastapi import Depends, UploadFile
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+from langchain_core.language_models import BaseChatModel
 
-from app.core.config import settings
-from app.core.llm_configuration import chat_model_options
 from app.core.logging import logger
-from app.repositories.dependencies import get_vector_store_repository
-from app.repositories.ports import VectorStorePort
+from app.ports.uploaded_file import UploadedFilePort
+from app.ports.vector_store import VectorStorePort
 from app.schemas.rag_schema import ConversationMessage
 from app.services.answer_generation_service import AnswerGenerationService
 from app.services.conversation_service import ConversationService
@@ -55,27 +51,24 @@ class RAGService:
     - ConversationService (82 lines)
     """
 
-    def __init__(self, repository: VectorStorePort) -> None:
+    def __init__(
+        self,
+        repository: VectorStorePort,
+        llm: BaseChatModel,
+        query_gen_llm: BaseChatModel,
+    ) -> None:
         """
         Initialize RAG service with repository and specialized services.
 
         Args:
             repository: Vector store repository for data access
+            llm: Model used for answer generation and reformulation
+            query_gen_llm: Model used for classification and summarization
         """
         self.repository = repository
 
-        # Initialize LLMs
-        self.llm = ChatOpenAI(
-            **chat_model_options(
-                settings.LLM_MODEL, SecretStr(settings.OPENAI_API_KEY), temperature=0.0
-            )
-        )
-
-        self.query_gen_llm = ChatOpenAI(
-            **chat_model_options(
-                settings.LLM_MODEL, SecretStr(settings.OPENAI_API_KEY), temperature=0.0
-            )
-        )
+        self.llm = llm
+        self.query_gen_llm = query_gen_llm
 
         # Initialize shared services
         self.language_service = LanguageService()
@@ -114,11 +107,11 @@ class RAGService:
 
     async def index_document(
         self,
-        file: UploadFile,
+        file: UploadedFilePort,
         user_id: str,
-        document_language: Optional[str] = None,
-        document_metadata: Optional[dict[str, Any]] = None,
-    ) -> Tuple[int, str]:
+        document_language: str | None = None,
+        document_metadata: dict[str, Any] | None = None,
+    ) -> tuple[int, str]:
         """
         Delegate to DocumentIndexingService.
 
@@ -136,8 +129,8 @@ class RAGService:
         )
 
     async def detect_document_language_preview(
-        self, file: UploadFile
-    ) -> Tuple[str, float]:
+        self, file: UploadedFilePort
+    ) -> tuple[str, float]:
         """
         Delegate to DocumentIndexingService.
 
@@ -155,13 +148,13 @@ class RAGService:
         self,
         query: str,
         user_id: str,
-        conversation_history: Optional[List[ConversationMessage]] = None,
-        output_language: Optional[str] = None,
-        include_files: Optional[List[str]] = None,
-        exclude_files: Optional[List[str]] = None,
-        raw_user_query: Optional[str] = None,
-        retrieval_queries: Optional[List[str]] = None,
-    ) -> Tuple[str, List[dict[str, str | int | None]]]:
+        conversation_history: list[ConversationMessage] | None = None,
+        output_language: str | None = None,
+        include_files: list[str] | None = None,
+        exclude_files: list[str] | None = None,
+        raw_user_query: str | None = None,
+        retrieval_queries: list[str] | None = None,
+    ) -> tuple[str, list[dict[str, str | int | None]]]:
         """
         Process query and generate answer using RAG pipeline.
 
@@ -227,7 +220,7 @@ class RAGService:
 
     # === DOCUMENT MANAGEMENT OPERATIONS ===
 
-    def get_user_documents(self, user_id: str) -> List[Any]:
+    def get_user_documents(self, user_id: str) -> list[Any]:
         """
         Delegate to DocumentManagementService.
 
@@ -286,7 +279,7 @@ class RAGService:
     # === CONVERSATION OPERATIONS ===
 
     def generate_conversation_summary(
-        self, conversation_history: List[ConversationMessage]
+        self, conversation_history: list[ConversationMessage]
     ) -> str:
         """
         Delegate to ConversationService.
@@ -300,11 +293,3 @@ class RAGService:
         return self.conversation_service.generate_conversation_summary(
             conversation_history
         )
-
-
-# Dependency injector for FastAPI
-def get_rag_service(
-    repository: VectorStorePort = Depends(get_vector_store_repository),
-) -> RAGService:
-    """Dependency injector for RAGService."""
-    return RAGService(repository=repository)

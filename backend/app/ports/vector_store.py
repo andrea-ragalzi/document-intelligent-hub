@@ -1,6 +1,6 @@
-"""Application-facing ports for outbound document persistence and retrieval."""
+"""Application-facing vector persistence and retrieval contract."""
 
-from typing import Any, List, Protocol, Tuple
+from typing import Any, Protocol
 
 from langchain_core.documents import Document
 
@@ -8,7 +8,7 @@ from langchain_core.documents import Document
 class VectorStorePort(Protocol):
     """Operations the application needs from a vector store adapter."""
 
-    def add_documents(self, documents: List[Document], batch_size: int = 2000) -> int:
+    def add_documents(self, documents: list[Document], batch_size: int = 2000) -> int:
         """Persist document chunks and return the number written."""
 
     def check_document_exists(self, user_id: str, filename: str) -> bool:
@@ -16,7 +16,7 @@ class VectorStorePort(Protocol):
 
     def get_user_chunks_sample(
         self, user_id: str, sample_size: int = 10000
-    ) -> Tuple[List[dict[str, Any]], List[str]]:
+    ) -> tuple[list[dict[str, Any]], list[str]]:
         """Return metadata and identifiers for a user's indexed chunks."""
 
     def delete_document(self, user_id: str, filename: str) -> int:
@@ -29,6 +29,6 @@ class VectorStorePort(Protocol):
         """Build the adapter's tenant-scoped retriever."""
 
     def lexical_candidate_search(
-        self, user_id: str, terms: List[str], limit_per_term: int = 20
-    ) -> List[Document]:
+        self, user_id: str, terms: list[str], limit_per_term: int = 20
+    ) -> list[Document]:
         """Return bounded lexical candidates for reranking."""

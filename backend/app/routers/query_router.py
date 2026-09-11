@@ -9,12 +9,11 @@ Handles query operations:
 
 import asyncio
 import time
-from typing import Any, Tuple
+from typing import Any
 
-from app.config.security_constants import UNLIMITED_TIER_MAX_QUERIES
 from app.core.auth import require_verified_email
 from app.core.logging import logger
-from app.routers.auth_router import load_app_config
+from app.dependencies import get_query_quota_service, get_rag_service
 from app.schemas.rag_schema import (
     QueryRequest,
     QueryResponse,
@@ -24,87 +23,9 @@ from app.schemas.rag_schema import (
 )
 from app.services.query_parser_service import query_parser_service
 from app.services.query_concurrency_limiter import query_concurrency_limiter
-from app.services.rag_orchestrator_service import RAGService, get_rag_service
-from app.services.usage_tracking_service import UsageTrackingService, get_usage_service
+from app.services.query_quota_service import QueryLimitExceededError, QueryQuotaService
+from app.services.rag_orchestrator_service import RAGService
 from fastapi import APIRouter, Depends, HTTPException, status
-from firebase_admin import auth
-
-
-def _get_user_tier_limits(user_id: str) -> Tuple[str, int]:
-    """
-    Get user tier and query limits from Firebase.
-
-    Args:
-        user_id: Firebase user ID
-
-    Returns:
-        Tuple of (tier, max_queries_per_day)
-    """
-    user = auth.get_user(user_id)
-    custom_claims = user.custom_claims or {}
-    tier = custom_claims.get("tier", "FREE")
-
-    logger.info(f"🎫 User ID: {user_id}")
-    logger.info(f"🎫 User tier: {tier}")
-    logger.info(f"🎫 All custom claims: {custom_claims}")
-
-    # Load tier limits from Firestore
-    app_config = load_app_config()
-
-    if tier == "UNLIMITED":
-        max_queries = UNLIMITED_TIER_MAX_QUERIES
-        logger.info(f"✅ UNLIMITED tier detected - max_queries set to {max_queries}")
-    else:
-        tier_limits = app_config["limits"].get(tier, app_config["limits"]["FREE"])
-        max_queries = tier_limits["max_queries_per_day"]
-        logger.info(f"📊 Tier limits for {tier}: {max_queries} queries/day")
-
-    return tier, max_queries
-
-
-def _reserve_and_enforce_query_limit(
-    usage_service: UsageTrackingService, user_id: str, tier: str, max_queries: int
-) -> int:
-    """
-    Atomically reserve quota before starting RAG/OpenAI work.
-
-    Args:
-        usage_service: Usage tracking service
-        user_id: Firebase user ID
-        tier: User tier
-        max_queries: Maximum queries allowed per day
-
-    Returns:
-        Reserved query count
-
-    Raises:
-        HTTPException: If query limit is exceeded
-    """
-    can_query, reserved_count = usage_service.reserve_query_slot(
-        user_id, max_queries
-    )
-    logger.info(
-        f"📊 Usage reservation result: reserved={can_query}, "
-        f"queries_used={reserved_count}, max_queries={max_queries}"
-    )
-
-    if not can_query:
-        logger.warning(
-            f"⛔ Query limit exceeded for user {user_id} ({tier}): "
-            f"{reserved_count}/{max_queries}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=(
-                f"Daily query limit exceeded ({reserved_count}/{max_queries}). "
-                f"Please upgrade your plan or try again tomorrow."
-            ),
-        )
-
-    logger.info(
-        f"✅ Query slot reserved: {reserved_count}/{max_queries} ({tier})"
-    )
-    return reserved_count
 
 
 def _log_request_details(request: QueryRequest, user_id: str) -> None:
@@ -190,6 +111,7 @@ async def query_document(
     request: QueryRequest,
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
+    quota_service: QueryQuotaService = Depends(get_query_quota_service),
 ) -> QueryResponse:
     """
     **Query documents using RAG (Retrieval-Augmented Generation).**
@@ -222,14 +144,9 @@ async def query_document(
 
         # Reserve tier quota before any parser/RAG/OpenAI work.
         tier_started = time.perf_counter()
-        tier, max_queries = await asyncio.to_thread(_get_user_tier_limits, user_id)
-        usage_service = get_usage_service()
-        reserved_count = await asyncio.to_thread(
-            _reserve_and_enforce_query_limit,
-            usage_service,
+        reservation = await asyncio.to_thread(
+            quota_service.reserve,
             user_id,
-            tier,
-            max_queries,
         )
         quota_reserved = True
         logger.info(
@@ -303,12 +220,23 @@ async def query_document(
         )
         citations = _normalize_citations(sources)
         source_documents = list(dict.fromkeys(citation.filename for citation in citations))
-        _log_response_details(answer, citations, tier, reserved_count, max_queries)
+        _log_response_details(
+            answer,
+            citations,
+            reservation.tier,
+            reservation.reserved_count,
+            reservation.max_queries,
+        )
 
         return QueryResponse(
             answer=answer, source_documents=source_documents, citations=citations
         )
 
+    except QueryLimitExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+        ) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -340,6 +268,7 @@ async def summarize_conversation(
     request: SummarizeRequest,
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
+    quota_service: QueryQuotaService = Depends(get_query_quota_service),
 ) -> SummarizeResponse:
     """
     **Generate conversation summary for long-term memory.**
@@ -357,20 +286,18 @@ async def summarize_conversation(
         )
     quota_reserved = False
     try:
-        tier, max_queries = await asyncio.to_thread(_get_user_tier_limits, user_id)
-        await asyncio.to_thread(
-            _reserve_and_enforce_query_limit,
-            get_usage_service(),
-            user_id,
-            tier,
-            max_queries,
-        )
+        await asyncio.to_thread(quota_service.reserve, user_id)
         quota_reserved = True
         logger.info("📝 Generating bounded conversation summary")
         summary = await asyncio.to_thread(
             rag_service.generate_conversation_summary, request.conversation_history
         )
         return SummarizeResponse(summary=summary)
+    except QueryLimitExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+        ) from exc
     except HTTPException:
         raise
     except Exception as exc:

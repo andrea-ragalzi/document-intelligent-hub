@@ -15,11 +15,12 @@ Architecture Pattern: Repository Pattern
 """
 
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any
 
 from chromadb import Collection
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStoreRetriever
 
@@ -31,13 +32,13 @@ class _LexicalCandidateState:
     """Mutable state shared by the bounded lexical-candidate helpers."""
 
     max_candidates: int
-    documents: List[Document] = field(default_factory=list)
+    documents: list[Document] = field(default_factory=list)
     seen_ids: set[str] = field(default_factory=set)
     matched_filenames: Counter[str] = field(default_factory=Counter)
     title_matches: Counter[str] = field(default_factory=Counter)
-    page_fragments: Dict[Tuple[str, str], List[str]] = field(default_factory=dict)
-    page_metadata: Dict[Tuple[str, str], Dict[str, Any]] = field(default_factory=dict)
-    page_fragment_ids: Dict[Tuple[str, str], set[str]] = field(default_factory=dict)
+    page_fragments: dict[tuple[str, str], list[str]] = field(default_factory=dict)
+    page_metadata: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    page_fragment_ids: dict[tuple[str, str], set[str]] = field(default_factory=dict)
 
 
 class VectorStoreRepository:
@@ -67,7 +68,7 @@ class VectorStoreRepository:
 
     # --- CREATE Operations ---
 
-    def add_documents(self, documents: List[Document], batch_size: int = 2000) -> int:
+    def add_documents(self, documents: list[Document], batch_size: int = 2000) -> int:
         """
         Add documents to the vector store with batching.
 
@@ -129,7 +130,7 @@ class VectorStoreRepository:
 
     def get_user_chunks_sample(
         self, user_id: str, sample_size: int = 10000
-    ) -> Tuple[List[Any], List[str]]:
+    ) -> tuple[list[Any], list[str]]:
         """
         Get a sample of document chunks for a user.
 
@@ -182,7 +183,7 @@ class VectorStoreRepository:
 
     def similarity_search(
         self, query: str, user_id: str, k: int = 10
-    ) -> List[Document]:
+    ) -> list[Document]:
         """
         Perform similarity search for a query.
 
@@ -206,8 +207,8 @@ class VectorStoreRepository:
             return []
 
     def lexical_candidate_search(
-        self, user_id: str, terms: List[str], limit_per_term: int = 20
-    ) -> List[Document]:
+        self, user_id: str, terms: list[str], limit_per_term: int = 20
+    ) -> list[Document]:
         """Return tenant-scoped chunks containing distinctive query terms.
 
         This supplements semantic search for exact technical IDs and named entities.
@@ -264,7 +265,7 @@ class VectorStoreRepository:
         chunk_id: str,
         content: str,
         filename: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> None:
         """Collect one unique structural fragment for temporary page aggregation."""
         page_number = str(metadata.get("page_number", ""))
@@ -279,7 +280,7 @@ class VectorStoreRepository:
     def _collect_term_candidates(
         self,
         user_id: str,
-        terms: List[str],
+        terms: list[str],
         limit_per_term: int,
         state: _LexicalCandidateState,
     ) -> None:
@@ -304,7 +305,7 @@ class VectorStoreRepository:
             )
 
     def _collect_title_matches(
-        self, user_id: str, terms: List[str], state: _LexicalCandidateState
+        self, user_id: str, terms: list[str], state: _LexicalCandidateState
     ) -> None:
         """Find tenant-scoped filenames containing distinctive query terms."""
         try:
@@ -330,7 +331,7 @@ class VectorStoreRepository:
     @staticmethod
     def _rank_expansion_filenames(
         state: _LexicalCandidateState, *, limit: int
-    ) -> List[str]:
+    ) -> list[str]:
         """Rank a small set of documents for structural-context expansion."""
         expansion_scores = {
             filename: match_count * 2 + state.title_matches.get(filename, 0)
@@ -351,7 +352,7 @@ class VectorStoreRepository:
     def _collect_document_context(
         self,
         user_id: str,
-        filenames: List[str],
+        filenames: list[str],
         state: _LexicalCandidateState,
     ) -> None:
         """Collect bounded fragments from the strongest matching documents."""
@@ -398,8 +399,8 @@ class VectorStoreRepository:
         self,
         user_id: str,
         k: int = 10,
-        include_files: Optional[List[str]] = None,
-        exclude_files: Optional[List[str]] = None,
+        include_files: list[str] | None = None,
+        exclude_files: list[str] | None = None,
     ) -> VectorStoreRetriever:
         """
         Get a LangChain retriever configured for a specific user with optional file filtering.
@@ -420,7 +421,7 @@ class VectorStoreRepository:
             - If both provided: include takes precedence (exclude is ignored)
         """
         # Build metadata filter
-        filter_conditions: Dict[str, Any] = {"source": user_id}
+        filter_conditions: dict[str, Any] = {"source": user_id}
 
         if include_files:
             # Restrict to specific files only

@@ -10,8 +10,6 @@ Responsibilities:
 - Support long-term memory in RAG conversations
 """
 
-from typing import List
-
 from app.core.logging import logger
 from app.core.constants import LLMConstants
 from app.schemas.rag_schema import ConversationMessage
@@ -36,7 +34,7 @@ class ConversationService:
         self.query_gen_llm = query_gen_llm
 
     def generate_conversation_summary(
-        self, conversation_history: List[ConversationMessage]
+        self, conversation_history: list[ConversationMessage]
     ) -> str:
         """
         Generate a concise summary of conversation history for long-term memory.

@@ -3,7 +3,6 @@
 import re
 import unicodedata
 from collections.abc import Iterable
-from typing import Optional
 
 from lingua import LanguageDetectorBuilder  # pylint: disable=no-name-in-module
 from translate import Translator
@@ -28,7 +27,7 @@ class LanguageService:
         self._detector = LanguageDetectorBuilder.from_all_languages().build()
 
     def detect_language(
-        self, content: str, fallback_language: Optional[str] = "en"
+        self, content: str, fallback_language: str | None = "en"
     ) -> str:
         """Detect a reliable ISO 639-1 code, falling back when confidence is low."""
         return self.detect_language_reliably(content) or fallback_language or "en"
@@ -36,10 +35,10 @@ class LanguageService:
     def resolve_response_language(
         self,
         content: str,
-        fallback_language: Optional[str] = "en",
+        fallback_language: str | None = "en",
         *,
-        output_language: Optional[str] = None,
-        recent_user_messages: Optional[Iterable[str]] = None,
+        output_language: str | None = None,
+        recent_user_messages: Iterable[str] | None = None,
     ) -> str:
         """Resolve the response language from the current turn before the answer LLM."""
         if output_language:
@@ -61,7 +60,7 @@ class LanguageService:
 
     def detect_language_reliably(  # pylint: disable=too-many-return-statements
         self, content: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Return a detected code only when Lingua has sufficient confidence."""
         if not content or len(content.strip()) < 5:
             return None
@@ -103,7 +102,7 @@ class LanguageService:
             if unicodedata.category(char) != "Mn"
         )
 
-    def _explicit_response_language(self, content: str) -> Optional[str]:
+    def _explicit_response_language(self, content: str) -> str | None:
         normalized = self._normalize_text(content)
         language_names = {
             "italiano": "it",
@@ -139,7 +138,7 @@ class LanguageService:
                 return code
         return None
 
-    def _language_from_lexical_evidence(self, content: str) -> Optional[str]:
+    def _language_from_lexical_evidence(self, content: str) -> str | None:
         """Recognize common short question forms before all-language Lingua scoring."""
         normalized = self._normalize_text(content)
         patterns = {

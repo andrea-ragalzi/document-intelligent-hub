@@ -1,7 +1,7 @@
 """Security coverage for the administrator-only tier assignment endpoint."""
 
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient

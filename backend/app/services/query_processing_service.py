@@ -11,7 +11,6 @@ Responsibilities:
 """
 
 import re
-from typing import List
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import PromptTemplate
@@ -89,7 +88,7 @@ class QueryProcessingService:
             return "GENERAL_SEARCH"
 
     def reformulate_query(
-        self, query: str, conversation_history: List[ConversationMessage]
+        self, query: str, conversation_history: list[ConversationMessage]
     ) -> str:
         """
         Reformulate ambiguous or contextual queries into complete, standalone questions.
@@ -118,7 +117,7 @@ class QueryProcessingService:
         return self._attempt_reformulation(query, conversation_history)
 
     def _needs_reformulation(
-        self, query: str, conversation_history: List[ConversationMessage]
+        self, query: str, conversation_history: list[ConversationMessage]
     ) -> bool:
         """
         Check if query needs reformulation based on length and patterns.
@@ -133,7 +132,7 @@ class QueryProcessingService:
         return self.requires_conversation_context(query, conversation_history)
 
     def requires_conversation_context(
-        self, query: str, conversation_history: List[ConversationMessage]
+        self, query: str, conversation_history: list[ConversationMessage]
     ) -> bool:
         """Return whether this turn needs history to resolve a reference."""
         query_lower = query.lower().strip()
@@ -152,7 +151,7 @@ class QueryProcessingService:
         return not has_named_subject
 
     def _attempt_reformulation(
-        self, query: str, conversation_history: List[ConversationMessage]
+        self, query: str, conversation_history: list[ConversationMessage]
     ) -> str:
         """
         Attempt to reformulate query using LLM.
@@ -188,7 +187,7 @@ class QueryProcessingService:
             return query
 
     def _build_history_context(
-        self, conversation_history: List[ConversationMessage]
+        self, conversation_history: list[ConversationMessage]
     ) -> str:
         """
         Build conversation context from history.

@@ -10,13 +10,13 @@ This module provides:
 Architecture: Dependency Injection pattern for microservices-ready architecture
 """
 
+from collections.abc import Generator
 from threading import Lock
-from typing import Generator
 
 from chromadb import Collection, PersistentClient
 from chromadb.api import ClientAPI
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 
 from app.core.config import settings
 from app.core.logging import logger

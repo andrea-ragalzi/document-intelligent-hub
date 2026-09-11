@@ -56,7 +56,7 @@ async def _read_validated_screenshot(attachment: UploadFile) -> tuple[bytes, str
     data = await attachment.read(MAX_BUG_REPORT_SCREENSHOT_SIZE + 1)
     if len(data) > MAX_BUG_REPORT_SCREENSHOT_SIZE:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Screenshot exceeds the 5MB limit.",
         )
     detected_type = _detect_screenshot_type(data)

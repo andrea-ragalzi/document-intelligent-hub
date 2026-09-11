@@ -7,8 +7,6 @@ Handles query translation for optimal document retrieval matching.
 Translates user queries to the document language to improve semantic similarity scores.
 """
 
-from typing import Dict
-
 from app.core.config import settings
 from app.core.llm_configuration import chat_completion_options
 from openai import OpenAI
@@ -24,7 +22,7 @@ class TranslationService:
     """
 
     # Language code to full name mapping
-    LANGUAGE_NAMES: Dict[str, str] = {
+    LANGUAGE_NAMES: dict[str, str] = {
         "IT": "Italian",
         "EN": "English",
         "FR": "French",

@@ -15,8 +15,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 from langchain_core.documents import Document
+from langchain_core.language_models import BaseChatModel
 
-import app.services.rag_orchestrator_service
+import app.dependencies
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
 from app.services.rag_orchestrator_service import RAGService
@@ -57,7 +58,11 @@ def rag_service(mock_repository: Any) -> Any:  # pylint: disable=W0621
     This demonstrates the power of dependency injection - we can test
     the service layer without any database setup.
     """
-    return RAGService(repository=mock_repository)
+    return RAGService(
+        repository=mock_repository,
+        llm=Mock(spec=BaseChatModel),
+        query_gen_llm=Mock(spec=BaseChatModel),
+    )
 
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)
@@ -66,7 +71,11 @@ class TestRAGServiceInitialization:
 
     def test_service_accepts_repository(self, mock_repository: Any) -> None:
         """Test that RAGService can be initialized with repository"""
-        service = RAGService(repository=mock_repository)
+        service = RAGService(
+            repository=mock_repository,
+            llm=Mock(spec=BaseChatModel),
+            query_gen_llm=Mock(spec=BaseChatModel),
+        )
 
         assert service.repository == mock_repository
         assert service.llm is not None
@@ -78,16 +87,16 @@ class TestRAGServiceInitialization:
             # Should fail because repository is required
             RAGService()  # type: ignore  # pylint: disable=no-value-for-parameter
 
-    @patch("app.services.rag_orchestrator_service.ChatOpenAI")
+    @patch("app.dependencies.ChatOpenAI")
     def test_all_orchestrator_llms_use_the_configured_model(
         self, mock_openai: Mock, mock_repository: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Answer and helper LLMs must share the one LLM_MODEL setting."""
         monkeypatch.setattr(
-            "app.services.rag_orchestrator_service.settings.LLM_MODEL", "test-model"
+            "app.dependencies.settings.LLM_MODEL", "test-model"
         )
 
-        RAGService(repository=mock_repository)
+        app.dependencies.get_rag_service(repository=mock_repository)
 
         assert [call.kwargs["model"] for call in mock_openai.call_args_list] == [
             "test-model",

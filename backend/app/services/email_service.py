@@ -6,7 +6,6 @@ the fixed Resend sender/recipient configuration and contains provider errors.
 
 import base64
 import os
-from typing import Optional
 
 import resend
 
@@ -144,7 +143,7 @@ class EmailService:
         return self._send(payload, "Invitation request")
 
 
-_email_service: Optional[EmailService] = None
+_email_service: EmailService | None = None
 
 
 def get_email_service() -> EmailService:

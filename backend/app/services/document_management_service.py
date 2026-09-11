@@ -11,10 +11,8 @@ Responsibilities:
 - Count user documents
 """
 
-from typing import List
-
 from app.core.logging import logger
-from app.repositories.ports import VectorStorePort
+from app.ports.vector_store import VectorStorePort
 from app.schemas.rag_schema import DocumentInfo
 
 
@@ -35,7 +33,7 @@ class DocumentManagementService:
         """
         self.repository = repository
 
-    def get_user_documents(self, user_id: str) -> List[DocumentInfo]:
+    def get_user_documents(self, user_id: str) -> list[DocumentInfo]:
         """
         Get list of all documents for a user with metadata.
 
