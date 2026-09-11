@@ -2,13 +2,10 @@
 
 import asyncio
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
 from typing import Literal
 
-from fastapi import UploadFile
-
-from app.services.document_file_storage import DocumentFileStorage
+from app.ports.file_storage import FileStoragePort
 from app.services.rag_orchestrator_service import RAGService
 
 DEMO_DOCUMENT_FILENAME = "alice-cheshire-cat-demo.pdf"
@@ -36,13 +33,24 @@ class DemoSeedResult:
     chunks_indexed: int
 
 
+@dataclass
+class _InMemoryUpload:
+    """Minimal upload adapter for the bundled demo document."""
+
+    content: bytes
+    filename: str | None
+
+    async def read(self) -> bytes:
+        return self.content
+
+
 class DemoDocumentService:
     """Seeds the bundled PDF through the existing RAG indexing pipeline."""
 
     def __init__(
         self,
         rag_service: RAGService,
-        document_storage: DocumentFileStorage,
+        document_storage: FileStoragePort,
         document_path: Path = DEMO_DOCUMENT_PATH,
     ):
         self.rag_service = rag_service
@@ -64,8 +72,9 @@ class DemoDocumentService:
                     )
                 return DemoSeedResult(status="ready", chunks_indexed=0)
 
-            upload = UploadFile(
-                file=BytesIO(content), filename=DEMO_DOCUMENT_FILENAME
+            upload = _InMemoryUpload(
+                content=content,
+                filename=DEMO_DOCUMENT_FILENAME,
             )
             chunks_indexed, _language = await self.rag_service.index_document(
                 file=upload,

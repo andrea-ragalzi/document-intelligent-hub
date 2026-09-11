@@ -5,13 +5,14 @@ Provides functions to retrieve tier-based limits from Firestore configuration.
 Integrates with Firebase Auth custom claims to determine user tier.
 """
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from app.core.logging import logger
+from app.infrastructure.firebase_config import load_app_config
 from firebase_admin import auth
 
 
-def get_user_tier_limits(user_id: str) -> Tuple[str, Dict[str, int]]:
+def get_user_tier_limits(user_id: str) -> tuple[str, dict[str, int]]:
     """
     Get user's tier and associated limits from Firebase config.
 
@@ -36,9 +37,6 @@ def get_user_tier_limits(user_id: str) -> Tuple[str, Dict[str, int]]:
         user = auth.get_user(user_id)
         custom_claims = user.custom_claims or {}
         tier = custom_claims.get("tier", "FREE")
-
-        # Import here to avoid circular dependency
-        from app.routers.auth_router import load_app_config
 
         # Load limits from Firestore
         app_config = load_app_config()
@@ -87,7 +85,7 @@ def get_max_upload_size_bytes(user_id: str) -> int:
     return max_mb * 1024 * 1024  # Convert MB to bytes
 
 
-def check_file_count_limit(user_id: str, current_count: int) -> Tuple[bool, int]:
+def check_file_count_limit(user_id: str, current_count: int) -> tuple[bool, int]:
     """
     Check if user has reached their maximum file upload limit.
 
@@ -111,7 +109,7 @@ def check_file_count_limit(user_id: str, current_count: int) -> Tuple[bool, int]
     return can_upload, max_files
 
 
-def get_tier_info_for_display(user_id: str) -> Dict[str, Any]:
+def get_tier_info_for_display(user_id: str) -> dict[str, Any]:
     """
     Get formatted tier information for display in UI.
 

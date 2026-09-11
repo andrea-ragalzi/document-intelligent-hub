@@ -7,13 +7,19 @@ import pytest
 from fastapi.testclient import TestClient
 from firebase_admin import auth
 
+from app.dependencies import get_query_quota_service, get_rag_service
 from app.routers import query_router
 from app.schemas.rag_schema import DocumentInfo, FileFilterResponse
-from app.services.rag_orchestrator_service import RAGService, get_rag_service
 from app.services.document_file_storage import (
     DocumentFileStorage,
     get_document_file_storage,
 )
+from app.services.query_quota_service import (
+    QueryLimitExceededError,
+    QueryQuotaReservation,
+    QueryQuotaService,
+)
+from app.services.rag_orchestrator_service import RAGService
 from main import app
 
 
@@ -27,9 +33,13 @@ def protected_client(tmp_path) -> Generator[tuple[TestClient, Mock], None, None]
     """Use real authentication with a fake RAG service and no app lifespan."""
     previous_overrides = app.dependency_overrides.copy()
     rag_service = Mock(spec=RAGService)
+    quota_service = Mock(spec=QueryQuotaService)
+    quota_service.reserve.return_value = QueryQuotaReservation("FREE", 20, 1)
+    rag_service.query_quota_service = quota_service
 
     app.dependency_overrides.clear()
     app.dependency_overrides[get_rag_service] = lambda: rag_service
+    app.dependency_overrides[get_query_quota_service] = lambda: quota_service
     app.dependency_overrides[get_document_file_storage] = lambda: DocumentFileStorage(
         tmp_path / "document-originals"
     )
@@ -309,8 +319,7 @@ def test_query_uses_verified_uid_and_ignores_spoofed_user_id(
     ]
     rag_service.answer_query.return_value = ("Scoped answer", ["user-a.pdf"])
 
-    usage_service = Mock()
-    usage_service.reserve_query_slot.return_value = (True, 1)
+    quota_service = rag_service.query_quota_service
     parsed_query = FileFilterResponse(
         include_files=[],
         exclude_files=[],
@@ -321,14 +330,6 @@ def test_query_uses_verified_uid_and_ignores_spoofed_user_id(
     with patch(
         "app.core.auth.auth.verify_id_token",
         return_value={"uid": AUTHENTICATED_USER},
-    ), patch.object(
-        query_router,
-        "_get_user_tier_limits",
-        return_value=("FREE", 20),
-    ), patch.object(
-        query_router,
-        "get_usage_service",
-        return_value=usage_service,
     ), patch.object(
         query_router.query_parser_service,
         "extract_file_filters",
@@ -352,10 +353,7 @@ def test_query_uses_verified_uid_and_ignores_spoofed_user_id(
         exclude_files=None,
         raw_user_query="Private question",
     )
-    usage_service.reserve_query_slot.assert_called_once_with(
-        AUTHENTICATED_USER,
-        20,
-    )
+    quota_service.reserve.assert_called_once_with(AUTHENTICATED_USER)
 
 
 def test_query_limit_rejection_happens_before_rag_work(
@@ -363,20 +361,12 @@ def test_query_limit_rejection_happens_before_rag_work(
 ) -> None:
     """A rejected reservation must not reach document lookup or OpenAI/RAG work."""
     client, rag_service = protected_client
-    usage_service = Mock()
-    usage_service.reserve_query_slot.return_value = (False, 20)
+    quota_service = rag_service.query_quota_service
+    quota_service.reserve.side_effect = QueryLimitExceededError(20, 20)
 
     with patch(
         "app.core.auth.auth.verify_id_token",
         return_value={"uid": AUTHENTICATED_USER},
-    ), patch.object(
-        query_router,
-        "_get_user_tier_limits",
-        return_value=("FREE", 20),
-    ), patch.object(
-        query_router,
-        "get_usage_service",
-        return_value=usage_service,
     ):
         response = client.post(
             "/rag/query/",
@@ -385,7 +375,7 @@ def test_query_limit_rejection_happens_before_rag_work(
         )
 
     assert response.status_code == 429
-    usage_service.reserve_query_slot.assert_called_once_with(AUTHENTICATED_USER, 20)
+    quota_service.reserve.assert_called_once_with(AUTHENTICATED_USER)
     rag_service.get_user_documents.assert_not_called()
     rag_service.answer_query.assert_not_called()
 
@@ -411,10 +401,6 @@ def test_rag_error_response_and_logs_redact_exception_details(
     with patch(
         "app.core.auth.auth.verify_id_token",
         return_value={"uid": AUTHENTICATED_USER},
-    ), patch.object(
-        query_router,
-        "_get_user_tier_limits",
-        return_value=("FREE", 20),
     ), patch.object(
         query_router.query_parser_service,
         "extract_file_filters",

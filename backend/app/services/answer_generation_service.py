@@ -14,19 +14,19 @@ Responsibilities:
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 
 from app.core.config import settings
 from app.core.constants import LLMConstants, QueryConstants
 from app.core.logging import logger
-from app.repositories.ports import VectorStorePort
+from app.ports.vector_store import VectorStorePort
+from app.ports.translation import TranslationPort
 from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
 from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.reranking_service import RerankingService
-from app.services.translation_service import TranslationService
 SourceCitationData = dict[str, str | int | None]
 COMPOUND_QUERY_SPLIT = re.compile(
     r"\s+(?:e|ed)\s+(?=(?:quale|quali|perché|perche|chi|cosa|come)\b)", re.IGNORECASE
@@ -82,7 +82,7 @@ class AnswerGenerationService:
         llm: BaseChatModel,
         repository: VectorStorePort,
         language_service: LanguageService,
-        translation_service: TranslationService,
+        translation_service: TranslationPort,
         *,  # Force keyword-only arguments below
         query_expansion_service: QueryExpansionService,
         reranking_service: RerankingService,
@@ -109,16 +109,16 @@ class AnswerGenerationService:
         self,
         query: str,
         user_id: str,
-        conversation_history: Optional[List[ConversationMessage]] = None,
-        output_language: Optional[str] = None,
+        conversation_history: list[ConversationMessage] | None = None,
+        output_language: str | None = None,
         *,  # Force keyword-only arguments below
-        query_language: Optional[str] = None,
-        response_language: Optional[str] = None,
-        current_user_message: Optional[str] = None,
-        retrieval_queries: Optional[List[str]] = None,
-        include_files: Optional[List[str]] = None,
-        exclude_files: Optional[List[str]] = None,
-    ) -> Tuple[str, List[SourceCitationData]]:
+        query_language: str | None = None,
+        response_language: str | None = None,
+        current_user_message: str | None = None,
+        retrieval_queries: list[str] | None = None,
+        include_files: list[str] | None = None,
+        exclude_files: list[str] | None = None,
+    ) -> tuple[str, list[SourceCitationData]]:
         """
         Generate answer using RAG pipeline: retrieval, reranking, LLM invocation.
 
@@ -198,10 +198,10 @@ class AnswerGenerationService:
         original_query: str,
         user_id: str,
         *,  # Force keyword-only arguments below
-        include_files: Optional[List[str]],
-        exclude_files: Optional[List[str]],
-        retrieval_queries: Optional[List[str]] = None,
-    ) -> List[Any]:
+        include_files: list[str] | None,
+        exclude_files: list[str] | None,
+        retrieval_queries: list[str] | None = None,
+    ) -> list[Any]:
         """
         Execute retrieval with query expansion and rerank results.
 
@@ -256,7 +256,7 @@ class AnswerGenerationService:
         logger.info(f"🔎 Parallel retrieval for {len(all_queries)} queries")
         retrieval_started = time.perf_counter()
 
-        def search_query(query: str) -> Tuple[List[Any], float]:
+        def search_query(query: str) -> tuple[list[Any], float]:
             search_started = time.perf_counter()
             docs = retriever.invoke(query)
             return docs, (time.perf_counter() - search_started) * 1000
@@ -328,7 +328,9 @@ class AnswerGenerationService:
         return context_docs
 
     @staticmethod
-    def _validated_compound_queries(retrieval_queries: Optional[List[str]]) -> List[str]:
+    def _validated_compound_queries(
+        retrieval_queries: list[str] | None,
+    ) -> list[str]:
         """Accept only the bounded structured compound-query output."""
         if not retrieval_queries or len(retrieval_queries) > 2:
             return []
@@ -340,7 +342,7 @@ class AnswerGenerationService:
         return queries if len(queries) == 2 else []
 
     @staticmethod
-    def _split_compound_retrieval_queries(query: str) -> List[str]:
+    def _split_compound_retrieval_queries(query: str) -> list[str]:
         """Legacy compatibility helper; structured parser output drives production use."""
         parts = [
             part.strip(" ,?.")
@@ -360,8 +362,8 @@ class AnswerGenerationService:
 
     @staticmethod
     def _rrf_order(
-        documents: List[Any], search_results: List[Tuple[List[Any], float]]
-    ) -> List[Any]:
+        documents: list[Any], search_results: list[tuple[list[Any], float]]
+    ) -> list[Any]:
         """Order merged compound candidates with reciprocal-rank fusion."""
         scores: dict[int, float] = {}
         for ranked_documents, _search_ms in search_results:
@@ -383,7 +385,7 @@ class AnswerGenerationService:
         return hash((document.page_content, metadata_tuple))
 
     @staticmethod
-    def _extract_lexical_terms(queries: List[str]) -> List[str]:
+    def _extract_lexical_terms(queries: list[str]) -> list[str]:
         """Keep a few high-signal IDs or proper names for bounded lexical recall."""
         terms = []
         for query in queries:
@@ -402,10 +404,10 @@ class AnswerGenerationService:
         self,
         query: str,
         current_user_message: str,
-        context_docs: List[Any],
-        conversation_history: List[ConversationMessage],
+        context_docs: list[Any],
+        conversation_history: list[ConversationMessage],
         response_language: str,
-    ) -> Tuple[str, List[SourceCitationData]]:
+    ) -> tuple[str, list[SourceCitationData]]:
         """
         Generate LLM response with context and history.
 
@@ -441,7 +443,7 @@ class AnswerGenerationService:
             return self._get_fallback_response(), []
 
     def _format_conversation_history(
-        self, conversation_history: List[ConversationMessage]
+        self, conversation_history: list[ConversationMessage]
     ) -> str:
         """
         Format conversation history for prompt.
@@ -522,8 +524,8 @@ class AnswerGenerationService:
         )
 
     def _invoke_llm_and_translate(
-        self, prompt: str, _legacy_target_language: Optional[str] = None
-    ) -> Tuple[str, List[str]]:
+        self, prompt: str, _legacy_target_language: str | None = None
+    ) -> tuple[str, list[str]]:
         """
         Invoke LLM and translate response if needed.
 
@@ -556,10 +558,10 @@ class AnswerGenerationService:
         return None
 
     def _citations_from_evidence_ids(
-        self, context_by_id: dict[str, Any], evidence_ids: List[str]
-    ) -> List[SourceCitationData]:
+        self, context_by_id: dict[str, Any], evidence_ids: list[str]
+    ) -> list[SourceCitationData]:
         """Map valid selected context IDs to trusted filename/page metadata."""
-        citations: List[SourceCitationData] = []
+        citations: list[SourceCitationData] = []
         seen: set[tuple[str, int | None]] = set()
         selected_ids = {
             evidence_id
@@ -584,7 +586,7 @@ class AnswerGenerationService:
         return citations
 
     def _append_sources_to_answer(
-        self, answer: str, source_documents: List[str], target_language: str
+        self, answer: str, source_documents: list[str], target_language: str
     ) -> str:
         """
         Append source citations to answer.
@@ -618,7 +620,7 @@ class AnswerGenerationService:
 
     def _handle_no_documents(
         self, query_language: str
-    ) -> Tuple[str, List[SourceCitationData]]:
+    ) -> tuple[str, list[SourceCitationData]]:
         """
         Handle case when no documents are retrieved.
 

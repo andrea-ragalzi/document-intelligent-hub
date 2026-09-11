@@ -16,9 +16,8 @@ import asyncio
 import os
 import tempfile
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from fastapi import UploadFile
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.documents import Document
@@ -26,7 +25,8 @@ from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 
 from app.core.logging import logger
 from app.core.constants import ChunkingConstants
-from app.repositories.ports import VectorStorePort
+from app.ports.uploaded_file import UploadedFilePort
+from app.ports.vector_store import VectorStorePort
 from app.services.document_classifier_service import (
     DocumentCategory,
     DocumentClassifierService,
@@ -64,11 +64,11 @@ class DocumentIndexingService:
 
     async def index_document(
         self,
-        file: UploadFile,
+        file: UploadedFilePort,
         user_id: str,
-        document_language: Optional[str] = None,
-        document_metadata: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[int, str]:
+        document_language: str | None = None,
+        document_metadata: dict[str, Any] | None = None,
+    ) -> tuple[int, str]:
         """
         Load a PDF, split it into chunks, create embeddings, and save to ChromaDB.
 
@@ -109,9 +109,9 @@ class DocumentIndexingService:
         temp_file_path: str,
         filename: str,
         user_id: str,
-        document_language: Optional[str],
-        document_metadata: Optional[Dict[str, Any]],
-    ) -> Tuple[int, str]:
+        document_language: str | None,
+        document_metadata: dict[str, Any] | None,
+    ) -> tuple[int, str]:
         """Execute the synchronous PDF-to-Chroma portion in a worker thread."""
         try:
             documents = UnstructuredPDFLoader(temp_file_path, mode="elements").load()
@@ -146,7 +146,7 @@ class DocumentIndexingService:
             logger.error(f"❌ Indexing error (service level): {e}")
             raise
 
-    async def _create_temp_file_from_upload(self, file: UploadFile) -> str:
+    async def _create_temp_file_from_upload(self, file: UploadedFilePort) -> str:
         """
         Create a secure temporary file from uploaded PDF.
 
@@ -191,7 +191,7 @@ class DocumentIndexingService:
         return category
 
     def _resolve_document_language(
-        self, doc_language: Optional[str], chunks: List[Any]
+        self, doc_language: str | None, chunks: list[Any]
     ) -> str:
         """
         Resolve document language from user input or auto-detection.
@@ -220,10 +220,10 @@ class DocumentIndexingService:
 
     def _apply_chunking_strategy(
         self,
-        documents: List[Document],
+        documents: list[Document],
         category: DocumentCategory,
         full_text_preview: str,
-    ) -> List[Document]:
+    ) -> list[Document]:
         """
         Apply appropriate chunking strategy based on document classification.
 
@@ -273,12 +273,12 @@ class DocumentIndexingService:
 
     def _prepare_chunks_with_metadata(
         self,
-        chunks: List[Document],
+        chunks: list[Document],
         user_id: str,
         filename: str,
-        doc_language: Optional[str],
-        document_metadata: Optional[Dict[str, Any]] = None,
-    ) -> List[Document]:
+        doc_language: str | None,
+        document_metadata: dict[str, Any] | None = None,
+    ) -> list[Document]:
         """
         Add metadata to chunks including user_id, language, chapter tracking, and timestamp.
 
@@ -292,7 +292,7 @@ class DocumentIndexingService:
         Returns:
             Chunks with complete metadata
         """
-        final_chunks: List[Document] = []
+        final_chunks: list[Document] = []
         current_chapter = "Document Start"
         uploaded_at = int(time.time() * 1000)  # Milliseconds timestamp
         detected_language = doc_language.lower() if doc_language else "en"
@@ -319,7 +319,7 @@ class DocumentIndexingService:
 
         return final_chunks
 
-    def _batch_index_chunks(self, chunks: List[Document]) -> int:
+    def _batch_index_chunks(self, chunks: list[Document]) -> int:
         """
         Index chunks in optimized batches for better throughput.
 
@@ -367,8 +367,8 @@ class DocumentIndexingService:
         return total_chunks_indexed
 
     async def detect_document_language_preview(
-        self, file: UploadFile
-    ) -> Tuple[str, float]:
+        self, file: UploadedFilePort
+    ) -> tuple[str, float]:
         """
         Detect language from PDF preview without full indexing.
 
@@ -407,7 +407,9 @@ class DocumentIndexingService:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
 
-    def _detect_document_language_preview_sync(self, temp_file_path: str) -> Tuple[str, float]:
+    def _detect_document_language_preview_sync(
+        self, temp_file_path: str
+    ) -> tuple[str, float]:
         """Parse a PDF preview without blocking the application event loop."""
         loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
         documents = loader.load()

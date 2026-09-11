@@ -5,20 +5,19 @@ Handles user registration and tier assignment via Firebase Custom Claims.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 
 from app.core.logging import logger
-from app.config.security_constants import UNLIMITED_TIER_MAX_QUERIES
+from app.dependencies import get_email_service, get_usage_service
+from app.infrastructure import firebase_config
 from app.schemas.auth_schema import (
     InvitationCodeRequest,
     InvitationCodeRequestResponse,
     RegistrationData,
     RegistrationResponse,
 )
-from app.services.email_service import get_email_service
-from app.services.usage_tracking_service import get_usage_service
 from fastapi import APIRouter, Depends, Header, HTTPException
-from firebase_admin import auth, firestore
+from firebase_admin import auth
 from google.cloud.firestore import SERVER_TIMESTAMP
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -27,10 +26,8 @@ SUPPORTED_TIERS = frozenset({"FREE", "PRO", "UNLIMITED"})
 
 
 def get_db() -> Any:
-    """Get or initialize Firestore client (lazy initialization using function attribute)."""
-    if not hasattr(get_db, "client"):
-        get_db.client = firestore.client()  # type: ignore[attr-defined]
-    return get_db.client  # type: ignore[attr-defined]
+    """Compatibility wrapper for the infrastructure Firestore provider."""
+    return firebase_config.get_db()
 
 
 def calculate_remaining_queries(query_limit: int, queries_used: int) -> int:
@@ -106,110 +103,16 @@ def get_current_admin_user_id(authorization: str | None = Header(default=None)) 
 
 
 def clear_cache() -> None:
-    """
-    Clear the application configuration cache.
-
-    Useful for testing to ensure fresh data is loaded from Firestore.
-    """
-    if hasattr(load_app_config, "unlimited_emails_cache"):
-        delattr(load_app_config, "unlimited_emails_cache")
-    if hasattr(load_app_config, "tier_limits_cache"):
-        delattr(load_app_config, "tier_limits_cache")
+    """Compatibility wrapper for clearing infrastructure configuration cache."""
+    firebase_config.clear_cache()
 
 
 def load_app_config() -> dict[str, Any]:
-    """
-    Load application configuration from Firestore app_config/settings.
-
-    Returns a dictionary with:
-    - unlimited_emails: List[str]
-    - limits: dict with tier limits (FREE, PRO, UNLIMITED)
-
-    UNLIMITED tier limits are always injected with a high, finite safety cap.
-    Results are cached to reduce Firestore reads.
-    """
-    # Return cached values if available
-    if hasattr(load_app_config, "unlimited_emails_cache") and hasattr(
-        load_app_config, "tier_limits_cache"
-    ):
-        return {
-            "unlimited_emails": load_app_config.unlimited_emails_cache,
-            "limits": load_app_config.tier_limits_cache,
-        }
-
-    try:
-        db = get_db()
-        settings_ref = db.collection("app_config").document("settings")
-        settings_doc = settings_ref.get()
-
-        if settings_doc.exists:
-            data = settings_doc.to_dict()
-            if data:
-                # Extract configuration
-                unlimited_emails = data.get("unlimited_emails", [])
-                tier_limits = data.get("limits", {})
-
-                # Always inject UNLIMITED tier with max values
-                tier_limits["UNLIMITED"] = {
-                    "max_queries_per_day": UNLIMITED_TIER_MAX_QUERIES,
-                    "max_files": 9999,
-                    "max_file_size_mb": 9999,
-                }
-
-                # Cache results (using function attributes for singleton pattern)
-                load_app_config.unlimited_emails_cache = unlimited_emails  # type: ignore
-                load_app_config.tier_limits_cache = tier_limits  # type: ignore
-
-                logger.info(
-                    f"✅ Loaded app config: "
-                    f"{len(unlimited_emails)} unlimited emails, "
-                    f"{len(tier_limits)} tier limits"
-                )
-                return {"unlimited_emails": unlimited_emails, "limits": tier_limits}
-
-        # Document not found, use defaults
-        logger.warning("⚠️ app_config/settings not found, using defaults")
-        default_unlimited: List[str] = []
-        default_limits = {
-            "FREE": {"max_queries_per_day": 20, "max_files": 5, "max_file_size_mb": 10},
-            "PRO": {
-                "max_queries_per_day": 500,
-                "max_files": 50,
-                "max_file_size_mb": 50,
-            },
-            "UNLIMITED": {
-                "max_queries_per_day": UNLIMITED_TIER_MAX_QUERIES,
-                "max_files": 9999,
-                "max_file_size_mb": 9999,
-            },
-        }
-        return {"unlimited_emails": default_unlimited, "limits": default_limits}
-
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error(f"❌ Error loading app config: {e}")
-        return {
-            "unlimited_emails": [],
-            "limits": {
-                "FREE": {
-                    "max_queries_per_day": 20,
-                    "max_files": 5,
-                    "max_file_size_mb": 10,
-                },
-                "PRO": {
-                    "max_queries_per_day": 500,
-                    "max_files": 50,
-                    "max_file_size_mb": 50,
-                },
-                "UNLIMITED": {
-                    "max_queries_per_day": UNLIMITED_TIER_MAX_QUERIES,
-                    "max_files": 9999,
-                    "max_file_size_mb": 9999,
-                },
-            },
-        }
+    """Compatibility wrapper retaining the router's existing test/API seam."""
+    return firebase_config.load_app_config(get_db)
 
 
-def get_unlimited_emails() -> List[str]:
+def get_unlimited_emails() -> list[str]:
     """
     Retrieve list of emails with unlimited tier access from Firestore.
 
@@ -514,7 +417,7 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
 
 
 @router.post("/refresh-claims")
-def refresh_user_claims(id_token: str) -> Dict[str, Any]:
+def refresh_user_claims(id_token: str) -> dict[str, Any]:
     """
     Retrieve current user claims from Firebase token.
 
@@ -613,7 +516,7 @@ async def request_invitation_code(
 
 
 @router.get("/tier-limits")
-def get_tier_limits() -> Dict[str, Any]:
+def get_tier_limits() -> dict[str, Any]:
     """
     Get tier limits configuration from Firestore.
 
@@ -637,7 +540,9 @@ def get_tier_limits() -> Dict[str, Any]:
 
 
 @router.get("/usage")
-async def get_user_usage(user_id: str = Depends(get_current_user_id)) -> Dict[str, Any]:
+async def get_user_usage(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """
     Get current user's query usage for today.
 
@@ -695,7 +600,7 @@ async def get_user_usage(user_id: str = Depends(get_current_user_id)) -> Dict[st
 @router.post("/admin/set-tier")
 def set_user_tier_admin(
     email: str, tier: str, _admin_user_id: str = Depends(get_current_admin_user_id)
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     ADMIN ENDPOINT: Set tier for a user by email.
 

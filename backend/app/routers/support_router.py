@@ -18,8 +18,8 @@ from app.config.security_constants import (
 from app.core.auth import verify_firebase_token
 from app.core.logging import logger
 from app.core.security import sanitize_log_value
+from app.dependencies import get_email_service
 from app.schemas.rag_schema import FeedbackRequest, LanguageInfo, LanguagesListResponse
-from app.services.email_service import get_email_service
 from app.services.support_rate_limiter import support_rate_limiter
 
 router = APIRouter(prefix="/rag", tags=["support"])
@@ -56,7 +56,7 @@ async def _read_validated_screenshot(attachment: UploadFile) -> tuple[bytes, str
     data = await attachment.read(MAX_BUG_REPORT_SCREENSHOT_SIZE + 1)
     if len(data) > MAX_BUG_REPORT_SCREENSHOT_SIZE:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Screenshot exceeds the 5MB limit.",
         )
     detected_type = _detect_screenshot_type(data)

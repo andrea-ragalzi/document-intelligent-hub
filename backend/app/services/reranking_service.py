@@ -3,7 +3,7 @@
 import math
 import re
 from collections import Counter
-from typing import Any, List, Set, Tuple
+from typing import Any
 
 from langchain_core.documents import Document
 
@@ -54,7 +54,7 @@ class RerankingService:
         """Apply a tiny language-neutral suffix normalization for title matching."""
         return token[:-1] if len(token) > 4 and token[-1] in "aeiou" else token
 
-    def _extract_keywords(self, queries: List[str], min_length: int = 3) -> Set[str]:
+    def _extract_keywords(self, queries: list[str], min_length: int = 3) -> set[str]:
         """
         Extract significant keywords from a list of queries.
 
@@ -83,7 +83,7 @@ class RerankingService:
 
         return keywords
 
-    def _calculate_tf_score(self, document_content: str, keywords: Set[str]) -> float:
+    def _calculate_tf_score(self, document_content: str, keywords: set[str]) -> float:
         """
         Calculate a Term Frequency (TF) score using a combination of unique match coverage
         and a logarithmic frequency boost. This is less sensitive alla lunghezza del documento.
@@ -130,7 +130,7 @@ class RerankingService:
 
         return 0.0
 
-    def _metadata_score(self, document: Document, keywords: Set[str]) -> float:
+    def _metadata_score(self, document: Document, keywords: set[str]) -> float:
         """Score filename and section metadata without treating it as answer content."""
         metadata: dict[str, Any] = document.metadata
         title = " ".join(
@@ -145,7 +145,7 @@ class RerankingService:
         matches = sum(1 for keyword in keywords if self._stem(keyword) in title_stems)
         return matches / len(keywords)
 
-    def _identifier_score(self, document: Document, queries: List[str]) -> float:
+    def _identifier_score(self, document: Document, queries: list[str]) -> float:
         """Boost exact technical IDs only when the full identifier is in the chunk."""
         identifiers = {
             identifier.lower()
@@ -160,7 +160,9 @@ class RerankingService:
         return 1.0 if any(identifier in document_text for identifier in identifiers) else 0.0
 
     @staticmethod
-    def _document_coverage(documents: List[Document], keywords: Set[str]) -> dict[str, float]:
+    def _document_coverage(
+        documents: list[Document], keywords: set[str]
+    ) -> dict[str, float]:
         """Capture facts split across structural chunks in the same source document."""
         grouped_text: dict[str, list[str]] = {}
         for document in documents:
@@ -177,13 +179,13 @@ class RerankingService:
 
     def rerank_documents(
         self,
-        documents: List[Document],
+        documents: list[Document],
         original_query: str,
-        alternative_queries: List[str],
+        alternative_queries: list[str],
         top_n: int = 7,
         *,
-        required_query_groups: List[str] | None = None,
-    ) -> List[Document]:
+        required_query_groups: list[str] | None = None,
+    ) -> list[Document]:
         """
         Rerank documents using hybrid scoring:
         vector similarity + improved TF-inspired keyword score.
@@ -237,7 +239,7 @@ class RerankingService:
 
         return top_docs
 
-    def _replaceable_atomic_ids(self, documents: List[Document]) -> set[int]:
+    def _replaceable_atomic_ids(self, documents: list[Document]) -> set[int]:
         """Find atomic chunks fully preserved by an aggregate from the same page."""
         page_aggregates = [
             document
@@ -256,11 +258,11 @@ class RerankingService:
 
     def _score_documents(
         self,
-        documents: List[Document],
-        keywords: Set[str],
-        subquery_keywords: List[Set[str]],
-        queries: List[str],
-    ) -> List[Tuple[float, Document]]:
+        documents: list[Document],
+        keywords: set[str],
+        subquery_keywords: list[set[str]],
+        queries: list[str],
+    ) -> list[tuple[float, Document]]:
         """Apply hybrid relevance scoring while preserving initial vector rank."""
         coverage = self._document_coverage(documents, keywords)
         scored_documents = [
@@ -283,11 +285,11 @@ class RerankingService:
         document: Document,
         index: int,
         total_documents: int,
-        keywords: Set[str],
-        subquery_keywords: List[Set[str]],
-        queries: List[str],
+        keywords: set[str],
+        subquery_keywords: list[set[str]],
+        queries: list[str],
         coverage: dict[str, float],
-    ) -> Tuple[float, Document]:
+    ) -> tuple[float, Document]:
         """Calculate and record the combined relevance score for one chunk."""
         vector_score = 1.0 - (index / total_documents)
         keyword_score = self._calculate_tf_score(document.page_content, keywords)
@@ -321,13 +323,13 @@ class RerankingService:
 
     def _select_required_group_documents(
         self,
-        documents: List[Document],
-        query_groups: List[str],
+        documents: list[Document],
+        query_groups: list[str],
         replaceable_atomic_ids: set[int],
         top_n: int,
-    ) -> Tuple[List[Document], set[str]]:
+    ) -> tuple[list[Document], set[str]]:
         """Reserve one strong evidence candidate for each compound-query part."""
-        selected: List[Document] = []
+        selected: list[Document] = []
         seen_content: set[str] = set()
         for query_group in query_groups:
             candidate = self._best_group_candidate(
@@ -350,7 +352,7 @@ class RerankingService:
 
     def _best_group_candidate(
         self,
-        documents: List[Document],
+        documents: list[Document],
         query_group: str,
         replaceable_atomic_ids: set[int],
     ) -> Document | None:
@@ -381,10 +383,10 @@ class RerankingService:
 
     def _extend_with_distinct_evidence(  # pylint: disable=too-many-arguments
         self,
-        selected: List[Document],
+        selected: list[Document],
         seen_content: set[str],
-        scored_documents: List[Tuple[float, Document]],
-        keywords: Set[str],
+        scored_documents: list[tuple[float, Document]],
+        keywords: set[str],
         original_query: str,
         top_n: int,
     ) -> None:
@@ -423,10 +425,10 @@ class RerankingService:
     def _adds_distinct_support(  # pylint: disable=too-many-arguments
         score: float,
         best_score: float,
-        content_matches: Set[str],
-        covered_keywords: Set[str],
+        content_matches: set[str],
+        covered_keywords: set[str],
         filename: str,
-        selected_filenames: Set[str],
+        selected_filenames: set[str],
         requests_multiple_sources: bool,
     ) -> bool:
         """Decide whether another ranked chunk adds material answer support."""
@@ -441,11 +443,11 @@ class RerankingService:
         )
 
     def _selection_coverage(
-        self, selected: List[Document], keywords: Set[str]
-    ) -> Tuple[Set[str], Set[str]]:
+        self, selected: list[Document], keywords: set[str]
+    ) -> tuple[set[str], set[str]]:
         """Collect covered query terms and filenames for selected evidence."""
-        covered_keywords: Set[str] = set()
-        selected_filenames: Set[str] = set()
+        covered_keywords: set[str] = set()
+        selected_filenames: set[str] = set()
         for document in selected:
             covered_keywords.update(self._content_keyword_matches(document, keywords))
             selected_filenames.add(str(document.metadata.get("original_filename", "")))
@@ -457,8 +459,8 @@ class RerankingService:
         return " ".join(document.page_content.lower().split())
 
     def _content_keyword_matches(
-        self, document: Document, keywords: Set[str]
-    ) -> Set[str]:
+        self, document: Document, keywords: set[str]
+    ) -> set[str]:
         """Return query keywords supported by chunk text, excluding title-only hits."""
         document_stems = {
             self._stem(token)
@@ -471,7 +473,7 @@ class RerankingService:
         }
 
     @staticmethod
-    def _page_key(document: Document) -> Tuple[str, str]:
+    def _page_key(document: Document) -> tuple[str, str]:
         """Identify a source page so its aggregate replaces atomic fragments."""
         return (
             str(document.metadata.get("original_filename", "")),

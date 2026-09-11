@@ -12,9 +12,10 @@ Tests cover:
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Generator
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Any, Generator
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -24,7 +25,7 @@ from app.services.usage_tracking_service import UsageTrackingService, get_usage_
 @pytest.fixture
 def mock_firestore_db() -> Generator[Mock, None, None]:  # pylint: disable=W0621
     """Mock Firestore database"""
-    with patch("app.services.usage_tracking_service.firestore.client") as mock_client:
+    with patch("app.infrastructure.firestore_usage_tracker.firestore.client") as mock_client:
         db_instance = MagicMock()
         mock_client.return_value = db_instance
         yield db_instance
@@ -154,7 +155,7 @@ class TestUsageTrackingService:
 
         # Mock transactional decorator
         with patch(
-            "app.services.usage_tracking_service.firestore.transactional"
+            "app.infrastructure.firestore_usage_tracker.firestore.transactional"
         ) as mock_transactional:
             # Make decorator pass through
             mock_transactional.side_effect = lambda func: func
@@ -186,7 +187,7 @@ class TestUsageTrackingService:
         mock_firestore_db.collection.return_value.document.return_value = doc_ref
 
         with patch(
-            "app.services.usage_tracking_service.firestore.transactional"
+            "app.infrastructure.firestore_usage_tracker.firestore.transactional"
         ) as mock_transactional:
             mock_transactional.side_effect = lambda func: func
 
@@ -307,7 +308,7 @@ class TestUsageTrackingService:
         mock_firestore_db.transaction.return_value = transaction
 
         with patch(
-            "app.services.usage_tracking_service.firestore_transactional",
+            "app.infrastructure.firestore_usage_tracker.firestore_transactional",
             side_effect=lambda function: function,
         ):
             reserved, new_count = usage_service.reserve_query_slot("user123", 20)
@@ -332,7 +333,7 @@ class TestUsageTrackingService:
         mock_firestore_db.transaction.return_value = transaction
 
         with patch(
-            "app.services.usage_tracking_service.firestore_transactional",
+            "app.infrastructure.firestore_usage_tracker.firestore_transactional",
             side_effect=lambda function: function,
         ):
             reserved, count = usage_service.reserve_query_slot("user123", 20)
@@ -382,7 +383,7 @@ class TestUsageTrackingService:
             return wrapped
 
         with patch(
-            "app.services.usage_tracking_service.firestore_transactional",
+            "app.infrastructure.firestore_usage_tracker.firestore_transactional",
             side_effect=transactional_with_lock,
         ), ThreadPoolExecutor(max_workers=5) as executor:
             results = list(
@@ -588,7 +589,7 @@ class TestUsageServiceEdgeCases:
     ) -> Any:
         """Test behavior at date boundary (midnight)"""
         # This tests the date key generation
-        with patch("app.services.usage_tracking_service.datetime") as mock_datetime:
+        with patch("app.infrastructure.firestore_usage_tracker.datetime") as mock_datetime:
             # Set to exactly midnight
             mock_datetime.now.return_value = datetime(
                 2025, 11, 25, 0, 0, 0, tzinfo=timezone.utc

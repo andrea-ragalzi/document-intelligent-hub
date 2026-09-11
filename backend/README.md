@@ -15,7 +15,9 @@ The implementation is organized under `backend/app/`:
 
 - `routers/` contains the HTTP boundary. `documents_router.py`, `query_router.py`, `auth_router.py`, and `support_router.py` declare endpoints, dependencies, request handling, and response mapping.
 - `services/` contains application workflows. `rag_orchestrator_service.py` coordinates specialized services for indexing, query processing, answer generation, document management, and conversation summaries.
-- `repositories/` contains vector-store data access. `VectorStoreRepository` is the only application layer that performs ChromaDB collection operations; `dependencies.py` wires it into FastAPI.
+- `ports/` contains application-owned capability contracts such as `VectorStorePort`, `UsageTrackingPort`, `TranslationPort`, and `FileStoragePort`.
+- `repositories/` contains vector-store persistence access. `VectorStoreRepository` is the only repository because vector/document storage is the only current persistence boundary that benefits from repository semantics; services do not require a repository merely because they exist.
+- `infrastructure/` contains concrete outbound adapters and providers, including `FirestoreUsageTracker`, `OpenAITranslationAdapter`, `LocalFileStorage`, and `ResendEmailAdapter`. `dependencies.py` is the composition root that wires these implementations into application services and FastAPI dependencies.
 - `schemas/` contains Pydantic request and response contracts, including `rag_schema.py`, `auth_schema.py`, and language/translation schemas.
 - `db/` contains ChromaDB and embedding setup. `chroma_client.py` creates the persistent client, collection, LangChain vector store, and local embedding singleton.
 - `core/` contains cross-cutting configuration, Firebase initialization, bearer-token verification, logging, and constants.
@@ -30,7 +32,8 @@ HTTP request
 → main.py router registration
 → router dependency: Firebase token verification + FastAPI/Pydantic validation
 → application service (usually RAGService)
-→ repository or external integration
+→ application-owned port
+→ concrete infrastructure adapter or repository
 → Pydantic response model / JSON response
 ```
 
@@ -89,11 +92,11 @@ Relevant files: `app/core/auth.py`, `app/core/firebase.py`, `app/routers/documen
 | Integration                       | Purpose                                                                           | Main locations                                                                                                                                                     |
 | --------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Firebase Admin                    | Verify ID tokens; access Firebase Auth and custom claims                          | `app/core/firebase.py`, `app/core/auth.py`, `app/routers/auth_router.py`                                                                                           |
-| Firestore                         | Store application configuration, usage counters, and invitation/registration data | `app/routers/auth_router.py`, `app/services/usage_tracking_service.py`                                                                                             |
+| Firestore                         | Store application configuration, usage counters, and invitation/registration data | `app/infrastructure/firebase_config.py`, `app/infrastructure/firestore_usage_tracker.py`, `app/routers/auth_router.py`                                             |
 | ChromaDB                          | Persist embedded chunks and perform metadata-filtered retrieval/deletion          | `app/db/chroma_client.py`, `app/repositories/vector_store_repository.py`                                                                                           |
 | HuggingFace Sentence Transformers | Generate local `all-MiniLM-L6-v2` document/query embeddings                       | `app/db/chroma_client.py`                                                                                                                                          |
-| OpenAI                            | Query parsing, reformulation/expansion, and answer generation                     | `app/services/rag_orchestrator_service.py`, `query_parser_service.py`, `query_processing_service.py`, `query_expansion_service.py`, `answer_generation_service.py` |
-| Resend                            | Send bug-report, feedback, and invitation emails when configured                    | `app/services/email_service.py`, `app/routers/support_router.py`, `app/routers/auth_router.py`                                                                     |
+| OpenAI                            | Query parsing, reformulation/expansion, translation, and answer generation         | `app/dependencies.py`, `app/infrastructure/openai_translation_adapter.py`, `app/services/query_processing_service.py`, `app/services/query_expansion_service.py`, `app/services/answer_generation_service.py` |
+| Resend                            | Send bug-report, feedback, and invitation emails when configured                    | `app/infrastructure/resend_email_adapter.py`, `app/routers/support_router.py`, `app/routers/auth_router.py`                                                       |
 
 ## Configuration
 

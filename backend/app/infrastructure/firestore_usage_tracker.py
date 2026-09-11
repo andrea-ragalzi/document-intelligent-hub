@@ -1,0 +1,265 @@
+"""Firestore adapter for query usage tracking and reservation."""
+
+from datetime import datetime, timezone
+from typing import Any
+
+from app.core.logging import logger
+from firebase_admin import firestore
+from google.cloud.firestore import transactional as firestore_transactional
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+
+
+class FirestoreUsageTracker:
+    """Track and atomically reserve daily query usage in Firestore."""
+
+    def __init__(self) -> None:
+        self.db = firestore.client()
+
+    def _get_today_key(self) -> str:
+        """Get today's date key in YYYY-MM-DD format (UTC)."""
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    def get_user_queries_today(self, user_id: str) -> int:
+        """
+        Get the number of queries the user has made today.
+
+        Args:
+            user_id: Firebase user ID
+
+        Returns:
+            Number of queries made today
+        """
+        try:
+            today = self._get_today_key()
+            usage_ref = self.db.collection("user_usage").document(user_id)
+            usage_doc = usage_ref.get()
+
+            if not usage_doc.exists:
+                return 0
+
+            data = usage_doc.to_dict()
+            if not data:
+                return 0
+
+            # Get today's query count
+            queries_today = data.get("queries", {}).get(today, 0)
+            # Handle None values from Firestore
+            return int(queries_today) if queries_today is not None else 0
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"❌ Error getting user queries: {e}")
+            raise RuntimeError("Failed to read query usage") from e
+
+    def increment_user_queries(self, user_id: str) -> int:
+        """
+        Increment the user's query count for today.
+
+        Args:
+            user_id: Firebase user ID
+
+        Returns:
+            New total queries for today
+        """
+        try:
+            today = self._get_today_key()
+            usage_ref = self.db.collection("user_usage").document(user_id)
+
+            # Use transaction to ensure atomic increment
+            transaction = self.db.transaction()
+
+            @firestore_transactional  # type: ignore[untyped-decorator]
+            def update_in_transaction(transaction: Any, ref: Any) -> int:
+                snapshot = ref.get(transaction=transaction)
+
+                if snapshot.exists:
+                    data = snapshot.to_dict() or {}
+                    queries = data.get("queries", {})
+                    current_count = queries.get(today, 0)
+                    # Handle None values from Firestore
+                    current_count = current_count if current_count is not None else 0
+                    new_count = current_count + 1
+                    queries[today] = new_count
+                    transaction.update(
+                        ref,
+                        {
+                            "queries": queries,
+                            "last_query_at": SERVER_TIMESTAMP,
+                            "updated_at": SERVER_TIMESTAMP,
+                        },
+                    )
+                    return new_count
+
+                new_data = {
+                    "queries": {today: 1},
+                    "last_query_at": SERVER_TIMESTAMP,
+                    "created_at": SERVER_TIMESTAMP,
+                    "updated_at": SERVER_TIMESTAMP,
+                }
+                transaction.set(ref, new_data)
+                return 1
+
+            new_count = update_in_transaction(transaction, usage_ref)
+            logger.info(f"📊 User {user_id} queries today: {new_count}")
+            return int(new_count)
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"❌ Error incrementing user queries: {e}")
+            raise
+
+    def reserve_query_slot(self, user_id: str, max_queries: int) -> tuple[bool, int]:
+        """Atomically reserve one query before starting potentially paid RAG work.
+
+        The read, limit check, and increment happen in one Firestore transaction.
+        Firestore retries the transaction if another request changes the same usage
+        document, so concurrent requests cannot each observe the same free slot.
+
+        A successful reservation is intentionally retained if later RAG work fails:
+        downstream parsing or generation may already have used an external service.
+        This fail-closed behaviour prevents retries from bypassing the daily limit.
+        """
+        try:
+            today = self._get_today_key()
+            usage_ref = self.db.collection("user_usage").document(user_id)
+            transaction = self.db.transaction()
+
+            @firestore_transactional  # type: ignore[untyped-decorator]
+            def reserve_in_transaction(transaction: Any, ref: Any) -> tuple[bool, int]:
+                snapshot = ref.get(transaction=transaction)
+                data = snapshot.to_dict() if snapshot.exists else {}
+                queries = dict((data or {}).get("queries", {}))
+                current_count = queries.get(today, 0) or 0
+                current_count = int(current_count)
+
+                if current_count >= max_queries:
+                    return False, current_count
+
+                new_count = current_count + 1
+                queries[today] = new_count
+                update_data = {
+                    "queries": queries,
+                    "last_query_at": SERVER_TIMESTAMP,
+                    "updated_at": SERVER_TIMESTAMP,
+                }
+                if snapshot.exists:
+                    transaction.update(ref, update_data)
+                else:
+                    transaction.set(
+                        ref,
+                        {
+                            **update_data,
+                            "created_at": SERVER_TIMESTAMP,
+                        },
+                    )
+                return True, new_count
+
+            reserved, new_count = reserve_in_transaction(transaction, usage_ref)
+            if reserved:
+                logger.info(
+                    f"📊 Reserved query slot for user {user_id}: "
+                    f"{new_count}/{max_queries}"
+                )
+            else:
+                logger.warning(
+                    f"⚠️ User {user_id} has exceeded daily query limit "
+                    f"({new_count}/{max_queries})"
+                )
+            return bool(reserved), int(new_count)
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"❌ Error reserving query slot: {e}")
+            # Fail closed so a Firestore outage cannot bypass paid-query limits.
+            return False, max_queries
+
+    def check_query_limit(self, user_id: str, max_queries: int) -> tuple[bool, int]:
+        """
+        Check if user has exceeded their daily query limit.
+
+        Args:
+            user_id: Firebase user ID
+            max_queries: Finite maximum queries allowed per day
+
+        Returns:
+            Tuple of (can_query: bool, queries_used: int)
+        """
+        try:
+            queries_used = self.get_user_queries_today(user_id)
+            can_query = queries_used < max_queries
+
+            if not can_query:
+                logger.warning(
+                    f"⚠️ User {user_id} has exceeded daily query limit "
+                    f"({queries_used}/{max_queries})"
+                )
+
+            return can_query, queries_used
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"❌ Error checking query limit: {e}")
+            # Fail closed so a Firestore outage cannot bypass paid-query limits.
+            return False, max_queries
+
+    def _should_keep_date(
+        self, date_key: str, cutoff_date: datetime, days_to_keep: int
+    ) -> bool:
+        """Check if a date entry should be kept based on retention policy."""
+        try:
+            date_obj = datetime.strptime(date_key, "%Y-%m-%d")
+            days_old = (cutoff_date - date_obj).days
+            return days_old <= days_to_keep
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Invalid date format, don't keep
+            return False
+
+    def cleanup_old_usage(self, days_to_keep: int = 30) -> None:
+        """
+        Clean up old usage data (keep last N days).
+
+        This should be run periodically (e.g., daily cron job).
+
+        Args:
+            days_to_keep: Number of days to keep data for
+        """
+        try:
+            cutoff_date = datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+
+            # Get all user usage documents
+            usage_docs = self.db.collection("user_usage").stream()
+
+            for doc in usage_docs:
+                data = doc.to_dict()
+                if not data:
+                    continue
+
+                queries = data.get("queries", {})
+                if not queries:
+                    continue
+
+                # Filter queries to keep only recent ones
+                updated_queries = {
+                    date_key: count
+                    for date_key, count in queries.items()
+                    if self._should_keep_date(date_key, cutoff_date, days_to_keep)
+                }
+
+                # Update document if changed
+                if len(updated_queries) < len(queries):
+                    doc.reference.update({"queries": updated_queries})
+                    logger.info(f"🧹 Cleaned up usage for user {doc.id}")
+
+            logger.info("✅ Usage cleanup completed")
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"❌ Error cleaning up usage: {e}")
+
+
+def get_usage_service() -> FirestoreUsageTracker:
+    """
+    Get or create usage tracking service instance (singleton pattern).
+
+    Uses function attribute to cache instance without global statement.
+    """
+    if not hasattr(get_usage_service, "instance"):
+        get_usage_service.instance = FirestoreUsageTracker()  # type: ignore[attr-defined]
+    return get_usage_service.instance  # type: ignore[attr-defined,no-any-return]

@@ -18,17 +18,13 @@ Examples:
 - "qual'è" → "Qual è" (grammar fix)
 """
 
-from typing import List
-
-from app.core.config import settings
-from app.core.llm_configuration import chat_model_options
 from app.core.logging import logger
-from app.db.chroma_client import get_embedding_function
 from app.schemas.rag_schema import FileFilterResponse
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field
 
 __all__ = ["FileFilterResponse", "QueryParserService"]
 
@@ -36,11 +32,11 @@ __all__ = ["FileFilterResponse", "QueryParserService"]
 class FileFilterExtraction(BaseModel):
     """Structured output for file filter extraction."""
 
-    include_files: List[str] = Field(
+    include_files: list[str] = Field(
         default_factory=list,
         description="List of filenames to INCLUDE in search (search ONLY in these files)",
     )
-    exclude_files: List[str] = Field(
+    exclude_files: list[str] = Field(
         default_factory=list,
         description="List of filenames to EXCLUDE from search (do NOT search in these files)",
     )
@@ -49,7 +45,7 @@ class FileFilterExtraction(BaseModel):
         description="The query with all file references removed, grammar corrected, and unnecessary words removed",
     )
     is_compound: bool = Field(default=False)
-    retrieval_queries: List[str] = Field(default_factory=list)
+    retrieval_queries: list[str] = Field(default_factory=list)
 
 
 class QueryParserService:
@@ -72,26 +68,20 @@ class QueryParserService:
     - Structured JSON output (no parsing errors)
     """
 
-    def __init__(self) -> None:
-        """Initialize the query parser with the configured OpenAI model."""
-        self.llm = ChatOpenAI(
-            **chat_model_options(
-                settings.LLM_MODEL, SecretStr(settings.OPENAI_API_KEY), temperature=0.0
-            )
-        )
+    def __init__(self, llm: BaseChatModel, embeddings: Embeddings) -> None:
+        """Initialize the query parser with injected model capabilities."""
+        self.llm = llm
 
         # Parser for structured output
         self.parser = JsonOutputParser(pydantic_object=FileFilterExtraction)
 
         # Get embedding function for file validation (HuggingFace - free)
-        self.embeddings = get_embedding_function()
+        self.embeddings = embeddings
 
-        logger.debug(
-            f"✅ QueryParserService initialized with {settings.LLM_MODEL}"
-        )
+        logger.debug("✅ QueryParserService initialized")
 
     def extract_file_filters(
-        self, query: str, available_files: List[str]
+        self, query: str, available_files: list[str]
     ) -> FileFilterResponse:
         """
         Extract file filters and optimize query for semantic search.
@@ -260,8 +250,8 @@ Now extract from the user query above and apply all rules.
         return prompt
 
     def _validate_filenames(
-        self, extracted_files: List[str], available_files: List[str]
-    ) -> List[str]:
+        self, extracted_files: list[str], available_files: list[str]
+    ) -> list[str]:
         """
         Validate extracted filenames against available files.
 
@@ -297,7 +287,7 @@ Now extract from the user query above and apply all rules.
         return validated
 
     def _find_best_match(
-        self, filename: str, available_files: List[str], threshold: float = 0.7
+        self, filename: str, available_files: list[str], threshold: float = 0.7
     ) -> str | None:
         """
         Find best matching filename using semantic similarity.
@@ -334,9 +324,3 @@ Now extract from the user query above and apply all rules.
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"   Error computing similarity: {e}")
             return None
-
-
-# --- Global Service Instance ---
-
-# Singleton instance for dependency injection
-query_parser_service = QueryParserService()

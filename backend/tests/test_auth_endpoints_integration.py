@@ -6,7 +6,7 @@ Covers registration, invitation requests, tier limits, and usage tracking.
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from app.routers.auth_router import clear_cache

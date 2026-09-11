@@ -14,7 +14,7 @@ All endpoints require valid Firebase Auth token in Authorization header.
 import asyncio
 import os
 from io import BytesIO
-from typing import Annotated, Any, Dict, Literal, Tuple
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -27,6 +27,8 @@ from app.core.security import (
     sanitize_filename,
     sanitize_log_value,
 )
+from app.dependencies import get_document_file_storage, get_rag_service
+from app.ports.file_storage import FileStoragePort
 from app.schemas.rag_schema import (
     DetectLanguageResponse,
     DemoDocumentSeedResponse,
@@ -39,11 +41,7 @@ from app.services.demo_document_service import (
     DEMO_SUGGESTED_QUESTIONS,
     DemoDocumentService,
 )
-from app.services.document_file_storage import (
-    DocumentFileStorage,
-    get_document_file_storage,
-)
-from app.services.rag_orchestrator_service import RAGService, get_rag_service
+from app.services.rag_orchestrator_service import RAGService
 from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
 from app.services.tier_limit_service import (
     check_file_count_limit,
@@ -108,7 +106,7 @@ def _resolve_duplicate_filename(
     filename: str,
     duplicate_action: Literal["reject", "replace", "rename"],
     rag_service: RAGService,
-) -> Tuple[str, bool]:
+) -> tuple[str, bool]:
     """Resolve a duplicate according to the explicit server-validated action."""
     document_exists = rag_service.user_document_exists(user_id, filename)
     if not document_exists:
@@ -125,7 +123,7 @@ def _resolve_duplicate_filename(
 
 async def _get_upload_size_limits(
     user_id: str, rag_service: RAGService, is_replacing: bool
-) -> Tuple[int, float]:
+) -> tuple[int, float]:
     """Keep a replacement within its size limit without charging another file slot."""
     if is_replacing:
         max_size_bytes = get_max_upload_size_bytes(user_id)
@@ -147,7 +145,7 @@ def _delete_replaced_document(
         )
 
 
-def _check_file_limits(user_id: str, rag_service: RAGService) -> Tuple[int, float]:
+def _check_file_limits(user_id: str, rag_service: RAGService) -> tuple[int, float]:
     """
     Check if user has reached file count limit.
 
@@ -219,7 +217,7 @@ async def _read_and_validate_file_size(
                     f"Size: {size_mb}MB | Limit: {max_size_mb}MB"
                 )
                 raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                     detail=(
                         f"File too large. Your plan allows maximum {max_size_mb}MB, "
                         f"got {size_mb}MB"
@@ -244,7 +242,7 @@ async def _read_and_validate_file_size(
 async def seed_demo_document(
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DemoDocumentSeedResponse:
     """Index the bundled Alice excerpt privately for the verified Firebase UID."""
     try:
@@ -281,7 +279,7 @@ async def upload_document(
     file: UploadFile = File(..., description="The PDF document to be indexed."),
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
     duplicate_action: Annotated[
         Literal["reject", "replace", "rename"], Form()
     ] = "reject",
@@ -433,7 +431,7 @@ async def detect_document_language(
 async def check_documents(
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     **Check if user has any documents uploaded.**
 
@@ -456,7 +454,7 @@ async def check_documents(
 async def list_documents(
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DocumentListResponse:
     """
     **List all documents uploaded by a user.**
@@ -489,7 +487,7 @@ async def delete_document(
     filename: str,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DocumentDeleteResponse:
     """
     **Delete a specific document by filename.**
@@ -549,7 +547,7 @@ async def get_document_content(
     download: bool = False,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> FileResponse:
     """Return an authenticated user's original PDF for preview or download."""
     owned_document = next(
@@ -601,8 +599,8 @@ async def delete_all_documents(
     request: Request,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
-    document_storage: DocumentFileStorage = Depends(get_document_file_storage),
-) -> Dict[str, Any]:
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
+) -> dict[str, Any]:
     """
     **Delete ALL documents for a user.**
 

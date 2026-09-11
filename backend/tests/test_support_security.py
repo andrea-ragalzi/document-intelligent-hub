@@ -77,7 +77,7 @@ def test_untrusted_feedback_is_sent_as_plain_text(monkeypatch) -> None:  # type:
     monkeypatch.setenv("RESEND_FROM_EMAIL", "reports@example.com")
     monkeypatch.setenv("REPORT_RECIPIENT_EMAIL", "team@example.com")
     service = EmailService()
-    with patch("app.services.email_service.resend.Emails.send", return_value={"id": "email_123"}) as send:
+    with patch("app.infrastructure.resend_email_adapter.resend.Emails.send", return_value={"id": "email_123"}) as send:
         assert service.send_feedback("verified-user", "<script>alert(1)</script>")
 
     payload = send.call_args.args[0]

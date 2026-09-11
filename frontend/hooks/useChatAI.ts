@@ -71,6 +71,11 @@ export function useChatAI({ userId }: UseChatAIProps) {
       userId,
     },
     onError: (error: Error) => {
+      // The AI SDK keeps the optimistic user message after a failed request.
+      // Remove that incomplete turn so autosave cannot persist it as history.
+      setMessages(currentMessages =>
+        currentMessages.at(-1)?.role === "user" ? currentMessages.slice(0, -1) : currentMessages
+      );
       // Silently handle rate limit errors (429) - they're expected
       if (error.message.includes("Daily query limit exceeded")) {
         return;
