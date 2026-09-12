@@ -8,9 +8,11 @@ const firebaseMocks = vi.hoisted(() => ({
   createUserWithEmailAndPassword: vi.fn(),
   getAuth: vi.fn(() => ({})),
   onAuthStateChanged: vi.fn(),
+  getRedirectResult: vi.fn(),
   sendEmailVerification: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
   signInWithPopup: vi.fn(),
+  signInWithRedirect: vi.fn(),
   signOut: vi.fn(),
 }));
 
@@ -21,10 +23,12 @@ vi.mock("@/lib/firebase", () => ({
 vi.mock("firebase/auth", () => ({
   GoogleAuthProvider: class GoogleAuthProvider {},
   createUserWithEmailAndPassword: firebaseMocks.createUserWithEmailAndPassword,
+  getRedirectResult: firebaseMocks.getRedirectResult,
   onAuthStateChanged: firebaseMocks.onAuthStateChanged,
   sendEmailVerification: firebaseMocks.sendEmailVerification,
   signInWithEmailAndPassword: firebaseMocks.signInWithEmailAndPassword,
   signInWithPopup: firebaseMocks.signInWithPopup,
+  signInWithRedirect: firebaseMocks.signInWithRedirect,
   signOut: firebaseMocks.signOut,
 }));
 
@@ -55,6 +59,11 @@ function VerificationRefreshTrigger() {
   );
 }
 
+function GoogleSignInTrigger() {
+  const { signInWithGoogle } = useAuth();
+  return <button onClick={() => void signInWithGoogle()}>Google sign in</button>;
+}
+
 describe("email verification lifecycle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -65,8 +74,41 @@ describe("email verification lifecycle", () => {
       callback(null);
       return vi.fn();
     });
+    firebaseMocks.getRedirectResult.mockResolvedValue(null);
     firebaseMocks.createUserWithEmailAndPassword.mockResolvedValue({ user });
     firebaseMocks.sendEmailVerification.mockResolvedValue(undefined);
+  });
+
+  it("uses the popup flow on desktop browsers", async () => {
+    Object.defineProperty(window.navigator, "userAgent", {
+      configurable: true,
+      value: "Mozilla/5.0 (X11; Linux x86_64) Chrome/120",
+    });
+    render(createElement(AuthProvider, null, createElement(GoogleSignInTrigger)));
+
+    fireEvent.click(screen.getByRole("button", { name: "Google sign in" }));
+
+    await waitFor(() => expect(firebaseMocks.signInWithPopup).toHaveBeenCalledOnce());
+    expect(firebaseMocks.signInWithRedirect).not.toHaveBeenCalled();
+  });
+
+  it("uses the redirect flow on mobile browsers", async () => {
+    Object.defineProperty(window.navigator, "userAgent", {
+      configurable: true,
+      value: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari/605.1",
+    });
+    render(createElement(AuthProvider, null, createElement(GoogleSignInTrigger)));
+
+    fireEvent.click(screen.getByRole("button", { name: "Google sign in" }));
+
+    await waitFor(() => expect(firebaseMocks.signInWithRedirect).toHaveBeenCalledOnce());
+    expect(firebaseMocks.signInWithPopup).not.toHaveBeenCalled();
+  });
+
+  it("checks for a completed Google redirect when auth initializes", async () => {
+    render(createElement(AuthProvider, null, createElement("div")));
+
+    await waitFor(() => expect(firebaseMocks.getRedirectResult).toHaveBeenCalledOnce());
   });
 
   it("sends a Firebase verification email immediately after creating an email/password account", async () => {
