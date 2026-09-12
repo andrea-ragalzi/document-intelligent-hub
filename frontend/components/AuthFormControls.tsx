@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChangeEventHandler, ReactNode } from "react";
+import type { AuthAction } from "@/hooks/useAuthRequest";
 
 type AuthTextFieldProps = {
   id: string;
@@ -53,6 +54,41 @@ export function AuthProviderDivider() {
   );
 }
 
+export function AuthErrorMessage({ message }: { message: string }) {
+  return (
+    <div
+      className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 text-red-700 dark:text-red-400 rounded"
+      role="alert"
+    >
+      {message}
+    </div>
+  );
+}
+
+type AuthSubmitButtonProps = {
+  action: AuthAction;
+  label: string;
+  pendingLabel: string;
+  pendingAction: AuthAction | null;
+};
+
+export function AuthSubmitButton({
+  action,
+  label,
+  pendingLabel,
+  pendingAction,
+}: AuthSubmitButtonProps) {
+  return (
+    <button
+      type="submit"
+      disabled={pendingAction !== null}
+      className="ui-primary-action w-full font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {pendingAction === action ? pendingLabel : label}
+    </button>
+  );
+}
+
 type GoogleAuthButtonProps = {
   children: ReactNode;
   disabled: boolean;
@@ -62,6 +98,7 @@ type GoogleAuthButtonProps = {
 export function GoogleAuthButton({ children, disabled, onClick }: GoogleAuthButtonProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       className="ui-secondary-action mt-4 flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"

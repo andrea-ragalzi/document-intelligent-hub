@@ -5,44 +5,42 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import {
   AuthProviderDivider,
+  AuthErrorMessage,
   AuthTextField,
+  AuthSubmitButton,
   GoogleAuthButton,
 } from "@/components/AuthFormControls";
+import { useAuthRequest } from "@/hooks/useAuthRequest";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const { error, isLoading, pendingAction, run } = useAuthRequest();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      await signIn(email, password);
+    const succeeded = await run(
+      "email",
+      async () => {
+        await signIn(email, password);
+      },
+      "Something went wrong while signing you in. Please try again."
+    );
+    if (succeeded) {
       router.push("/");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign in");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError("");
-    setLoading(true);
-
-    try {
-      await signInWithGoogle();
+    const succeeded = await run(
+      "google",
+      signInWithGoogle,
+      "Google sign-in is temporarily unavailable. Please try again."
+    );
+    if (succeeded) {
       router.push("/");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign in with Google");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -50,11 +48,7 @@ export default function LoginForm() {
     <div className="ui-panel max-w-md mx-auto mt-8 p-6 rounded-xl">
       <h2 className="text-2xl font-semibold mb-6 text-center text-ink">Sign In</h2>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 text-red-700 dark:text-red-400 rounded">
-          {error}
-        </div>
-      )}
+      {error && <AuthErrorMessage message={error} />}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <AuthTextField
@@ -63,7 +57,7 @@ export default function LoginForm() {
           type="email"
           value={email}
           onChange={event => setEmail(event.target.value)}
-          disabled={loading}
+          disabled={isLoading}
         />
         <AuthTextField
           id="password"
@@ -71,22 +65,21 @@ export default function LoginForm() {
           type="password"
           value={password}
           onChange={event => setPassword(event.target.value)}
-          disabled={loading}
+          disabled={isLoading}
         />
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="ui-primary-action w-full font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "Signing in..." : "Sign In"}
-        </button>
+        <AuthSubmitButton
+          action="email"
+          label="Sign In"
+          pendingLabel="Signing in..."
+          pendingAction={pendingAction}
+        />
       </form>
 
       <div className="mt-4">
         <AuthProviderDivider />
-        <GoogleAuthButton onClick={handleGoogleSignIn} disabled={loading}>
-          Sign in with Google
+        <GoogleAuthButton onClick={handleGoogleSignIn} disabled={isLoading}>
+          {pendingAction === "google" ? "Signing in with Google..." : "Sign in with Google"}
         </GoogleAuthButton>
       </div>
 

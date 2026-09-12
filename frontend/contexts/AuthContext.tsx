@@ -2,18 +2,19 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
-  User,
+  type User,
+  type UserCredential,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendEmailVerification,
   signOut,
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   GoogleAuthProvider,
 } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
+import { getAuthErrorMessage } from "@/lib/authErrors";
+import { clearUserScopedClientState } from "@/lib/authSessionCleanup";
 
 interface AuthContextType {
   user: User | null;
@@ -29,10 +30,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function isMobileBrowser(): boolean {
-  return typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-}
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -50,10 +47,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log("🔐 Setting up auth state listener...");
 
-    void getRedirectResult(getFirebaseAuth()).catch(error => {
-      console.error("🔐 Google redirect sign-in failed:", error);
-    });
-
     const unsubscribe = onAuthStateChanged(getFirebaseAuth(), user => {
       console.log("🔐 Auth state changed:", user ? user.uid : "No user - auth required");
       setUser(user);
@@ -65,11 +58,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+    try {
+      await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, "sign-in"));
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    const credential = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
+    let credential: UserCredential;
+    try {
+      credential = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, "sign-up"));
+    }
     setUser(credential.user);
     setEmailVerified(Boolean(credential.user.emailVerified));
     try {
@@ -82,17 +84,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const auth = getFirebaseAuth();
-    if (isMobileBrowser()) {
-      await signInWithRedirect(auth, provider);
-      return;
+    try {
+      // Popup is the Firebase-supported choice for non-Firebase hosting when
+      // redirect helpers are not served from the application's own origin.
+      await signInWithPopup(getFirebaseAuth(), provider);
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, "sign-in"));
     }
-    await signInWithPopup(auth, provider);
   };
 
   const logout = async () => {
-    await signOut(getFirebaseAuth());
+    try {
+      await signOut(getFirebaseAuth());
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, "sign-out"));
+    }
+    setUser(null);
     setEmailVerified(false);
+    clearUserScopedClientState();
   };
 
   const getIdToken = async (): Promise<string | null> => {

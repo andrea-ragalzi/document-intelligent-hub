@@ -23,6 +23,8 @@ interface MenuProfileSectionProps {
   tier: UserTier;
   tierLimits: TierLimits;
   isTierLoading: boolean;
+  isLoggingOut: boolean;
+  logoutError: string | null;
   onClose: () => void;
   onLogout: () => void;
 }
@@ -36,6 +38,8 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
   tier,
   tierLimits,
   isTierLoading,
+  isLoggingOut,
+  logoutError,
   onClose,
   onLogout,
 }) => {
@@ -83,7 +87,8 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
 
       <button
         onClick={onLogout}
-        className="ui-secondary-action min-h-[44px] w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus"
+        disabled={isLoggingOut}
+        className="ui-secondary-action min-h-[44px] w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -100,8 +105,13 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
           <polyline points="16 17 21 12 16 7" />
           <line x1="21" y1="12" x2="9" y2="12" />
         </svg>
-        Logout
+        {isLoggingOut ? "Signing out..." : "Logout"}
       </button>
+      {logoutError && (
+        <p className="mt-3 text-sm text-danger" role="alert">
+          {logoutError}
+        </p>
+      )}
     </div>
   );
 };
