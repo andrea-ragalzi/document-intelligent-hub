@@ -9,6 +9,8 @@ import {
   signOut,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
 } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
@@ -28,6 +30,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isMobileBrowser(): boolean {
+  return typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -43,6 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     console.log("🔐 Setting up auth state listener...");
+
+    void getRedirectResult(getFirebaseAuth()).catch(error => {
+      console.error("🔐 Google redirect sign-in failed:", error);
+    });
 
     const unsubscribe = onAuthStateChanged(getFirebaseAuth(), user => {
       console.log("🔐 Auth state changed:", user ? user.uid : "No user - auth required");
@@ -72,7 +82,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(getFirebaseAuth(), provider);
+    const auth = getFirebaseAuth();
+    if (isMobileBrowser()) {
+      await signInWithRedirect(auth, provider);
+      return;
+    }
+    await signInWithPopup(auth, provider);
   };
 
   const logout = async () => {
