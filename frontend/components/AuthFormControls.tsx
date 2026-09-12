@@ -62,6 +62,7 @@ type GoogleAuthButtonProps = {
 export function GoogleAuthButton({ children, disabled, onClick }: GoogleAuthButtonProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       className="ui-secondary-action mt-4 flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import {
@@ -13,45 +13,65 @@ export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"email" | "google" | null>(null);
+  const requestInFlight = useRef(false);
   const { signIn, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setError("");
-    setLoading(true);
+    setPendingAction("email");
 
     try {
       await signIn(email, password);
       router.push("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign in");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while signing you in. Please try again."
+      );
     } finally {
-      setLoading(false);
+      requestInFlight.current = false;
+      setPendingAction(null);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setError("");
-    setLoading(true);
+    setPendingAction("google");
 
     try {
       await signInWithGoogle();
       router.push("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign in with Google");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Google sign-in is temporarily unavailable. Please try again."
+      );
     } finally {
-      setLoading(false);
+      requestInFlight.current = false;
+      setPendingAction(null);
     }
   };
+
+  const loading = pendingAction !== null;
 
   return (
     <div className="ui-panel max-w-md mx-auto mt-8 p-6 rounded-xl">
       <h2 className="text-2xl font-semibold mb-6 text-center text-ink">Sign In</h2>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 text-red-700 dark:text-red-400 rounded">
+        <div
+          className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 text-red-700 dark:text-red-400 rounded"
+          role="alert"
+        >
           {error}
         </div>
       )}
@@ -79,14 +99,14 @@ export default function LoginForm() {
           disabled={loading}
           className="ui-primary-action w-full font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Signing in..." : "Sign In"}
+          {pendingAction === "email" ? "Signing in..." : "Sign In"}
         </button>
       </form>
 
       <div className="mt-4">
         <AuthProviderDivider />
         <GoogleAuthButton onClick={handleGoogleSignIn} disabled={loading}>
-          Sign in with Google
+          {pendingAction === "google" ? "Signing in with Google..." : "Sign in with Google"}
         </GoogleAuthButton>
       </div>
 

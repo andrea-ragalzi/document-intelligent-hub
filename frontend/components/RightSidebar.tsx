@@ -53,6 +53,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   isTierLoading,
 }) => {
   const [activeView, setActiveView] = useState<"menu" | "documents" | "settings">("menu");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -76,11 +78,19 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   }, [isOpen]);
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setLogoutError(null);
+    setIsLoggingOut(true);
     try {
       await logout();
       router.push("/login");
     } catch (error) {
       console.error("Failed to logout:", error);
+      setLogoutError(
+        error instanceof Error ? error.message : "We couldn't sign you out. Please try again."
+      );
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -124,6 +134,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             tier={tier}
             tierLimits={tierLimits}
             isTierLoading={isTierLoading}
+            isLoggingOut={isLoggingOut}
+            logoutError={logoutError}
             onClose={onClose}
             onLogout={handleLogout}
           />
