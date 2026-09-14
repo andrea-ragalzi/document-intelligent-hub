@@ -37,6 +37,12 @@ MAX_EXTRACTED_DOCUMENT_TEXT = ChunkingConstants.MAX_EXTRACTED_DOCUMENT_TEXT
 MAX_DOCUMENT_CHUNKS = ChunkingConstants.MAX_DOCUMENT_CHUNKS
 
 
+def _write_temporary_pdf(descriptor: int, content: bytes) -> None:
+    """Write and close a temporary PDF descriptor outside the event loop."""
+    with os.fdopen(descriptor, "wb") as temp_file:
+        temp_file.write(content)
+
+
 class DocumentIndexingService:
     """
     Specialized service for document indexing operations.
@@ -174,9 +180,10 @@ class DocumentIndexingService:
             content = await file.read()
             if not content:
                 raise ValueError("The uploaded file is empty.")
-            with os.fdopen(temp_fd, "wb") as temp_file:
-                temp_file.write(content)
+
+            descriptor = temp_fd
             temp_fd = -1
+            await asyncio.to_thread(_write_temporary_pdf, descriptor, content)
             return temp_file_path
         except Exception:
             if temp_fd != -1:
@@ -401,11 +408,11 @@ class DocumentIndexingService:
             if not content:
                 raise ValueError("The uploaded file is empty.")
 
-            # Close the descriptor before passing the file to the loader.  The
-            # context manager also closes it when a write raises.
-            with os.fdopen(temp_fd, "wb") as temp_file:
-                temp_file.write(content)
+            # Close the descriptor before passing the file to the loader. The
+            # blocking write runs outside the application event loop.
+            descriptor = temp_fd
             temp_fd = -1
+            await asyncio.to_thread(_write_temporary_pdf, descriptor, content)
 
             # Load first pages only for preview
             return await asyncio.to_thread(

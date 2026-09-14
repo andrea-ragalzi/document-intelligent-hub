@@ -516,10 +516,9 @@ async def test_multibatch_index_failure_rolls_back_all_owned_chunks(
     )
     monkeypatch.setattr("app.services.document_indexing_service.MAX_DOCUMENT_CHUNKS", 501)
 
+    upload = UploadFile(file=BytesIO(b"%PDF-test"), filename="partial.pdf")
     with pytest.raises(RuntimeError, match="embedding failure"):
-        await service.index_document(
-            UploadFile(file=BytesIO(b"%PDF-test"), filename="partial.pdf"), "owner"
-        )
+        await service.index_document(upload, "owner")
 
     assert repository.add_documents.call_count == 2
     repository.delete_document.assert_called_once_with("owner", "partial.pdf")
@@ -586,11 +585,12 @@ async def test_failed_replacement_restores_the_previous_document(
     rag.user_document_exists.return_value = True
     rag.delete_user_document.return_value = 2
     rag.index_document = AsyncMock(side_effect=[RuntimeError("embedding failed"), (2, "EN")])
+    replacement = UploadFile(file=BytesIO(b"%PDF-new"), filename="report.pdf")
 
     with pytest.raises(HTTPException) as error:
         await documents_router.upload_document(
             None,
-            UploadFile(file=BytesIO(b"%PDF-new"), filename="report.pdf"),
+            replacement,
             "owner",
             rag,
             storage,

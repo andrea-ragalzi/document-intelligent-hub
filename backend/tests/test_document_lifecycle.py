@@ -136,8 +136,9 @@ async def test_failed_language_preview_closes_and_removes_its_temporary_file(
         async def read(self) -> bytes:
             raise OSError("read failure")
 
+    upload = FailingUpload()
     with pytest.raises(OSError, match="read failure"):
-        await service.detect_document_language_preview(FailingUpload())
+        await service.detect_document_language_preview(upload)
 
     assert not os.path.exists(temporary_path)
     with pytest.raises(OSError):
