@@ -124,7 +124,7 @@ describe("conversation Firestore rules", () => {
     await assertFails(
       setDoc(
         ref("too-many"),
-        conversation("alice", { history: Array.from({ length: 101 }, () => ({ type: "user" })) })
+        conversation("alice", { history: Array.from({ length: 41 }, () => ({ type: "user" })) })
       )
     );
     await assertSucceeds(
@@ -132,7 +132,7 @@ describe("conversation Firestore rules", () => {
         ref("boundary"),
         conversation("alice", {
           name: "a".repeat(120),
-          history: Array.from({ length: 100 }, () => ({ type: "user" })),
+          history: Array.from({ length: 40 }, () => ({ type: "user" })),
         })
       )
     );

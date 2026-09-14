@@ -4,17 +4,17 @@ import type { ChatMessage } from "@/lib/types";
 const firestore = vi.hoisted(() => ({
   addDoc: vi.fn(),
   collection: vi.fn(() => ({ id: "conversations" })),
+  deleteDoc: vi.fn(),
+  doc: vi.fn(),
   getDocs: vi.fn(),
   query: vi.fn(),
   serverTimestamp: vi.fn(() => "server-timestamp"),
+  updateDoc: vi.fn(),
   where: vi.fn(),
 }));
 
 vi.mock("firebase/firestore", () => ({
   ...firestore,
-  deleteDoc: vi.fn(),
-  doc: vi.fn(),
-  updateDoc: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase", () => ({
@@ -23,8 +23,13 @@ vi.mock("@/lib/firebase", () => ({
 }));
 
 import {
+  MAX_PERSISTED_CONVERSATION_TEXT_CHARS,
+  MAX_PERSISTED_MESSAGES_PER_CONVERSATION,
+  MAX_SAVED_CONVERSATIONS_PER_USER,
+  migrateLocalStorageToFirestore,
   loadConversationsFromFirestore,
   saveConversationToFirestore,
+  updateConversationHistoryInFirestore,
 } from "@/lib/conversationsService";
 
 const structuredHistory: ChatMessage[] = [
@@ -43,6 +48,7 @@ describe("conversation citation persistence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     firestore.addDoc.mockResolvedValue({ id: "conversation-1" });
+    firestore.getDocs.mockResolvedValue({ size: 0 });
   });
 
   it("persists structured citations with the assistant message", async () => {
@@ -71,5 +77,80 @@ describe("conversation citation persistence", () => {
     const [conversation] = await loadConversationsFromFirestore("user-a");
 
     expect(conversation.history).toEqual(structuredHistory);
+  });
+
+  it("rejects a new conversation once the per-user limit is reached", async () => {
+    firestore.getDocs.mockResolvedValue({ size: MAX_SAVED_CONVERSATIONS_PER_USER });
+
+    await expect(
+      saveConversationToFirestore("user-a", "One too many", structuredHistory)
+    ).rejects.toThrow("Failed to save conversation");
+
+    expect(firestore.addDoc).not.toHaveBeenCalled();
+  });
+
+  it("persists only the most recent bounded message and text history", async () => {
+    firestore.getDocs.mockResolvedValue({ size: 0 });
+    const history = Array.from(
+      { length: MAX_PERSISTED_MESSAGES_PER_CONVERSATION + 2 },
+      (_, index) => ({
+        type: "user" as const,
+        text: `message-${index}-${"x".repeat(400)}`,
+        sources: [],
+      })
+    );
+
+    await saveConversationToFirestore("user-a", "Bounded", history);
+
+    const persistedHistory = firestore.addDoc.mock.calls[0][1].history as ChatMessage[];
+    expect(persistedHistory).toHaveLength(MAX_PERSISTED_MESSAGES_PER_CONVERSATION);
+    expect(persistedHistory[persistedHistory.length - 1]?.text).toContain("message-41-");
+    expect(
+      persistedHistory.reduce((total, message) => total + message.text.length, 0)
+    ).toBeLessThanOrEqual(MAX_PERSISTED_CONVERSATION_TEXT_CHARS);
+  });
+
+  it("bounds history updates before they reach Firestore", async () => {
+    const history: ChatMessage[] = [
+      {
+        type: "assistant",
+        text: "x".repeat(MAX_PERSISTED_CONVERSATION_TEXT_CHARS + 1),
+        sources: [],
+      },
+    ];
+
+    await updateConversationHistoryInFirestore("conversation-1", history);
+
+    const persistedHistory = firestore.updateDoc.mock.calls[0][1].history as ChatMessage[];
+    expect(persistedHistory).toHaveLength(1);
+    expect(persistedHistory[0].text).toHaveLength(MAX_PERSISTED_CONVERSATION_TEXT_CHARS);
+  });
+
+  it("migrates only the conversations that fit and bounds each migrated history", async () => {
+    firestore.getDocs.mockImplementation(() =>
+      Promise.resolve({ size: firestore.addDoc.mock.calls.length })
+    );
+    const localConversations = Array.from(
+      { length: MAX_SAVED_CONVERSATIONS_PER_USER + 2 },
+      (_, index) => ({
+        id: `local-${index}`,
+        name: `Conversation ${index}`,
+        timestamp: "2026-01-01 12:00",
+        history: [
+          {
+            type: "user" as const,
+            text: "x".repeat(MAX_PERSISTED_CONVERSATION_TEXT_CHARS + 1),
+            sources: [],
+          },
+        ],
+      })
+    );
+
+    await migrateLocalStorageToFirestore("user-a", localConversations);
+
+    expect(firestore.addDoc).toHaveBeenCalledTimes(MAX_SAVED_CONVERSATIONS_PER_USER);
+    for (const [, data] of firestore.addDoc.mock.calls) {
+      expect(data.history[0].text).toHaveLength(MAX_PERSISTED_CONVERSATION_TEXT_CHARS);
+    }
   });
 });
