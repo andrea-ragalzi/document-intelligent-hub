@@ -458,6 +458,9 @@ async def test_indexing_rejects_excessive_text_before_embeddings(monkeypatch: py
         "app.services.document_indexing_service.UnstructuredPDFLoader",
         lambda *_args, **_kwargs: Mock(load=lambda: documents),
     )
+    monkeypatch.setattr(
+        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 1
+    )
     monkeypatch.setattr("app.services.document_indexing_service.MAX_EXTRACTED_DOCUMENT_TEXT", 100)
 
     with pytest.raises(ValueError, match="too much extracted text"):
@@ -479,6 +482,9 @@ async def test_indexing_rejects_excessive_chunks_before_embeddings(monkeypatch: 
     monkeypatch.setattr(
         "app.services.document_indexing_service.UnstructuredPDFLoader",
         lambda *_args, **_kwargs: Mock(load=lambda: documents),
+    )
+    monkeypatch.setattr(
+        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 1
     )
     monkeypatch.setattr(
         service, "_apply_chunking_strategy", lambda *_args: [Document(page_content="x", metadata={})] * 2
@@ -509,6 +515,9 @@ async def test_multibatch_index_failure_rolls_back_all_owned_chunks(
     monkeypatch.setattr(
         "app.services.document_indexing_service.UnstructuredPDFLoader",
         lambda *_args, **_kwargs: Mock(load=lambda: documents),
+    )
+    monkeypatch.setattr(
+        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 1
     )
     monkeypatch.setattr(
         service,

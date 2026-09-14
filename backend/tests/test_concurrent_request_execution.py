@@ -20,7 +20,7 @@ from app.services.query_quota_service import QueryQuotaReservation
 
 
 @pytest.mark.asyncio
-async def test_two_pdf_indexes_progress_concurrently() -> None:
+async def test_two_pdf_indexes_progress_concurrently(monkeypatch: pytest.MonkeyPatch) -> None:
     """Two independent uploads must enter parsing without serializing the event loop."""
     repository = Mock()
     language_service = Mock()
@@ -37,6 +37,9 @@ async def test_two_pdf_indexes_progress_concurrently() -> None:
 
     loader = Mock()
     loader.load.side_effect = lambda: (time.sleep(0.15), loaded_documents)[1]
+    monkeypatch.setattr(
+        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 1
+    )
     first = UploadFile(file=BytesIO(b"%PDF-1.4 first"), filename="first.pdf")
     second = UploadFile(file=BytesIO(b"%PDF-1.4 second"), filename="second.pdf")
 
