@@ -2,16 +2,17 @@
 
 import os
 import time
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.responses import JSONResponse
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # Load one ignored local configuration file. Real process variables (tests,
 # Docker, and Railway) remain authoritative because local values never
@@ -26,6 +27,7 @@ from app.core.firebase import initialize_firebase  # noqa: E402
 from app.core.logging import logger  # noqa: E402
 from app.config.security_constants import (  # noqa: E402
     MAX_BUG_REPORT_REQUEST_SIZE,
+    MAX_DOCUMENT_REQUEST_SIZE,
     MAX_FEEDBACK_REQUEST_SIZE,
 )
 from app.db.chroma_client import get_chroma_client, get_embedding_function  # noqa: E402
@@ -89,6 +91,85 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+class UploadBodyLimitMiddleware:
+    """Bound multipart upload bodies before FastAPI starts parsing them."""
+
+    _limits = {
+        "/rag/upload/": MAX_DOCUMENT_REQUEST_SIZE,
+        "/rag/detect-language/": MAX_DOCUMENT_REQUEST_SIZE,
+        "/rag/report-bug/": MAX_BUG_REPORT_REQUEST_SIZE,
+    }
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        limit = self._limits.get(scope["path"])
+        if limit is None:
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        content_length = headers.get(b"content-length")
+        if content_length is not None:
+            try:
+                declared_size = int(content_length)
+            except ValueError:
+                await self._send_error(scope, receive, send, 400, "Invalid upload payload.")
+                return
+            if declared_size < 0:
+                await self._send_error(scope, receive, send, 400, "Invalid upload payload.")
+                return
+            if declared_size > limit:
+                await self._send_error(scope, receive, send, 413, "Upload payload is too large.")
+                return
+
+        buffered_chunks: list[bytes] = []
+        total_size = 0
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                break
+            if message["type"] != "http.request":
+                continue
+
+            body = message.get("body", b"")
+            total_size += len(body)
+            if total_size > limit:
+                await self._send_error(scope, receive, send, 413, "Upload payload is too large.")
+                return
+            buffered_chunks.append(body)
+            if not message.get("more_body", False):
+                break
+
+        next_chunk = 0
+
+        async def replay_receive() -> dict[str, Any]:
+            nonlocal next_chunk
+            if next_chunk >= len(buffered_chunks):
+                return {"type": "http.disconnect"}
+            body = buffered_chunks[next_chunk]
+            next_chunk += 1
+            return {
+                "type": "http.request",
+                "body": body,
+                "more_body": next_chunk < len(buffered_chunks),
+            }
+
+        await self.app(scope, replay_receive, send)
+
+    @staticmethod
+    async def _send_error(
+        scope: dict[str, Any], receive: Any, send: Any, status_code: int, detail: str
+    ) -> None:
+        response = JSONResponse(status_code=status_code, content={"detail": detail})
+        await response(scope, receive, send)
+
 # --- CORS Configuration ---
 if os.getenv("ENVIRONMENT") == "production":
     origins = settings.ALLOWED_ORIGINS.split(",")
@@ -111,6 +192,7 @@ app.add_middleware(
     ProxyHeadersMiddleware,
     trusted_hosts=[host.strip() for host in settings.TRUSTED_PROXY_IPS.split(",") if host.strip()],
 )
+app.add_middleware(UploadBodyLimitMiddleware)
 
 
 @app.middleware("http")

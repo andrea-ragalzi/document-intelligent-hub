@@ -11,6 +11,9 @@ import asyncio
 import time
 from typing import Any
 
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.config.security_constants import LLM_TIMEOUT_SECONDS
 from app.core.auth import require_verified_email
 from app.core.logging import logger
 from app.dependencies import get_query_quota_service, get_rag_service, query_parser_service
@@ -21,10 +24,12 @@ from app.schemas.rag_schema import (
     SummarizeRequest,
     SummarizeResponse,
 )
-from app.services.query_concurrency_limiter import global_expensive_operation_limiter, query_concurrency_limiter
+from app.services.query_concurrency_limiter import (
+    global_expensive_operation_limiter,
+    query_concurrency_limiter,
+)
 from app.services.query_quota_service import QueryLimitExceededError, QueryQuotaService
 from app.services.rag_orchestrator_service import RAGService
-from fastapi import APIRouter, Depends, HTTPException, status
 
 
 def _log_request_details(request: QueryRequest, user_id: str) -> None:
@@ -91,6 +96,19 @@ def _log_response_details(
 router = APIRouter(prefix="/rag", tags=["query"])
 
 
+async def _run_provider_operation(operation: Any, *args: Any, **kwargs: Any) -> Any:
+    """Run one blocking RAG operation with the public provider deadline."""
+    try:
+        async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
+            return await asyncio.to_thread(operation, *args, **kwargs)
+    except TimeoutError as exc:
+        logger.warning("Provider-backed operation timed out")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="The language service timed out. Please try again.",
+        ) from exc
+
+
 @router.post("/query/", response_model=QueryResponse)
 async def query_document(
     request: QueryRequest,
@@ -112,7 +130,11 @@ async def query_document(
     """
     global_slot_acquired = await global_expensive_operation_limiter.acquire()
     if not global_slot_acquired:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="The public demo is currently at capacity. Please try again in a few minutes.", headers={"Retry-After": "120"})
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The public demo is currently at capacity. Please try again in a few minutes.",
+            headers={"Retry-After": "120"},
+        )
     query_slot_acquired = await query_concurrency_limiter.acquire(user_id)
     if not query_slot_acquired:
         logger.warning("Concurrent RAG query rejected")
@@ -182,7 +204,7 @@ async def query_document(
         }
         if filter_result.is_compound:
             rag_kwargs["retrieval_queries"] = filter_result.retrieval_queries
-        answer, sources = await asyncio.to_thread(
+        answer, sources = await _run_provider_operation(
             rag_service.answer_query,
             query_for_rag,
             user_id,
@@ -245,8 +267,16 @@ async def summarize_conversation(
     - Useful for conversation history compression
     - Stored in Firestore for context retrieval
     """
+    global_slot_acquired = await global_expensive_operation_limiter.acquire()
+    if not global_slot_acquired:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The public demo is currently at capacity. Please try again in a few minutes.",
+            headers={"Retry-After": "120"},
+        )
     slot_acquired = await query_concurrency_limiter.acquire(user_id)
     if not slot_acquired:
+        await global_expensive_operation_limiter.release()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="A query is already running for this account. Please wait for it to finish.",
@@ -257,7 +287,7 @@ async def summarize_conversation(
         await asyncio.to_thread(quota_service.reserve, user_id)
         quota_reserved = True
         logger.info("📝 Generating bounded conversation summary")
-        summary = await asyncio.to_thread(
+        summary = await _run_provider_operation(
             rag_service.generate_conversation_summary, request.conversation_history
         )
         return SummarizeResponse(summary=summary)
@@ -278,3 +308,4 @@ async def summarize_conversation(
         ) from exc
     finally:
         await query_concurrency_limiter.release(user_id)
+        await global_expensive_operation_limiter.release()

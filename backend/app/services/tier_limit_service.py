@@ -7,12 +7,14 @@ Integrates with Firebase Auth custom claims to determine user tier.
 
 from typing import Any
 
-from app.core.logging import logger
-from app.infrastructure.firebase_config import load_app_config
 from firebase_admin import auth
 
+from app.config.security_constants import MAX_DOCUMENT_UPLOAD_SIZE
+from app.core.logging import logger
+from app.infrastructure.firebase_config import load_app_config
+
 PUBLIC_DEMO_MAX_FILES = 5
-PUBLIC_DEMO_MAX_FILE_SIZE_MB = 10
+PUBLIC_DEMO_MAX_FILE_SIZE_MB = MAX_DOCUMENT_UPLOAD_SIZE // (1024 * 1024)
 
 
 def get_user_tier_limits(user_id: str) -> tuple[str, dict[str, int]]:
@@ -64,7 +66,7 @@ def get_user_tier_limits(user_id: str) -> tuple[str, dict[str, int]]:
         limits["max_file_size_mb"] = PUBLIC_DEMO_MAX_FILE_SIZE_MB
         return tier, limits
 
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error("Unable to resolve tier limits | Type: {}", type(exc).__name__)
         # Return FREE tier defaults on error
         return "FREE", {

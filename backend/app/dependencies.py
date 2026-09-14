@@ -1,4 +1,5 @@
 """FastAPI composition root for application services and outbound adapters."""
+# pylint: disable=unused-import,useless-import-alias
 
 from collections.abc import Generator
 
@@ -11,7 +12,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from app.core.config import settings
-from app.core.llm_configuration import chat_model_options
+from app.core.llm_configuration import chat_model_options, openai_client_options
 from app.db.chroma_client import get_chroma_collection_direct, get_vector_store
 from app.db.chroma_client import get_embedding_function
 from app.ports.vector_store import VectorStorePort
@@ -71,7 +72,9 @@ def _build_translation_adapter() -> OpenAITranslationAdapter:
         if isinstance(settings.OPENAI_API_KEY, SecretStr)
         else str(settings.OPENAI_API_KEY)
     )
-    return OpenAITranslationAdapter(OpenAI(api_key=api_key), settings.LLM_MODEL)
+    return OpenAITranslationAdapter(
+        OpenAI(api_key=api_key, **openai_client_options()), settings.LLM_MODEL
+    )
 
 
 translation_service = _build_translation_adapter()

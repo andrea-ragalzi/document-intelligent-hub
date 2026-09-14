@@ -6,9 +6,11 @@ Centralized security-related constants to avoid magic numbers.
 
 # === FILE UPLOAD LIMITS ===
 
-# Maximum size for PDF document uploads (50MB)
-# Used in: documents_router.py (upload_document)
-MAX_DOCUMENT_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB in bytes
+# The public demo accepts PDFs up to 10 MiB regardless of user tier.
+MAX_DOCUMENT_UPLOAD_SIZE = 10 * 1024 * 1024
+# Multipart fields and boundaries need room beyond the PDF itself. This bounds
+# the transport body before Starlette creates an UploadFile temporary spool.
+MAX_DOCUMENT_REQUEST_SIZE = MAX_DOCUMENT_UPLOAD_SIZE + 64 * 1024
 
 # Maximum size for one bug-report screenshot (5MB).
 MAX_BUG_REPORT_SCREENSHOT_SIZE = 5 * 1024 * 1024
@@ -82,6 +84,9 @@ MAX_FILENAME_LENGTH = 255
 
 # Maximum time to wait for LLM response (seconds)
 LLM_TIMEOUT_SECONDS = 60
+# One provider attempt keeps the effective wait bounded by the configured
+# timeout instead of multiplying it through SDK retries.
+LLM_MAX_RETRIES = 0
 
 # Maximum time to wait for PDF parsing (seconds)
 PDF_PARSING_TIMEOUT_SECONDS = 30
