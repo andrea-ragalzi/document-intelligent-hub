@@ -3,6 +3,12 @@
 import { useRef, useEffect, FormEvent, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
+import {
+  EmailAuthProvider,
+  GoogleAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+} from "firebase/auth";
 import type { SavedConversation } from "@/lib/types";
 import { toAiSdkMessages } from "@/lib/chatMessagePersistence";
 import { deleteAccountData } from "@/lib/accountDataCleanup";
@@ -438,24 +444,47 @@ export default function Page() {
     }
   };
 
-  const handleDeleteAccount = async () => {
+  const requiresPasswordForDeletion = Boolean(
+    user?.providerData.some(provider => provider.providerId === "password")
+  );
+
+  const handleDeleteAccount = async (password?: string) => {
     if (!user || !userId) return;
 
     try {
-      const idToken = await user.getIdToken();
+      // Firebase only permits account deletion shortly after authentication.
+      // Reauthenticate before cleanup so we never remove server data and then
+      // discover that the Firebase identity cannot be removed.
+      if (requiresPasswordForDeletion) {
+        if (!user.email || !password) {
+          throw new Error("Enter your password to delete your account.");
+        }
+        await reauthenticateWithCredential(
+          user,
+          EmailAuthProvider.credential(user.email, password)
+        );
+      } else if (user.providerData.some(provider => provider.providerId === "google.com")) {
+        await reauthenticateWithPopup(user, new GoogleAuthProvider());
+      } else {
+        throw new Error("Please sign in again, then retry account deletion.");
+      }
+
+      const idToken = await user.getIdToken(true);
       await deleteAccountData(idToken);
-
-      // Keep the Firebase Auth account intact if server-side cleanup fails.
       await user.delete();
-
-      // Redirect to login
       router.push("/login");
-    } catch {
+    } catch (error) {
       console.error("Account deletion failed.");
-      setStatusAlert({
-        message: "Error deleting account. Please try again.",
-        type: "error",
-      });
+      if (typeof error === "object" && error !== null && "code" in error) {
+        const code = error.code;
+        if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
+          throw new Error("The password is incorrect. Please try again.");
+        }
+        if (code === "auth/popup-closed-by-user") {
+          throw new Error("Sign-in was cancelled. Your account has not been deleted.");
+        }
+      }
+      throw error;
     }
   };
 
@@ -632,6 +661,7 @@ export default function Page() {
           onClose={() => setDeleteAccountModalOpen(false)}
           onConfirm={handleDeleteAccount}
           userEmail={user?.email || ""}
+          requiresPassword={requiresPasswordForDeletion}
         />
 
         {/* Bug Report Modal */}
