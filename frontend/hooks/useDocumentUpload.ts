@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { AlertState } from "@/lib/types";
-import { API_BASE_URL } from "@/lib/constants";
+import { API_BASE_URL, MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
 
 export type DuplicateAction = "replace" | "rename" | "skip";
@@ -47,6 +47,11 @@ const getSelectionMessage = (pdfCount: number, ignoredCount: number): string => 
   return `${pdfLabel} selected; ${ignoredLabel} ignored.`;
 };
 
+const getOversizedMessage = (fileNames: string[]): string => {
+  const names = fileNames.join(", ");
+  return `${names} ${fileNames.length === 1 ? "is" : "are"} larger than the ${MAX_UPLOAD_SIZE_MB} MB limit.`;
+};
+
 const submitDocument = async (
   file: File,
   action: DuplicateAction | undefined,
@@ -68,6 +73,9 @@ const submitDocument = async (
     const data: { detail?: string; filename?: string } = await response.json().catch(() => ({}));
 
     if (response.status === 409) return { status: "conflict" };
+    if (response.status === 413) {
+      return { status: "failure", message: `Files must be ${MAX_UPLOAD_SIZE_MB} MB or smaller.` };
+    }
     if (!response.ok) return { status: "failure", message: data.detail || "Upload failed." };
 
     return { status: "success", filename: data.filename || file.name };
@@ -181,17 +189,29 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     const pdfFiles = selectedFiles.filter(
       file => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
     );
+    const oversizedFiles = pdfFiles.filter(file => file.size > MAX_UPLOAD_SIZE_BYTES);
+    const acceptedFiles = pdfFiles.filter(file => file.size <= MAX_UPLOAD_SIZE_BYTES);
 
     setPendingDuplicate(null);
     resolutionsRef.current.clear();
-    setFiles(pdfFiles);
-    if (!pdfFiles.length) {
+    setFiles(acceptedFiles);
+    if (!acceptedFiles.length && oversizedFiles.length) {
+      setUploadAlert({ message: getOversizedMessage(oversizedFiles.map(file => file.name)), type: "error" });
+      return;
+    }
+    if (!acceptedFiles.length) {
       setUploadAlert({ message: "Only PDF files are supported.", type: "error" });
       return;
     }
 
     const ignoredCount = selectedFiles.length - pdfFiles.length;
-    setUploadAlert({ message: getSelectionMessage(pdfFiles.length, ignoredCount), type: "info" });
+    const sizeWarning = oversizedFiles.length
+      ? ` ${getOversizedMessage(oversizedFiles.map(file => file.name))} They were skipped.`
+      : "";
+    setUploadAlert({
+      message: `${getSelectionMessage(acceptedFiles.length, ignoredCount)}${sizeWarning}`,
+      type: oversizedFiles.length ? "error" : "info",
+    });
   }, []);
 
   const handleUpload = useCallback(

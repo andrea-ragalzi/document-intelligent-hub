@@ -6,6 +6,7 @@ import { UploadProgress } from "./UploadProgress";
 import { AlertMessage } from "./AlertMessage";
 import type { AlertState } from "@/lib/types";
 import type { DuplicateAction } from "@/hooks/useDocumentUpload";
+import { MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
 
 interface UploadProgressState {
   progress: number;
@@ -235,6 +236,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   <div>
                     <p className="mb-2 text-lg font-semibold text-ink">{dropZoneText}</p>
                     <p className="text-sm text-muted">or click to browse files</p>
+                    <p className="mt-2 text-xs text-muted">PDF only · maximum {MAX_UPLOAD_SIZE_MB} MB per file</p>
                   </div>
 
                   <input
