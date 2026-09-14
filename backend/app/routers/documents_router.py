@@ -41,7 +41,7 @@ from app.services.demo_document_service import (
     DemoDocumentService,
 )
 from app.services.rag_orchestrator_service import RAGService
-from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
+from app.services.query_concurrency_limiter import GlobalExpensiveOperationLimiter, QueryConcurrencyLimiter, global_expensive_operation_limiter
 from app.services.tier_limit_service import (
     check_file_count_limit,
     get_max_upload_size_bytes,
@@ -296,8 +296,12 @@ async def upload_document(
     **Multi-tenancy:** Each document is tagged with verified `user_id` from Auth token.
     **Tier Limits:** Automatically enforced based on user's Firebase custom claims.
     """
+    global_admitted = await global_expensive_operation_limiter.acquire()
+    if not global_admitted:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="The public demo is currently at capacity. Please try again in a few minutes.", headers={"Retry-After": "120"})
     admitted = await upload_concurrency_limiter.acquire(user_id)
     if not admitted:
+        await global_expensive_operation_limiter.release()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="A document upload is already running for this account. Please wait for it to finish.",
@@ -355,6 +359,7 @@ async def upload_document(
         ) from exc
     finally:
         await upload_concurrency_limiter.release(user_id)
+        await global_expensive_operation_limiter.release()
 
 
 @router.post("/detect-language/", response_model=DetectLanguageResponse)

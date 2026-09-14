@@ -21,7 +21,7 @@ from app.schemas.rag_schema import (
     SummarizeRequest,
     SummarizeResponse,
 )
-from app.services.query_concurrency_limiter import query_concurrency_limiter
+from app.services.query_concurrency_limiter import global_expensive_operation_limiter, query_concurrency_limiter
 from app.services.query_quota_service import QueryLimitExceededError, QueryQuotaService
 from app.services.rag_orchestrator_service import RAGService
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -110,9 +110,13 @@ async def query_document(
 
     **Cost:** ~$0.00007 per query for optimization (7 cents per 1000 queries)
     """
+    global_slot_acquired = await global_expensive_operation_limiter.acquire()
+    if not global_slot_acquired:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="The public demo is currently at capacity. Please try again in a few minutes.", headers={"Retry-After": "120"})
     query_slot_acquired = await query_concurrency_limiter.acquire(user_id)
     if not query_slot_acquired:
         logger.warning("Concurrent RAG query rejected")
+        await global_expensive_operation_limiter.release()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="A query is already running for this account. Please wait for it to finish.",
@@ -224,6 +228,7 @@ async def query_document(
         ) from e
     finally:
         await query_concurrency_limiter.release(user_id)
+        await global_expensive_operation_limiter.release()
 
 
 @router.post("/summarize/", response_model=SummarizeResponse)

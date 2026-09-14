@@ -1,6 +1,7 @@
 """Small in-process concurrency guard for expensive RAG requests."""
 
 import asyncio
+import os
 
 
 class QueryConcurrencyLimiter:
@@ -31,3 +32,26 @@ class QueryConcurrencyLimiter:
 
 
 query_concurrency_limiter = QueryConcurrencyLimiter()
+
+
+class GlobalExpensiveOperationLimiter:
+    """Non-queuing process-wide admission guard for paid/CPU-heavy operations."""
+
+    def __init__(self, maximum: int | None = None) -> None:
+        self.maximum = maximum if maximum is not None else int(os.getenv("MAX_GLOBAL_EXPENSIVE_OPERATIONS", "2"))
+        self.active = 0
+        self._lock = asyncio.Lock()
+
+    async def acquire(self) -> bool:
+        async with self._lock:
+            if self.active >= self.maximum:
+                return False
+            self.active += 1
+            return True
+
+    async def release(self) -> None:
+        async with self._lock:
+            self.active = max(0, self.active - 1)
+
+
+global_expensive_operation_limiter = GlobalExpensiveOperationLimiter()

@@ -1,0 +1,99 @@
+{
+  "run_at": "2026-09-14T14:00:19.672611+00:00",
+  "scope": "MEASURED_LOCAL: isolated direct repository/retrieval benchmark; OpenAI final-answer stage mocked at 80ms. It does not measure HTTP routing, Firestore, PDF parser, Railway, or OpenAI.",
+  "machine": {
+    "cpu_count": 20,
+    "rss_bytes": 1004957696
+  },
+  "ingestion": {
+    "chunks": 17,
+    "text_chars": 7470,
+    "elapsed_ms": 177.48886899971694,
+    "storage_before_bytes": 167936,
+    "storage_after_bytes": 483492,
+    "storage_delta_bytes": 315556
+  },
+  "levels": [
+    {
+      "concurrency": 1,
+      "requests": 5,
+      "successes": 5,
+      "errors": 0,
+      "error_rate": 0.0,
+      "rps": 11.310718856985634,
+      "min_ms": 87.18415700059268,
+      "p50_ms": 88.51411099931283,
+      "p95_ms": 89.69100800095475,
+      "p99_ms": 89.69100800095475,
+      "max_ms": 89.69100800095475,
+      "rss_before": 974077952,
+      "rss_after": 977403904,
+      "cpu_seconds": 0.1600000000000006
+    },
+    {
+      "concurrency": 2,
+      "requests": 10,
+      "successes": 10,
+      "errors": 0,
+      "error_rate": 0.0,
+      "rps": 107.38418199824889,
+      "min_ms": 88.79232400067849,
+      "p50_ms": 90.72917100093036,
+      "p95_ms": 93.12358500028495,
+      "p99_ms": 93.12358500028495,
+      "max_ms": 93.12358500028495,
+      "rss_before": 977285120,
+      "rss_after": 978776064,
+      "cpu_seconds": 0.28000000000000025
+    },
+    {
+      "concurrency": 5,
+      "requests": 25,
+      "successes": 25,
+      "errors": 0,
+      "error_rate": 0.0,
+      "rps": 229.46068918264635,
+      "min_ms": 101.99624599954404,
+      "p50_ms": 105.7561519992305,
+      "p95_ms": 108.16282499945373,
+      "p99_ms": 108.95112399884965,
+      "max_ms": 108.95112399884965,
+      "rss_before": 978653184,
+      "rss_after": 983191552,
+      "cpu_seconds": 0.7599999999999993
+    },
+    {
+      "concurrency": 10,
+      "requests": 50,
+      "successes": 50,
+      "errors": 0,
+      "error_rate": 0.0,
+      "rps": 356.0781529449525,
+      "min_ms": 86.45095899919397,
+      "p50_ms": 134.83429799998703,
+      "p95_ms": 139.1841660006321,
+      "p99_ms": 140.4186119998485,
+      "max_ms": 140.4186119998485,
+      "rss_before": 983191552,
+      "rss_after": 990461952,
+      "cpu_seconds": 1.6300000000000006
+    },
+    {
+      "concurrency": 20,
+      "requests": 100,
+      "successes": 100,
+      "errors": 0,
+      "error_rate": 0.0,
+      "rps": 496.50613350527624,
+      "min_ms": 86.41019400056393,
+      "p50_ms": 185.04251400008798,
+      "p95_ms": 196.0296390006988,
+      "p99_ms": 199.30571699842403,
+      "max_ms": 201.40738100053568,
+      "rss_before": 990171136,
+      "rss_after": 1005277184,
+      "cpu_seconds": 3.4499999999999984
+    }
+  ],
+  "elapsed_seconds": 6.21357203199841
+}
