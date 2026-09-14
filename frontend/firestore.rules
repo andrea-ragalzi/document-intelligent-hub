@@ -5,20 +5,35 @@ service cloud.firestore {
 
     // Conversations: only authenticated users (NO anonymous)
     match /conversations/{conversationId} {
-      // Requires NON-anonymous authentication
-      allow read: if request.auth != null
-                  && !request.auth.token.firebase.sign_in_provider.matches('anonymous')
-                  && request.auth.uid == resource.data.userId;
+      function signedInUser() {
+        return request.auth != null
+          && !request.auth.token.firebase.sign_in_provider.matches('anonymous');
+      }
 
-      // Allow update and delete only to authenticated owner
-      allow update, delete: if request.auth != null
-                            && !request.auth.token.firebase.sign_in_provider.matches('anonymous')
-                            && request.auth.uid == resource.data.userId;
+      function validConversation(data) {
+        return data.keys().hasOnly(['userId', 'name', 'history', 'createdAt', 'updatedAt', 'isPinned'])
+          && data.keys().hasAll(['userId', 'name', 'history', 'createdAt', 'updatedAt'])
+          && data.userId is string
+          && data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 120
+          && data.history is list
+          && data.history.size() <= 100
+          && data.createdAt is timestamp
+          && data.updatedAt is timestamp
+          && (!data.keys().hasAny(['isPinned']) || data.isPinned is bool);
+      }
 
-      // Allow creation only if userId matches authenticated user
-      allow create: if request.auth != null
-                    && !request.auth.token.firebase.sign_in_provider.matches('anonymous')
-                    && request.auth.uid == request.resource.data.userId;
+      allow read: if signedInUser() && request.auth.uid == resource.data.userId;
+      allow create: if signedInUser()
+                    && request.auth.uid == request.resource.data.userId
+                    && validConversation(request.resource.data);
+      allow update: if signedInUser()
+                    && request.auth.uid == resource.data.userId
+                    && request.resource.data.userId == resource.data.userId
+                    && request.resource.data.createdAt == resource.data.createdAt
+                    && validConversation(request.resource.data);
+      allow delete: if signedInUser() && request.auth.uid == resource.data.userId;
     }
 
     // Deny access to all other collections for security
