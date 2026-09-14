@@ -532,15 +532,20 @@ async def test_multibatch_index_failure_rolls_back_all_owned_chunks(
 async def test_single_delete_is_idempotent_for_split_resource_states(
     original_deleted: bool, chunks_deleted: int
 ) -> None:
-    """Each side of a prior interrupted delete can be safely cleaned up."""
+    """Delete succeeds for partial state and returns 404 when nothing exists."""
     rag = Mock()
     rag.delete_user_document.return_value = chunks_deleted
     storage = Mock()
     storage.delete.return_value = original_deleted
 
-    response = await documents_router.delete_document("report.pdf", "owner", rag, storage)
+    if not original_deleted and chunks_deleted == 0:
+        with pytest.raises(HTTPException) as error:
+            await documents_router.delete_document("report.pdf", "owner", rag, storage)
+        assert error.value.status_code == 404
+    else:
+        response = await documents_router.delete_document("report.pdf", "owner", rag, storage)
+        assert response.chunks_deleted == chunks_deleted
 
-    assert response.chunks_deleted == chunks_deleted
     storage.delete.assert_called_once_with("owner", "report.pdf")
     rag.delete_user_document.assert_called_once_with(user_id="owner", filename="report.pdf")
 

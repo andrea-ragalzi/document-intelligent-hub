@@ -597,10 +597,15 @@ async def delete_document(
     try:
         # Delete the original first.  If that operation fails, indexed chunks
         # remain available for a safe retry instead of leaving an orphan file.
-        document_storage.delete(user_id, filename)
+        original_deleted = document_storage.delete(user_id, filename)
         deleted_count = rag_service.delete_user_document(
             user_id=user_id, filename=filename
         )
+        if not original_deleted and deleted_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found.",
+            )
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning("Document deleted | Chunks: {}", deleted_count)
