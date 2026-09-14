@@ -21,6 +21,12 @@ describe("useChatScroll", () => {
     vi.unstubAllGlobals();
   });
 
+  it("does not scroll the empty state on initial load", () => {
+    renderHook(() => useChatScroll([], false));
+
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
+  });
+
   it("uses a non-animated scroll while an assistant response is streaming", () => {
     const scrollIntoView = vi.fn();
     const { result } = renderHook(() => useChatScroll(["partial answer"], true));
