@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader } from "lucide-react";
 import type { SavedConversation } from "@/lib/types";
 import { toAiSdkMessages } from "@/lib/chatMessagePersistence";
+import { deleteAccountData } from "@/lib/accountDataCleanup";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserId } from "@/hooks/useUserId";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
@@ -441,26 +442,10 @@ export default function Page() {
     if (!user || !userId) return;
 
     try {
-      // Delete all user data from Firestore (conversations and documents)
-      const db = (await import("firebase/firestore")).getFirestore();
-      const {
-        collection,
-        query: firestoreQuery,
-        where,
-        getDocs,
-        deleteDoc,
-      } = await import("firebase/firestore");
+      const idToken = await user.getIdToken();
+      await deleteAccountData(idToken);
 
-      // Delete all conversations
-      const conversationsRef = collection(db, "conversations");
-      const conversationsSnapshot = await getDocs(
-        firestoreQuery(conversationsRef, where("userId", "==", userId))
-      );
-
-      const deletePromises = conversationsSnapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
-
-      // Delete user account from Firebase Auth
+      // Keep the Firebase Auth account intact if server-side cleanup fails.
       await user.delete();
 
       // Redirect to login
