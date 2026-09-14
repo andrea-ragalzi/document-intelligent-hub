@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, X, Loader } from "lucide-react";
 
 interface DeleteAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (password?: string) => Promise<void>;
   userEmail: string;
+  requiresPassword: boolean;
 }
 
 export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
@@ -15,26 +16,41 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   onClose,
   onConfirm,
   userEmail,
+  requiresPassword,
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setConfirmText("");
+      setPassword("");
+      setError(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    if (confirmText !== "DELETE") return;
+    if (confirmText !== "DELETE" || (requiresPassword && !password)) return;
 
     setIsDeleting(true);
+    setError(null);
     try {
-      await onConfirm();
-    } catch {
+      await onConfirm(password || undefined);
+    } catch (error) {
       console.error("Account deletion failed.");
+      setError(
+        error instanceof Error ? error.message : "Unable to delete account. Please try again."
+      );
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const isConfirmValid = confirmText === "DELETE";
+  const isConfirmValid = confirmText === "DELETE" && (!requiresPassword || password.length > 0);
 
   return (
     <>
@@ -101,6 +117,32 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
+
+            {requiresPassword && (
+              <div>
+                <label
+                  htmlFor="accountDeletionPassword"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Confirm your password:
+                </label>
+                <input
+                  id="accountDeletionPassword"
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  disabled={isDeleting}
+                  autoComplete="current-password"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            )}
+
+            {error && (
+              <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+                {error}
+              </p>
+            )}
           </div>
 
           {/* Actions */}
