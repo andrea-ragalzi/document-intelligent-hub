@@ -20,6 +20,36 @@ import { getFirebaseAuth, getFirebaseDb } from "./firebase";
 import type { SavedConversation, ChatMessage } from "./types";
 
 const CONVERSATIONS_COLLECTION = "conversations";
+export const MAX_SAVED_CONVERSATIONS_PER_USER = 20;
+export const MAX_PERSISTED_MESSAGES_PER_CONVERSATION = 40;
+export const MAX_PERSISTED_CONVERSATION_TEXT_CHARS = 12_000;
+
+/**
+ * Keep persisted history within the public-demo storage budget. The most recent
+ * messages win, and an oversized most-recent message is trimmed from its start
+ * so the latest part of the exchange remains available.
+ */
+export function boundConversationHistory(history: ChatMessage[]): ChatMessage[] {
+  const recentHistory = history.slice(-MAX_PERSISTED_MESSAGES_PER_CONVERSATION);
+  let remainingCharacters = MAX_PERSISTED_CONVERSATION_TEXT_CHARS;
+  const boundedHistory: ChatMessage[] = [];
+
+  for (let index = recentHistory.length - 1; index >= 0; index -= 1) {
+    const message = recentHistory[index];
+    const text = remainingCharacters > 0 ? message.text.slice(-remainingCharacters) : "";
+    remainingCharacters -= text.length;
+    boundedHistory.unshift({ ...message, text });
+  }
+
+  return boundedHistory;
+}
+
+async function getConversationCount(userId: string): Promise<number> {
+  const conversations = await getDocs(
+    query(collection(getFirebaseDb(), CONVERSATIONS_COLLECTION), where("userId", "==", userId))
+  );
+  return conversations.size;
+}
 
 /**
  * Save a new conversation to Firestore
@@ -39,10 +69,17 @@ export async function saveConversationToFirestore(
       throw new Error("UserId does not match authenticated user");
     }
 
+    const conversationCount = await getConversationCount(userId);
+    if (conversationCount >= MAX_SAVED_CONVERSATIONS_PER_USER) {
+      throw new Error("Conversation limit reached");
+    }
+
+    const boundedHistory = boundConversationHistory(history);
+
     const conversationData = {
       userId,
       name,
-      history,
+      history: boundedHistory,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       isPinned: false, // Initialize isPinned to false for new conversations
@@ -70,7 +107,7 @@ export async function saveConversationToFirestore(
         userId,
         name,
         timestamp,
-        history,
+        history: boundedHistory,
         isPinned: false, // Initialize isPinned for return value
       };
     } catch (addError: unknown) {
@@ -191,12 +228,13 @@ export async function updateConversationHistoryInFirestore(
     }
 
     const conversationRef = doc(getFirebaseDb(), CONVERSATIONS_COLLECTION, conversationId);
+    const boundedHistory = boundConversationHistory(history);
     const updateData: {
       history: ChatMessage[];
       updatedAt: ReturnType<typeof serverTimestamp>;
       isPinned?: boolean;
     } = {
-      history,
+      history: boundedHistory,
       updatedAt: serverTimestamp(),
     };
 
@@ -220,10 +258,14 @@ export async function migrateLocalStorageToFirestore(
   localConversations: SavedConversation[]
 ): Promise<void> {
   try {
-    const promises = localConversations.map(conv =>
-      saveConversationToFirestore(userId, conv.name, conv.history)
-    );
-    await Promise.all(promises);
+    const existingCount = await getConversationCount(userId);
+    const availableSlots = Math.max(0, MAX_SAVED_CONVERSATIONS_PER_USER - existingCount);
+
+    // Local storage is written newest-first. Migrate only what fits and save
+    // sequentially so each create observes the count after the previous one.
+    for (const conversation of localConversations.slice(0, availableSlots)) {
+      await saveConversationToFirestore(userId, conversation.name, conversation.history);
+    }
   } catch {
     console.error("Unable to migrate conversations.");
     throw new Error("Failed to migrate conversations");
