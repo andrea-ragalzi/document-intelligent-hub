@@ -113,7 +113,7 @@ class QueryParserService:
             )
         """
         try:
-            logger.info("Parsing query for file filters | Available files: {}", len(available_files))
+            logger.debug("Parsing query for file filters | Available files: {}", len(available_files))
 
             # Build prompt for LLM
             prompt = self._build_extraction_prompt(query)
@@ -155,7 +155,7 @@ class QueryParserService:
                 logger.warning("⚠️  Cleaned query too short, using original")
                 cleaned_query = query
 
-            logger.info(
+            logger.debug(
                 "File filters extracted | Included: {} | Excluded: {} | Compound: {}",
                 len(validated_include),
                 len(validated_exclude),
@@ -173,7 +173,7 @@ class QueryParserService:
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.error("File-filter extraction failed | Type: {}", type(exc).__name__)
-            logger.info("   Falling back to no filtering")
+            logger.debug("Falling back to no file filtering")
 
             # Fallback: no filtering, use original query
             return FileFilterResponse(

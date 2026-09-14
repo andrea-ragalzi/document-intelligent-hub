@@ -2,9 +2,10 @@
 
 import os
 import time
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -144,13 +145,6 @@ async def log_requests(request: Request, call_next: Callable[[Request], Any]) ->
     start_time = time.time()
     request_id = request.headers.get("X-Request-ID") or uuid4().hex
     request.state.request_id = request_id
-    logger.bind(ACCESS=True).info(
-        "Request started | ID: {} | Method: {} | Path: {}",
-        request_id,
-        request.method,
-        request.url.path,
-    )
-
     try:
         response = await call_next(request)
         process_time = (time.time() - start_time) * 1000  # in milliseconds

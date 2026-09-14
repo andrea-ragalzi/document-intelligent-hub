@@ -17,12 +17,16 @@ from app.db.chroma_client import get_embedding_function
 from app.ports.vector_store import VectorStorePort
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.infrastructure.firebase_config import load_app_config
-from app.infrastructure.firestore_usage_tracker import get_usage_service as get_usage_service
+from app.infrastructure.firestore_usage_tracker import (
+    get_usage_service as get_usage_service,
+)
 from app.infrastructure.local_file_storage import (
     get_document_file_storage as get_document_file_storage,
 )
 from app.infrastructure.openai_translation_adapter import OpenAITranslationAdapter
-from app.infrastructure.resend_email_adapter import get_email_service as get_email_service
+from app.infrastructure.resend_email_adapter import (
+    get_email_service as get_email_service,
+)
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.query_parser_service import QueryParserService
 from app.services.query_quota_service import QueryQuotaService
@@ -60,7 +64,9 @@ def _build_chat_model(temperature: float = 0.0) -> ChatOpenAI:
             settings.LLM_MODEL,
             SecretStr(settings.OPENAI_API_KEY),
             temperature=temperature,
-        )
+        ),
+        timeout=settings.OPENAI_TIMEOUT_SECONDS,
+        max_retries=settings.OPENAI_MAX_RETRIES,
     )
 
 
@@ -71,13 +77,18 @@ def _build_translation_adapter() -> OpenAITranslationAdapter:
         if isinstance(settings.OPENAI_API_KEY, SecretStr)
         else str(settings.OPENAI_API_KEY)
     )
-    return OpenAITranslationAdapter(OpenAI(api_key=api_key), settings.LLM_MODEL)
+    return OpenAITranslationAdapter(
+        OpenAI(
+            api_key=api_key,
+            timeout=settings.OPENAI_TIMEOUT_SECONDS,
+            max_retries=settings.OPENAI_MAX_RETRIES,
+        ),
+        settings.LLM_MODEL,
+    )
 
 
 translation_service = _build_translation_adapter()
-query_expansion_service = QueryExpansionService(
-    _build_chat_model(temperature=0.8)
-)
+query_expansion_service = QueryExpansionService(_build_chat_model(temperature=0.8))
 
 
 def get_rag_service(

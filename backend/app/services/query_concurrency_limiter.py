@@ -1,7 +1,8 @@
 """Small in-process concurrency guard for expensive RAG requests."""
 
 import asyncio
-import os
+
+from app.core.config import settings
 
 
 class QueryConcurrencyLimiter:
@@ -35,10 +36,16 @@ query_concurrency_limiter = QueryConcurrencyLimiter()
 
 
 class GlobalExpensiveOperationLimiter:
-    """Non-queuing process-wide admission guard for paid/CPU-heavy operations."""
+    """Non-queuing process-local guard for paid/CPU-heavy operations.
+
+    It is sufficient for the current single-process public demo. Multiple
+    processes or replicas need a shared limiter for deployment-wide bounds.
+    """
 
     def __init__(self, maximum: int | None = None) -> None:
-        self.maximum = maximum if maximum is not None else int(os.getenv("MAX_GLOBAL_EXPENSIVE_OPERATIONS", "2"))
+        self.maximum = (
+            maximum if maximum is not None else settings.MAX_GLOBAL_EXPENSIVE_OPERATIONS
+        )
         self.active = 0
         self._lock = asyncio.Lock()
 

@@ -7,6 +7,8 @@ from typing import Any
 
 from langchain_core.documents import Document
 
+from app.core.logging import logger
+
 # Stop word universali, agnostiche e comuni (lunghezza > 2)
 # Questi sono termini funzionali comuni che possono inquinare il TF-scoring.
 UNIVERSAL_STOP_WORDS = {
@@ -202,10 +204,8 @@ class RerankingService:
             self._extract_keywords([query]) for query in required_query_groups or []
         ]
 
-        print(
-            f"DEBUG [Reranking]: Using {len(keywords)} language-agnostic keywords for reranking"
-        )
-        print(f"DEBUG [Reranking]: Sample keywords: {list(keywords)[:5]}")
+        logger.debug("Reranking with {} language-agnostic keywords", len(keywords))
+        logger.debug("Reranking keyword sample: {}", list(keywords)[:5])
 
         replaceable_atomic_ids = self._replaceable_atomic_ids(documents)
         scored_docs = self._score_documents(
@@ -231,11 +231,11 @@ class RerankingService:
             top_n,
         )
 
-        print(f"DEBUG [Reranking]: Reranked {len(documents)} → {len(top_docs)} documents")
+        logger.debug("Reranked {} to {} documents", len(documents), len(top_docs))
         top_3_scores = [
             round(scored_docs[i][0], 3) for i in range(min(3, len(scored_docs)))
         ]
-        print(f"DEBUG [Reranking]: Top 3 scores: {top_3_scores}")
+        logger.debug("Reranking top scores: {}", top_3_scores)
 
         return top_docs
 
