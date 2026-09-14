@@ -102,6 +102,36 @@ def _log_response_details(
 
 
 router = APIRouter(prefix="/rag", tags=["query"])
+_background_tasks: set[asyncio.Task[Any]] = set()
+
+
+def _track_background_task(task: asyncio.Task[Any]) -> None:
+    """Keep a scheduled release alive until it completes."""
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+async def _acquire_query_leases(user_id: str) -> None:
+    """Admit a query without waiting when either concurrency limit is full."""
+    global_slot_acquired = await global_expensive_operation_limiter.acquire()
+    if not global_slot_acquired:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The public demo is currently at capacity. Please try again in a few minutes.",
+            headers={"Retry-After": "120"},
+        )
+
+    query_slot_acquired = await query_concurrency_limiter.acquire(user_id)
+    if query_slot_acquired:
+        return
+
+    logger.warning("Concurrent RAG query rejected")
+    await global_expensive_operation_limiter.release()
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="A query is already running for this account. Please wait for it to finish.",
+        headers={"Retry-After": "5"},
+    )
 
 
 async def _run_provider_operation(operation: Any, *args: Any, **kwargs: Any) -> Any:
@@ -117,42 +147,13 @@ async def _run_provider_operation(operation: Any, *args: Any, **kwargs: Any) -> 
         ) from exc
 
 
-@router.post("/query/", response_model=QueryResponse)
-async def query_document(
+async def _execute_query_with_worker_lease(
     request: QueryRequest,
     user_id: str = Depends(require_verified_email),
     rag_service: RAGService = Depends(get_rag_service),
     quota_service: QueryQuotaService = Depends(get_query_quota_service),
 ) -> QueryResponse:
-    """
-    **Query documents using RAG (Retrieval-Augmented Generation).**
-
-    Features:
-    - Automatic file filtering from natural language (e.g., "only in file X")
-    - Grammar correction and query optimization
-    - Conversation history support
-    - Multi-language support
-    - Tier-based rate limiting
-
-    **Cost:** ~$0.00007 per query for optimization (7 cents per 1000 queries)
-    """
-    global_slot_acquired = await global_expensive_operation_limiter.acquire()
-    if not global_slot_acquired:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="The public demo is currently at capacity. Please try again in a few minutes.",
-            headers={"Retry-After": "120"},
-        )
-    query_slot_acquired = await query_concurrency_limiter.acquire(user_id)
-    if not query_slot_acquired:
-        logger.warning("Concurrent RAG query rejected")
-        await global_expensive_operation_limiter.release()
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="A query is already running for this account. Please wait for it to finish.",
-            headers={"Retry-After": "5"},
-        )
-
+    """Execute all potentially billable work under already-acquired leases."""
     quota_reserved = False
     worker_started = False
     worker_entered = False
@@ -166,6 +167,10 @@ async def query_document(
         leases_released = True
         await query_concurrency_limiter.release(user_id)
         await global_expensive_operation_limiter.release()
+
+    def schedule_worker_lease_release() -> None:
+        release_task = asyncio.create_task(release_worker_leases())
+        _track_background_task(release_task)
 
     try:
 
@@ -246,16 +251,14 @@ async def query_document(
             finally:
                 # asyncio cancellation cannot stop a running thread. Schedule
                 # release from the thread only after all paid work has ended.
-                event_loop.call_soon_threadsafe(
-                    lambda: asyncio.create_task(release_worker_leases())
-                )
+                event_loop.call_soon_threadsafe(schedule_worker_lease_release)
 
         worker_started = True
         worker_task = asyncio.create_task(asyncio.to_thread(worker_with_lease))
 
         def release_if_worker_never_started(_task: asyncio.Task[Any]) -> None:
             if not worker_entered:
-                asyncio.create_task(release_worker_leases())
+                schedule_worker_lease_release()
 
         worker_task.add_done_callback(release_if_worker_never_started)
         try:
@@ -305,6 +308,20 @@ async def query_document(
     finally:
         if not worker_started:
             await release_worker_leases()
+
+
+@router.post("/query/", response_model=QueryResponse)
+async def query_document(
+    request: QueryRequest,
+    user_id: str = Depends(require_verified_email),
+    rag_service: RAGService = Depends(get_rag_service),
+    quota_service: QueryQuotaService = Depends(get_query_quota_service),
+) -> QueryResponse:
+    """Query user documents through the bounded RAG execution path."""
+    await _acquire_query_leases(user_id)
+    return await _execute_query_with_worker_lease(
+        request, user_id, rag_service, quota_service
+    )
 
 
 @router.post("/summarize/", response_model=SummarizeResponse)
