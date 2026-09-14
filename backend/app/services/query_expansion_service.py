@@ -86,7 +86,7 @@ class QueryExpansionService:
                 if self._preserves_query_entities(query, alternative)
             ][:num_queries]
 
-            logger.info("Alternative retrieval queries generated | Count: {}", len(result))
+            logger.debug("Alternative retrieval queries generated | Count: {}", len(result))
             return result
 
         except Exception as exc:

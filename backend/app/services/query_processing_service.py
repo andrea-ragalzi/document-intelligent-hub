@@ -109,7 +109,7 @@ class QueryProcessingService:
             )
             return query
 
-        logger.info(
+        logger.debug(
             "🔄 Query appears incomplete/ambiguous, attempting reformulation..."
         )
 
@@ -170,7 +170,7 @@ class QueryProcessingService:
             reformulated_query = str(response.content).strip()
 
             if self._is_valid_reformulation(reformulated_query):
-                logger.info("✅ Query reformulated successfully")
+                logger.debug("Query reformulated successfully")
                 return reformulated_query
 
             logger.warning(
@@ -180,7 +180,7 @@ class QueryProcessingService:
 
         except (ValueError, RuntimeError, TypeError, AttributeError) as exc:
             logger.error("Query reformulation failed | Type: {}", type(exc).__name__)
-            logger.info("   Falling back to original query")
+            logger.debug("Falling back to original query")
             return query
 
     def _build_history_context(

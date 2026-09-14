@@ -103,7 +103,7 @@ class RAGService:
             query_gen_llm=self.query_gen_llm
         )
 
-        logger.info("✅ RAGService initialized with specialized services")
+        logger.debug("RAGService initialized with specialized services")
 
     # === DOCUMENT INDEXING OPERATIONS ===
 
@@ -201,7 +201,7 @@ class RAGService:
 
         # Step 2: Classify query (for future optimizations)
         query_tag = self.query_processing_service.classify_query(reformulated_query)
-        logger.info(f"🏷️  Query classified as: {query_tag}")
+        logger.debug("Query classified as: {}", query_tag)
 
         # Step 3: Generate answer with full RAG pipeline
         answer_args: dict[str, Any] = dict(

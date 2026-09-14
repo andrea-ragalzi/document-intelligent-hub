@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     # Single source of truth for every OpenAI chat call. Local DEV templates use
     # gpt-4o-mini; Railway production overrides this with gpt-5.6-luna.
     LLM_MODEL: str = "gpt-4o-mini"
+    MAX_GLOBAL_EXPENSIVE_OPERATIONS: int = 2
+    OPENAI_TIMEOUT_SECONDS: float = 60.0
+    OPENAI_MAX_RETRIES: int = 0
 
     # === RAG SYSTEM PROMPTS (SECURITY: LOADED FROM FILES) ===
     # ⚠️ SECURITY CRITICAL: These prompts are loaded from external files to:
