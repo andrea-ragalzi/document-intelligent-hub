@@ -42,7 +42,6 @@ export const useConversationSummary = ({
 
     const generateSummary = async () => {
       isSummarizingRef.current = true;
-      console.log(`🧠 Generating conversation summary (${chatHistory.length} messages)`);
 
       try {
         // Get authentication token
@@ -72,7 +71,6 @@ export const useConversationSummary = ({
 
         if (response.ok) {
           const data = await response.json();
-          console.log(`✅ Summary generated: ${data.summary.substring(0, 100)}...`);
 
           lastSummarizedCountRef.current = chatHistory.length;
 
@@ -80,10 +78,10 @@ export const useConversationSummary = ({
             onSummaryGenerated(data.summary);
           }
         } else {
-          console.error("Failed to generate summary:", response.statusText);
+          console.error("Unable to generate conversation summary.");
         }
-      } catch (error) {
-        console.error("Error generating conversation summary:", error);
+      } catch {
+        console.error("Unable to generate conversation summary.");
       } finally {
         isSummarizingRef.current = false;
       }

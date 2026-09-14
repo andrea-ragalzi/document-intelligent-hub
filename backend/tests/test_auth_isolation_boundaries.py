@@ -386,6 +386,7 @@ def test_rag_error_response_and_logs_redact_exception_details(
     """OpenAI/RAG exception text must remain server-internal and redacted."""
     client, rag_service = protected_client
     secret_like_text = "sk-prohibited-test-value"
+    private_query = "PRIVATE_QUERY_DO_NOT_LOG"
     rag_service.get_user_documents.return_value = []
     rag_service.answer_query.side_effect = RuntimeError(
         f"OpenAI request failed with {secret_like_text}"
@@ -393,8 +394,8 @@ def test_rag_error_response_and_logs_redact_exception_details(
     parsed_query = FileFilterResponse(
         include_files=[],
         exclude_files=[],
-        original_query="Private question",
-        cleaned_query="Private question",
+        original_query=private_query,
+        cleaned_query=private_query,
     )
     router_logger = Mock()
 
@@ -409,9 +410,10 @@ def test_rag_error_response_and_logs_redact_exception_details(
         response = client.post(
             "/rag/query/",
             headers=VALID_AUTH_HEADER,
-            json={"query": "Private question"},
+            json={"query": private_query},
         )
 
     assert response.status_code == 500
     assert response.json()["detail"] == "Unable to process the query. Please try again."
     assert secret_like_text not in str(router_logger.mock_calls)
+    assert private_query not in str(router_logger.mock_calls)

@@ -115,6 +115,7 @@ Create the ignored local configuration with `cp backend/.env.example backend/.en
 | `QUERY_REFORMULATION_PROMPT_PATH` | Override path for the query-reformulation prompt                        |
 | `ENVIRONMENT`                     | Selects production CORS behavior when set to `production`               |
 | `ALLOWED_ORIGINS`                 | Comma-separated production CORS origins                                 |
+| `TRUSTED_PROXY_IPS`                | Comma-separated trusted reverse-proxy IPs/CIDRs for client-IP headers   |
 | `RESEND_API_KEY`                  | Enables backend-only Resend email delivery                              |
 | `RESEND_FROM_EMAIL`               | Verified Resend sender address                                          |
 | `REPORT_RECIPIENT_EMAIL`          | Fixed recipient for support and invitation notifications                |
@@ -177,4 +178,5 @@ The latest validation recorded 73 targeted tests passing and 322 backend tests p
 - Startup preloads the local HuggingFace embedding model and creates the persistent ChromaDB directory if needed; the first run can be slow and may require model download access.
 - ChromaDB contains the local search index rather than the original PDFs. Deleting `CHROMA_DB_PATH` loses indexed chunks and requires the documents to be uploaded again.
 - Development CORS allows all origins. Setting `ENVIRONMENT=production` switches to the comma-separated `ALLOWED_ORIGINS` list.
+- Invitation-request limits are process-local for the current single-instance demo. Set `TRUSTED_PROXY_IPS` to the real production reverse-proxy address or CIDR so the limiter can use forwarded client IPs safely; never set it to `*`.
 - The frontend may simulate progressive text display, but the backend query endpoint returns one complete JSON response rather than an end-to-end stream.

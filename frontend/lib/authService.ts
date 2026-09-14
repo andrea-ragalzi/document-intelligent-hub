@@ -18,12 +18,10 @@ import { getFirebaseAuth } from "./firebase";
  */
 export async function signInAnonymous(): Promise<User> {
   try {
-    console.log("🔐 Signing in anonymously...");
     const result = await signInAnonymously(getFirebaseAuth());
-    console.log("✅ Anonymous sign-in successful:", result.user.uid);
     return result.user;
   } catch (error) {
-    console.error("❌ Anonymous sign-in failed:", error);
+    console.error("Anonymous sign-in failed.");
     throw error;
   }
 }
@@ -33,12 +31,10 @@ export async function signInAnonymous(): Promise<User> {
  */
 export async function signInWithEmail(email: string, password: string): Promise<User> {
   try {
-    console.log("🔐 Signing in with email...");
     const result = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
-    console.log("✅ Email sign-in successful:", result.user.uid);
     return result.user;
   } catch (error) {
-    console.error("❌ Email sign-in failed:", error);
+    console.error("Email sign-in failed.");
     throw error;
   }
 }
@@ -48,12 +44,10 @@ export async function signInWithEmail(email: string, password: string): Promise<
  */
 export async function signUpWithEmail(email: string, password: string): Promise<User> {
   try {
-    console.log("🔐 Creating new user...");
     const result = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
-    console.log("✅ User created successfully:", result.user.uid);
     return result.user;
   } catch (error) {
-    console.error("❌ User creation failed:", error);
+    console.error("Account creation failed.");
     throw error;
   }
 }
@@ -63,11 +57,9 @@ export async function signUpWithEmail(email: string, password: string): Promise<
  */
 export async function signOut(): Promise<void> {
   try {
-    console.log("🔐 Signing out...");
     await firebaseSignOut(getFirebaseAuth());
-    console.log("✅ Sign-out successful");
   } catch (error) {
-    console.error("❌ Sign-out failed:", error);
+    console.error("Sign-out failed.");
     throw error;
   }
 }

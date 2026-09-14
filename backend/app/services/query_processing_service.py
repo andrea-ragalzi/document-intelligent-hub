@@ -83,8 +83,8 @@ class QueryProcessingService:
                 result = QueryClassification.model_validate(result)
             return result.category_tag.upper()
 
-        except (ValueError, KeyError, RuntimeError, TypeError) as e:
-            logger.error(f"❌ Error classifying query: {e}")
+        except (ValueError, KeyError, RuntimeError, TypeError) as exc:
+            logger.error("Query classification failed | Type: {}", type(exc).__name__)
             return "GENERAL_SEARCH"
 
     def reformulate_query(
@@ -112,7 +112,6 @@ class QueryProcessingService:
         logger.info(
             "🔄 Query appears incomplete/ambiguous, attempting reformulation..."
         )
-        logger.debug(f"   Original query: {query}")
 
         return self._attempt_reformulation(query, conversation_history)
 
@@ -172,8 +171,6 @@ class QueryProcessingService:
 
             if self._is_valid_reformulation(reformulated_query):
                 logger.info("✅ Query reformulated successfully")
-                logger.debug(f"   Original: {query}")
-                logger.debug(f"   Reformulated: {reformulated_query}")
                 return reformulated_query
 
             logger.warning(
@@ -181,8 +178,8 @@ class QueryProcessingService:
             )
             return query
 
-        except (ValueError, RuntimeError, TypeError, AttributeError) as e:
-            logger.error(f"❌ Query reformulation failed: {e}")
+        except (ValueError, RuntimeError, TypeError, AttributeError) as exc:
+            logger.error("Query reformulation failed | Type: {}", type(exc).__name__)
             logger.info("   Falling back to original query")
             return query
 

@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Document Intelligent Hub Backend"
     PROJECT_VERSION: str = "1.0.0"
     ALLOWED_ORIGINS: str = "http://localhost:3000"
+    # Trusted reverse-proxy addresses allowed to rewrite request.client from
+    # X-Forwarded-For. Production must set the Railway/Vercel proxy range.
+    TRUSTED_PROXY_IPS: str = "127.0.0.1"
 
     # === CRITICAL: API KEYS (MUST BE IN .env) ===
     OPENAI_API_KEY: str = ""  # Required for LLM and embeddings

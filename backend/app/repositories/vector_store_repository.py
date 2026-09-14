@@ -97,8 +97,8 @@ class VectorStoreRepository:
             logger.info(f"✅ Successfully indexed {total_indexed} document chunks")
             return total_indexed
 
-        except Exception as e:
-            logger.error(f"❌ Failed to add documents to vector store: {e}")
+        except Exception as exc:
+            logger.error("Unable to add document chunks | Type: {}", type(exc).__name__)
             raise
 
     # --- READ Operations ---
@@ -120,12 +120,10 @@ class VectorStoreRepository:
                 limit=1,
             )
             exists = len(results.get("ids", [])) > 0
-            logger.debug(
-                f"📄 Document '{filename}' exists for user {user_id}: {exists}"
-            )
+            logger.debug("Document existence check completed | Exists: {}", exists)
             return exists
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error checking document existence: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to check document existence | Type: {}", type(exc).__name__)
             return False
 
     def get_user_chunks_sample(
@@ -150,12 +148,10 @@ class VectorStoreRepository:
             results = self.collection.get(where={"source": user_id}, limit=sample_size)
             metadatas = results.get("metadatas", []) or []
             ids = results.get("ids", []) or []
-            logger.debug(
-                f"📊 Retrieved {len(metadatas)} chunk metadata samples for user {user_id}"
-            )
+            logger.debug("Document metadata sample retrieved | Chunks: {}", len(metadatas))
             return metadatas, ids
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error getting user chunks sample: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to read document chunks | Type: {}", type(exc).__name__)
             return [], []
 
     def count_document_chunks(self, user_id: str, filename: str) -> int:
@@ -175,10 +171,10 @@ class VectorStoreRepository:
                 limit=100000,
             )
             count = len(results.get("ids", []))
-            logger.debug(f"📊 Document '{filename}' has {count} chunks")
+            logger.debug("Document chunk count: {}", count)
             return count
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error counting document chunks: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to count document chunks | Type: {}", type(exc).__name__)
             return 0
 
     def similarity_search(
@@ -202,8 +198,8 @@ class VectorStoreRepository:
             )
             logger.debug(f"🔍 Similarity search returned {len(results)} results")
             return results
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Similarity search failed: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Similarity search failed | Type: {}", type(exc).__name__)
             return []
 
     def lexical_candidate_search(
@@ -431,7 +427,7 @@ class VectorStoreRepository:
                     {"original_filename": {"$in": include_files}},
                 ]
             }
-            logger.debug(f"🔍 Retriever filter: INCLUDE files {include_files}")
+            logger.debug("Retriever filter includes {} files", len(include_files))
         elif exclude_files:
             # Exclude specific files
             filter_conditions = {
@@ -440,9 +436,9 @@ class VectorStoreRepository:
                     {"original_filename": {"$nin": exclude_files}},
                 ]
             }
-            logger.debug(f"🔍 Retriever filter: EXCLUDE files {exclude_files}")
+            logger.debug("Retriever filter excludes {} files", len(exclude_files))
         else:
-            logger.debug(f"🔍 Retriever filter: ALL files for user {user_id}")
+            logger.debug("Retriever filter covers all owned files")
 
         return self.vector_store.as_retriever(
             search_kwargs={"filter": filter_conditions, "k": k}
@@ -476,11 +472,11 @@ class VectorStoreRepository:
                 where={"$and": [{"source": user_id}, {"original_filename": filename}]}
             )
 
-            logger.info(f"✅ Deleted ~{chunks_count} chunks for document '{filename}'")
+            logger.info("Document chunks deleted | Count: {}", chunks_count)
             return chunks_count
 
-        except Exception as e:
-            logger.error(f"❌ Failed to delete document '{filename}': {e}")
+        except Exception as exc:
+            logger.error("Unable to delete document chunks | Type: {}", type(exc).__name__)
             raise
 
     def delete_all_user_documents(self, user_id: str) -> int:
@@ -503,11 +499,9 @@ class VectorStoreRepository:
             # Delete all user documents in one operation
             self.collection.delete(where={"source": user_id})
 
-            logger.info(
-                f"✅ Deleted all documents for user {user_id} (~{total_chunks} chunks)"
-            )
+            logger.info("All document chunks deleted | Count: {}", total_chunks)
             return total_chunks
 
-        except Exception as e:
-            logger.error(f"❌ Failed to delete all documents for user {user_id}: {e}")
+        except Exception as exc:
+            logger.error("Unable to delete all document chunks | Type: {}", type(exc).__name__)
             raise

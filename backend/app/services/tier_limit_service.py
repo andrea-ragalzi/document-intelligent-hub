@@ -51,12 +51,12 @@ def get_user_tier_limits(user_id: str) -> tuple[str, dict[str, int]]:
             ),
         )
 
-        logger.debug(f"📊 User {user_id} | Tier: {tier} | Limits: {limits}")
+        logger.debug("Tier limits resolved | Tier: {}", tier)
 
         return tier, limits
 
-    except Exception as e:
-        logger.error(f"❌ Error getting tier limits for user {user_id}: {e}")
+    except Exception as exc:
+        logger.error("Unable to resolve tier limits | Type: {}", type(exc).__name__)
         # Return FREE tier defaults on error
         return "FREE", {
             "max_queries_per_day": 20,

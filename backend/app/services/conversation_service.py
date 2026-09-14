@@ -76,9 +76,8 @@ SUMMARY (3-5 sentences):"""
             summary = str(response.content).strip()
 
             logger.info(f"✅ Generated conversation summary ({len(summary)} chars)")
-            logger.debug(f"   Summary: {summary[:100]}...")
             return summary
 
-        except Exception as e:
-            logger.error(f"❌ Conversation summarization failed: {e}")
+        except Exception as exc:
+            logger.error("Conversation summarization failed | Type: {}", type(exc).__name__)
             return "Unable to generate summary."

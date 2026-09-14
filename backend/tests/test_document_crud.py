@@ -88,7 +88,7 @@ class TestDocumentCRUD:
     def test_delete_missing_document_returns_not_found(
         self, client: Any, unique_user_id: str
     ) -> None:
-        """Deleting a filename that was never indexed returns the current 404."""
+        """Deleting a missing document returns a client-safe 404."""
         client.test_user_context["user_id"] = unique_user_id
 
         response = client.delete(
@@ -97,9 +97,7 @@ class TestDocumentCRUD:
         )
 
         assert response.status_code == 404
-        assert response.json()["detail"] == (
-            f"Document 'missing-document.pdf' not found for user {unique_user_id}"
-        )
+        assert response.json()["detail"] == "Document not found."
 
     def test_delete_all_documents(
         self, client: Any, sample_pdf: Any, unique_user_id: str

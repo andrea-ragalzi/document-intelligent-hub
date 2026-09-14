@@ -88,7 +88,7 @@ class TestUploadEndpoint:
         with patch(
             "app.services.rag_orchestrator_service.RAGService.index_document",
             new_callable=AsyncMock,
-            side_effect=RuntimeError("malformed PDF"),
+            side_effect=RuntimeError("/tmp/private-user-document.pdf SECRET_PROVIDER_DETAIL_123"),
         ) as index_document:
             response = client.post(
                 "/rag/upload/",
@@ -96,7 +96,9 @@ class TestUploadEndpoint:
             )
 
         assert response.status_code == 500
-        assert response.json()["detail"] == "Indexing failed: malformed PDF"
+        assert response.json()["detail"] == "Unable to index the document. Please try again."
+        assert "SECRET_PROVIDER_DETAIL_123" not in response.text
+        assert "/tmp/private-user-document.pdf" not in response.text
         assert index_document.await_args.kwargs["user_id"] == test_user_id
 
     def test_upload_missing_user_id(self, client: Any, sample_pdf: Any) -> None:

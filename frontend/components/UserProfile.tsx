@@ -12,8 +12,8 @@ export default function UserProfile() {
     try {
       await logout();
       router.push("/login");
-    } catch (error) {
-      console.error("Failed to logout:", error);
+    } catch {
+      console.error("Sign-out failed.");
     }
   };
 

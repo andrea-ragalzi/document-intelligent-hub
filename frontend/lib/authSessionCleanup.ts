@@ -6,10 +6,10 @@ export function clearUserScopedClientState(): void {
   if (typeof window !== "undefined") {
     try {
       window.localStorage.removeItem(CONVERSATIONS_KEY);
-    } catch (error) {
+    } catch {
       // Firebase is already signed out; unavailable browser storage must not
       // turn a successful sign-out into an authentication failure.
-      console.warn("Could not clear local conversation fallback after sign-out", error);
+      console.warn("Could not clear local conversation fallback after sign-out.");
     }
   }
   useUIStore.getState().resetConversation();

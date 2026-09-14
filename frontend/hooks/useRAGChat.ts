@@ -96,8 +96,8 @@ export const useRAGChat = (): UseChatResult => {
           }
           return newMessages;
         });
-      } catch (error) {
-        console.error("Query Error:", error);
+      } catch {
+        console.error("Query request failed.");
 
         setChatHistory(prev => {
           const newMessages = [...prev];

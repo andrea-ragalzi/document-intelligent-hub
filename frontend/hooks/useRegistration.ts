@@ -76,11 +76,10 @@ export function useRegistration() {
       await user.getIdToken(true);
 
       const successData = data as { tier: UserTier };
-      console.log("✅ Registration successful:", successData.tier);
       return successData.tier;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Registration failed";
-      console.error("❌ Registration error:", errorMessage);
+      console.error("Registration failed.");
       setError(errorMessage);
       return null;
     } finally {

@@ -1,6 +1,7 @@
 """OpenAI adapter for retrieval and answer translation."""
 
 from app.core.llm_configuration import chat_completion_options
+from app.core.logging import logger
 from openai import OpenAI
 
 
@@ -62,8 +63,8 @@ class OpenAITranslationAdapter:
             content = response.choices[0].message.content
             return content.strip() if content else query
 
-        except Exception as e:
-            print(f"Error translating query to English: {e}. Using original query.")
+        except Exception as exc:
+            logger.error("Query translation failed | Type: {}", type(exc).__name__)
             return query
 
     def translate_query_to_language(self, query: str, target_language: str) -> str:
@@ -106,15 +107,11 @@ class OpenAITranslationAdapter:
             content = response.choices[0].message.content
             translated = content.strip() if content else query
 
-            print(
-                f"DEBUG [TranslationService]: Translated query to {target_language}: {translated}"
-            )
+            logger.info("Query translated | Target language: {}", target_language)
             return translated
 
-        except Exception as e:
-            print(
-                f"ERROR translating query to {target_language}: {e}. Using original query."
-            )
+        except Exception as exc:
+            logger.error("Query translation failed | Target language: {} | Type: {}", target_language, type(exc).__name__)
             return query
 
     def translate_answer_back(self, answer: str, target_language: str) -> str:
@@ -148,14 +145,10 @@ class OpenAITranslationAdapter:
             )
             content = response.choices[0].message.content
             translated = content.strip() if content else answer
-            print(
-                f"DEBUG [TranslationService]: Translated answer to {target_language}: {translated[:50]}..."
-            )
+            logger.info("Answer translated | Target language: {}", target_language)
             return translated
-        except Exception as e:
-            print(
-                f"ERROR translating answer to {target_language}: {e}. Using original answer."
-            )
+        except Exception as exc:
+            logger.error("Answer translation failed | Target language: {} | Type: {}", target_language, type(exc).__name__)
             return answer
 
     def get_language_name(self, language_code: str) -> str:

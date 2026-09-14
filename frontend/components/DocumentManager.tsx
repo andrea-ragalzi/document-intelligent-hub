@@ -65,8 +65,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
     try {
       await deleteDocument(filename);
       setShowDeleteConfirm(null);
-    } catch (error) {
-      console.error("Error deleting document:", error);
+    } catch {
+      console.error("Document deletion failed.");
     } finally {
       setDeletingDoc(null);
     }

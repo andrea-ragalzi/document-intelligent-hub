@@ -8,6 +8,7 @@ from lingua import LanguageDetectorBuilder  # pylint: disable=no-name-in-module
 from translate import Translator
 
 from app.core.constants import LanguageConstants
+from app.core.logging import logger
 
 # English is a retrieval-translation target, never a final-answer language rule.
 RETRIEVAL_TARGET_LANGUAGE = "English"
@@ -90,8 +91,8 @@ class LanguageService:
                 return self._language_from_lexical_evidence(content)
             return language_code
 
-        except Exception as e:
-            print(f"Error detecting language with Lingua: {e}. Falling back to EN.")
+        except Exception as exc:
+            logger.error("Language detection failed | Type: {}", type(exc).__name__)
             return None
 
     @staticmethod
@@ -169,11 +170,9 @@ class LanguageService:
             translator = Translator(to_lang=self.target_lang)
             translation = translator.translate(content)
             return str(translation).strip()
-        except Exception as e:
+        except Exception as exc:
             # Cattura StopIteration, errore comune per il fallimento della traduzione
-            print(
-                f"Translation failed (Type: {type(e).__name__}). Returning original content."
-            )
+            logger.error("Content translation failed | Type: {}", type(exc).__name__)
             return content  # Restituisce il contenuto originale come fallback
 
     def translate_answer_back(self, answer: str, target_language_code: str) -> str:
@@ -191,10 +190,8 @@ class LanguageService:
             translator = Translator(to_lang=target_language_code.lower())
             translation = translator.translate(answer)
             return str(translation).strip()
-        except Exception as e:
-            print(
-                f"Translation failed (Type: {type(e).__name__}). Returning English answer."
-            )
+        except Exception as exc:
+            logger.error("Answer translation failed | Type: {}", type(exc).__name__)
             return answer  # Restituisce la risposta inglese originale come fallback
 
     def get_language_name(self, language_code: str) -> str:

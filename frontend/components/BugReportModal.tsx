@@ -70,7 +70,7 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({
         setSubmitStatus("idle");
       }, 2000);
     } catch (error) {
-      console.error("Error submitting bug report:", error);
+      console.error("Bug report submission failed.");
       setErrorMessage(error instanceof Error ? error.message : "Failed to submit bug report");
       setSubmitStatus("error");
     } finally {

@@ -9,6 +9,8 @@ import re
 
 from langchain_core.language_models import BaseChatModel
 
+from app.core.logging import logger
+
 # Prompt template for concise, independently retrievable search phrases.
 MULTI_QUERY_PROMPT = (
     "You generate concise, atomic document-search queries from a user's question. "
@@ -84,13 +86,11 @@ class QueryExpansionService:
                 if self._preserves_query_entities(query, alternative)
             ][:num_queries]
 
-            print(
-                f"DEBUG [QueryExpansion]: Generated {len(result)} alternative queries in English"
-            )
+            logger.info("Alternative retrieval queries generated | Count: {}", len(result))
             return result
 
-        except Exception as e:
-            print(f"Error generating alternative queries: {e}")
+        except Exception as exc:
+            logger.error("Alternative-query generation failed | Type: {}", type(exc).__name__)
             return []
 
     @staticmethod

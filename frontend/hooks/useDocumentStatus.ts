@@ -38,7 +38,6 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
       }
 
       setIsChecking(true);
-      console.log("🔍 Checking documents for user:", userId);
 
       try {
         // Get authentication token
@@ -56,20 +55,19 @@ export const useDocumentStatus = (userId: string | null): DocumentStatus => {
 
         if (response.ok) {
           const data = await response.json();
-          console.log("📊 Document check result:", data);
           setHasDocuments(data.has_documents || false);
           setDocumentCount(data.document_count || 0);
         } else {
-          console.warn("⚠️ Document check failed with status:", response.status);
+          console.warn("Document status check failed.");
           setHasDocuments(false);
           setDocumentCount(0);
         }
       } catch (error) {
         // Silently handle network errors (server offline)
         if (error instanceof TypeError && error.message.includes("fetch")) {
-          console.log("⚠️ Server offline - document status unavailable");
+          console.warn("Document status service is unavailable.");
         } else {
-          console.error("❌ Error checking document status:", error);
+          console.error("Unable to check document status.");
         }
         setHasDocuments(false);
         setDocumentCount(0);

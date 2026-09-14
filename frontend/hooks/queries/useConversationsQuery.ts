@@ -87,8 +87,8 @@ export function useCreateConversation(userId: string | null) {
     },
 
     // Rollback on error
-    onError: (err, newConversation, context) => {
-      console.error("❌ Error creating conversation:", err);
+    onError: (_error, _newConversation, context) => {
+      console.error("Unable to create conversation.");
       if (context?.previousConversations) {
         queryClient.setQueryData(
           conversationKeys.byUser(userId || ""),
@@ -98,8 +98,7 @@ export function useCreateConversation(userId: string | null) {
     },
 
     // Refetch after success
-    onSuccess: data => {
-      console.log("✅ Conversation created:", data.id);
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: conversationKeys.byUser(userId || ""),
       });
@@ -135,8 +134,8 @@ export function useUpdateConversationName(userId: string | null) {
       return { previousConversations };
     },
 
-    onError: (err, variables, context) => {
-      console.error("❌ Error updating conversation name:", err);
+    onError: (_error, _variables, context) => {
+      console.error("Unable to rename conversation.");
       if (context?.previousConversations) {
         queryClient.setQueryData(
           conversationKeys.byUser(userId || ""),
@@ -146,7 +145,6 @@ export function useUpdateConversationName(userId: string | null) {
     },
 
     onSuccess: () => {
-      console.log("✅ Conversation name updated");
       queryClient.invalidateQueries({
         queryKey: conversationKeys.byUser(userId || ""),
       });
@@ -200,8 +198,8 @@ export function useUpdateConversationHistory(userId: string | null) {
       return { previousConversations };
     },
 
-    onError: (err, variables, context) => {
-      console.error("❌ Error updating conversation history:", err);
+    onError: (_error, _variables, context) => {
+      console.error("Unable to update conversation history.");
       if (context?.previousConversations) {
         queryClient.setQueryData(
           conversationKeys.byUser(userId || ""),
@@ -211,8 +209,7 @@ export function useUpdateConversationHistory(userId: string | null) {
     },
 
     // Refetch per mostrare la conversazione aggiornata nella lista
-    onSuccess: (_, variables) => {
-      console.log("✅ Conversation history updated:", variables.id);
+    onSuccess: () => {
       // Invalidate and refetch to update the sidebar list
       queryClient.invalidateQueries({
         queryKey: conversationKeys.byUser(userId || ""),
@@ -248,8 +245,8 @@ export function useDeleteConversation(userId: string | null) {
       return { previousConversations };
     },
 
-    onError: (err, variables, context) => {
-      console.error("❌ Error deleting conversation:", err);
+    onError: (_error, _variables, context) => {
+      console.error("Unable to delete conversation.");
       if (context?.previousConversations) {
         queryClient.setQueryData(
           conversationKeys.byUser(userId || ""),
@@ -258,8 +255,7 @@ export function useDeleteConversation(userId: string | null) {
       }
     },
 
-    onSuccess: (_, deletedId) => {
-      console.log("✅ Conversation deleted:", deletedId);
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: conversationKeys.byUser(userId || ""),
       });

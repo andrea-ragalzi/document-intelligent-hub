@@ -113,8 +113,7 @@ class QueryParserService:
             )
         """
         try:
-            logger.info(f"🔍 Parsing query for file filters: {query[:100]}...")
-            logger.debug(f"   Available files: {available_files}")
+            logger.info("Parsing query for file filters | Available files: {}", len(available_files))
 
             # Build prompt for LLM
             prompt = self._build_extraction_prompt(query)
@@ -130,7 +129,6 @@ class QueryParserService:
                 }
             )
 
-            logger.debug(f"   LLM extraction result: {result}")
 
             # Validate filenames against available files
             validated_include = self._validate_filenames(
@@ -157,10 +155,12 @@ class QueryParserService:
                 logger.warning("⚠️  Cleaned query too short, using original")
                 cleaned_query = query
 
-            logger.info("✅ File filters extracted:")
-            logger.info(f"   Include: {validated_include}")
-            logger.info(f"   Exclude: {validated_exclude}")
-            logger.info(f"   Cleaned query: {cleaned_query}")
+            logger.info(
+                "File filters extracted | Included: {} | Excluded: {} | Compound: {}",
+                len(validated_include),
+                len(validated_exclude),
+                is_compound,
+            )
 
             return FileFilterResponse(
                 include_files=validated_include,
@@ -171,8 +171,8 @@ class QueryParserService:
                 retrieval_queries=retrieval_queries if is_compound else [],
             )
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ File filter extraction failed: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("File-filter extraction failed | Type: {}", type(exc).__name__)
             logger.info("   Falling back to no filtering")
 
             # Fallback: no filtering, use original query
@@ -321,6 +321,6 @@ Now extract from the user query above and apply all rules.
 
             return None
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"   Error computing similarity: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to compare file names | Type: {}", type(exc).__name__)
             return None

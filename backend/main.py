@@ -10,6 +10,7 @@ from uuid import uuid4
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.responses import JSONResponse
 
 # Load one ignored local configuration file. Real process variables (tests,
@@ -52,8 +53,8 @@ async def lifespan(
     # Initialize Firebase (optional — app starts without it, auth endpoints won't register)
     try:
         initialize_firebase()
-    except ValueError as e:
-        logger.warning(f"⚠️ Firebase not initialized: {e}")
+    except ValueError:
+        logger.warning("Firebase not initialized")
         logger.warning("⚠️ Authentication endpoints will be unavailable")
 
     # Verify ChromaDB connection and preload models
@@ -69,8 +70,8 @@ async def lifespan(
         embedding_fn.embed_query("test")  # Preload model
         logger.info("✅ Embedding model preloaded successfully.")
 
-    except Exception as e:
-        logger.error(f"❌ Critical startup failure: {e}")
+    except Exception as exc:
+        logger.error("Critical startup failure | Type: {}", type(exc).__name__)
         raise
 
     yield  # Application runs here
@@ -102,6 +103,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Accept forwarded client addresses only from explicitly trusted deployment
+# proxies. The invitation limiter relies on request.client.host after this.
+app.add_middleware(
+    ProxyHeadersMiddleware,
+    trusted_hosts=[host.strip() for host in settings.TRUSTED_PROXY_IPS.split(",") if host.strip()],
 )
 
 
@@ -136,25 +144,35 @@ async def log_requests(request: Request, call_next: Callable[[Request], Any]) ->
     start_time = time.time()
     request_id = request.headers.get("X-Request-ID") or uuid4().hex
     request.state.request_id = request_id
-    client_host = request.client.host if request.client else "unknown"
     logger.bind(ACCESS=True).info(
-        f"➡️  [{request_id}] {request.method} {request.url.path} - Client: {client_host}"
+        "Request started | ID: {} | Method: {} | Path: {}",
+        request_id,
+        request.method,
+        request.url.path,
     )
 
     try:
         response = await call_next(request)
         process_time = (time.time() - start_time) * 1000  # in milliseconds
-        status_emoji = "✅" if response.status_code < 400 else "❌"
         logger.bind(ACCESS=True).info(
-            f"{status_emoji} [{request_id}] {request.method} {request.url.path} - "
-            f"Status: {response.status_code} - Time: {process_time:.2f}ms"
+            "Request completed | ID: {} | Method: {} | Path: {} | Status: {} | Duration: {:.2f}ms",
+            request_id,
+            request.method,
+            request.url.path,
+            response.status_code,
+            process_time,
         )
         response.headers["X-Request-ID"] = request_id
         return response
-    except Exception as e:
+    except Exception as exc:
         process_time = (time.time() - start_time) * 1000
         logger.error(
-            f"❌ [{request_id}] {request.method} {request.url.path} - Error: {str(e)} - Time: {process_time:.2f}ms"
+            "Request failed | ID: {} | Method: {} | Path: {} | Type: {} | Duration: {:.2f}ms",
+            request_id,
+            request.method,
+            request.url.path,
+            type(exc).__name__,
+            process_time,
         )
         # Re-raise the exception to be handled by FastAPI's error handling
         raise

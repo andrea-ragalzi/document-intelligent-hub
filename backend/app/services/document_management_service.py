@@ -53,7 +53,7 @@ class DocumentManagementService:
             )
 
             if not metadatas:
-                logger.info(f"📂 No documents found for user {user_id}")
+                logger.info("No documents found")
                 return []
 
             logger.debug(f"📊 Processing {len(metadatas)} metadata entries")
@@ -87,14 +87,11 @@ class DocumentManagementService:
                 for doc in documents_map.values()
             ]
 
-            logger.info(
-                f"📚 Found {len(documents)} unique documents for user {user_id}"
-            )
-            logger.debug(f"   Documents: {[d.filename for d in documents]}")
+            logger.info("Document listing completed | Count: {}", len(documents))
             return documents
 
-        except Exception as e:
-            logger.error(f"❌ Error getting user documents: {e}")
+        except Exception as exc:
+            logger.error("Unable to list documents | Type: {}", type(exc).__name__)
             return []
 
     def delete_user_document(self, user_id: str, filename: str) -> int:
@@ -112,10 +109,10 @@ class DocumentManagementService:
         """
         try:
             chunks_deleted = self.repository.delete_document(user_id, filename)
-            logger.info(f"✅ Deleted {chunks_deleted} chunks for document '{filename}'")
+            logger.info("Document chunks deleted | Count: {}", chunks_deleted)
             return chunks_deleted
-        except Exception as e:
-            logger.error(f"❌ Error deleting document '{filename}': {e}")
+        except Exception as exc:
+            logger.error("Unable to delete document chunks | Type: {}", type(exc).__name__)
             raise
 
     def delete_all_user_documents(self, user_id: str) -> int:
@@ -133,12 +130,10 @@ class DocumentManagementService:
         """
         try:
             chunks_deleted = self.repository.delete_all_user_documents(user_id)
-            logger.info(
-                f"✅ Deleted all documents for user {user_id} ({chunks_deleted} chunks)"
-            )
+            logger.info("All document chunks deleted | Count: {}", chunks_deleted)
             return chunks_deleted
-        except Exception as e:
-            logger.error(f"❌ Error deleting all documents for user {user_id}: {e}")
+        except Exception as exc:
+            logger.error("Unable to delete all document chunks | Type: {}", type(exc).__name__)
             raise
 
     def get_user_document_count(self, user_id: str, include_demo: bool = True) -> int:
@@ -170,9 +165,9 @@ class DocumentManagementService:
             }
 
             count = len(unique_filenames)
-            logger.info(f"📊 User {user_id} has {count} documents")
+            logger.info("Document count computed | Count: {}", count)
             return count
 
-        except Exception as e:
-            logger.error(f"❌ Error counting user documents: {e}")
+        except Exception as exc:
+            logger.error("Unable to count documents | Type: {}", type(exc).__name__)
             return 0

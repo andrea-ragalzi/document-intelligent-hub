@@ -10,7 +10,9 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from app.routers.auth_router import clear_cache
-from app.services.email_service import get_email_service
+from app.dependencies import get_email_service
+from app.core.logging import logger
+from app.services.support_rate_limiter import support_rate_limiter
 from fastapi.testclient import TestClient
 from main import app
 
@@ -424,40 +426,110 @@ class TestRegistrationEndpoint:
 class TestInvitationRequestEndpoint:
     """Test suite for /auth/request-invitation-code endpoint"""
 
-    @pytest.mark.xfail(reason="Legacy integration fixture uses a module-level test client")
-    @patch("app.routers.auth_router.get_email_service")
-    def test_request_invitation_success(self, mock_get_email_service: Mock) -> None:
+    @pytest.fixture(autouse=True)
+    def reset_rate_limiter(self) -> None:
+        """Keep process-local invitation limits isolated between test cases."""
+        support_rate_limiter.clear()
+
+    def test_request_invitation_success(self) -> None:
         """Test successful invitation code request"""
-        # Mock email service
         mock_email_service = MagicMock()
         mock_email_service.send_invitation_request.return_value = True
-        mock_get_email_service.return_value = mock_email_service
-
-        response = client.post(
-            "/auth/request-invitation-code",
-            json={
-                "first_name": "Test",
-                "last_name": "User",
-                "email": "test@example.com",
-            },
-        )
+        app.dependency_overrides[get_email_service] = lambda: mock_email_service
+        try:
+            response = client.post(
+                "/auth/request-invitation-code",
+                json={
+                    "first_name": "Test",
+                    "last_name": "User",
+                    "email": "test@example.com",
+                },
+            )
+        finally:
+            app.dependency_overrides.pop(get_email_service, None)
 
         assert response.status_code == 200
         assert response.json()["status"] == "success"
-        data = response.json()
-        assert data["status"] == "success"
-
-    @pytest.mark.xfail(
-        reason="Pydantic validation should catch this, but email service is failing first"
-    )
-    def test_request_invitation_invalid_email(self) -> None:
-        """Test invitation request with invalid email format"""
-        response = client.post(
-            "/auth/request-invitation-code",
-            json={"first_name": "Test", "last_name": "User", "email": "invalid-email"},
+        mock_email_service.send_invitation_request.assert_called_once_with(
+            first_name="Test", last_name="User", email="test@example.com"
         )
 
-        assert response.status_code == 422  # Pydantic validation error
+    def test_request_invitation_rejects_invalid_email_before_delivery(self) -> None:
+        """Test invitation request with invalid email format"""
+        mock_email_service = MagicMock()
+        app.dependency_overrides[get_email_service] = lambda: mock_email_service
+        try:
+            response = client.post(
+                "/auth/request-invitation-code",
+                json={"first_name": "Test", "last_name": "User", "email": "invalid-email"},
+            )
+        finally:
+            app.dependency_overrides.pop(get_email_service, None)
+
+        assert response.status_code == 422
+        mock_email_service.send_invitation_request.assert_not_called()
+
+    @pytest.mark.parametrize("field", ["first_name", "last_name", "email"])
+    def test_request_invitation_rejects_oversized_fields_before_delivery(
+        self, field: str
+    ) -> None:
+        """Public invitation fields are bounded before the email adapter is called."""
+        mock_email_service = MagicMock()
+        payload = {"first_name": "Test", "last_name": "User", "email": "test@example.com"}
+        payload[field] = "a" * (255 if field == "email" else 101)
+        app.dependency_overrides[get_email_service] = lambda: mock_email_service
+        try:
+            response = client.post("/auth/request-invitation-code", json=payload)
+        finally:
+            app.dependency_overrides.pop(get_email_service, None)
+
+        assert response.status_code == 422
+        mock_email_service.send_invitation_request.assert_not_called()
+
+    def test_request_invitation_rate_limit_rejects_before_delivery(self) -> None:
+        """The immediate retry is blocked by the public endpoint limiter."""
+        mock_email_service = MagicMock()
+        mock_email_service.send_invitation_request.return_value = True
+        app.dependency_overrides[get_email_service] = lambda: mock_email_service
+        payload = {"first_name": "Test", "last_name": "User", "email": "test@example.com"}
+        try:
+            first_response = client.post("/auth/request-invitation-code", json=payload)
+            second_response = client.post("/auth/request-invitation-code", json=payload)
+        finally:
+            app.dependency_overrides.pop(get_email_service, None)
+
+        assert first_response.status_code == 200
+        assert second_response.status_code == 429
+        assert second_response.headers["Retry-After"] == "60"
+        mock_email_service.send_invitation_request.assert_called_once()
+
+    def test_request_invitation_provider_failure_is_safe(self) -> None:
+        """Provider details remain private when invitation delivery raises."""
+        mock_email_service = MagicMock()
+        mock_email_service.send_invitation_request.side_effect = RuntimeError(
+            "SECRET_PROVIDER_DETAIL_123"
+        )
+        app.dependency_overrides[get_email_service] = lambda: mock_email_service
+        captured_logs: list[str] = []
+        sink_id = logger.add(captured_logs.append, format="{message}")
+        try:
+            response = client.post(
+                "/auth/request-invitation-code",
+                json={
+                    "first_name": "Test",
+                    "last_name": "User",
+                    "email": "private@example.com",
+                },
+            )
+        finally:
+            logger.remove(sink_id)
+            app.dependency_overrides.pop(get_email_service, None)
+
+        assert response.status_code == 500
+        assert "SECRET_PROVIDER_DETAIL_123" not in response.text
+        assert "private@example.com" not in "\n".join(captured_logs)
+        assert "SECRET_PROVIDER_DETAIL_123" not in "\n".join(captured_logs)
+        assert any("Invitation request processing failed" in entry for entry in captured_logs)
 
     def test_request_invitation_missing_fields(self) -> None:
         """Test invitation request without required fields"""

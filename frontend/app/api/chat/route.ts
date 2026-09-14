@@ -136,8 +136,8 @@ export async function POST(req: Request) {
         "Content-Type": "text/plain; charset=utf-8",
       },
     });
-  } catch (error) {
-    console.error("Chat API Error:", error);
+  } catch {
+    console.error("Chat API request failed.");
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
     });

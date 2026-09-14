@@ -40,9 +40,7 @@ def verify_firebase_token(authorization: str = Header(None)) -> str:
 
     # Check if header has correct format
     if not authorization.startswith("Bearer "):
-        logger.warning(
-            f"⚠️ Invalid Authorization header format: {authorization[:20]}..."
-        )
+        logger.warning("Invalid Authorization header format")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Authorization header format. Expected: 'Bearer <token>'",
@@ -66,7 +64,7 @@ def verify_firebase_token(authorization: str = Header(None)) -> str:
         user_id = str(decoded_token["uid"])
 
         # Optional: Log successful authentication (verbose mode only)
-        logger.debug(f"✅ Token verified for user: {user_id}")
+        logger.debug("Firebase token verified")
 
         return user_id
 
@@ -94,13 +92,13 @@ def verify_firebase_token(authorization: str = Header(None)) -> str:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    except Exception as e:
-        logger.error(f"❌ Unexpected error verifying token: {type(e).__name__}: {e}")
+    except Exception as exc:
+        logger.error("Unexpected token-verification failure | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed. Please try again.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
 
 def get_verified_user_id(authorization: str = Header(None)) -> str:
