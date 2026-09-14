@@ -76,11 +76,19 @@ class DemoDocumentService:
                 content=content,
                 filename=DEMO_DOCUMENT_FILENAME,
             )
-            chunks_indexed, _language = await self.rag_service.index_document(
-                file=upload,
-                user_id=user_id,
-                document_language="EN",
-                document_metadata={"is_demo_document": True},
-            )
-            self.document_storage.store(user_id, DEMO_DOCUMENT_FILENAME, content)
+            try:
+                chunks_indexed, _language = await self.rag_service.index_document(
+                    file=upload,
+                    user_id=user_id,
+                    document_language="EN",
+                    document_metadata={"is_demo_document": True},
+                )
+                self.document_storage.store(user_id, DEMO_DOCUMENT_FILENAME, content)
+            except Exception:
+                # Indexing implementations rollback their own failed batches,
+                # but storing the original can fail after a successful index.
+                # This idempotent cleanup covers both cases.
+                self.rag_service.delete_user_document(user_id, DEMO_DOCUMENT_FILENAME)
+                self.document_storage.delete(user_id, DEMO_DOCUMENT_FILENAME)
+                raise
             return DemoSeedResult(status="seeded", chunks_indexed=chunks_indexed)

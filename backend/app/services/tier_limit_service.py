@@ -11,6 +11,9 @@ from app.core.logging import logger
 from app.infrastructure.firebase_config import load_app_config
 from firebase_admin import auth
 
+PUBLIC_DEMO_MAX_FILES = 5
+PUBLIC_DEMO_MAX_FILE_SIZE_MB = 10
+
 
 def get_user_tier_limits(user_id: str) -> tuple[str, dict[str, int]]:
     """
@@ -53,6 +56,12 @@ def get_user_tier_limits(user_id: str) -> tuple[str, dict[str, int]]:
 
         logger.debug("Tier limits resolved | Tier: {}", tier)
 
+        # This public demo deliberately has one storage contract for every
+        # account.  Firebase configuration may still control query quotas, but
+        # must never expand persisted-upload capacity.
+        limits = dict(limits)
+        limits["max_files"] = PUBLIC_DEMO_MAX_FILES
+        limits["max_file_size_mb"] = PUBLIC_DEMO_MAX_FILE_SIZE_MB
         return tier, limits
 
     except Exception as exc:

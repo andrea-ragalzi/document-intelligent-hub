@@ -17,12 +17,14 @@ from app.schemas.rag_schema import ConversationMessage, QueryRequest, SummarizeR
 from app.services.conversation_service import ConversationService
 from app.services.document_classifier_service import DocumentCategory
 from app.services.document_indexing_service import DocumentIndexingService
+from app.services.document_file_storage import DocumentFileStorage
 from app.services.query_concurrency_limiter import QueryConcurrencyLimiter
 from app.services.query_quota_service import (
     QueryLimitExceededError,
     QueryQuotaReservation,
     QueryQuotaService,
 )
+from app.services import tier_limit_service
 from main import app
 
 
@@ -128,6 +130,34 @@ def test_unlimited_tier_has_a_finite_hard_cap() -> None:
     assert reservation.tier == "UNLIMITED"
     assert reservation.max_queries == UNLIMITED_TIER_MAX_QUERIES
     assert reservation.max_queries < 9999
+
+
+def test_public_demo_upload_capacity_is_fixed_across_tiers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Remote tier configuration cannot expand persisted demo data capacity."""
+    monkeypatch.setattr(
+        tier_limit_service.auth,
+        "get_user",
+        lambda _uid: Mock(custom_claims={"tier": "UNLIMITED"}),
+    )
+    monkeypatch.setattr(
+        tier_limit_service,
+        "load_app_config",
+        lambda: {
+            "limits": {
+                "UNLIMITED": {
+                    "max_queries_per_day": 500,
+                    "max_files": 9999,
+                    "max_file_size_mb": 9999,
+                }
+            }
+        },
+    )
+
+    assert tier_limit_service.get_max_upload_size_bytes("owner") == 10 * 1024 * 1024
+    assert tier_limit_service.check_file_count_limit("owner", 4) == (True, 5)
+    assert tier_limit_service.check_file_count_limit("owner", 5) == (False, 5)
 
 
 def test_query_quota_service_resolves_tier_and_reserves_atomically() -> None:
@@ -459,3 +489,116 @@ async def test_indexing_rejects_excessive_chunks_before_embeddings(monkeypatch: 
             UploadFile(file=BytesIO(b"%PDF-test"), filename="many.pdf"), "user"
         )
     repository.add_documents.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_multibatch_index_failure_rolls_back_all_owned_chunks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A later batch failure must remove chunks accepted by earlier batches."""
+    repository = Mock()
+    repository.add_documents.side_effect = [500, RuntimeError("embedding failure")]
+    language_service = Mock()
+    language_service.detect_language.return_value = "en"
+    classifier = Mock()
+    classifier.classify_document.return_value = DocumentCategory.INFORMATIVO_NON_STRUTTURATO
+    classifier.has_structural_density.return_value = False
+    service = DocumentIndexingService(repository, language_service, classifier)
+    documents = [Document(page_content="normal content", metadata={})]
+    monkeypatch.setattr(
+        "app.services.document_indexing_service.UnstructuredPDFLoader",
+        lambda *_args, **_kwargs: Mock(load=lambda: documents),
+    )
+    monkeypatch.setattr(
+        service,
+        "_apply_chunking_strategy",
+        lambda *_args: [Document(page_content="x", metadata={}) for _ in range(501)],
+    )
+    monkeypatch.setattr("app.services.document_indexing_service.MAX_DOCUMENT_CHUNKS", 501)
+
+    with pytest.raises(RuntimeError, match="embedding failure"):
+        await service.index_document(
+            UploadFile(file=BytesIO(b"%PDF-test"), filename="partial.pdf"), "owner"
+        )
+
+    assert repository.add_documents.call_count == 2
+    repository.delete_document.assert_called_once_with("owner", "partial.pdf")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("original_deleted", "chunks_deleted"), [(True, 0), (False, 3), (False, 0)]
+)
+async def test_single_delete_is_idempotent_for_split_resource_states(
+    original_deleted: bool, chunks_deleted: int
+) -> None:
+    """Each side of a prior interrupted delete can be safely cleaned up."""
+    rag = Mock()
+    rag.delete_user_document.return_value = chunks_deleted
+    storage = Mock()
+    storage.delete.return_value = original_deleted
+
+    response = await documents_router.delete_document("report.pdf", "owner", rag, storage)
+
+    assert response.chunks_deleted == chunks_deleted
+    storage.delete.assert_called_once_with("owner", "report.pdf")
+    rag.delete_user_document.assert_called_once_with(user_id="owner", filename="report.pdf")
+
+
+@pytest.mark.asyncio
+async def test_single_delete_keeps_vectors_when_original_cleanup_fails() -> None:
+    """An original-storage error must leave vectors available for a retry."""
+    rag = Mock()
+    storage = Mock()
+    storage.delete.side_effect = OSError("disk error")
+
+    with pytest.raises(HTTPException) as error:
+        await documents_router.delete_document("report.pdf", "owner", rag, storage)
+
+    assert error.value.status_code == 500
+    rag.delete_user_document.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bulk_delete_is_idempotent_for_split_resource_states() -> None:
+    """Bulk cleanup also succeeds when either resource was already removed."""
+    rag = Mock()
+    rag.delete_all_user_documents.return_value = 0
+    storage = Mock()
+
+    response = await documents_router.delete_all_documents("owner", rag, storage)
+
+    assert response["chunks_deleted"] == 0
+    storage.delete_all.assert_called_once_with("owner")
+    rag.delete_all_user_documents.assert_called_once_with("owner")
+
+
+@pytest.mark.asyncio
+async def test_failed_replacement_restores_the_previous_document(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """A replacement remains externally equivalent to the old document on failure."""
+    monkeypatch.setattr(documents_router, "upload_concurrency_limiter", QueryConcurrencyLimiter())
+    monkeypatch.setattr(documents_router, "get_max_upload_size_bytes", lambda _uid: 1024)
+    storage = DocumentFileStorage(tmp_path)
+    storage.store("owner", "report.pdf", b"old document")
+    rag = Mock()
+    rag.user_document_exists.return_value = True
+    rag.delete_user_document.return_value = 2
+    rag.index_document = AsyncMock(side_effect=[RuntimeError("embedding failed"), (2, "EN")])
+
+    with pytest.raises(HTTPException) as error:
+        await documents_router.upload_document(
+            None,
+            UploadFile(file=BytesIO(b"%PDF-new"), filename="report.pdf"),
+            "owner",
+            rag,
+            storage,
+            duplicate_action="replace",
+        )
+
+    assert error.value.status_code == 500
+    original = storage.get("owner", "report.pdf")
+    assert original is not None
+    assert original.read_bytes() == b"old document"
+    assert rag.index_document.await_count == 2
