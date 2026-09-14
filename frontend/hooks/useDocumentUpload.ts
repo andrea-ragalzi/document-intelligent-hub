@@ -196,7 +196,10 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     resolutionsRef.current.clear();
     setFiles(acceptedFiles);
     if (!acceptedFiles.length && oversizedFiles.length) {
-      setUploadAlert({ message: getOversizedMessage(oversizedFiles.map(file => file.name)), type: "error" });
+      setUploadAlert({
+        message: getOversizedMessage(oversizedFiles.map(file => file.name)),
+        type: "error",
+      });
       return;
     }
     if (!acceptedFiles.length) {
