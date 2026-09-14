@@ -19,13 +19,11 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   requiresPassword,
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
-      setConfirmText("");
       setPassword("");
       setError(null);
     }
@@ -34,7 +32,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    if (confirmText !== "DELETE" || (requiresPassword && !password)) return;
+    if (requiresPassword && !password) return;
 
     setIsDeleting(true);
     setError(null);
@@ -50,7 +48,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     }
   };
 
-  const isConfirmValid = confirmText === "DELETE" && (!requiresPassword || password.length > 0);
+  const isConfirmValid = !requiresPassword || password.length > 0;
 
   return (
     <>
@@ -98,24 +96,6 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                 <li>All your conversations</li>
                 <li>All your data from our servers</li>
               </ul>
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirmText"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Type <span className="font-bold text-red-600">DELETE</span> to confirm:
-              </label>
-              <input
-                id="confirmText"
-                type="text"
-                value={confirmText}
-                onChange={e => setConfirmText(e.target.value)}
-                disabled={isDeleting}
-                placeholder="DELETE"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              />
             </div>
 
             {requiresPassword && (
