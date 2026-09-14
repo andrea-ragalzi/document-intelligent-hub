@@ -176,6 +176,53 @@ def _delete_replaced_document(
         )
 
 
+def _cleanup_failed_document(
+    user_id: str,
+    filename: str,
+    rag_service: RAGService,
+    document_storage: FileStoragePort,
+) -> None:
+    """Best-effort compensating cleanup for a failed index operation."""
+    try:
+        rag_service.delete_user_document(user_id, filename)
+    except Exception as exc:  # pragma: no cover - preserves the original failure
+        _log_document_failure("failed-index vector cleanup", exc)
+    try:
+        document_storage.delete(user_id, filename)
+    except Exception as exc:  # pragma: no cover - preserves the original failure
+        _log_document_failure("failed-index original cleanup", exc)
+
+
+def _read_existing_original(
+    user_id: str, filename: str, document_storage: FileStoragePort
+) -> bytes | None:
+    """Read an existing original before replacement makes destructive changes."""
+    existing_original = document_storage.get(user_id, filename)
+    return existing_original.read_bytes() if existing_original is not None else None
+
+
+async def _restore_replaced_document(
+    user_id: str,
+    filename: str,
+    original_content: bytes | None,
+    rag_service: RAGService,
+    document_storage: FileStoragePort,
+) -> None:
+    """Restore the prior replace target after a new version fails to index."""
+    _cleanup_failed_document(user_id, filename, rag_service, document_storage)
+    if original_content is None:
+        return
+    document_storage.store(user_id, filename, original_content)
+    previous_file = UploadFile(file=BytesIO(original_content), filename=filename)
+    try:
+        await rag_service.index_document(
+            file=previous_file, user_id=user_id, document_language=None
+        )
+    except Exception:
+        _cleanup_failed_document(user_id, filename, rag_service, document_storage)
+        raise
+
+
 def _check_file_limits(user_id: str, rag_service: RAGService) -> tuple[int, float]:
     """
     Check if user has reached file count limit.
@@ -349,10 +396,14 @@ async def upload_document(
             file, max_size_bytes, max_size_mb, user_id
         )
 
+        previous_original = (
+            _read_existing_original(user_id, safe_filename, document_storage)
+            if is_replacing
+            else None
+        )
         _delete_replaced_document(user_id, safe_filename, rag_service, is_replacing)
-
-        document_storage.store(user_id, safe_filename, file_content)
         try:
+            document_storage.store(user_id, safe_filename, file_content)
             safe_file = UploadFile(
                 file=BytesIO(file_content), filename=safe_filename
             )
@@ -360,7 +411,18 @@ async def upload_document(
                 file=safe_file, user_id=user_id, document_language=None
             )
         except Exception:
-            document_storage.delete(user_id, safe_filename)
+            if is_replacing:
+                await _restore_replaced_document(
+                    user_id,
+                    safe_filename,
+                    previous_original,
+                    rag_service,
+                    document_storage,
+                )
+            else:
+                _cleanup_failed_document(
+                    user_id, safe_filename, rag_service, document_storage
+                )
             raise
 
         logger.info("Document indexed | Chunks: {}", chunks_indexed)
@@ -524,16 +586,12 @@ async def delete_document(
     logger.bind(AUDIT=True).warning("Document deletion requested")
 
     try:
+        # Delete the original first.  If that operation fails, indexed chunks
+        # remain available for a safe retry instead of leaving an orphan file.
+        document_storage.delete(user_id, filename)
         deleted_count = rag_service.delete_user_document(
             user_id=user_id, filename=filename
         )
-
-        if deleted_count == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found.",
-            )
-        document_storage.delete(user_id, filename)
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning("Document deleted | Chunks: {}", deleted_count)
@@ -619,14 +677,10 @@ async def delete_all_documents(
     logger.bind(AUDIT=True).warning("Bulk document deletion requested")
 
     try:
-        deleted_count = rag_service.delete_all_user_documents(user_id)
-
-        if deleted_count == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No documents found.",
-            )
+        # Both resources may already be absent, or one may have been created
+        # by an older version.  The operation is intentionally idempotent.
         document_storage.delete_all(user_id)
+        deleted_count = rag_service.delete_all_user_documents(user_id)
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning(
