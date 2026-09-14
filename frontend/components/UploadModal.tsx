@@ -6,6 +6,7 @@ import { UploadProgress } from "./UploadProgress";
 import { AlertMessage } from "./AlertMessage";
 import type { AlertState } from "@/lib/types";
 import type { DuplicateAction } from "@/hooks/useDocumentUpload";
+import { MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
 
 interface UploadProgressState {
   progress: number;
@@ -28,7 +29,6 @@ interface UploadModalProps {
   onUpload: (e: FormEvent) => void;
   onResolveDuplicate: (action: DuplicateAction) => void;
   uploadProgress?: UploadProgressState;
-  maxUploadSizeMB?: number;
 }
 
 const SelectedFiles: React.FC<{ files: File[] }> = ({ files }) => {
@@ -112,7 +112,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onUpload,
   onResolveDuplicate,
   uploadProgress,
-  maxUploadSizeMB = 10,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -238,9 +237,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                     <p className="mb-2 text-lg font-semibold text-ink">{dropZoneText}</p>
                     <p className="text-sm text-muted">or click to browse files</p>
                     <p className="mt-2 text-xs text-muted">
-                      {Number.isFinite(maxUploadSizeMB)
-                        ? `PDF only · maximum ${maxUploadSizeMB} MB per file`
-                        : "PDF only · no file-size limit on your plan"}
+                      PDF only · maximum {MAX_UPLOAD_SIZE_MB} MB per file
                     </p>
                   </div>
 

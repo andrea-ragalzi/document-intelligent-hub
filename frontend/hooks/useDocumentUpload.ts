@@ -3,14 +3,13 @@
 import { useCallback, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { AlertState } from "@/lib/types";
-import { API_BASE_URL, MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
+import { API_BASE_URL, MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
 
 export type DuplicateAction = "replace" | "rename" | "skip";
 
 interface UseUploadOptions {
   onSuccess?: () => void;
-  maxUploadSizeMB?: number;
 }
 
 interface UseUploadResult {
@@ -33,25 +32,12 @@ interface UploadSummary {
   uploaded: number;
   skipped: number;
   failed: number;
-  lastFailure?: string;
 }
 
 type UploadRequestResult =
   | { status: "success"; filename: string }
   | { status: "conflict" }
   | { status: "failure"; message: string };
-
-const getRateLimitMessage = (retryAfter: string | null): string => {
-  const retryAfterSeconds = Number(retryAfter);
-  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-    const duration =
-      retryAfterSeconds >= 60
-        ? `${Math.ceil(retryAfterSeconds / 60)} minute${retryAfterSeconds >= 120 ? "s" : ""}`
-        : `${Math.ceil(retryAfterSeconds)} seconds`;
-    return `The indexing service is busy. Please try again in ${duration}.`;
-  }
-  return "The indexing service is busy. Please try again shortly.";
-};
 
 const getSelectionMessage = (pdfCount: number, ignoredCount: number): string => {
   const pdfLabel = `${pdfCount} PDF${pdfCount === 1 ? "" : "s"}`;
@@ -61,9 +47,9 @@ const getSelectionMessage = (pdfCount: number, ignoredCount: number): string => 
   return `${pdfLabel} selected; ${ignoredLabel} ignored.`;
 };
 
-const getOversizedMessage = (fileNames: string[], maxUploadSizeMB: number): string => {
+const getOversizedMessage = (fileNames: string[]): string => {
   const names = fileNames.join(", ");
-  return `${names} ${fileNames.length === 1 ? "is" : "are"} larger than the ${maxUploadSizeMB} MB limit.`;
+  return `${names} ${fileNames.length === 1 ? "is" : "are"} larger than the ${MAX_UPLOAD_SIZE_MB} MB limit.`;
 };
 
 const submitDocument = async (
@@ -88,13 +74,7 @@ const submitDocument = async (
 
     if (response.status === 409) return { status: "conflict" };
     if (response.status === 413) {
-      return { status: "failure", message: data.detail || "The selected file is too large." };
-    }
-    if (response.status === 429) {
-      return {
-        status: "failure",
-        message: getRateLimitMessage(response.headers.get("Retry-After")),
-      };
+      return { status: "failure", message: `Files must be ${MAX_UPLOAD_SIZE_MB} MB or smaller.` };
     }
     if (!response.ok) return { status: "failure", message: data.detail || "Upload failed." };
 
@@ -105,7 +85,7 @@ const submitDocument = async (
 };
 
 export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult => {
-  const { onSuccess, maxUploadSizeMB = MAX_UPLOAD_SIZE_MB } = options || {};
+  const { onSuccess } = options || {};
   const { getIdToken } = useAuth();
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -122,10 +102,9 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
   const resolutionsRef = useRef<Map<number, DuplicateAction>>(new Map());
   const summaryRef = useRef<UploadSummary>({ uploaded: 0, skipped: 0, failed: 0 });
   const currentUserIdRef = useRef<string | null>(null);
-  const uploadRunActiveRef = useRef(false);
 
   const finishQueue = useCallback(() => {
-    const { uploaded, skipped, failed, lastFailure } = summaryRef.current;
+    const { uploaded, skipped, failed } = summaryRef.current;
     const parts = [
       uploaded > 0 ? `${uploaded} uploaded` : null,
       skipped > 0 ? `${skipped} skipped` : null,
@@ -133,13 +112,10 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     ].filter(Boolean);
 
     setFiles([]);
-    uploadRunActiveRef.current = false;
     setPendingDuplicate(null);
     setIsUploading(false);
     setUploadAlert({
-      message: parts.length
-        ? `Upload complete: ${parts.join(", ")}.${lastFailure ? ` ${lastFailure}` : ""}`
-        : "No files were uploaded.",
+      message: parts.length ? `Upload complete: ${parts.join(", ")}.` : "No files were uploaded.",
       type: failed > 0 ? "error" : "success",
     });
     globalThis.dispatchEvent(new Event("refreshDocumentStatus"));
@@ -154,9 +130,7 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
 
   const recordUploadFailure = useCallback((file: File, message: string) => {
     summaryRef.current.failed += 1;
-    const failureMessage = `${file.name}: ${message}`;
-    summaryRef.current.lastFailure = failureMessage;
-    setUploadAlert({ message: failureMessage, type: "error" });
+    setUploadAlert({ message: `${file.name}: ${message}`, type: "error" });
     currentIndexRef.current += 1;
   }, []);
 
@@ -215,23 +189,15 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     const pdfFiles = selectedFiles.filter(
       file => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
     );
-    const maxUploadSizeBytes = maxUploadSizeMB * 1024 * 1024;
-    const oversizedFiles = Number.isFinite(maxUploadSizeBytes)
-      ? pdfFiles.filter(file => file.size > maxUploadSizeBytes)
-      : [];
-    const acceptedFiles = Number.isFinite(maxUploadSizeBytes)
-      ? pdfFiles.filter(file => file.size <= maxUploadSizeBytes)
-      : pdfFiles;
+    const oversizedFiles = pdfFiles.filter(file => file.size > MAX_UPLOAD_SIZE_BYTES);
+    const acceptedFiles = pdfFiles.filter(file => file.size <= MAX_UPLOAD_SIZE_BYTES);
 
     setPendingDuplicate(null);
     resolutionsRef.current.clear();
     setFiles(acceptedFiles);
     if (!acceptedFiles.length && oversizedFiles.length) {
       setUploadAlert({
-        message: getOversizedMessage(
-          oversizedFiles.map(file => file.name),
-          maxUploadSizeMB
-        ),
+        message: getOversizedMessage(oversizedFiles.map(file => file.name)),
         type: "error",
       });
       return;
@@ -243,10 +209,7 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
 
     const ignoredCount = selectedFiles.length - pdfFiles.length;
     const sizeWarning = oversizedFiles.length
-      ? ` ${getOversizedMessage(
-          oversizedFiles.map(file => file.name),
-          maxUploadSizeMB
-        )} They were skipped.`
+      ? ` ${getOversizedMessage(oversizedFiles.map(file => file.name))} They were skipped.`
       : "";
     setUploadAlert({
       message: `${getSelectionMessage(acceptedFiles.length, ignoredCount)}${sizeWarning}`,
@@ -257,7 +220,6 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
   const handleUpload = useCallback(
     async (event: FormEvent, currentUserId: string, existingFilenames: string[]) => {
       event.preventDefault();
-      if (uploadRunActiveRef.current) return;
       if (!files.length || !currentUserId) {
         setUploadAlert({
           message: "Select a PDF to upload.",
@@ -266,7 +228,6 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
         return;
       }
 
-      uploadRunActiveRef.current = true;
       queueRef.current = files;
       currentIndexRef.current = 0;
       currentUserIdRef.current = currentUserId;

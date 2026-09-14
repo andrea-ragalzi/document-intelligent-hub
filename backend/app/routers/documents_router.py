@@ -46,7 +46,6 @@ from app.services.query_concurrency_limiter import QueryConcurrencyLimiter, glob
 from app.services.tier_limit_service import (
     check_file_count_limit,
     get_max_upload_size_bytes,
-    get_user_tier_limits,
 )
 router = APIRouter(prefix="/rag", tags=["documents"])
 
@@ -389,22 +388,12 @@ async def upload_document(
     **Multi-tenancy:** Each document is tagged with verified `user_id` from Auth token.
     **Tier Limits:** Automatically enforced based on user's Firebase custom claims.
     """
-    tier, _ = await asyncio.to_thread(get_user_tier_limits, user_id)
-    global_admitted = tier == "UNLIMITED"
+    global_admitted = await global_expensive_operation_limiter.acquire()
     if not global_admitted:
-        # Indexing can take long enough that an immediate rejection is needlessly
-        # frustrating when another costly operation is just about to finish.
-        global_admitted = await global_expensive_operation_limiter.acquire_with_timeout(30)
-        if not global_admitted:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="The indexing service is busy. Please try again in 30 seconds.",
-                headers={"Retry-After": "30"},
-            )
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="The public demo is currently at capacity. Please try again in a few minutes.", headers={"Retry-After": "120"})
     admitted = await upload_concurrency_limiter.acquire(user_id)
     if not admitted:
-        if tier != "UNLIMITED":
-            await global_expensive_operation_limiter.release()
+        await global_expensive_operation_limiter.release()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="A document upload is already running for this account. Please wait for it to finish.",
@@ -477,8 +466,7 @@ async def upload_document(
         ) from exc
     finally:
         await upload_concurrency_limiter.release(user_id)
-        if tier != "UNLIMITED":
-            await global_expensive_operation_limiter.release()
+        await global_expensive_operation_limiter.release()
 
 
 @router.post("/detect-language/", response_model=DetectLanguageResponse)

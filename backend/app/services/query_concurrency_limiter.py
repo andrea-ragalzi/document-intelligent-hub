@@ -36,7 +36,7 @@ query_concurrency_limiter = QueryConcurrencyLimiter()
 
 
 class GlobalExpensiveOperationLimiter:
-    """Process-local guard for paid/CPU-heavy operations with bounded waiting.
+    """Non-queuing process-local guard for paid/CPU-heavy operations.
 
     It is sufficient for the current single-process public demo. Multiple
     processes or replicas need a shared limiter for deployment-wide bounds.
@@ -47,34 +47,18 @@ class GlobalExpensiveOperationLimiter:
             maximum if maximum is not None else settings.MAX_GLOBAL_EXPENSIVE_OPERATIONS
         )
         self.active = 0
-        self._condition = asyncio.Condition()
+        self._lock = asyncio.Lock()
 
     async def acquire(self) -> bool:
-        async with self._condition:
+        async with self._lock:
             if self.active >= self.maximum:
                 return False
             self.active += 1
             return True
 
-    async def acquire_with_timeout(self, timeout_seconds: float) -> bool:
-        """Wait briefly for a global slot, without allowing an unbounded queue."""
-
-        async def reserve_slot() -> None:
-            async with self._condition:
-                while self.active >= self.maximum:
-                    await self._condition.wait()
-                self.active += 1
-
-        try:
-            await asyncio.wait_for(reserve_slot(), timeout=timeout_seconds)
-            return True
-        except TimeoutError:
-            return False
-
     async def release(self) -> None:
-        async with self._condition:
+        async with self._lock:
             self.active = max(0, self.active - 1)
-            self._condition.notify(1)
 
 
 global_expensive_operation_limiter = GlobalExpensiveOperationLimiter()

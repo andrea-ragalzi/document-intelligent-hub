@@ -96,38 +96,6 @@ describe("useDocumentUpload", () => {
     expect(fetchMock.mock.calls[0][1].body.get("duplicate_action")).toBe("rename");
   });
 
-  it("explains when shared indexing capacity is temporarily full", async () => {
-    const file = new File(["pdf"], "report.pdf", { type: "application/pdf" });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ detail: "The indexing service is busy." }), {
-          status: 429,
-          headers: { "Retry-After": "30" },
-        })
-      )
-    );
-
-    const { result } = renderHook(() => useDocumentUpload());
-    act(() => {
-      result.current.handleFileChange({
-        target: { files: [file] },
-      } as unknown as React.ChangeEvent<HTMLInputElement>);
-    });
-
-    await act(async () => {
-      await result.current.handleUpload(
-        { preventDefault: vi.fn() } as unknown as React.FormEvent,
-        "owner-uid",
-        []
-      );
-    });
-
-    expect(result.current.uploadAlert.message).toBe(
-      "Upload complete: 1 failed. report.pdf: The indexing service is busy. Please try again in 30 seconds."
-    );
-  });
-
   it("rejects PDFs over the public-demo size limit before uploading", () => {
     const oversized = new File(["pdf"], "large.pdf", { type: "application/pdf" });
     Object.defineProperty(oversized, "size", { value: MAX_UPLOAD_SIZE_BYTES + 1 });

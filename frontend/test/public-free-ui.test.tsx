@@ -8,7 +8,6 @@ const freeTierProps = {
   tier: "FREE" as const,
   limits: {
     maxDocuments: 5,
-    maxUploadSizeMB: 10,
     maxQueriesPerDay: 20,
     canUploadMultiple: false,
     hasAdvancedFeatures: false,

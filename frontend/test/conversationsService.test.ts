@@ -12,19 +12,13 @@ const firestore = vi.hoisted(() => ({
   updateDoc: vi.fn(),
   where: vi.fn(),
 }));
-const firebaseAuth = vi.hoisted(() => ({
-  currentUser: {
-    uid: "user-a",
-    getIdTokenResult: vi.fn(),
-  },
-}));
 
 vi.mock("firebase/firestore", () => ({
   ...firestore,
 }));
 
 vi.mock("@/lib/firebase", () => ({
-  getFirebaseAuth: () => firebaseAuth,
+  getFirebaseAuth: () => ({ currentUser: { uid: "user-a" } }),
   getFirebaseDb: () => ({ id: "database" }),
 }));
 
@@ -53,7 +47,6 @@ const structuredHistory: ChatMessage[] = [
 describe("conversation citation persistence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    firebaseAuth.currentUser.getIdTokenResult.mockResolvedValue({ claims: {} });
     firestore.addDoc.mockResolvedValue({ id: "conversation-1" });
     firestore.getDocs.mockResolvedValue({ size: 0 });
   });
@@ -91,19 +84,9 @@ describe("conversation citation persistence", () => {
 
     await expect(
       saveConversationToFirestore("user-a", "One too many", structuredHistory)
-    ).rejects.toThrow("Conversation limit reached");
+    ).rejects.toThrow("Failed to save conversation");
 
     expect(firestore.addDoc).not.toHaveBeenCalled();
-  });
-
-  it("does not apply the conversation-count limit to UNLIMITED accounts", async () => {
-    firebaseAuth.currentUser.getIdTokenResult.mockResolvedValue({ claims: { tier: "UNLIMITED" } });
-    firestore.getDocs.mockResolvedValue({ size: MAX_SAVED_CONVERSATIONS_PER_USER });
-
-    await saveConversationToFirestore("user-a", "Unlimited", structuredHistory);
-
-    expect(firestore.addDoc).toHaveBeenCalledOnce();
-    expect(firestore.getDocs).not.toHaveBeenCalled();
   });
 
   it("persists only the most recent bounded message and text history", async () => {

@@ -5,7 +5,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from app.config.security_constants import MAX_BUG_REPORT_REQUEST_SIZE
+from app.config.security_constants import MAX_DOCUMENT_REQUEST_SIZE
 from main import UploadBodyLimitMiddleware, app
 
 
@@ -59,16 +59,16 @@ def _response_status(sent: list[dict[str, Any]]) -> int:
     )
 
 
-def test_known_oversized_report_is_rejected_before_fastapi_parses_body() -> None:
+def test_known_oversized_upload_is_rejected_before_fastapi_parses_body() -> None:
     """A declared body above the transport limit never reaches multipart parsing."""
     headers = [
         (b"content-type", b"multipart/form-data; boundary=test"),
-        (b"content-length", str(MAX_BUG_REPORT_REQUEST_SIZE + 1).encode()),
+        (b"content-length", str(MAX_DOCUMENT_REQUEST_SIZE + 1).encode()),
     ]
     with patch("starlette.formparsers.MultiPartParser.parse", new_callable=AsyncMock) as parse, patch(
         "app.services.rag_orchestrator_service.RAGService.index_document", new_callable=AsyncMock
     ) as index_document:
-        sent, receive_calls = _call_asgi(app, _scope("/rag/report-bug/", headers), [b"x"])
+        sent, receive_calls = _call_asgi(app, _scope("/rag/upload/", headers), [b"x"])
 
     assert _response_status(sent) == 413
     assert receive_calls == 0
@@ -76,15 +76,15 @@ def test_known_oversized_report_is_rejected_before_fastapi_parses_body() -> None
     index_document.assert_not_awaited()
 
 
-def test_chunked_oversized_report_is_rejected_before_multipart_parser() -> None:
+def test_chunked_oversized_upload_is_rejected_before_multipart_parser() -> None:
     """An absent Content-Length still cannot make the parser consume an oversized body."""
     with patch("starlette.formparsers.MultiPartParser.parse", new_callable=AsyncMock) as parse, patch(
         "app.services.rag_orchestrator_service.RAGService.index_document", new_callable=AsyncMock
     ) as index_document, patch("app.services.document_indexing_service.tempfile.mkstemp") as create_temp_file:
         sent, _ = _call_asgi(
             app,
-            _scope("/rag/report-bug/"),
-            [b"x" * MAX_BUG_REPORT_REQUEST_SIZE, b"x"],
+            _scope("/rag/upload/"),
+            [b"x" * MAX_DOCUMENT_REQUEST_SIZE, b"x"],
         )
 
     assert _response_status(sent) == 413
@@ -93,7 +93,7 @@ def test_chunked_oversized_report_is_rejected_before_multipart_parser() -> None:
     create_temp_file.assert_not_called()
 
 
-def test_report_body_at_exact_transport_limit_reaches_downstream() -> None:
+def test_upload_body_at_exact_transport_limit_reaches_downstream() -> None:
     """The 64 KiB multipart allowance admits a request exactly at the body boundary."""
     downstream = Mock()
     received: list[bytes] = []
@@ -113,12 +113,12 @@ def test_report_body_at_exact_transport_limit_reaches_downstream() -> None:
     middleware = UploadBodyLimitMiddleware(application)
     sent, _ = _call_asgi(
         middleware,
-        _scope("/rag/report-bug/"),
-        [b"x" * (MAX_BUG_REPORT_REQUEST_SIZE - 1), b"x"],
+        _scope("/rag/upload/"),
+        [b"x" * (MAX_DOCUMENT_REQUEST_SIZE - 1), b"x"],
     )
 
     assert _response_status(sent) == 204
-    assert sum(map(len, received)) == MAX_BUG_REPORT_REQUEST_SIZE
+    assert sum(map(len, received)) == MAX_DOCUMENT_REQUEST_SIZE
     downstream.assert_called_once()
 
 
@@ -129,7 +129,7 @@ def test_malformed_upload_content_length_is_a_controlled_client_error() -> None:
         (b"content-length", b"not-a-number"),
     ]
     with patch("starlette.formparsers.MultiPartParser.parse", new_callable=AsyncMock) as parse:
-        sent, _ = _call_asgi(app, _scope("/rag/report-bug/", headers), [b"x"])
+        sent, _ = _call_asgi(app, _scope("/rag/detect-language/", headers), [b"x"])
 
     assert _response_status(sent) == 400
     parse.assert_not_awaited()
@@ -147,7 +147,7 @@ def test_non_upload_paths_are_not_limited_by_upload_body_guard() -> None:
     sent, _ = _call_asgi(
         UploadBodyLimitMiddleware(application),
         _scope("/rag/query/"),
-        [b"x" * (MAX_BUG_REPORT_REQUEST_SIZE + 1)],
+        [b"x" * (MAX_DOCUMENT_REQUEST_SIZE + 1)],
     )
 
     assert _response_status(sent) == 204

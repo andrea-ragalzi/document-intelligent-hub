@@ -59,58 +59,65 @@ export async function saveConversationToFirestore(
   name: string,
   history: ChatMessage[]
 ): Promise<SavedConversation> {
-  // Verify authentication
-  const currentUser = getFirebaseAuth().currentUser;
-  if (!currentUser) {
-    throw new Error("User must be authenticated to save conversations");
-  }
-  if (currentUser.uid !== userId) {
-    throw new Error("UserId does not match authenticated user");
-  }
+  try {
+    // Verify authentication
+    const currentUser = getFirebaseAuth().currentUser;
+    if (!currentUser) {
+      throw new Error("User must be authenticated to save conversations");
+    }
+    if (currentUser.uid !== userId) {
+      throw new Error("UserId does not match authenticated user");
+    }
 
-  const tokenResult = await currentUser.getIdTokenResult();
-  if (tokenResult.claims.tier !== "UNLIMITED") {
     const conversationCount = await getConversationCount(userId);
     if (conversationCount >= MAX_SAVED_CONVERSATIONS_PER_USER) {
       throw new Error("Conversation limit reached");
     }
+
+    const boundedHistory = boundConversationHistory(history);
+
+    const conversationData = {
+      userId,
+      name,
+      history: boundedHistory,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      isPinned: false, // Initialize isPinned to false for new conversations
+    };
+
+    try {
+      const collectionRef = collection(getFirebaseDb(), CONVERSATIONS_COLLECTION);
+      const docRef = await addDoc(collectionRef, conversationData);
+
+      // Format timestamp without comma
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const formattedTime = now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const timestamp = `${formattedDate} ${formattedTime}`;
+
+      return {
+        id: docRef.id,
+        userId,
+        name,
+        timestamp,
+        history: boundedHistory,
+        isPinned: false, // Initialize isPinned for return value
+      };
+    } catch (addError: unknown) {
+      console.error("Unable to create conversation.");
+      throw addError;
+    }
+  } catch {
+    console.error("Unable to save conversation.");
+    throw new Error("Failed to save conversation");
   }
-
-  const boundedHistory = boundConversationHistory(history);
-
-  const conversationData = {
-    userId,
-    name,
-    history: boundedHistory,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    isPinned: false, // Initialize isPinned to false for new conversations
-  };
-
-  const collectionRef = collection(getFirebaseDb(), CONVERSATIONS_COLLECTION);
-  const docRef = await addDoc(collectionRef, conversationData);
-
-  // Format timestamp without comma
-  const now = new Date();
-  const formattedDate = now.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const formattedTime = now.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const timestamp = `${formattedDate} ${formattedTime}`;
-
-  return {
-    id: docRef.id,
-    userId,
-    name,
-    timestamp,
-    history: boundedHistory,
-    isPinned: false, // Initialize isPinned for return value
-  };
 }
 
 /**

@@ -32,28 +32,6 @@ async def test_global_limiter_releases_after_success_failure_and_cancellation() 
     limiter = GlobalExpensiveOperationLimiter(1)
     assert await limiter.acquire() is True
     await limiter.release()
-
-
-@pytest.mark.asyncio
-async def test_global_limiter_can_wait_for_a_slot() -> None:
-    limiter = GlobalExpensiveOperationLimiter(1)
-    assert await limiter.acquire() is True
-
-    waiting_request = asyncio.create_task(limiter.acquire_with_timeout(1))
-    await asyncio.sleep(0)
-    await limiter.release()
-
-    assert await waiting_request is True
-    await limiter.release()
-
-
-@pytest.mark.asyncio
-async def test_global_limiter_wait_times_out_at_capacity() -> None:
-    limiter = GlobalExpensiveOperationLimiter(1)
-    assert await limiter.acquire() is True
-
-    assert await limiter.acquire_with_timeout(0.01) is False
-    await limiter.release()
     assert await limiter.acquire() is True
     try:
         raise RuntimeError("synthetic failure")

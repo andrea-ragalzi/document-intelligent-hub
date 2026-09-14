@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QueryProvider } from "@/providers/QueryProvider";
@@ -7,7 +7,11 @@ import { QueryProvider } from "@/providers/QueryProvider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  preload: false,
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -38,7 +42,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.className} ${geistSans.variable} bg-canvas text-ink antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} bg-canvas text-ink antialiased`}
       >
         <QueryProvider>
           <AuthProvider>{children}</AuthProvider>
