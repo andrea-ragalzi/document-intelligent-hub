@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
+import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ getIdToken: vi.fn().mockResolvedValue("firebase-token") }),
@@ -93,5 +94,20 @@ describe("useDocumentUpload", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0][1].body.get("duplicate_action")).toBe("rename");
+  });
+
+  it("rejects PDFs over the public-demo size limit before uploading", () => {
+    const oversized = new File(["pdf"], "large.pdf", { type: "application/pdf" });
+    Object.defineProperty(oversized, "size", { value: MAX_UPLOAD_SIZE_BYTES + 1 });
+
+    const { result } = renderHook(() => useDocumentUpload());
+    act(() => {
+      result.current.handleFileChange({
+        target: { files: [oversized] },
+      } as unknown as React.ChangeEvent<HTMLInputElement>);
+    });
+
+    expect(result.current.files).toEqual([]);
+    expect(result.current.uploadAlert.message).toContain(`${MAX_UPLOAD_SIZE_MB} MB limit`);
   });
 });
