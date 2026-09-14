@@ -330,6 +330,13 @@ async def seed_demo_document(
     document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DemoDocumentSeedResponse:
     """Index the bundled Alice excerpt privately for the verified Firebase UID."""
+    global_admitted = await global_expensive_operation_limiter.acquire()
+    if not global_admitted:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The public demo is currently at capacity. Please try again in a few minutes.",
+            headers={"Retry-After": "120"},
+        )
     try:
         result = await DemoDocumentService(
             rag_service, document_storage
@@ -351,6 +358,8 @@ async def seed_demo_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Demo document could not be prepared. You can still upload your own PDF.",
         ) from exc
+    finally:
+        await global_expensive_operation_limiter.release()
 
 
 @router.post(
@@ -471,32 +480,35 @@ async def detect_document_language(
 
     **🔒 Security:** Requires valid Firebase Auth token
     """
+    global_admitted = await global_expensive_operation_limiter.acquire()
+    if not global_admitted:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The public demo is currently at capacity. Please try again in a few minutes.",
+            headers={"Retry-After": "120"},
+        )
     admitted = await language_preview_concurrency_limiter.acquire(user_id)
     if not admitted:
+        await global_expensive_operation_limiter.release()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="A document preview is already running for this account. Please wait for it to finish.",
             headers={"Retry-After": "5"},
         )
-    if not file.filename:
-        await language_preview_concurrency_limiter.release(user_id)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Filename is required.",
-        )
-
-    safe_filename = sanitize_filename(file.filename)
-
-    # Validate file type
-    if not safe_filename.lower().endswith(".pdf"):
-        await language_preview_concurrency_limiter.release(user_id)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF files are supported.",
-        )
-
-    # Detect language via service
     try:
+        if not file.filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Filename is required.",
+            )
+
+        safe_filename = sanitize_filename(file.filename)
+        if not safe_filename.lower().endswith(".pdf"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF files are supported.",
+            )
+
         max_size_bytes = await asyncio.to_thread(get_max_upload_size_bytes, user_id)
         max_size_mb = get_safe_file_size_mb(max_size_bytes)
         file_content = await _read_and_validate_file_size(
@@ -522,6 +534,7 @@ async def detect_document_language(
         ) from exc
     finally:
         await language_preview_concurrency_limiter.release(user_id)
+        await global_expensive_operation_limiter.release()
 
 
 @router.get("/documents/check")
