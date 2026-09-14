@@ -27,7 +27,6 @@ from app.core.firebase import initialize_firebase  # noqa: E402
 from app.core.logging import logger  # noqa: E402
 from app.config.security_constants import (  # noqa: E402
     MAX_BUG_REPORT_REQUEST_SIZE,
-    MAX_DOCUMENT_REQUEST_SIZE,
     MAX_FEEDBACK_REQUEST_SIZE,
 )
 from app.db.chroma_client import get_chroma_client, get_embedding_function  # noqa: E402
@@ -96,8 +95,6 @@ class UploadBodyLimitMiddleware:
     """Bound multipart upload bodies before FastAPI starts parsing them."""
 
     _limits = {
-        "/rag/upload/": MAX_DOCUMENT_REQUEST_SIZE,
-        "/rag/detect-language/": MAX_DOCUMENT_REQUEST_SIZE,
         "/rag/report-bug/": MAX_BUG_REPORT_REQUEST_SIZE,
     }
 

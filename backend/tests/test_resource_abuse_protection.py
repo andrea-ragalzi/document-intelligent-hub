@@ -1,6 +1,7 @@
 """Regression tests for admission control before expensive DIH work."""
 
 import asyncio
+import sys
 from io import BytesIO
 from threading import Event
 from unittest.mock import AsyncMock, Mock, patch
@@ -132,10 +133,10 @@ def test_unlimited_tier_has_a_finite_hard_cap() -> None:
     assert reservation.max_queries < 9999
 
 
-def test_public_demo_upload_capacity_is_fixed_across_tiers(
+def test_unlimited_tier_uses_its_configured_upload_capacity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Remote tier configuration cannot expand persisted demo data capacity."""
+    """UNLIMITED accounts must not inherit the public FREE upload limits."""
     monkeypatch.setattr(
         tier_limit_service.auth,
         "get_user",
@@ -155,9 +156,8 @@ def test_public_demo_upload_capacity_is_fixed_across_tiers(
         },
     )
 
-    assert tier_limit_service.get_max_upload_size_bytes("owner") == 10 * 1024 * 1024
-    assert tier_limit_service.check_file_count_limit("owner", 4) == (True, 5)
-    assert tier_limit_service.check_file_count_limit("owner", 5) == (False, 5)
+    assert tier_limit_service.get_max_upload_size_bytes("owner") == sys.maxsize
+    assert tier_limit_service.check_file_count_limit("owner", 10_000_000) == (True, -1)
 
 
 def test_query_quota_service_resolves_tier_and_reserves_atomically() -> None:

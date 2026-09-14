@@ -73,7 +73,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   );
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col bg-canvas pb-0 font-[Inter] transition-colors duration-200 ease-in-out">
+    <div className="relative flex h-full min-h-0 w-full flex-col bg-canvas pb-0 transition-colors duration-200 ease-in-out">
       {/* The message list owns scrolling; the composer remains in the flex flow. */}
       <div className="min-h-0 w-full flex-1 overflow-y-auto p-4 pb-0 sm:p-6 sm:pb-0">
         <div className="max-w-4xl mx-auto">

@@ -132,7 +132,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   });
 
   return (
-    <section className="font-[Inter]">
+    <section>
       <h2 className="text-base font-bold text-ink mb-4 px-2">Conversations</h2>
 
       {/* Bulk Action Bar - Automatically appears when there are selections */}

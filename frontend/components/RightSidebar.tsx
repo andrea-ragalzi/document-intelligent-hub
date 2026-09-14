@@ -111,7 +111,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 
       {/* Sidebar - Permanente su desktop (xl+), overlay su mobile */}
       <div
-        className={`h-full w-96 bg-raised transform transition-all duration-200 ease-in-out flex flex-col border-l border-line/15 font-[Inter]
+        className={`h-full w-96 bg-raised transform transition-all duration-200 ease-in-out flex flex-col border-l border-line/15
 
           xl:relative xl:translate-x-0 xl:z-0
 

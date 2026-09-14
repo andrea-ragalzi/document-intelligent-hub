@@ -86,6 +86,7 @@ export default function Page() {
     resetAlert,
     documentsUploaded: _documentsUploaded,
   } = useDocumentUpload({
+    maxUploadSizeMB: tierLimits.maxUploadSizeMB,
     onSuccess: () => {
       void refreshDocuments();
       setUploadModalOpen(false);
@@ -173,6 +174,7 @@ export default function Page() {
   const deleteConversation = useDeleteConversation(userId);
 
   const isSavingRef = useRef(false);
+  const lastFailedAutoSaveMessageCountRef = useRef(0);
   const previousServerStatusRef = useRef<boolean>(true); // Track previous server status
 
   // Track if we're waiting for a conversation to be created
@@ -221,6 +223,12 @@ export default function Page() {
       return;
     }
 
+    // A Firestore permission or configuration failure must not trigger another
+    // save attempt on every render. A new completed message is a new attempt.
+    if (chatHistory.length <= lastFailedAutoSaveMessageCountRef.current) {
+      return;
+    }
+
     const autoSave = async () => {
       isSavingRef.current = true;
       isCreatingConversationRef.current = true;
@@ -254,7 +262,12 @@ export default function Page() {
           updateSavedMessageCount(chatHistory.length);
         }
       } catch {
-        console.error("Conversation auto-save failed.");
+        lastFailedAutoSaveMessageCountRef.current = chatHistory.length;
+        setStatusAlert({
+          message:
+            "Conversation could not be saved. Check the local Firestore connection and rules.",
+          type: "error",
+        });
       } finally {
         isSavingRef.current = false;
         isCreatingConversationRef.current = false;
@@ -281,6 +294,7 @@ export default function Page() {
     finishSaving,
     updateSavedMessageCount,
     setCurrentConversation,
+    setStatusAlert,
   ]);
 
   // Show invitation code modal on first login if no tier
@@ -653,6 +667,7 @@ export default function Page() {
           onFileChange={handleFileChange}
           onUpload={submitUpload}
           onResolveDuplicate={resolveDuplicate}
+          maxUploadSizeMB={tierLimits.maxUploadSizeMB}
         />
 
         {/* Delete Account Modal */}

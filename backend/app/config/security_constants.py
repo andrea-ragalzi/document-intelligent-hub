@@ -6,12 +6,6 @@ Centralized security-related constants to avoid magic numbers.
 
 # === FILE UPLOAD LIMITS ===
 
-# The public demo accepts PDFs up to 10 MiB regardless of user tier.
-MAX_DOCUMENT_UPLOAD_SIZE = 10 * 1024 * 1024
-# Multipart fields and boundaries need room beyond the PDF itself. This bounds
-# the transport body before Starlette creates an UploadFile temporary spool.
-MAX_DOCUMENT_REQUEST_SIZE = MAX_DOCUMENT_UPLOAD_SIZE + 64 * 1024
-
 # Maximum size for one bug-report screenshot (5MB).
 MAX_BUG_REPORT_SCREENSHOT_SIZE = 5 * 1024 * 1024
 

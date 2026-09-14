@@ -20,7 +20,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   isTierLoading,
 }) => {
   return (
-    <div className="w-full bg-raised border-b border-line/15 transition-colors duration-200 ease-in-out font-[Inter]">
+    <div className="w-full bg-raised border-b border-line/15 transition-colors duration-200 ease-in-out">
       <div className="flex items-center justify-between px-4 py-3">
         {/* Left: Hamburger Menu - Solo mobile (nascosto su lg+) */}
         <button

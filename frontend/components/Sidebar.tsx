@@ -82,7 +82,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           transform transition-all duration-200 ease-in-out
           flex flex-col
           border-r border-line/15
-          font-[Inter]
 
           lg:relative lg:translate-x-0 lg:z-0
 

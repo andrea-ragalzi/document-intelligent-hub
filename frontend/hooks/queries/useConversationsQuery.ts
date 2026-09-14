@@ -88,7 +88,6 @@ export function useCreateConversation(userId: string | null) {
 
     // Rollback on error
     onError: (_error, _newConversation, context) => {
-      console.error("Unable to create conversation.");
       if (context?.previousConversations) {
         queryClient.setQueryData(
           conversationKeys.byUser(userId || ""),

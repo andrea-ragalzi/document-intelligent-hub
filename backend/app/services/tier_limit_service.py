@@ -5,16 +5,13 @@ Provides functions to retrieve tier-based limits from Firestore configuration.
 Integrates with Firebase Auth custom claims to determine user tier.
 """
 
+import sys
 from typing import Any
 
 from firebase_admin import auth
 
-from app.config.security_constants import MAX_DOCUMENT_UPLOAD_SIZE
 from app.core.logging import logger
 from app.infrastructure.firebase_config import load_app_config
-
-PUBLIC_DEMO_MAX_FILES = 5
-PUBLIC_DEMO_MAX_FILE_SIZE_MB = MAX_DOCUMENT_UPLOAD_SIZE // (1024 * 1024)
 
 
 def get_user_tier_limits(user_id: str) -> tuple[str, dict[str, int]]:
@@ -58,13 +55,7 @@ def get_user_tier_limits(user_id: str) -> tuple[str, dict[str, int]]:
 
         logger.debug("Tier limits resolved | Tier: {}", tier)
 
-        # This public demo deliberately has one storage contract for every
-        # account.  Firebase configuration may still control query quotas, but
-        # must never expand persisted-upload capacity.
-        limits = dict(limits)
-        limits["max_files"] = PUBLIC_DEMO_MAX_FILES
-        limits["max_file_size_mb"] = PUBLIC_DEMO_MAX_FILE_SIZE_MB
-        return tier, limits
+        return tier, dict(limits)
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error("Unable to resolve tier limits | Type: {}", type(exc).__name__)
@@ -91,7 +82,9 @@ def get_max_upload_size_bytes(user_id: str) -> int:
         >>> print(f"Max upload: {max_size / 1024 / 1024}MB")
         Max upload: 50.0MB
     """
-    _, limits = get_user_tier_limits(user_id)
+    tier, limits = get_user_tier_limits(user_id)
+    if tier == "UNLIMITED":
+        return sys.maxsize
     max_mb = limits.get("max_file_size_mb", 10)
     return max_mb * 1024 * 1024  # Convert MB to bytes
 
@@ -112,7 +105,9 @@ def check_file_count_limit(user_id: str, current_count: int) -> tuple[bool, int]
         >>> if not can_upload:
         >>>     print(f"Limit reached! Max: {max_files}")
     """
-    _, limits = get_user_tier_limits(user_id)
+    tier, limits = get_user_tier_limits(user_id)
+    if tier == "UNLIMITED":
+        return True, -1
     max_files = limits.get("max_files", 5)
 
     can_upload = current_count < max_files

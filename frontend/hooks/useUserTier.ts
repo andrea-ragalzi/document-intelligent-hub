@@ -12,6 +12,7 @@ export type UserTier = "FREE" | "PRO" | "UNLIMITED";
 
 export interface TierLimits {
   maxDocuments: number;
+  maxUploadSizeMB: number;
   maxQueriesPerDay: number;
   canUploadMultiple: boolean;
   hasAdvancedFeatures: boolean;
@@ -20,18 +21,21 @@ export interface TierLimits {
 const TIER_LIMITS: Record<UserTier, TierLimits> = {
   FREE: {
     maxDocuments: 5,
+    maxUploadSizeMB: 10,
     maxQueriesPerDay: 20,
     canUploadMultiple: false,
     hasAdvancedFeatures: false,
   },
   PRO: {
     maxDocuments: 50,
+    maxUploadSizeMB: 50,
     maxQueriesPerDay: 500,
     canUploadMultiple: true,
     hasAdvancedFeatures: true,
   },
   UNLIMITED: {
     maxDocuments: Infinity,
+    maxUploadSizeMB: Infinity,
     maxQueriesPerDay: Infinity,
     canUploadMultiple: true,
     hasAdvancedFeatures: true,
