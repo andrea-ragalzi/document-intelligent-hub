@@ -18,7 +18,7 @@ service cloud.firestore {
           && data.name.size() > 0
           && data.name.size() <= 120
           && data.history is list
-          && data.history.size() <= 100
+          && data.history.size() <= 40
           && data.createdAt is timestamp
           && data.updatedAt is timestamp
           && (!data.keys().hasAny(['isPinned']) || data.isPinned is bool);

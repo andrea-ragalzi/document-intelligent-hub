@@ -37,6 +37,12 @@ MAX_EXTRACTED_DOCUMENT_TEXT = ChunkingConstants.MAX_EXTRACTED_DOCUMENT_TEXT
 MAX_DOCUMENT_CHUNKS = ChunkingConstants.MAX_DOCUMENT_CHUNKS
 
 
+def _write_temporary_pdf(descriptor: int, content: bytes) -> None:
+    """Write and close a temporary PDF descriptor outside the event loop."""
+    with os.fdopen(descriptor, "wb") as temp_file:
+        temp_file.write(content)
+
+
 class DocumentIndexingService:
     """
     Specialized service for document indexing operations.
@@ -143,6 +149,16 @@ class DocumentIndexingService:
             )
             return total_chunks_indexed, resolved_language
         except Exception as exc:
+            # A vector adapter may have accepted one or more batches before an
+            # exception.  Delete by the tenant-owned filename so retries never
+            # inherit partial chunks, embeddings, or metadata.
+            try:
+                self.repository.delete_document(user_id, filename)
+            except Exception as rollback_exc:  # pragma: no cover - diagnostic only
+                logger.error(
+                    "Document indexing rollback failed | Type: {}",
+                    type(rollback_exc).__name__,
+                )
             logger.error("Document indexing failed | Type: {}", type(exc).__name__)
             raise
 
@@ -164,11 +180,14 @@ class DocumentIndexingService:
             content = await file.read()
             if not content:
                 raise ValueError("The uploaded file is empty.")
-            os.write(temp_fd, content)
-            os.close(temp_fd)
+
+            descriptor = temp_fd
+            temp_fd = -1
+            await asyncio.to_thread(_write_temporary_pdf, descriptor, content)
             return temp_file_path
         except Exception:
-            os.close(temp_fd)
+            if temp_fd != -1:
+                os.close(temp_fd)
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
             raise
@@ -389,9 +408,11 @@ class DocumentIndexingService:
             if not content:
                 raise ValueError("The uploaded file is empty.")
 
-            # Write content to the secure temporary file
-            os.write(temp_fd, content)
-            os.close(temp_fd)  # Close the file descriptor before passing to loader
+            # Close the descriptor before passing the file to the loader. The
+            # blocking write runs outside the application event loop.
+            descriptor = temp_fd
+            temp_fd = -1
+            await asyncio.to_thread(_write_temporary_pdf, descriptor, content)
 
             # Load first pages only for preview
             return await asyncio.to_thread(
@@ -402,6 +423,8 @@ class DocumentIndexingService:
             logger.error("Document language detection failed | Type: {}", type(exc).__name__)
             raise
         finally:
+            if temp_fd != -1:
+                os.close(temp_fd)
             # Clean up the secure temporary file
             # temp_file_path is from tempfile.mkstemp(), already an absolute path
             if os.path.exists(temp_file_path):

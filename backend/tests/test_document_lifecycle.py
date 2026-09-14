@@ -1,6 +1,7 @@
 """Focused tests for the PDF processing and indexing lifecycle."""
 
 import os
+import tempfile
 from io import BytesIO
 from unittest.mock import Mock, patch
 
@@ -116,3 +117,29 @@ async def test_malformed_pdf_does_not_index_and_removes_temporary_file(
     classifier_service.classify_document.assert_not_called()
     temporary_pdf = loader_class.call_args.args[0]
     assert not os.path.exists(temporary_pdf)
+
+
+@pytest.mark.asyncio
+async def test_failed_language_preview_closes_and_removes_its_temporary_file(
+    indexing_dependencies: tuple[Mock, Mock, Mock], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A read failure must not leave a preview file or descriptor behind."""
+    repository, language_service, classifier_service = indexing_dependencies
+    service = DocumentIndexingService(repository, language_service, classifier_service)
+    descriptor, temporary_path = tempfile.mkstemp(suffix=".pdf", prefix="preview-test_")
+    monkeypatch.setattr(
+        "app.services.document_indexing_service.tempfile.mkstemp",
+        lambda **_kwargs: (descriptor, temporary_path),
+    )
+
+    class FailingUpload:
+        async def read(self) -> bytes:
+            raise OSError("read failure")
+
+    upload = FailingUpload()
+    with pytest.raises(OSError, match="read failure"):
+        await service.detect_document_language_preview(upload)
+
+    assert not os.path.exists(temporary_path)
+    with pytest.raises(OSError):
+        os.fstat(descriptor)

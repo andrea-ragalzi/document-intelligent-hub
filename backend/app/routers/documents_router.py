@@ -18,6 +18,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
+from firebase_admin import firestore
 
 from app.config.security_constants import FILE_READ_CHUNK_SIZE
 from app.core.auth import require_verified_email, verify_firebase_token
@@ -41,7 +42,7 @@ from app.services.demo_document_service import (
     DemoDocumentService,
 )
 from app.services.rag_orchestrator_service import RAGService
-from app.services.query_concurrency_limiter import GlobalExpensiveOperationLimiter, QueryConcurrencyLimiter, global_expensive_operation_limiter
+from app.services.query_concurrency_limiter import QueryConcurrencyLimiter, global_expensive_operation_limiter
 from app.services.tier_limit_service import (
     check_file_count_limit,
     get_max_upload_size_bytes,
@@ -53,6 +54,32 @@ router = APIRouter(prefix="/rag", tags=["documents"])
 upload_concurrency_limiter = QueryConcurrencyLimiter()
 language_preview_concurrency_limiter = QueryConcurrencyLimiter()
 MAX_RENAMED_FILENAME_ATTEMPTS = 1_000
+
+
+def _delete_user_firestore_data(user_id: str, db: Any) -> int:
+    """Delete Firestore records owned by a user and return conversation count.
+
+    Batches are deliberately kept below Firestore's batch-operation ceiling. A
+    rerun is safe after a partial failure because deleting an already-deleted
+    document is a no-op.
+    """
+    conversation_count = 0
+    batch = db.batch()
+    batch_size = 0
+
+    conversations = db.collection("conversations").where("userId", "==", user_id)
+    for conversation in conversations.stream():
+        batch.delete(conversation.reference)
+        conversation_count += 1
+        batch_size += 1
+        if batch_size == 400:
+            batch.commit()
+            batch = db.batch()
+            batch_size = 0
+
+    batch.delete(db.collection("user_usage").document(user_id))
+    batch.commit()
+    return conversation_count
 
 
 def _log_document_failure(operation: str, error: Exception) -> None:
@@ -147,6 +174,62 @@ def _delete_replaced_document(
             status_code=status.HTTP_409_CONFLICT,
             detail="The document changed before it could be replaced. Refresh and try again.",
         )
+
+
+def _cleanup_failed_document(
+    user_id: str,
+    filename: str,
+    rag_service: RAGService,
+    document_storage: FileStoragePort,
+) -> None:
+    """Best-effort compensating cleanup for a failed index operation."""
+    try:
+        rag_service.delete_user_document(user_id, filename)
+    except Exception as exc:  # pragma: no cover - preserves the original failure
+        _log_document_failure("failed-index vector cleanup", exc)
+    try:
+        document_storage.delete(user_id, filename)
+    except Exception as exc:  # pragma: no cover - preserves the original failure
+        _log_document_failure("failed-index original cleanup", exc)
+
+
+def _read_existing_original(
+    user_id: str, filename: str, document_storage: FileStoragePort
+) -> bytes | None:
+    """Read an existing original before replacement makes destructive changes."""
+    existing_original = document_storage.get(user_id, filename)
+    if existing_original is None:
+        return None
+
+    storage_root = os.path.realpath(document_storage.root_path)
+    safe_existing_path = os.path.realpath(existing_original)
+    if not safe_existing_path.startswith(f"{storage_root}{os.sep}"):
+        raise ValueError("Invalid document storage path")
+
+    with open(safe_existing_path, "rb") as original_file:  # noqa: PTH123
+        return original_file.read()
+
+
+async def _restore_replaced_document(
+    user_id: str,
+    filename: str,
+    original_content: bytes | None,
+    rag_service: RAGService,
+    document_storage: FileStoragePort,
+) -> None:
+    """Restore the prior replace target after a new version fails to index."""
+    _cleanup_failed_document(user_id, filename, rag_service, document_storage)
+    if original_content is None:
+        return
+    document_storage.store(user_id, filename, original_content)
+    previous_file = UploadFile(file=BytesIO(original_content), filename=filename)
+    try:
+        await rag_service.index_document(
+            file=previous_file, user_id=user_id, document_language=None
+        )
+    except Exception:
+        _cleanup_failed_document(user_id, filename, rag_service, document_storage)
+        raise
 
 
 def _check_file_limits(user_id: str, rag_service: RAGService) -> tuple[int, float]:
@@ -322,10 +405,14 @@ async def upload_document(
             file, max_size_bytes, max_size_mb, user_id
         )
 
+        previous_original = (
+            _read_existing_original(user_id, safe_filename, document_storage)
+            if is_replacing
+            else None
+        )
         _delete_replaced_document(user_id, safe_filename, rag_service, is_replacing)
-
-        document_storage.store(user_id, safe_filename, file_content)
         try:
+            document_storage.store(user_id, safe_filename, file_content)
             safe_file = UploadFile(
                 file=BytesIO(file_content), filename=safe_filename
             )
@@ -333,7 +420,18 @@ async def upload_document(
                 file=safe_file, user_id=user_id, document_language=None
             )
         except Exception:
-            document_storage.delete(user_id, safe_filename)
+            if is_replacing:
+                await _restore_replaced_document(
+                    user_id,
+                    safe_filename,
+                    previous_original,
+                    rag_service,
+                    document_storage,
+                )
+            else:
+                _cleanup_failed_document(
+                    user_id, safe_filename, rag_service, document_storage
+                )
             raise
 
         logger.info("Document indexed | Chunks: {}", chunks_indexed)
@@ -497,16 +595,17 @@ async def delete_document(
     logger.bind(AUDIT=True).warning("Document deletion requested")
 
     try:
+        # Delete the original first.  If that operation fails, indexed chunks
+        # remain available for a safe retry instead of leaving an orphan file.
+        original_deleted = document_storage.delete(user_id, filename)
         deleted_count = rag_service.delete_user_document(
             user_id=user_id, filename=filename
         )
-
-        if deleted_count == 0:
+        if not original_deleted and deleted_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Document not found.",
             )
-        document_storage.delete(user_id, filename)
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning("Document deleted | Chunks: {}", deleted_count)
@@ -592,14 +691,10 @@ async def delete_all_documents(
     logger.bind(AUDIT=True).warning("Bulk document deletion requested")
 
     try:
-        deleted_count = rag_service.delete_all_user_documents(user_id)
-
-        if deleted_count == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No documents found.",
-            )
+        # Both resources may already be absent, or one may have been created
+        # by an older version.  The operation is intentionally idempotent.
         document_storage.delete_all(user_id)
+        deleted_count = rag_service.delete_all_user_documents(user_id)
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning(
@@ -617,4 +712,40 @@ async def delete_all_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to delete documents. Please try again.",
+        ) from exc
+
+
+@router.delete("/account/data")
+async def delete_account_data(
+    user_id: str = Depends(require_verified_email),
+    rag_service: RAGService = Depends(get_rag_service),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
+) -> dict[str, int | str]:
+    """Delete all server-side data owned by the authenticated account.
+
+    This operation intentionally does not delete the Firebase Auth account.
+    The browser performs that final irreversible action only after this
+    endpoint has completed. Each deletion is idempotent so a retry after a
+    partial infrastructure failure can finish cleanup safely.
+    """
+    logger.bind(AUDIT=True).warning("Account data deletion requested")
+    try:
+        chunks_deleted = rag_service.delete_all_user_documents(user_id)
+        document_storage.delete_all(user_id)
+        conversations_deleted = _delete_user_firestore_data(user_id, firestore.client())
+        logger.bind(AUDIT=True).warning(
+            "Account data deletion completed | Chunks: {} | Conversations: {}",
+            chunks_deleted,
+            conversations_deleted,
+        )
+        return {
+            "message": "Account data deleted successfully.",
+            "chunks_deleted": chunks_deleted,
+            "conversations_deleted": conversations_deleted,
+        }
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        _log_document_failure("account data deletion", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to delete account data. Please try again.",
         ) from exc

@@ -71,6 +71,25 @@ async def test_existing_demo_document_backfills_its_private_original(tmp_path) -
 
 
 @pytest.mark.asyncio
+async def test_failed_demo_original_storage_removes_indexed_chunks(tmp_path) -> None:
+    """A storage failure after indexing cannot leave demo vectors behind."""
+    rag_service = Mock(spec=RAGService)
+    rag_service.user_document_exists.return_value = False
+    rag_service.index_document = AsyncMock(return_value=(4, "EN"))
+    storage = Mock(spec=DocumentFileStorage)
+    storage.store.side_effect = OSError("disk full")
+    service = DemoDocumentService(rag_service, storage)
+
+    with pytest.raises(OSError, match="disk full"):
+        await service.seed_for_user("user-a")
+
+    rag_service.delete_user_document.assert_called_once_with(
+        "user-a", DEMO_DOCUMENT_FILENAME
+    )
+    storage.delete.assert_called_once_with("user-a", DEMO_DOCUMENT_FILENAME)
+
+
+@pytest.mark.asyncio
 async def test_user_a_cannot_retrieve_user_bs_demo_document(tmp_path) -> None:
     """The normal seed metadata and retrieval filter remain scoped to one UID."""
     rag_service = Mock(spec=RAGService)
