@@ -373,7 +373,7 @@ describe("DocumentManager", () => {
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith("Error deleting document:", expect.any(Error));
+      expect(consoleErrorSpy).toHaveBeenCalledWith("Document deletion failed.");
     });
 
     consoleErrorSpy.mockRestore();
