@@ -9,11 +9,12 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from fastapi.testclient import TestClient
+
 from app.routers.auth_router import clear_cache
 from app.dependencies import get_email_service
 from app.core.logging import logger
 from app.services.support_rate_limiter import support_rate_limiter
-from fastapi.testclient import TestClient
 from main import app
 
 client = TestClient(app)
@@ -234,8 +235,8 @@ class TestRegistrationEndpoint:
                 "test_user_123", {"tier": "FREE"}
             )
 
-            # Verify code was marked as used
-            code_ref.update.assert_called_once()
+            # Verify the transaction consumed the invitation.
+            db_instance.transaction.return_value.update.assert_called_once()
 
     def test_register_with_invalid_code(self) -> None:
         """Test registration with invalid invitation code"""

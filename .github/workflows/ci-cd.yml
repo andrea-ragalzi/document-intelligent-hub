@@ -111,12 +111,17 @@ jobs:
           cache-dependency-path: backend/poetry.lock
 
       - name: "📦 Install Poetry"
-        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
-        with:
-          version: 2.4.1
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          installer-parallel: true
+        run: |
+          for attempt in 1 2 3; do
+            if python -m pip install --disable-pip-version-check --no-input --retries 5 --timeout 30 "poetry==2.4.1"; then
+              poetry config virtualenvs.create true
+              poetry config virtualenvs.in-project true
+              poetry config installer.parallel true
+              exit 0
+            fi
+            sleep "$((attempt * 5))"
+          done
+          exit 1
 
       - name: "💾 Restore Poetry virtualenv"
         id: poetry-venv
@@ -145,9 +150,10 @@ jobs:
         run: poetry run pytest --cov=app --cov-report=xml --cov-report=term
 
       - name: "📊 Upload coverage to Codecov"
-        if: always()
+        if: ${{ always() && secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: ./backend/coverage.xml
           flags: backend
           name: backend-coverage
@@ -259,11 +265,16 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: "📦 Install Poetry"
-        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
-        with:
-          version: 2.4.1
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+        run: |
+          for attempt in 1 2 3; do
+            if python -m pip install --disable-pip-version-check --no-input --retries 5 --timeout 30 "poetry==2.4.1"; then
+              poetry config virtualenvs.create true
+              poetry config virtualenvs.in-project true
+              exit 0
+            fi
+            sleep "$((attempt * 5))"
+          done
+          exit 1
 
       - name: "🐍 Synchronize backend dependencies"
         working-directory: ./backend

@@ -8,13 +8,16 @@ Tests cover:
 - Tier assignment (FREE, PRO, UNLIMITED)
 - Code request flow
 """
+# pylint: disable=protected-access
 
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
+from threading import Barrier, Lock, Thread
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 
@@ -38,7 +41,9 @@ def mock_firebase_auth() -> Generator[Mock, None, None]:  # pylint: disable=W062
 @pytest.fixture
 def mock_firestore() -> Generator[Mock, None, None]:  # pylint: disable=W0621
     """Mock Firestore database for testing"""
-    with patch("app.routers.auth_router.get_db") as mock_db:
+    with patch("app.routers.auth_router.get_db") as mock_db, patch(
+        "app.routers.auth_router.firestore_transactional", side_effect=lambda function: function
+    ):
         db_instance = MagicMock()
         mock_db.return_value = db_instance
         yield db_instance
@@ -95,9 +100,8 @@ class TestRegistrationWithInvitationCode:
             "test_user_123", {"tier": "FREE"}
         )
 
-        # Verify code was marked as used
-        code_ref.update.assert_called_once()
-        update_call = code_ref.update.call_args[0][0]
+        # Verify the transaction consumed the invitation.
+        update_call = mock_firestore.transaction.return_value.update.call_args[0][1]
         assert update_call["is_used"] is True
         assert update_call["used_by_user_id"] == "test_user_123"
 
@@ -128,6 +132,32 @@ class TestRegistrationWithInvitationCode:
         data = response.json()
         assert data["tier"] == "PRO"
 
+        mock_firebase_auth.set_custom_user_claims.assert_called_once_with(
+            "test_user_123", {"tier": "PRO"}
+        )
+
+    def test_client_tier_cannot_override_invitation_tier(
+        self, client: TestClient, mock_firebase_auth: Any, mock_firestore: Any
+    ) -> None:
+        """Registration always uses the tier stored in the invitation."""
+        code_doc = MagicMock()
+        code_doc.exists = True
+        code_doc.to_dict.return_value = {"tier": "PRO", "is_used": False}
+        code_ref = MagicMock()
+        code_ref.get.return_value = code_doc
+        mock_firestore.collection.return_value.document.return_value = code_ref
+
+        response = client.post(
+            "/auth/register",
+            json={
+                "id_token": "mock_token",
+                "invitation_code": "PRO_CODE",
+                "tier": "UNLIMITED",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["tier"] == "PRO"
         mock_firebase_auth.set_custom_user_claims.assert_called_once_with(
             "test_user_123", {"tier": "PRO"}
         )
@@ -285,6 +315,162 @@ class TestRegistrationWithInvitationCode:
 
             # Backend returns 401 for auth failures
             assert response.status_code == 401
+
+
+class _Snapshot:
+    def __init__(self, data: dict[str, Any] | None) -> None:
+        self._data = data
+        self.exists = data is not None
+
+    def to_dict(self) -> dict[str, Any] | None:
+        return dict(self._data) if self._data is not None else None
+
+
+class _AtomicInvitationTransaction:
+    def __init__(self, database: "_AtomicInvitationDatabase") -> None:
+        self.database = database
+        self.read_version = -1
+        self.pending_update: dict[str, Any] | None = None
+
+    def update(self, _reference: Any, data: dict[str, Any]) -> None:
+        self.pending_update = data
+
+
+class _AtomicInvitationReference:
+    def __init__(self, database: "_AtomicInvitationDatabase", code: str) -> None:
+        self.database = database
+        self.code = code
+
+    def get(self, transaction: _AtomicInvitationTransaction) -> _Snapshot:
+        with self.database.lock:
+            transaction.read_version = self.database.versions[self.code]
+            data = dict(self.database.codes[self.code])
+            self.database.reads += 1
+            wait_for_other_claim = (
+                self.database.synchronize_first_reads and self.database.reads <= 2
+            )
+        if wait_for_other_claim:
+            self.database.first_reads.wait(timeout=2)
+        return _Snapshot(data)
+
+
+class _AtomicInvitationCollection:
+    def __init__(self, database: "_AtomicInvitationDatabase") -> None:
+        self.database = database
+
+    def document(self, code: str) -> _AtomicInvitationReference:
+        return _AtomicInvitationReference(self.database, code)
+
+
+class _AtomicInvitationDatabase:
+    """In-memory Firestore transaction model that retries write conflicts."""
+
+    def __init__(
+        self, codes: dict[str, dict[str, Any]], synchronize_first_reads: bool = False
+    ) -> None:
+        self.codes = {code: dict(data) for code, data in codes.items()}
+        self.versions = {code: 0 for code in codes}
+        self.lock = Lock()
+        self.first_reads = Barrier(2)
+        self.reads = 0
+        self.synchronize_first_reads = synchronize_first_reads
+
+    def collection(self, _name: str) -> _AtomicInvitationCollection:
+        return _AtomicInvitationCollection(self)
+
+    def transaction(self) -> _AtomicInvitationTransaction:
+        return _AtomicInvitationTransaction(self)
+
+    def run_transaction(self, function: Any, transaction: _AtomicInvitationTransaction, ref: Any) -> Any:
+        while True:
+            result = function(transaction, ref)
+            with self.lock:
+                if transaction.read_version != self.versions[ref.code]:
+                    transaction = self.transaction()
+                    continue
+                if transaction.pending_update:
+                    self.codes[ref.code].update(transaction.pending_update)
+                    self.versions[ref.code] += 1
+                return result
+
+
+def test_concurrent_invitation_claims_allow_exactly_one_user() -> None:
+    """A transaction retry makes the losing concurrent claimant observe is_used."""
+    from app.routers import auth_router
+
+    database = _AtomicInvitationDatabase(
+        {"ONE_USE": {"tier": "PRO", "is_used": False}}, synchronize_first_reads=True
+    )
+    results: list[tuple[str, str]] = []
+    results_lock = Lock()
+
+    def transactional(function: Any) -> Any:
+        def run(transaction: Any, ref: Any) -> Any:
+            return database.run_transaction(function, transaction, ref)
+
+        return run
+
+    def claim(user_id: str) -> None:
+        try:
+            tier = auth_router._claim_invitation_code("ONE_USE", user_id, database)
+            result = ("success", tier)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            result = ("error", str(getattr(exc, "detail", exc)))
+        with results_lock:
+            results.append(result)
+
+    with patch("app.routers.auth_router.firestore_transactional", side_effect=transactional):
+        threads = [
+            Thread(target=claim, args=(user_id,)) for user_id in ("user-a", "user-b")
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=3)
+
+    assert not any(thread.is_alive() for thread in threads)
+    assert sorted(status for status, _ in results) == ["error", "success"]
+    assert database.codes["ONE_USE"]["is_used"] is True
+    assert database.codes["ONE_USE"]["used_by_user_id"] in {"user-a", "user-b"}
+
+
+def test_invitation_transaction_failure_is_controlled_and_does_not_consume_code() -> None:
+    """A failed Firestore transaction leaves the invitation unchanged."""
+    from app.routers import auth_router
+
+    database = _AtomicInvitationDatabase({"FAIL": {"tier": "PRO", "is_used": False}})
+    transaction = database.transaction()
+    transaction.update = Mock(side_effect=RuntimeError("Firestore unavailable"))
+    database.transaction = Mock(return_value=transaction)
+
+    with patch("app.routers.auth_router.firestore_transactional", side_effect=lambda function: function):
+        with pytest.raises(HTTPException) as error:
+            auth_router._claim_invitation_code("FAIL", "user-a", database)
+
+    assert getattr(error.value, "status_code", None) == 500
+    assert database.codes["FAIL"] == {"tier": "PRO", "is_used": False}
+
+
+def test_different_invitation_codes_are_claimed_independently() -> None:
+    """Claims for separate invitation documents do not interfere."""
+    from app.routers import auth_router
+
+    database = _AtomicInvitationDatabase(
+        {
+            "PRO": {"tier": "PRO", "is_used": False},
+            "UNLIMITED": {"tier": "UNLIMITED", "is_used": False},
+        }
+    )
+
+    def transactional(function: Any) -> Any:
+        return lambda transaction, ref: database.run_transaction(function, transaction, ref)
+
+    with patch("app.routers.auth_router.firestore_transactional", side_effect=transactional):
+        assert auth_router._claim_invitation_code("PRO", "user-a", database) == "PRO"
+        assert auth_router._claim_invitation_code("UNLIMITED", "user-b", database) == "UNLIMITED"
+
+    assert database.codes["PRO"]["used_by_user_id"] == "user-a"
+    assert database.codes["UNLIMITED"]["used_by_user_id"] == "user-b"
 
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)

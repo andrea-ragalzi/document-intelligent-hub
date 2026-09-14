@@ -7,6 +7,10 @@ Handles user registration and tier assignment via Firebase Custom Claims.
 from datetime import datetime, timezone
 from typing import Any
 
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from firebase_admin import auth
+from google.cloud.firestore import SERVER_TIMESTAMP, transactional as firestore_transactional
+
 from app.core.logging import logger
 from app.dependencies import get_email_service, get_usage_service
 from app.infrastructure import firebase_config
@@ -16,10 +20,6 @@ from app.schemas.auth_schema import (
     RegistrationData,
     RegistrationResponse,
 )
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
-from firebase_admin import auth
-from google.cloud.firestore import SERVER_TIMESTAMP
-
 from app.services.support_rate_limiter import support_rate_limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -235,49 +235,58 @@ def _get_existing_user_tier(user_id: str) -> str | None:
         ) from exc
 
 
-def _validate_invitation_code(invitation_code: str, db: Any) -> dict[str, Any]:
-    """
-    Validate invitation code and return code data.
-
-    Args:
-        invitation_code: Invitation code to validate
-        db: Firestore database client
-
-    Returns:
-        Code data dictionary
-
-    Raises:
-        HTTPException: If code is invalid, used, or expired
-    """
+def _claim_invitation_code(invitation_code: str, user_id: str, db: Any) -> str:
+    """Atomically validate and consume an invitation, returning its trusted tier."""
     code_ref = db.collection("invitation_codes").document(invitation_code)
+    transaction = db.transaction()
+
+    @firestore_transactional  # type: ignore[untyped-decorator]
+    def claim_in_transaction(transaction: Any, ref: Any) -> str:
+        code_doc = ref.get(transaction=transaction)
+
+        if not code_doc.exists:
+            logger.warning("Invitation code was not found")
+            raise HTTPException(status_code=400, detail="Invalid invitation code")
+
+        code_data = code_doc.to_dict()
+        if not code_data:
+            logger.error("Invitation code record was invalid")
+            raise HTTPException(status_code=500, detail="Invalid code data")
+
+        if code_data.get("is_used", True):
+            logger.warning("Invitation code was already used")
+            raise HTTPException(
+                status_code=400, detail="Invitation code has already been used"
+            )
+
+        _check_code_expiration(invitation_code, code_data.get("expires_at"))
+
+        assigned_tier = str(code_data.get("tier", "FREE")).upper()
+        if assigned_tier not in SUPPORTED_TIERS:
+            logger.error("Invitation code had an unsupported tier")
+            raise HTTPException(status_code=400, detail="Invitation code has invalid tier")
+
+        transaction.update(
+            ref,
+            {
+                "is_used": True,
+                "used_by_user_id": user_id,
+                "used_at": SERVER_TIMESTAMP,
+            },
+        )
+        return assigned_tier
 
     try:
-        code_doc = code_ref.get()
-    except Exception as exc:
-        logger.error("Invitation-code lookup failed | Type: {}", type(exc).__name__)
+        assigned_tier = claim_in_transaction(transaction, code_ref)
+        logger.info("Invitation code claimed | Tier: {}", assigned_tier)
+        return str(assigned_tier)
+    except HTTPException:
+        raise
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Invitation-code claim failed | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=500, detail="Database error. Please try again."
         ) from exc
-
-    if not code_doc.exists:
-        logger.warning("Invitation code was not found")
-        raise HTTPException(status_code=400, detail="Invalid invitation code")
-
-    code_data = code_doc.to_dict()
-
-    if not code_data:
-        logger.error("Invitation code record was invalid")
-        raise HTTPException(status_code=500, detail="Invalid code data")
-
-    if code_data.get("is_used", True):
-        logger.warning("Invitation code was already used")
-        raise HTTPException(
-            status_code=400, detail="Invitation code has already been used"
-        )
-
-    _check_code_expiration(invitation_code, code_data.get("expires_at"))
-
-    return dict(code_data)
 
 
 def _check_code_expiration(invitation_code: str, expires_at: Any) -> None:
@@ -311,24 +320,6 @@ def _check_code_expiration(invitation_code: str, expires_at: Any) -> None:
         raise
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error("Invitation-code expiration check failed | Type: {}", type(exc).__name__)
-
-
-def _mark_code_as_used(code_ref: Any, user_id: str, invitation_code: str) -> None:
-    """
-    Mark invitation code as used in Firestore.
-
-    Args:
-        code_ref: Firestore document reference
-        user_id: User who used the code
-        invitation_code: Code that was used
-    """
-    try:
-        code_ref.update(
-            {"is_used": True, "used_by_user_id": user_id, "used_at": SERVER_TIMESTAMP}
-        )
-        logger.info("Invitation code marked as used")
-    except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.error("Failed to mark invitation code as used | Type: {}", type(exc).__name__)
 
 
 @router.post(
@@ -389,24 +380,12 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
 
     db = get_db()
 
-    # Step 4: Validate invitation code. Its tier comes only from server-side
-    # Firestore data; request bodies cannot select an elevated tier.
-    code_data = _validate_invitation_code(invitation_code, db)
-    assigned_tier = str(code_data.get("tier", "FREE")).upper()
-    if assigned_tier not in SUPPORTED_TIERS:
-        logger.error("Invitation code had an unsupported tier")
-        raise HTTPException(status_code=400, detail="Invitation code has invalid tier")
+    # Step 4: Atomically validate and consume the invitation. Its tier comes
+    # only from server-side Firestore data; request bodies cannot select it.
+    assigned_tier = _claim_invitation_code(invitation_code, user_id, db)
 
-    logger.info("Valid invitation code accepted | Tier: {}", assigned_tier)
-
-    # Step 5: Assign tier to user
-    response = _assign_tier_to_user(user_id, assigned_tier)
-
-    # Step 6: Mark invitation code as used
-    code_ref = db.collection("invitation_codes").document(invitation_code)
-    _mark_code_as_used(code_ref, user_id, invitation_code)
-
-    return response
+    # Step 5: Assign the tier that was atomically claimed.
+    return _assign_tier_to_user(user_id, assigned_tier)
 
 
 @router.post("/refresh-claims")
