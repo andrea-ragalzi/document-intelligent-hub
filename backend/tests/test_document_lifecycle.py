@@ -3,7 +3,7 @@
 import os
 import tempfile
 from io import BytesIO
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from fastapi import UploadFile
@@ -30,7 +30,7 @@ def indexing_dependencies() -> tuple[Mock, Mock, Mock]:
 
 @pytest.mark.asyncio
 async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
-    indexing_dependencies: tuple[Mock, Mock, Mock],
+    indexing_dependencies: tuple[Mock, Mock, Mock], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Parsed chunks must be ready for indexing and retain owner/file metadata."""
     repository, language_service, classifier_service = indexing_dependencies
@@ -52,18 +52,21 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
             metadata={"type": "NarrativeText", "page_number": 1},
         )
     ]
-    loader = Mock()
-    loader.load.return_value = loaded_documents
+    temporary_paths: list[str] = []
 
-    with patch(
-        "app.services.document_indexing_service.UnstructuredPDFLoader",
-        return_value=loader,
-    ) as loader_class:
-        chunks_indexed, language = await service.index_document(
-            upload,
-            user_id="verified-user",
-            document_metadata={"is_demo_document": True},
-        )
+    async def load_documents(temp_file_path: str) -> list[Document]:
+        temporary_paths.append(temp_file_path)
+        return loaded_documents
+
+    monkeypatch.setattr(
+        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 1
+    )
+    monkeypatch.setattr(service, "_load_pdf_documents_with_timeout", load_documents)
+    chunks_indexed, language = await service.index_document(
+        upload,
+        user_id="verified-user",
+        document_metadata={"is_demo_document": True},
+    )
 
     assert chunks_indexed > 0
     assert language == "it"
@@ -86,13 +89,12 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
     assert all("uploaded_at" in chunk.metadata for chunk in indexed_chunks)
     assert all(chunk.metadata["is_demo_document"] is True for chunk in indexed_chunks)
 
-    temporary_pdf = loader_class.call_args.args[0]
-    assert not os.path.exists(temporary_pdf)
+    assert not os.path.exists(temporary_paths[0])
 
 
 @pytest.mark.asyncio
 async def test_malformed_pdf_does_not_index_and_removes_temporary_file(
-    indexing_dependencies: tuple[Mock, Mock, Mock],
+    indexing_dependencies: tuple[Mock, Mock, Mock], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A parser failure must not write chunks and must clean its temporary PDF."""
     repository, language_service, classifier_service = indexing_dependencies
@@ -102,21 +104,23 @@ async def test_malformed_pdf_does_not_index_and_removes_temporary_file(
         classifier_service=classifier_service,
     )
     upload = UploadFile(file=BytesIO(b"not a valid PDF"), filename="broken.pdf")
-    loader = Mock()
-    loader.load.side_effect = ValueError("malformed PDF")
+    temporary_paths: list[str] = []
 
-    with patch(
-        "app.services.document_indexing_service.UnstructuredPDFLoader",
-        return_value=loader,
-    ) as loader_class:
-        with pytest.raises(ValueError, match="malformed PDF"):
-            await service.index_document(upload, user_id="verified-user")
+    async def reject_malformed_pdf(temp_file_path: str) -> list[Document]:
+        temporary_paths.append(temp_file_path)
+        raise ValueError("malformed PDF")
+
+    monkeypatch.setattr(
+        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 1
+    )
+    monkeypatch.setattr(service, "_load_pdf_documents_with_timeout", reject_malformed_pdf)
+    with pytest.raises(ValueError, match="malformed PDF"):
+        await service.index_document(upload, user_id="verified-user")
 
     repository.add_documents.assert_not_called()
     language_service.detect_language.assert_not_called()
     classifier_service.classify_document.assert_not_called()
-    temporary_pdf = loader_class.call_args.args[0]
-    assert not os.path.exists(temporary_pdf)
+    assert not os.path.exists(temporary_paths[0])
 
 
 @pytest.mark.asyncio

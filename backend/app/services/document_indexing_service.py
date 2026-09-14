@@ -13,16 +13,19 @@ Responsibilities:
 """
 
 import asyncio
+import multiprocessing
 import os
 import tempfile
 import time
-from typing import Any
+from typing import Any, cast
 
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.documents import Document
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
+from pypdf import PdfReader
 
+from app.config.security_constants import PDF_PARSING_TIMEOUT_SECONDS
 from app.core.logging import logger
 from app.core.constants import ChunkingConstants
 from app.ports.uploaded_file import UploadedFilePort
@@ -35,12 +38,46 @@ from app.services.language_service import LanguageService
 
 MAX_EXTRACTED_DOCUMENT_TEXT = ChunkingConstants.MAX_EXTRACTED_DOCUMENT_TEXT
 MAX_DOCUMENT_CHUNKS = ChunkingConstants.MAX_DOCUMENT_CHUNKS
+MAX_DOCUMENT_PAGES = ChunkingConstants.MAX_DOCUMENT_PAGES
+PARSER_PROCESS_SHUTDOWN_SECONDS = 1
 
 
 def _write_temporary_pdf(descriptor: int, content: bytes) -> None:
     """Write and close a temporary PDF descriptor outside the event loop."""
     with os.fdopen(descriptor, "wb") as temp_file:
         temp_file.write(content)
+
+
+def _get_pdf_page_count(temp_file_path: str) -> int:
+    """Read the PDF page count before sending it to the heavy parser."""
+    return len(PdfReader(temp_file_path).pages)
+
+
+def _load_pdf_documents_worker(
+    temp_file_path: str, connection: Any
+) -> None:
+    """Run Unstructured in a disposable process so a timeout can stop it."""
+    try:
+        if _get_pdf_page_count(temp_file_path) > MAX_DOCUMENT_PAGES:
+            connection.send(("page_limit", None))
+            return
+        documents = UnstructuredPDFLoader(temp_file_path, mode="elements").load()
+        connection.send(("success", documents))
+    except Exception as exc:
+        connection.send(("error", type(exc).__name__))
+    finally:
+        connection.close()
+
+
+def _stop_pdf_parser_process(process: Any) -> None:
+    """Terminate and reap a parser worker before returning capacity."""
+    if process.is_alive():
+        process.terminate()
+    process.join(PARSER_PROCESS_SHUTDOWN_SECONDS)
+    if process.is_alive():
+        process.kill()
+        process.join()
+    process.close()
 
 
 class DocumentIndexingService:
@@ -96,12 +133,13 @@ class DocumentIndexingService:
         temp_file_path = await self._create_temp_file_from_upload(file)
 
         try:
+            documents = await self._load_pdf_documents_with_timeout(temp_file_path)
             # PDF parsing, chunking, embedding and Chroma writes are synchronous
             # libraries. Run the complete CPU/blocking section outside FastAPI's
             # event loop so health checks and independent requests can progress.
             return await asyncio.to_thread(
                 self._index_document_sync,
-                temp_file_path,
+                documents,
                 file.filename or "unknown.pdf",
                 user_id,
                 doc_language,
@@ -110,9 +148,36 @@ class DocumentIndexingService:
         finally:
             self._cleanup_temp_file(temp_file_path)
 
+    async def _load_pdf_documents_with_timeout(
+        self, temp_file_path: str
+    ) -> list[Document]:
+        """Load through a child process and terminate it when parsing exceeds its deadline."""
+        parent_connection, child_connection = multiprocessing.Pipe(duplex=False)
+        process = multiprocessing.Process(
+            target=_load_pdf_documents_worker,
+            args=(temp_file_path, child_connection),
+        )
+        process.start()
+        child_connection.close()
+        try:
+            completed = await asyncio.to_thread(
+                parent_connection.poll, PDF_PARSING_TIMEOUT_SECONDS
+            )
+            if not completed:
+                raise TimeoutError("PDF parsing timed out.")
+            outcome, payload = parent_connection.recv()
+            if outcome == "page_limit":
+                raise ValueError("Document has too many pages.")
+            if outcome != "success":
+                raise ValueError("Unable to parse PDF.")
+            return cast(list[Document], payload)
+        finally:
+            parent_connection.close()
+            await asyncio.to_thread(_stop_pdf_parser_process, process)
+
     def _index_document_sync(
         self,
-        temp_file_path: str,
+        documents: list[Document],
         filename: str,
         user_id: str,
         document_language: str | None,
@@ -120,7 +185,6 @@ class DocumentIndexingService:
     ) -> tuple[int, str]:
         """Execute the synchronous PDF-to-Chroma portion in a worker thread."""
         try:
-            documents = UnstructuredPDFLoader(temp_file_path, mode="elements").load()
             extracted_text_size = sum(len(doc.page_content or "") for doc in documents)
             if extracted_text_size > MAX_EXTRACTED_DOCUMENT_TEXT:
                 raise ValueError("Document contains too much extracted text.")
@@ -414,9 +478,9 @@ class DocumentIndexingService:
             temp_fd = -1
             await asyncio.to_thread(_write_temporary_pdf, descriptor, content)
 
-            # Load first pages only for preview
+            documents = await self._load_pdf_documents_with_timeout(temp_file_path)
             return await asyncio.to_thread(
-                self._detect_document_language_preview_sync, temp_file_path
+                self._detect_document_language_from_documents, documents
             )
 
         except Exception as exc:
@@ -430,12 +494,10 @@ class DocumentIndexingService:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
 
-    def _detect_document_language_preview_sync(
-        self, temp_file_path: str
+    def _detect_document_language_from_documents(
+        self, documents: list[Document]
     ) -> tuple[str, float]:
-        """Parse a PDF preview without blocking the application event loop."""
-        loader = UnstructuredPDFLoader(temp_file_path, mode="elements")
-        documents = loader.load()
+        """Detect language from the bounded parser result without blocking the event loop."""
         preview_text = " ".join([doc.page_content for doc in documents[:3]])[:2000]
         if len(preview_text) < 50:
             logger.warning("⚠️ Not enough text for language detection")
