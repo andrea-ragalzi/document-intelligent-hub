@@ -72,33 +72,22 @@ export function useUserTier() {
         // Force refresh on first load or explicit refresh to ensure latest tier
         const forceRefresh = shouldForceRefreshToken(isFirstLoad, refreshTrigger);
 
-        console.log(
-          `🔄 Loading tier - forceRefresh: ${forceRefresh}, refreshTrigger: ${refreshTrigger}, isFirstLoad: ${isFirstLoad}`
-        );
-
         const idTokenResult = await user.getIdTokenResult(forceRefresh);
         const customTier = idTokenResult.claims.tier as UserTier | undefined;
-        console.log(`🎫 Token claims:`, idTokenResult.claims);
 
         if (customTier && ["FREE", "PRO", "UNLIMITED"].includes(customTier)) {
           setTier(customTier);
-          console.log(
-            "✅ User tier loaded:",
-            customTier,
-            forceRefresh ? "(forced refresh)" : "(from cache)"
-          );
         } else {
           // No tier set, default to FREE
           setTier("FREE");
-          console.log("⚠️ No tier found, defaulting to FREE");
         }
 
         // Mark first load as complete
         if (isFirstLoad) {
           setIsFirstLoad(false);
         }
-      } catch (error) {
-        console.error("❌ Error loading tier:", error);
+      } catch {
+        console.error("Unable to load the account tier.");
         setTier("FREE");
       } finally {
         setIsLoading(false);

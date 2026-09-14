@@ -42,14 +42,11 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
 
   const refreshDocuments = useCallback(async () => {
     if (!userId) {
-      console.log("⚠️ No userId, skipping document refresh");
       setDocuments([]);
       setIsLoading(false);
       return;
     }
 
-    const timestamp = new Date().toISOString();
-    console.log(`🔄 [${timestamp}] Refreshing documents for user:`, userId);
     setIsLoading(true);
     setError(null);
 
@@ -61,7 +58,6 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
       }
 
       const url = `${API_BASE_URL}/documents/list?user_id=${userId}&_t=${Date.now()}`;
-      console.log("📡 Fetching:", url);
 
       const response = await fetch(url, {
         cache: "no-store",
@@ -70,33 +66,20 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log("📨 Response received, status:", response.status);
-
       if (!response.ok) {
-        console.error("❌ Response not OK:", response.status, response.statusText);
         throw new Error(`Failed to fetch documents: ${response.statusText}`);
       }
 
-      console.log("⏳ Parsing JSON...");
       const data: DocumentsResponse = await response.json();
-      console.log(
-        `📄 [${timestamp}] Documents loaded:`,
-        data.documents.length,
-        "documents:",
-        data.documents.map(d => d.filename)
-      );
-      console.log("💾 Setting documents state...");
       // Ensure we always set an array, even if data.documents is null/undefined
       setDocuments(Array.isArray(data.documents) ? data.documents : []);
-      console.log("✅ Documents state updated successfully");
-      console.log("🔍 Current documents in state:", data.documents?.length || 0);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       // Only log error if it's not a network/fetch error (server offline)
       if (err instanceof TypeError && errorMsg.includes("fetch")) {
-        console.log("⚠️ Server offline - documents unavailable");
+        console.warn("Document service is unavailable.");
       } else {
-        console.error("❌ Error loading documents:", errorMsg);
+        console.error("Unable to load documents.");
       }
       setError(errorMsg);
       setDocuments([]);
@@ -110,8 +93,6 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
       if (!userId) {
         throw new Error("User ID is required");
       }
-
-      console.log("🗑️ Deleting document:", filename);
 
       // Get Firebase Auth token
       const token = await getIdToken();
@@ -136,8 +117,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
         throw new Error(errorData.detail || `Failed to delete document: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      console.log("✅ Document deleted:", result);
+      await response.json();
 
       // Trigger document status refresh
       globalThis.window.dispatchEvent(new Event("refreshDocumentStatus"));
@@ -152,8 +132,6 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
     if (!userId) {
       throw new Error("User ID is required");
     }
-
-    console.log("🗑️ Deleting all documents for user:", userId);
 
     // Get Firebase Auth token
     const token = await getIdToken();
@@ -173,8 +151,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
       throw new Error(errorData.detail || `Failed to delete all documents: ${response.statusText}`);
     }
 
-    const result = await response.json();
-    console.log("✅ All documents deleted:", result);
+    await response.json();
 
     // Trigger document status refresh
     globalThis.window.dispatchEvent(new Event("refreshDocumentStatus"));

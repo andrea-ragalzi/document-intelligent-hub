@@ -25,7 +25,6 @@ from app.core.logging import logger
 from app.core.security import (
     get_safe_file_size_mb,
     sanitize_filename,
-    sanitize_log_value,
 )
 from app.dependencies import get_document_file_storage, get_rag_service
 from app.ports.file_storage import FileStoragePort
@@ -54,6 +53,11 @@ router = APIRouter(prefix="/rag", tags=["documents"])
 upload_concurrency_limiter = QueryConcurrencyLimiter()
 language_preview_concurrency_limiter = QueryConcurrencyLimiter()
 MAX_RENAMED_FILENAME_ATTEMPTS = 1_000
+
+
+def _log_document_failure(operation: str, error: Exception) -> None:
+    """Record operational diagnostics without retaining user or SDK details."""
+    logger.error("Document {} failed | Type: {}", operation, type(error).__name__)
 
 
 def _validate_and_sanitize_filename(filename: str | None) -> str:
@@ -167,10 +171,7 @@ def _check_file_limits(user_id: str, rag_service: RAGService) -> tuple[int, floa
     can_upload, max_files = check_file_count_limit(user_id, current_file_count)
 
     if not can_upload:
-        logger.warning(
-            f"⚠️ File limit reached | User: {sanitize_log_value(user_id)} | "
-            f"Files: {current_file_count}/{max_files}"
-        )
+        logger.warning("File limit reached | Files: {}/{}", current_file_count, max_files)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
@@ -213,8 +214,9 @@ async def _read_and_validate_file_size(
             if file_size > max_size_bytes:
                 size_mb = get_safe_file_size_mb(file_size)
                 logger.warning(
-                    f"⚠️ File too large | User: {sanitize_log_value(user_id)} | "
-                    f"Size: {size_mb}MB | Limit: {max_size_mb}MB"
+                    "Document upload exceeded size limit | Size: {}MB | Limit: {}MB",
+                    size_mb,
+                    max_size_mb,
                 )
                 raise HTTPException(
                     status_code=status.HTTP_413_CONTENT_TOO_LARGE,
@@ -230,12 +232,12 @@ async def _read_and_validate_file_size(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"❌ Error reading file: {sanitize_log_value(e)}")
+    except Exception as exc:
+        _log_document_failure("file read", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to read file: {str(e)}",
-        ) from e
+            detail="Unable to read the uploaded file. Please try again.",
+        ) from exc
 
 
 @router.post("/documents/seed-demo", response_model=DemoDocumentSeedResponse)
@@ -260,15 +262,12 @@ async def seed_demo_document(
             chunks_indexed=result.chunks_indexed,
             suggested_questions=DEMO_SUGGESTED_QUESTIONS,
         )
-    except Exception as e:
-        logger.error(
-            f"❌ Demo document seeding failed | User: {sanitize_log_value(user_id)} | "
-            f"Error: {sanitize_log_value(e)}"
-        )
+    except Exception as exc:
+        _log_document_failure("demo seeding", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Demo document could not be prepared. You can still upload your own PDF.",
-        ) from e
+        ) from exc
 
 
 @router.post(
@@ -333,10 +332,7 @@ async def upload_document(
             document_storage.delete(user_id, safe_filename)
             raise
 
-        logger.info(
-            f"✅ Document indexed | User: {sanitize_log_value(user_id)} | "
-            f"File: {sanitize_log_value(safe_filename)} | Chunks: {chunks_indexed}"
-        )
+        logger.info("Document indexed | Chunks: {}", chunks_indexed)
 
         return UploadResponse(
             message=f"Document '{safe_filename}' indexed successfully",
@@ -347,19 +343,16 @@ async def upload_document(
         )
     except HTTPException:
         raise
-    except ValueError as e:
+    except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
-    except Exception as e:
-        logger.error(
-            f"❌ Indexing error for file {sanitize_log_value(safe_filename)}: "
-            f"{sanitize_log_value(e)}"
-        )
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid document upload."
+        ) from exc
+    except Exception as exc:
+        _log_document_failure("indexing", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Indexing failed: {str(e)}",
-        ) from e
+            detail="Unable to index the document. Please try again.",
+        ) from exc
     finally:
         await upload_concurrency_limiter.release(user_id)
 
@@ -418,11 +411,12 @@ async def detect_document_language(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as exc:
+        _log_document_failure("language preview", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Language detection failed: {str(e)}",
-        ) from e
+            detail="Unable to detect the document language. Please try again.",
+        ) from exc
     finally:
         await language_preview_concurrency_limiter.release(user_id)
 
@@ -440,14 +434,12 @@ async def check_documents(
     try:
         count = rag_service.get_user_document_count(user_id)
         return {"has_documents": count > 0, "document_count": count}
-    except Exception as e:
-        logger.error(
-            f"❌ Error checking document status: {sanitize_log_value(e)}"
-        )
+    except Exception as exc:
+        _log_document_failure("status check", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to check document status: {str(e)}",
-        ) from e
+            detail="Unable to check document status. Please try again.",
+        ) from exc
 
 
 @router.get("/documents/list", response_model=DocumentListResponse)
@@ -474,16 +466,16 @@ async def list_documents(
         return DocumentListResponse(
             documents=documents, total_count=len(documents), user_id=user_id
         )
-    except Exception as e:
+    except Exception as exc:
+        _log_document_failure("listing", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve documents: {str(e)}",
-        ) from e
+            detail="Unable to retrieve documents. Please try again.",
+        ) from exc
 
 
 @router.delete("/documents/delete", response_model=DocumentDeleteResponse)
 async def delete_document(
-    request: Request,
     filename: str,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
@@ -497,12 +489,7 @@ async def delete_document(
     - Multi-tenancy: Can only delete own documents
     - Audit logging for forensics
     """
-    # Audit log BEFORE deletion
-    client_ip = request.client.host if request.client else "unknown"
-    logger.bind(AUDIT=True).warning(
-        f"🗑️ DELETE REQUEST | User: {sanitize_log_value(user_id)} | "
-        f"File: {sanitize_log_value(filename)} | IP: {sanitize_log_value(client_ip)}"
-    )
+    logger.bind(AUDIT=True).warning("Document deletion requested")
 
     try:
         deleted_count = rag_service.delete_user_document(
@@ -512,15 +499,12 @@ async def delete_document(
         if deleted_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document '{filename}' not found for user {user_id}",
+                detail="Document not found.",
             )
         document_storage.delete(user_id, filename)
 
         # Audit log AFTER successful deletion
-        logger.bind(AUDIT=True).warning(
-            f"✅ DELETED | User: {sanitize_log_value(user_id)} | "
-            f"File: {sanitize_log_value(filename)} | Chunks: {deleted_count}"
-        )
+        logger.bind(AUDIT=True).warning("Document deleted | Chunks: {}", deleted_count)
 
         return DocumentDeleteResponse(
             message=f"Document '{filename}' deleted successfully",
@@ -529,16 +513,12 @@ async def delete_document(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(
-            f"❌ Delete failed | User: {sanitize_log_value(user_id)} | "
-            f"File: {sanitize_log_value(filename)} | "
-            f"Error: {sanitize_log_value(e)}"
-        )
+    except Exception as exc:
+        _log_document_failure("deletion", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete document: {str(e)}",
-        ) from e
+            detail="Unable to delete the document. Please try again.",
+        ) from exc
 
 
 @router.get("/documents/content")
@@ -576,11 +556,7 @@ async def get_document_content(
     storage_root = os.path.realpath(document_storage.root_path)
     safe_file_path = os.path.realpath(original_file)
     if not safe_file_path.startswith(f"{storage_root}{os.sep}"):
-        logger.warning(
-            f"Blocked original document outside storage root | "
-            f"User: {sanitize_log_value(user_id)} | "
-            f"File: {sanitize_log_value(owned_document.filename)}"
-        )
+        logger.warning("Blocked original document outside storage root")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found.",
@@ -596,7 +572,6 @@ async def get_document_content(
 
 @router.delete("/documents/delete-all")
 async def delete_all_documents(
-    request: Request,
     user_id: str = Depends(verify_firebase_token),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: FileStoragePort = Depends(get_document_file_storage),
@@ -609,12 +584,7 @@ async def delete_all_documents(
     - Requires valid Firebase Auth token
     - Audit logging for forensics
     """
-    # Audit log BEFORE deletion
-    client_ip = request.client.host if request.client else "unknown"
-    logger.bind(AUDIT=True).error(
-        f"🚨 BULK DELETE REQUEST | User: {sanitize_log_value(user_id)} | "
-        f"IP: {sanitize_log_value(client_ip)}"
-    )
+    logger.bind(AUDIT=True).warning("Bulk document deletion requested")
 
     try:
         deleted_count = rag_service.delete_all_user_documents(user_id)
@@ -622,28 +592,24 @@ async def delete_all_documents(
         if deleted_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No documents found for user {user_id}",
+                detail="No documents found.",
             )
         document_storage.delete_all(user_id)
 
         # Audit log AFTER successful deletion
-        logger.bind(AUDIT=True).error(
-            f"✅ BULK DELETED | User: {sanitize_log_value(user_id)} | "
-            f"Chunks: {deleted_count}"
+        logger.bind(AUDIT=True).warning(
+            "Bulk document deletion completed | Chunks: {}", deleted_count
         )
 
         return {
-            "message": f"All documents deleted successfully for user {user_id}",
+            "message": "All documents deleted successfully.",
             "chunks_deleted": deleted_count,
         }
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(
-            f"❌ Bulk delete failed | User: {sanitize_log_value(user_id)} | "
-            f"Error: {sanitize_log_value(e)}"
-        )
+    except Exception as exc:
+        _log_document_failure("bulk deletion", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete documents: {str(e)}",
-        ) from e
+            detail="Unable to delete documents. Please try again.",
+        ) from exc

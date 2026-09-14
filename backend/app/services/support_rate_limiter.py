@@ -7,12 +7,14 @@ from collections import defaultdict, deque
 from app.config.security_constants import (
     BUG_REPORT_RATE_LIMIT,
     FEEDBACK_RATE_LIMIT,
+    INVITATION_REQUEST_MIN_INTERVAL_SECONDS,
+    INVITATION_REQUEST_RATE_LIMIT,
     MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS,
 )
 
 
 class SupportRateLimiter:
-    """Limit bug reports and feedback per authenticated UID in a rolling hour."""
+    """Limit bounded support and anonymous invitation submissions per principal."""
 
     def __init__(self) -> None:
         self._events: dict[tuple[str, str], deque[float]] = defaultdict(deque)
@@ -20,21 +22,27 @@ class SupportRateLimiter:
         self._limits = {
             "bug_report": self._limit_from_setting(BUG_REPORT_RATE_LIMIT),
             "feedback": self._limit_from_setting(FEEDBACK_RATE_LIMIT),
+            "invitation_request": self._limit_from_setting(INVITATION_REQUEST_RATE_LIMIT),
+        }
+        self._minimum_intervals = {
+            "bug_report": MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS,
+            "feedback": MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS,
+            "invitation_request": INVITATION_REQUEST_MIN_INTERVAL_SECONDS,
         }
 
     @staticmethod
     def _limit_from_setting(setting: str) -> int:
         return int(setting.split("/", maxsplit=1)[0])
 
-    async def allow(self, event_type: str, user_id: str) -> bool:
+    async def allow(self, event_type: str, principal: str) -> bool:
         """Reserve a submission slot, returning False once its hourly limit is full."""
         now = time.monotonic()
-        key = (event_type, user_id)
+        key = (event_type, principal)
         async with self._lock:
             events = self._events[key]
             while events and now - events[0] >= 3600:
                 events.popleft()
-            if events and now - events[-1] < MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS:
+            if events and now - events[-1] < self._minimum_intervals[event_type]:
                 return False
             if len(events) >= self._limits[event_type]:
                 return False

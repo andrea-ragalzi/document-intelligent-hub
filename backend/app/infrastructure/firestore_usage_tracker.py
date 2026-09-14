@@ -46,9 +46,9 @@ class FirestoreUsageTracker:
             # Handle None values from Firestore
             return int(queries_today) if queries_today is not None else 0
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error getting user queries: {e}")
-            raise RuntimeError("Failed to read query usage") from e
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to read query usage | Type: {}", type(exc).__name__)
+            raise RuntimeError("Failed to read query usage") from exc
 
     def increment_user_queries(self, user_id: str) -> int:
         """
@@ -99,11 +99,11 @@ class FirestoreUsageTracker:
                 return 1
 
             new_count = update_in_transaction(transaction, usage_ref)
-            logger.info(f"📊 User {user_id} queries today: {new_count}")
+            logger.info("Daily query count incremented | Count: {}", new_count)
             return int(new_count)
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error incrementing user queries: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to increment query usage | Type: {}", type(exc).__name__)
             raise
 
     def reserve_query_slot(self, user_id: str, max_queries: int) -> tuple[bool, int]:
@@ -165,8 +165,8 @@ class FirestoreUsageTracker:
                 )
             return bool(reserved), int(new_count)
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error reserving query slot: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to reserve query usage | Type: {}", type(exc).__name__)
             # Fail closed so a Firestore outage cannot bypass paid-query limits.
             return False, max_queries
 
@@ -186,15 +186,12 @@ class FirestoreUsageTracker:
             can_query = queries_used < max_queries
 
             if not can_query:
-                logger.warning(
-                    f"⚠️ User {user_id} has exceeded daily query limit "
-                    f"({queries_used}/{max_queries})"
-                )
+                logger.warning("Daily query limit exceeded | Queries: {}/{}", queries_used, max_queries)
 
             return can_query, queries_used
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error checking query limit: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to check query usage | Type: {}", type(exc).__name__)
             # Fail closed so a Firestore outage cannot bypass paid-query limits.
             return False, max_queries
 
@@ -246,12 +243,12 @@ class FirestoreUsageTracker:
                 # Update document if changed
                 if len(updated_queries) < len(queries):
                     doc.reference.update({"queries": updated_queries})
-                    logger.info(f"🧹 Cleaned up usage for user {doc.id}")
+                    logger.info("Historical query usage cleaned up")
 
             logger.info("✅ Usage cleanup completed")
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error cleaning up usage: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to clean up query usage | Type: {}", type(exc).__name__)
 
 
 def get_usage_service() -> FirestoreUsageTracker:

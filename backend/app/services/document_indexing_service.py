@@ -142,8 +142,8 @@ class DocumentIndexingService:
                 f"✅ Indexed {total_chunks_indexed} chunks in language: {resolved_language}"
             )
             return total_chunks_indexed, resolved_language
-        except Exception as e:
-            logger.error(f"❌ Indexing error (service level): {e}")
+        except Exception as exc:
+            logger.error("Document indexing failed | Type: {}", type(exc).__name__)
             raise
 
     async def _create_temp_file_from_upload(self, file: UploadedFilePort) -> str:
@@ -398,9 +398,9 @@ class DocumentIndexingService:
                 self._detect_document_language_preview_sync, temp_file_path
             )
 
-        except Exception as e:
-            logger.error(f"❌ Language detection error: {e}")
-            raise e
+        except Exception as exc:
+            logger.error("Document language detection failed | Type: {}", type(exc).__name__)
+            raise
         finally:
             # Clean up the secure temporary file
             # temp_file_path is from tempfile.mkstemp(), already an absolute path

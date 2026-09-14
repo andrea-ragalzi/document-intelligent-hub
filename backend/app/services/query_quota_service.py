@@ -46,8 +46,7 @@ class QueryQuotaService:
     def reserve(self, user_id: str) -> QueryQuotaReservation:
         """Resolve the user's limit and atomically reserve one query slot."""
         tier = self._tier_provider(user_id)
-        logger.info(f"🎫 User ID: {user_id}")
-        logger.info(f"🎫 User tier: {tier}")
+        logger.info("Resolving query quota | Tier: {}", tier)
 
         if tier == "UNLIMITED":
             max_queries = UNLIMITED_TIER_MAX_QUERIES
@@ -59,15 +58,9 @@ class QueryQuotaService:
         can_query, reserved_count = self._usage_tracker.reserve_query_slot(
             user_id, max_queries
         )
-        logger.info(
-            f"📊 Usage reservation result: reserved={can_query}, "
-            f"queries_used={reserved_count}, max_queries={max_queries}"
-        )
+        logger.info("Usage reservation | Reserved: {} | Queries: {}/{}", can_query, reserved_count, max_queries)
         if not can_query:
-            logger.warning(
-                f"⛔ Query limit exceeded for user {user_id} ({tier}): "
-                f"{reserved_count}/{max_queries}"
-            )
+            logger.warning("Query limit exceeded | Tier: {} | Queries: {}/{}", tier, reserved_count, max_queries)
             raise QueryLimitExceededError(reserved_count, max_queries)
 
         return QueryQuotaReservation(tier, max_queries, reserved_count)

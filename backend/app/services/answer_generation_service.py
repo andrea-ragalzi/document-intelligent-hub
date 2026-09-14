@@ -136,13 +136,12 @@ class AnswerGenerationService:
         conversation_history = conversation_history or []
         current_user_message = current_user_message or query
 
-        logger.info(f"🔍 Starting RAG query for user: {user_id}")
-        logger.info(f"📝 Query: {query[:100]}{'...' if len(query) > 100 else ''}")
-
-        if include_files:
-            logger.info(f"📂 File filter: INCLUDE {include_files}")
-        if exclude_files:
-            logger.info(f"🚫 File filter: EXCLUDE {exclude_files}")
+        logger.info("Starting RAG query")
+        logger.info(
+            "RAG filter configuration | Included: {} | Excluded: {}",
+            len(include_files or []),
+            len(exclude_files or []),
+        )
 
         query_language_code = (query_language or self.language_service.detect_language(query)).upper()
         response_language = response_language or self.language_service.resolve_response_language(
@@ -158,9 +157,9 @@ class AnswerGenerationService:
                 translated_query = self.translation_service.translate_query_to_language(
                     query, "EN"
                 )
-                logger.info(f"🔄 Translated for retrieval: {translated_query[:100]}")
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.error(f"❌ Translation failed: {e}, using original query")
+                logger.info("Query translated for retrieval")
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                logger.error("Retrieval translation failed | Type: {}", type(exc).__name__)
                 translated_query = query
         else:
             translated_query = query
@@ -438,8 +437,8 @@ class AnswerGenerationService:
                 context_by_id, evidence_ids
             )
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Error during LLM invocation: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Answer-model invocation failed | Type: {}", type(exc).__name__)
             return self._get_fallback_response(), []
 
     def _format_conversation_history(

@@ -85,7 +85,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
       await logout();
       router.push("/login");
     } catch (error) {
-      console.error("Failed to logout:", error);
+      console.error("Sign-out failed.");
       setLogoutError(
         error instanceof Error ? error.message : "We couldn't sign you out. Please try again."
       );

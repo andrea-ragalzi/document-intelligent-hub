@@ -24,8 +24,8 @@ export default function InvitationCodeModal({ isOpen, onSuccess }: InvitationCod
       if (tier) {
         onSuccess(tier);
       }
-    } catch (err) {
-      console.error("Unexpected error during FREE registration:", err);
+    } catch {
+      console.error("Unexpected registration failure.");
     }
   };
 

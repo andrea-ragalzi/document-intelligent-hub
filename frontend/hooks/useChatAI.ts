@@ -80,7 +80,7 @@ export function useChatAI({ userId }: UseChatAIProps) {
       if (error.message.includes("Daily query limit exceeded")) {
         return;
       } else {
-        console.error("Chat error:", error);
+        console.error("Chat request failed.");
       }
     },
   });
@@ -92,7 +92,7 @@ export function useChatAI({ userId }: UseChatAIProps) {
 
     const token = await getIdToken();
     if (!token) {
-      console.error("Chat error: no authenticated Firebase token available");
+      console.error("Chat request requires authentication.");
       return;
     }
 

@@ -29,8 +29,8 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
 
     try {
       return JSON.parse(stored);
-    } catch (e) {
-      console.error("Error parsing localStorage conversations:", e);
+    } catch {
+      console.error("Unable to parse saved conversations.");
       return [];
     }
   }, []);
@@ -42,7 +42,6 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
 
       if (localConversations.length === 0) return [];
 
-      console.log("Migrating conversations from localStorage to Firestore...");
       await migrateLocalStorageToFirestore(userId, localConversations);
 
       const migratedConversations = await loadConversationsFromFirestore(userId);
@@ -73,14 +72,14 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
               setSavedConversations(migratedConversations);
               return;
             }
-          } catch (e) {
-            console.error("Error migrating from localStorage:", e);
+          } catch {
+            console.error("Unable to migrate saved conversations.");
           }
         }
 
         setSavedConversations(firestoreConversations);
-      } catch (err) {
-        console.error("Error loading conversations:", err);
+      } catch {
+        console.error("Unable to load conversations.");
         setError("Unable to load conversations");
 
         // Fallback to localStorage if Firestore fails
@@ -97,32 +96,21 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
   // Save a conversation
   const saveConversation = useCallback(
     async (name: string): Promise<boolean> => {
-      console.log("🗂️ useConversations.saveConversation called");
-      console.log("  name:", name);
-      console.log("  userId:", userId);
-      console.log("  currentChatHistory.length:", currentChatHistory.length);
-
       if (!userId) {
-        console.log("❌ No userId");
         setError("User ID not available");
         return false;
       }
       if (currentChatHistory.length === 0) {
-        console.log("❌ No chat history");
         setError("No conversation to save");
         return false;
       }
 
-      console.log("📝 Starting save process...");
       setIsLoading(true);
       setError(null);
 
       try {
-        console.log("🔥 Calling Firestore...");
         // Salva su Firestore (rimosso timeout per vedere l'errore reale)
         const newConversation = await saveConversationToFirestore(userId, name, currentChatHistory);
-
-        console.log("✅ Got response from Firestore:", newConversation);
 
         // Aggiorna lo stato locale
         setSavedConversations(prev => [newConversation, ...prev]);
@@ -133,11 +121,9 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
           localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
         }
 
-        console.log("🎉 Save completed successfully");
         return true;
-      } catch (err) {
-        console.error("❌ Error saving conversation:", err);
-        console.error("❌ Error details:", JSON.stringify(err, null, 2));
+      } catch {
+        console.error("Unable to save conversation.");
         setError("Unable to save conversation");
 
         // Fallback to localStorage
@@ -154,9 +140,9 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (error_) {
+          } catch {
             // Intentional: localStorage errors should not block the save flow
-            console.error("Error saving to localStorage:", error_);
+            console.error("Unable to save conversation locally.");
           }
         }
 
@@ -188,8 +174,8 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
         }
 
         return true;
-      } catch (err) {
-        console.error("Error deleting conversation:", err);
+      } catch {
+        console.error("Unable to delete conversation.");
         setError("Unable to delete conversation");
 
         // Fallback to localStorage
@@ -199,9 +185,9 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (error_) {
+          } catch {
             // Intentional: localStorage errors should not block the delete flow
-            console.error("Error deleting from localStorage:", error_);
+            console.error("Unable to delete the local conversation copy.");
           }
         }
 
@@ -221,7 +207,6 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
         return false;
       }
 
-      console.log("✏️ Renaming conversation:", id, "to:", newName);
       setIsLoading(true);
       setError(null);
 
@@ -242,8 +227,8 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
         }
 
         return true;
-      } catch (err) {
-        console.error("Error renaming conversation:", err);
+      } catch {
+        console.error("Unable to rename conversation.");
         setError("Unable to rename conversation");
 
         // Fallback to localStorage
@@ -255,9 +240,9 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (error_) {
+          } catch {
             // Intentional: localStorage errors should not block the rename flow
-            console.error("Error updating localStorage:", error_);
+            console.error("Unable to update the local conversation copy.");
           }
         }
 
@@ -277,7 +262,6 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
         return false;
       }
 
-      console.log("📝 Updating conversation history:", id);
       setIsLoading(true);
       setError(null);
 
@@ -298,8 +282,8 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
         }
 
         return true;
-      } catch (err) {
-        console.error("Error updating conversation history:", err);
+      } catch {
+        console.error("Unable to update conversation history.");
         setError("Unable to update conversation");
 
         // Fallback to localStorage
@@ -311,9 +295,9 @@ export const useConversations = ({ currentChatHistory, userId }: UseConversation
             localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(updated));
             setSavedConversations(updated);
             return true;
-          } catch (error_) {
+          } catch {
             // Intentional: localStorage errors should not block the update flow
-            console.error("Error updating localStorage:", error_);
+            console.error("Unable to update the local conversation copy.");
           }
         }
 

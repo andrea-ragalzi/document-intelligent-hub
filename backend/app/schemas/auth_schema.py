@@ -4,7 +4,7 @@ Authentication and Registration Schemas
 Pydantic models for user authentication and tier assignment via invitation codes.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class RegistrationData(BaseModel):
@@ -47,13 +47,17 @@ class InvitationCodeRequest(BaseModel):
         email: User's email address
     """
 
-    first_name: str = Field(
-        ..., min_length=1, max_length=100, description="User's first name"
-    )
-    last_name: str = Field(
-        ..., min_length=1, max_length=100, description="User's last name"
-    )
-    email: str = Field(..., description="User's email address")
+    first_name: str = Field(..., min_length=1, max_length=100, description="User's first name")
+    last_name: str = Field(..., min_length=1, max_length=100, description="User's last name")
+    email: EmailStr = Field(..., max_length=254, description="User's email address")
+
+    @field_validator("first_name", "last_name", mode="before")
+    @classmethod
+    def strip_required_names(cls, value: object) -> object:
+        """Reject whitespace-only public form values after normalization."""
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
 
 class InvitationCodeRequestResponse(BaseModel):

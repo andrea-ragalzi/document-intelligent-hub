@@ -35,25 +35,12 @@ def _log_request_details(request: QueryRequest, user_id: str) -> None:
         request: Query request
         user_id: Firebase user ID
     """
-    logger.info(f"{'='*80}")
-    logger.info("📥 [ROUTER] NEW QUERY REQUEST")
-    logger.info(f"{'='*80}")
-    logger.info(f"👤 User ID: {user_id}")
-    logger.info(f"❓ Query: {request.query}")
+    del user_id
     logger.info(
-        f"📜 Conversation History: {len(request.conversation_history)} messages"
+        "RAG request received | History messages: {} | Output language provided: {}",
+        len(request.conversation_history),
+        bool(request.output_language),
     )
-
-    if request.conversation_history:
-        for idx, msg in enumerate(request.conversation_history[-3:], 1):
-            logger.debug(f"   [{idx}] {msg.role}: {msg.content[:80]}...")
-
-    if request.output_language:
-        logger.info(f"🌍 Output Language: {request.output_language}")
-    else:
-        logger.info("🌍 Output Language: Not specified (will auto-detect from query)")
-
-    logger.info(f"{'='*80}")
 
 
 def _normalize_citations(sources: list[Any]) -> list[SourceCitation]:
@@ -90,16 +77,15 @@ def _log_response_details(
         new_count: Updated query count
         max_queries: Maximum queries allowed
     """
-    logger.info(f"{'='*80}")
-    logger.info("📤 [ROUTER] QUERY RESPONSE")
-    logger.info(f"{'='*80}")
-    logger.info(f"✅ Answer length: {len(answer)} characters")
-    logger.info(f"📚 Sources: {len(citations)} citations")
-    if citations:
-        logger.info(f"   Files: {', '.join(citation.filename for citation in citations)}")
-    logger.info(f"📝 Answer preview: {answer[:200]}...")
-    logger.info(f"📊 Query slot reserved: {new_count}/{max_queries} ({tier})")
-    logger.info(f"{'='*80}")
+    logger.info(
+        "RAG response completed | Answer characters: {} | Citations: {} | "
+        "Quota: {}/{} | Tier: {}",
+        len(answer),
+        len(citations),
+        new_count,
+        max_queries,
+        tier,
+    )
 
 
 router = APIRouter(prefix="/rag", tags=["query"])
@@ -126,10 +112,7 @@ async def query_document(
     """
     query_slot_acquired = await query_concurrency_limiter.acquire(user_id)
     if not query_slot_acquired:
-        logger.warning(
-            f"⛔ Concurrent RAG query rejected for user {user_id}: "
-            "a query is already running"
-        )
+        logger.warning("Concurrent RAG query rejected")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="A query is already running for this account. Please wait for it to finish.",
@@ -149,8 +132,8 @@ async def query_document(
         )
         quota_reserved = True
         logger.info(
-            f"⏱️ Query timing | firebase_tier_and_usage="
-            f"{(time.perf_counter() - tier_started) * 1000:.2f}ms"
+            "Query timing | tier and usage: {:.2f}ms",
+            (time.perf_counter() - tier_started) * 1000,
         )
 
         # Extract file filters and optimize query
@@ -160,12 +143,9 @@ async def query_document(
         )
         available_filenames = [doc.filename for doc in available_documents]
 
-        logger.info(f"📂 User has {len(available_filenames)} documents available")
-        logger.info("🔍 Extracting file filters and optimizing query...")
-        logger.info(
-            f"⏱️ Query timing | document_lookup="
-            f"{(time.perf_counter() - documents_started) * 1000:.2f}ms"
-        )
+        logger.info("Document lookup completed | Available documents: {}", len(available_filenames))
+        logger.info("Extracting file filters and optimizing query")
+        logger.info("Query timing | document lookup: {:.2f}ms", (time.perf_counter() - documents_started) * 1000)
 
         parser_started = time.perf_counter()
         filter_result = await asyncio.to_thread(
@@ -173,10 +153,7 @@ async def query_document(
             query=request.query,
             available_files=available_filenames,
         )
-        logger.info(
-            f"⏱️ Query timing | query_parser="
-            f"{(time.perf_counter() - parser_started) * 1000:.2f}ms"
-        )
+        logger.info("Query timing | query parser: {:.2f}ms", (time.perf_counter() - parser_started) * 1000)
 
         query_for_rag = filter_result.cleaned_query
         include_files = (
@@ -187,9 +164,10 @@ async def query_document(
         )
 
         logger.info(
-            f"✅ File filters: include={include_files}, exclude={exclude_files}"
+            "File filters resolved | Included: {} | Excluded: {}",
+            len(include_files or []),
+            len(exclude_files or []),
         )
-        logger.info(f"🧹 Optimized query: {query_for_rag}")
 
         # Call RAG service
         rag_started = time.perf_counter()
@@ -208,15 +186,9 @@ async def query_document(
             request.output_language,
             **rag_kwargs,
         )
-        logger.info(
-            f"⏱️ Query timing | rag_answer="
-            f"{(time.perf_counter() - rag_started) * 1000:.2f}ms"
-        )
+        logger.info("Query timing | RAG answer: {:.2f}ms", (time.perf_counter() - rag_started) * 1000)
 
-        logger.info(
-            f"⏱️ Query timing | total="
-            f"{(time.perf_counter() - request_started) * 1000:.2f}ms"
-        )
+        logger.info("Query timing | total: {:.2f}ms", (time.perf_counter() - request_started) * 1000)
         citations = _normalize_citations(sources)
         source_documents = list(dict.fromkeys(citation.filename for citation in citations))
         _log_response_details(
@@ -244,15 +216,7 @@ async def query_document(
                 "⚠️ RAG request failed after quota reservation; retaining the "
                 "reserved slot because external work may already have started."
             )
-        logger.error(f"{'='*80}")
-        logger.error("❌ [ROUTER] QUERY PROCESSING ERROR")
-        logger.error(f"{'='*80}")
-        logger.error(f"Error type: {type(e).__name__}")
-        logger.error(
-            "Error details and traceback redacted to prevent leaking provider "
-            "or credential data."
-        )
-        logger.error(f"{'='*80}")
+        logger.error("RAG query failed | Type: {}", type(e).__name__)
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -75,8 +75,8 @@ def get_embedding_function() -> HuggingFaceEmbeddings:
         )
         logger.info("✅ HuggingFace embedding function initialized successfully")
         return _embedding_function_singleton
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize embedding function: {e}")
+    except Exception as exc:
+        logger.error("Unable to initialize embeddings | Type: {}", type(exc).__name__)
         raise
 
 
@@ -178,8 +178,8 @@ def get_vector_store() -> Generator[Chroma, None, None]:
         # Yield the vector store to the requesting service
         yield vector_store
 
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize vector store: {e}")
+    except Exception as exc:
+        logger.error("Unable to initialize vector store | Type: {}", type(exc).__name__)
         raise
     finally:
         # Cleanup resources (if needed in future versions)
@@ -215,8 +215,8 @@ def get_chroma_collection_direct() -> Generator[Collection, None, None]:
 
         yield collection
 
-    except Exception as e:
-        logger.error(f"❌ Failed to get ChromaDB collection: {e}")
+    except Exception as exc:
+        logger.error("Unable to access Chroma collection | Type: {}", type(exc).__name__)
         raise
     finally:
         logger.debug("🔄 ChromaDB collection dependency cleanup complete")

@@ -16,9 +16,11 @@ from app.schemas.auth_schema import (
     RegistrationData,
     RegistrationResponse,
 )
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from firebase_admin import auth
 from google.cloud.firestore import SERVER_TIMESTAMP
+
+from app.services.support_rate_limiter import support_rate_limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -76,9 +78,9 @@ def get_current_user_id(authorization: str = Header(...)) -> str:
         decoded_token = auth.verify_id_token(token)
         user_id = str(decoded_token["uid"])
         return user_id
-    except Exception as e:
-        logger.error(f"❌ Token verification failed: {e}")
-        raise HTTPException(status_code=401, detail="Invalid or expired token") from e
+    except Exception as exc:
+        logger.error("Token verification failed | Type: {}", type(exc).__name__)
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
 
 def get_current_admin_user_id(authorization: str | None = Header(default=None)) -> str:
@@ -92,7 +94,7 @@ def get_current_admin_user_id(authorization: str | None = Header(default=None)) 
     try:
         decoded_token = auth.verify_id_token(token)
     except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.error(f"❌ Token verification failed: {exc}")
+        logger.error("Token verification failed | Type: {}", type(exc).__name__)
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
     if decoded_token.get("admin") is not True:
@@ -152,8 +154,8 @@ def get_unlimited_emails() -> list[str]:
         get_unlimited_emails.cache = []  # type: ignore[attr-defined]
         return []
 
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error(f"❌ Error fetching unlimited emails: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Unable to load unlimited-email configuration | Type: {}", type(exc).__name__)
         # Fallback to empty list on error
         return []
 
@@ -175,13 +177,13 @@ def _verify_token_and_get_user_info(id_token: str) -> tuple[str, str | None]:
         decoded_token = auth.verify_id_token(id_token)
         user_id = decoded_token["uid"]
         user_email = decoded_token.get("email")
-        logger.info(f"✅ Token verified for user: {user_id} ({user_email})")
+        logger.info("Registration token verified")
         return user_id, user_email
-    except Exception as e:
-        logger.error(f"❌ Token verification failed: {e}")
+    except Exception as exc:
+        logger.error("Registration token verification failed | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=401, detail="Invalid or expired ID token"
-        ) from e
+        ) from exc
 
 
 def _assign_tier_to_user(user_id: str, tier: str) -> RegistrationResponse:
@@ -203,17 +205,17 @@ def _assign_tier_to_user(user_id: str, tier: str) -> RegistrationResponse:
         custom_claims = dict(user.custom_claims or {})
         custom_claims["tier"] = tier
         auth.set_custom_user_claims(user_id, custom_claims)
-        logger.info(f"✅ Custom claim set: {user_id} -> {tier}")
+        logger.info("Custom tier claim set | Tier: {}", tier)
         return RegistrationResponse(
             status="success",
             tier=tier,
             message="Access to plan assigned successfully. You may need to refresh your token.",
         )
-    except Exception as e:
-        logger.error(f"❌ Failed to set custom claims: {e}")
+    except Exception as exc:
+        logger.error("Failed to set custom tier claim | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=500, detail="Failed to assign tier. Please try again."
-        ) from e
+        ) from exc
 
 
 def _get_existing_user_tier(user_id: str) -> str | None:
@@ -226,11 +228,11 @@ def _get_existing_user_tier(user_id: str) -> str | None:
         if existing_tier in SUPPORTED_TIERS:
             return str(existing_tier)
         return None
-    except Exception as e:
-        logger.error(f"❌ Failed to read existing Firebase claims: {e}")
+    except Exception as exc:
+        logger.error("Failed to read existing Firebase claims | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=500, detail="Failed to verify existing account tier."
-        ) from e
+        ) from exc
 
 
 def _validate_invitation_code(invitation_code: str, db: Any) -> dict[str, Any]:
@@ -251,24 +253,24 @@ def _validate_invitation_code(invitation_code: str, db: Any) -> dict[str, Any]:
 
     try:
         code_doc = code_ref.get()
-    except Exception as e:
-        logger.error(f"❌ Firestore error fetching code: {e}")
+    except Exception as exc:
+        logger.error("Invitation-code lookup failed | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=500, detail="Database error. Please try again."
-        ) from e
+        ) from exc
 
     if not code_doc.exists:
-        logger.warning(f"❌ Invitation code not found: {invitation_code}")
+        logger.warning("Invitation code was not found")
         raise HTTPException(status_code=400, detail="Invalid invitation code")
 
     code_data = code_doc.to_dict()
 
     if not code_data:
-        logger.error(f"❌ Code document exists but returned None: {invitation_code}")
+        logger.error("Invitation code record was invalid")
         raise HTTPException(status_code=500, detail="Invalid code data")
 
     if code_data.get("is_used", True):
-        logger.warning(f"❌ Invitation code already used: {invitation_code}")
+        logger.warning("Invitation code was already used")
         raise HTTPException(
             status_code=400, detail="Invitation code has already been used"
         )
@@ -303,15 +305,12 @@ def _check_code_expiration(invitation_code: str, expires_at: Any) -> None:
             expiration_date = expiration_date.replace(tzinfo=timezone.utc)
 
         if now > expiration_date:
-            logger.warning(
-                f"❌ Invitation code expired: {invitation_code} "
-                f"(expired: {expiration_date})"
-            )
+            logger.warning("Invitation code was expired")
             raise HTTPException(status_code=400, detail="Invitation code has expired")
     except HTTPException:
         raise
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error(f"⚠️ Error checking expiration date: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Invitation-code expiration check failed | Type: {}", type(exc).__name__)
 
 
 def _mark_code_as_used(code_ref: Any, user_id: str, invitation_code: str) -> None:
@@ -327,9 +326,9 @@ def _mark_code_as_used(code_ref: Any, user_id: str, invitation_code: str) -> Non
         code_ref.update(
             {"is_used": True, "used_by_user_id": user_id, "used_at": SERVER_TIMESTAMP}
         )
-        logger.info(f"✅ Invitation code marked as used: {invitation_code}")
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error(f"❌ Failed to mark code as used: {e}")
+        logger.info("Invitation code marked as used")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to mark invitation code as used | Type: {}", type(exc).__name__)
 
 
 @router.post(
@@ -369,9 +368,7 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
     unlimited_emails = app_config["unlimited_emails"]
 
     if user_email and user_email in unlimited_emails:
-        logger.info(
-            f"🌟 User {user_email} found in unlimited list - assigning UNLIMITED tier"
-        )
+        logger.info("Registration matched an unlimited-tier allowlist entry")
         return _assign_tier_to_user(user_id, "UNLIMITED")
 
     # Step 3: No code means normal public FREE registration. Preserve any
@@ -380,16 +377,14 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
     if not invitation_code:
         existing_tier = _get_existing_user_tier(user_id)
         if existing_tier:
-            logger.info(
-                f"✅ User {user_id} already has tier {existing_tier}; preserving it"
-            )
+            logger.info("Registration preserved an existing tier | Tier: {}", existing_tier)
             return RegistrationResponse(
                 status="success",
                 tier=existing_tier,
                 message="Existing account tier preserved.",
             )
 
-        logger.info(f"🆓 No invitation code supplied; assigning FREE to {user_id}")
+        logger.info("Registration assigned the free tier")
         return _assign_tier_to_user(user_id, "FREE")
 
     db = get_db()
@@ -399,12 +394,10 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
     code_data = _validate_invitation_code(invitation_code, db)
     assigned_tier = str(code_data.get("tier", "FREE")).upper()
     if assigned_tier not in SUPPORTED_TIERS:
-        logger.error(
-            f"❌ Invitation code {invitation_code} has unsupported tier {assigned_tier}"
-        )
+        logger.error("Invitation code had an unsupported tier")
         raise HTTPException(status_code=400, detail="Invitation code has invalid tier")
 
-    logger.info(f"✅ Valid invitation code - assigning tier: {assigned_tier}")
+    logger.info("Valid invitation code accepted | Tier: {}", assigned_tier)
 
     # Step 5: Assign tier to user
     response = _assign_tier_to_user(user_id, assigned_tier)
@@ -446,14 +439,16 @@ def refresh_user_claims(id_token: str) -> dict[str, Any]:
             "claims": claims,
         }
 
-    except Exception as e:
-        logger.error(f"❌ Failed to refresh claims: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token") from e
+    except Exception as exc:
+        logger.error("Failed to refresh claims | Type: {}", type(exc).__name__)
+        raise HTTPException(status_code=401, detail="Invalid token") from exc
 
 
 @router.post("/request-invitation-code", response_model=InvitationCodeRequestResponse)
 async def request_invitation_code(
-    request: InvitationCodeRequest, email_service: Any = Depends(get_email_service)
+    invitation_request: InvitationCodeRequest,
+    request: Request,
+    email_service: Any = Depends(get_email_service),
 ) -> InvitationCodeRequestResponse:
     """
     Send invitation code request to support team.
@@ -471,23 +466,26 @@ async def request_invitation_code(
     Raises:
         HTTPException 500: Failed to send email
     """
-    logger.info(
-        f"📧 Invitation code requested | User: {request.first_name} {request.last_name} | "
-        f"Email: {request.email}"
-    )
+    client_host = request.client.host if request.client else "unknown"
+    if not await support_rate_limiter.allow("invitation_request", client_host):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many invitation requests. Please try again later.",
+            headers={"Retry-After": "60"},
+        )
+
+    logger.info("Invitation request accepted for delivery")
 
     try:
         # Send email to support
         success = email_service.send_invitation_request(
-            first_name=request.first_name,
-            last_name=request.last_name,
-            email=request.email,
+            first_name=invitation_request.first_name,
+            last_name=invitation_request.last_name,
+            email=str(invitation_request.email),
         )
 
         if success:
-            logger.info(
-                f"✅ Invitation request email sent successfully for {request.email}"
-            )
+            logger.info("Invitation request delivered to the notification adapter")
             return InvitationCodeRequestResponse(
                 status="success",
                 message=(
@@ -496,7 +494,7 @@ async def request_invitation_code(
                 ),
             )
 
-        logger.error(f"❌ Failed to send invitation request email for {request.email}")
+        logger.error("Invitation request email delivery failed")
         raise HTTPException(
             status_code=500,
             detail=(
@@ -507,12 +505,12 @@ async def request_invitation_code(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"❌ Error processing invitation request: {e}")
+    except Exception as exc:
+        logger.error("Invitation request processing failed | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=500,
             detail="An error occurred while processing your request. Please try again later.",
-        ) from e
+        ) from exc
 
 
 @router.get("/tier-limits")
@@ -532,11 +530,11 @@ def get_tier_limits() -> dict[str, Any]:
 
         logger.info("✅ Tier limits retrieved successfully")
         return {"status": "success", "limits": limits}
-    except Exception as e:
-        logger.error(f"❌ Error retrieving tier limits: {e}")
+    except Exception as exc:
+        logger.error("Unable to retrieve tier limits | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=500, detail="Failed to retrieve tier limits"
-        ) from e
+        ) from exc
 
 
 @router.get("/usage")
@@ -579,9 +577,7 @@ async def get_user_usage(
         # Calculate remaining queries using helper function
         remaining = calculate_remaining_queries(query_limit, queries_today)
 
-        logger.info(
-            f"📊 Usage retrieved for user {user_id}: {queries_today}/{query_limit} ({tier})"
-        )
+        logger.info("Usage retrieved | Queries: {}/{} | Tier: {}", queries_today, query_limit, tier)
 
         return {
             "status": "success",
@@ -590,11 +586,11 @@ async def get_user_usage(
             "remaining": remaining,
             "tier": tier,
         }
-    except Exception as e:
-        logger.error(f"❌ Error retrieving user usage: {e}")
+    except Exception as exc:
+        logger.error("Unable to retrieve user usage | Type: {}", type(exc).__name__)
         raise HTTPException(
             status_code=500, detail="Failed to retrieve usage information"
-        ) from e
+        ) from exc
 
 
 @router.post("/admin/set-tier")
@@ -623,14 +619,14 @@ def set_user_tier_admin(
         # Get user by email
         user = auth.get_user_by_email(email)
 
-        logger.info(f"🔧 Setting tier={tier} for user {email} (uid={user.uid})")
+        logger.info("Setting user tier | Tier: {}", tier)
 
         # Preserve existing server-managed claims, including ``admin: true``.
         custom_claims = dict(user.custom_claims or {})
         custom_claims["tier"] = tier
         auth.set_custom_user_claims(user.uid, custom_claims)
 
-        logger.info(f"✅ Tier set successfully for {email}")
+        logger.info("User tier set successfully | Tier: {}", tier)
 
         return {
             "message": f"Tier set to {tier} for {email}",
@@ -643,8 +639,8 @@ def set_user_tier_admin(
     except HTTPException:
         raise
     except auth.UserNotFoundError as exc:
-        logger.error(f"❌ User not found: {email}")
-        raise HTTPException(status_code=404, detail=f"User not found: {email}") from exc
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error(f"❌ Error setting tier: {e}")
-        raise HTTPException(status_code=500, detail="Failed to set tier") from e
+        logger.error("User was not found while setting tier")
+        raise HTTPException(status_code=404, detail="User not found.") from exc
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Unable to set user tier | Type: {}", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Failed to set tier") from exc

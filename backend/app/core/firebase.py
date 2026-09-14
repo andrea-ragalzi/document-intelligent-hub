@@ -50,8 +50,8 @@ def initialize_firebase() -> None:
             firebase_admin.initialize_app(cred)
             logger.info("✅ Firebase initialized from FIREBASE_CREDENTIALS env var")
             return
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Failed to parse FIREBASE_CREDENTIALS: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to parse Firebase credentials | Type: {}", type(exc).__name__)
 
     # Try service account file path from environment
     service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
@@ -59,12 +59,10 @@ def initialize_firebase() -> None:
         try:
             cred = credentials.Certificate(service_account_path)
             firebase_admin.initialize_app(cred)
-            logger.info(f"✅ Firebase initialized from file: {service_account_path}")
+            logger.info("Firebase initialized from a configured credential file")
             return
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(
-                f"❌ Failed to load credentials from {service_account_path}: {e}"
-            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to load Firebase credential file | Type: {}", type(exc).__name__)
 
     # Try default service account file location
     default_path = (
@@ -76,10 +74,10 @@ def initialize_firebase() -> None:
         try:
             cred = credentials.Certificate(str(default_path))
             firebase_admin.initialize_app(cred)
-            logger.info(f"✅ Firebase initialized from default path: {default_path}")
+            logger.info("Firebase initialized from the development credential file")
             return
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"❌ Failed to load credentials from {default_path}: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Unable to load Firebase development credentials | Type: {}", type(exc).__name__)
 
     # No valid credentials found
     error_msg = (
@@ -96,8 +94,8 @@ def initialize_firebase() -> None:
 # This allows optional Firebase features - app will start without it
 try:
     initialize_firebase()
-except ValueError as e:
-    logger.warning(f"⚠️ Firebase not initialized: {e}")
+except ValueError:
+    logger.warning("Firebase not initialized")
     logger.warning(
         "⚠️ Authentication endpoints will not work without Firebase credentials"
     )

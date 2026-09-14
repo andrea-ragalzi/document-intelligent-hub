@@ -56,7 +56,7 @@ def load_app_config(db_provider: Callable[[], Any] | None = None) -> dict[str, A
 
         logger.warning("⚠️ app_config/settings not found, using defaults")
     except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.error("❌ Error loading app config: %s", exc)
+        logger.error("Unable to load application configuration | Type: {}", type(exc).__name__)
 
     return {
         "unlimited_emails": [],

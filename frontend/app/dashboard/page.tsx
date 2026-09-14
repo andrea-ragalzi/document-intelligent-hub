@@ -211,8 +211,6 @@ export default function Page() {
 
     // Only save if there are new messages
     if (chatHistory.length <= lastSavedMessageCount) {
-      console.log("⏭️ Skipping save - no new messages");
-      console.log("  Messages:", chatHistory.length, "Last saved:", lastSavedMessageCount);
       return;
     }
 
@@ -220,10 +218,6 @@ export default function Page() {
       isSavingRef.current = true;
       isCreatingConversationRef.current = true;
       startSaving();
-      console.log("💾 Auto-saving conversation...");
-      console.log("  Messages:", chatHistory.length);
-      console.log("  Current ID:", currentConversationId);
-      console.log("  Last saved count:", lastSavedMessageCount);
 
       try {
         if (currentConversationId) {
@@ -236,12 +230,10 @@ export default function Page() {
               sources: msg.sources || [],
             })),
           });
-          console.log("✅ Conversation updated, updating counter");
           updateSavedMessageCount(chatHistory.length);
         } else {
           // Create new conversation
           const autoName = generateConversationName();
-          console.log("📝 Creating new conversation:", autoName);
           const newConversation = await createConversation.mutateAsync({
             name: autoName,
             history: chatHistory.map(msg => ({
@@ -250,13 +242,12 @@ export default function Page() {
               sources: msg.sources || [],
             })),
           });
-          console.log("✅ New conversation created with ID:", newConversation.id);
           // Set the conversation ID immediately
           setCurrentConversation(newConversation.id);
           updateSavedMessageCount(chatHistory.length);
         }
-      } catch (error) {
-        console.error("❌ Auto-save failed:", error);
+      } catch {
+        console.error("Conversation auto-save failed.");
       } finally {
         isSavingRef.current = false;
         isCreatingConversationRef.current = false;
@@ -299,9 +290,6 @@ export default function Page() {
   }, [user, tier, isTierLoading]);
 
   const handleLoad = (conv: SavedConversation) => {
-    console.log("📂 Loading conversation:", conv.name);
-    console.log("  Messages:", conv.history.length);
-
     // Restore Firestore source metadata as AI SDK annotations for rendering.
     const convertedMessages = toAiSdkMessages(conv.id, conv.history);
 
@@ -319,12 +307,9 @@ export default function Page() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    console.log("🗑️ Deleting conversation:", id, name);
-
     // If we're deleting the current conversation, clear chat BEFORE deleting
     const isDeletingCurrentConversation = id === currentConversationId;
     if (isDeletingCurrentConversation) {
-      console.log("🧹 Clearing chat history for current conversation");
       setMessages([]); // Clear the chat history
       resetConversation(); // Reset the conversation state
       updateSavedMessageCount(0); // Reset saved message count
@@ -346,23 +331,16 @@ export default function Page() {
   };
 
   const handleRename = (id: string, currentName: string) => {
-    console.log("✏️ Opening rename modal for:", id, currentName);
     openRenameModal(id, currentName);
   };
 
   const handlePinConversation = async (id: string, isPinned: boolean) => {
-    console.log(`📌 ${isPinned ? "Pinning" : "Unpinning"} conversation:`, id);
-
     try {
       // Trova la conversazione da aggiornare
       const conversation = savedConversations.find(conv => conv.id === id);
       if (!conversation) {
         throw new Error("Conversation not found");
       }
-
-      console.log("  Current isPinned state:", conversation.isPinned);
-      console.log("  New isPinned state:", isPinned);
-      console.log("  Conversation history length:", conversation.history.length);
 
       // Update Firestore con il nuovo stato isPinned
       await updateConversationHistory.mutateAsync({
@@ -373,14 +351,12 @@ export default function Page() {
         },
       });
 
-      console.log("✅ Pin state updated successfully in Firestore");
-
       setStatusAlert({
         message: isPinned ? "Conversation pinned to top." : "Conversation unpinned.",
         type: "success",
       });
-    } catch (error) {
-      console.error("❌ Error pinning conversation:", error);
+    } catch {
+      console.error("Unable to update the conversation pin state.");
       setStatusAlert({
         message: "Error updating conversation.",
         type: "error",
@@ -489,8 +465,8 @@ export default function Page() {
 
       // Redirect to login
       router.push("/login");
-    } catch (error) {
-      console.error("Error deleting account:", error);
+    } catch {
+      console.error("Account deletion failed.");
       setStatusAlert({
         message: "Error deleting account. Please try again.",
         type: "error",
@@ -690,8 +666,7 @@ export default function Page() {
         {/* Invitation Code Modal */}
         <InvitationCodeModal
           isOpen={invitationCodeModalOpen}
-          onSuccess={assignedTier => {
-            console.log("✅ Registration successful, tier:", assignedTier);
+          onSuccess={_assignedTier => {
             // useRegistration already forced token refresh, so update tier immediately
             refreshTier();
             // Small delay before closing modal for better UX

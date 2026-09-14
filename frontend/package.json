@@ -16,6 +16,7 @@
     "test:coverage": "vitest run --coverage",
     "test:run": "vitest run",
     "test:firebase-auth-emulator": "firebase --config ../firebase.json emulators:exec --only auth --project demo-dih-auth \"cd ../backend && FIREBASE_TEST_PROJECT_ID=demo-dih-auth poetry run pytest -m firebase_emulator\"",
+    "test:firestore-rules": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-dih-firestore \"vitest run --config vitest.rules.config.ts\"",
     "quality:check": "npm run lint && npm run format:check && npm run type-check && npm run test:run"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

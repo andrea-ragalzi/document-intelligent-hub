@@ -45,10 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("🔐 Setting up auth state listener...");
-
     const unsubscribe = onAuthStateChanged(getFirebaseAuth(), user => {
-      console.log("🔐 Auth state changed:", user ? user.uid : "No user - auth required");
       setUser(user);
       setEmailVerified(Boolean(user?.emailVerified));
       setLoading(false);

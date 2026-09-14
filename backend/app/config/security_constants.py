@@ -65,6 +65,11 @@ BUG_REPORT_RATE_LIMIT = "5/hour"
 # Maximum feedback submissions per hour per authenticated user
 FEEDBACK_RATE_LIMIT = "10/hour"
 
+# Public invitation requests are anonymous, so keep their limiter stricter than
+# authenticated support submissions.
+INVITATION_REQUEST_RATE_LIMIT = "3/hour"
+INVITATION_REQUEST_MIN_INTERVAL_SECONDS = 60
+
 # Maximum document uploads per hour per user
 UPLOAD_RATE_LIMIT = "20/hour"
 

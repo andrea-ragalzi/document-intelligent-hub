@@ -37,8 +37,8 @@ logger.add(
     compression="zip",  # Compress rotated files
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     level="DEBUG",
-    backtrace=True,
-    diagnose=True,
+    backtrace=False,
+    diagnose=False,
 )
 
 # File logging - Error logs only
@@ -49,8 +49,8 @@ logger.add(
     compression="zip",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     level="ERROR",
-    backtrace=True,
-    diagnose=True,
+    backtrace=False,
+    diagnose=False,
 )
 
 # File logging - Access logs for API requests

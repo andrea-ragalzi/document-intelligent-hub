@@ -12,7 +12,7 @@ export default defineConfig({
     // Limita i worker per evitare crash e timeout
     maxWorkers: 1,
     testTimeout: 30000,
-    exclude: ["node_modules", ".next", "dist", "out", "public"],
+    exclude: ["node_modules", ".next", "dist", "out", "public", "test/firestore.rules.test.ts"],
 
     // --- CONFIGURAZIONE COVERAGE (SOLUZIONE AL PROBLEMA 0%) ---
     coverage: {

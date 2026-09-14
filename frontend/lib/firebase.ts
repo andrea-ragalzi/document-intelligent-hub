@@ -48,11 +48,6 @@ function initFirebaseApp(): FirebaseApp {
   const existingApp = getApps()[0];
   _app = existingApp || initializeApp(firebaseConfig);
 
-  if (!existingApp) {
-    console.log("🔥 Firebase initialised");
-    console.log("  Project ID:", firebaseConfig.projectId);
-  }
-
   return _app;
 }
 
