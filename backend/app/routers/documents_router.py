@@ -18,6 +18,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
+from firebase_admin import firestore
 
 from app.config.security_constants import FILE_READ_CHUNK_SIZE
 from app.core.auth import require_verified_email, verify_firebase_token
@@ -53,6 +54,32 @@ router = APIRouter(prefix="/rag", tags=["documents"])
 upload_concurrency_limiter = QueryConcurrencyLimiter()
 language_preview_concurrency_limiter = QueryConcurrencyLimiter()
 MAX_RENAMED_FILENAME_ATTEMPTS = 1_000
+
+
+def _delete_user_firestore_data(user_id: str, db: Any) -> int:
+    """Delete Firestore records owned by a user and return conversation count.
+
+    Batches are deliberately kept below Firestore's batch-operation ceiling. A
+    rerun is safe after a partial failure because deleting an already-deleted
+    document is a no-op.
+    """
+    conversation_count = 0
+    batch = db.batch()
+    batch_size = 0
+
+    conversations = db.collection("conversations").where("userId", "==", user_id)
+    for conversation in conversations.stream():
+        batch.delete(conversation.reference)
+        conversation_count += 1
+        batch_size += 1
+        if batch_size == 400:
+            batch.commit()
+            batch = db.batch()
+            batch_size = 0
+
+    batch.delete(db.collection("user_usage").document(user_id))
+    batch.commit()
+    return conversation_count
 
 
 def _log_document_failure(operation: str, error: Exception) -> None:
@@ -612,4 +639,40 @@ async def delete_all_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to delete documents. Please try again.",
+        ) from exc
+
+
+@router.delete("/account/data")
+async def delete_account_data(
+    user_id: str = Depends(require_verified_email),
+    rag_service: RAGService = Depends(get_rag_service),
+    document_storage: FileStoragePort = Depends(get_document_file_storage),
+) -> dict[str, int | str]:
+    """Delete all server-side data owned by the authenticated account.
+
+    This operation intentionally does not delete the Firebase Auth account.
+    The browser performs that final irreversible action only after this
+    endpoint has completed. Each deletion is idempotent so a retry after a
+    partial infrastructure failure can finish cleanup safely.
+    """
+    logger.bind(AUDIT=True).warning("Account data deletion requested")
+    try:
+        chunks_deleted = rag_service.delete_all_user_documents(user_id)
+        document_storage.delete_all(user_id)
+        conversations_deleted = _delete_user_firestore_data(user_id, firestore.client())
+        logger.bind(AUDIT=True).warning(
+            "Account data deletion completed | Chunks: {} | Conversations: {}",
+            chunks_deleted,
+            conversations_deleted,
+        )
+        return {
+            "message": "Account data deleted successfully.",
+            "chunks_deleted": chunks_deleted,
+            "conversations_deleted": conversations_deleted,
+        }
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        _log_document_failure("account data deletion", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to delete account data. Please try again.",
         ) from exc
