@@ -16,7 +16,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.config.security_constants import LLM_TIMEOUT_SECONDS
 from app.core.auth import require_verified_email
 from app.core.logging import logger
-from app.dependencies import get_query_quota_service, get_rag_service, query_parser_service
+from app.dependencies import (
+    get_query_quota_service,
+    get_rag_service,
+    query_parser_service,
+)
 from app.schemas.rag_schema import (
     QueryRequest,
     QueryResponse,
@@ -41,7 +45,7 @@ def _log_request_details(request: QueryRequest, user_id: str) -> None:
         user_id: Firebase user ID
     """
     del user_id
-    logger.info(
+    logger.debug(
         "RAG request received | History messages: {} | Output language provided: {}",
         len(request.conversation_history),
         bool(request.output_language),
@@ -70,7 +74,11 @@ def _normalize_citations(sources: list[Any]) -> list[SourceCitation]:
 
 
 def _log_response_details(
-    answer: str, citations: list[SourceCitation], tier: str, new_count: int, max_queries: int
+    answer: str,
+    citations: list[SourceCitation],
+    tier: str,
+    new_count: int,
+    max_queries: int,
 ) -> None:
     """
     Log detailed response information.
@@ -82,7 +90,7 @@ def _log_response_details(
         new_count: Updated query count
         max_queries: Maximum queries allowed
     """
-    logger.info(
+    logger.debug(
         "RAG response completed | Answer characters: {} | Citations: {} | "
         "Quota: {}/{} | Tier: {}",
         len(answer),
@@ -146,77 +154,123 @@ async def query_document(
         )
 
     quota_reserved = False
+    worker_started = False
+    worker_entered = False
+    leases_released = False
+
+    async def release_worker_leases() -> None:
+        """Release the worker-owned slots exactly once after real work ends."""
+        nonlocal leases_released
+        if leases_released:
+            return
+        leases_released = True
+        await query_concurrency_limiter.release(user_id)
+        await global_expensive_operation_limiter.release()
+
     try:
-        request_started = time.perf_counter()
-        _log_request_details(request, user_id)
 
-        # Reserve tier quota before any parser/RAG/OpenAI work.
-        tier_started = time.perf_counter()
-        reservation = await asyncio.to_thread(
-            quota_service.reserve,
-            user_id,
-        )
-        quota_reserved = True
-        logger.info(
-            "Query timing | tier and usage: {:.2f}ms",
-            (time.perf_counter() - tier_started) * 1000,
-        )
+        def run_rag_worker() -> tuple[Any, Any, Any]:
+            """Run every potentially billable step under one worker-owned lease."""
+            nonlocal quota_reserved
+            request_started = time.perf_counter()
+            _log_request_details(request, user_id)
 
-        # Extract file filters and optimize query
-        documents_started = time.perf_counter()
-        available_documents = await asyncio.to_thread(
-            rag_service.get_user_documents, user_id
-        )
-        available_filenames = [doc.filename for doc in available_documents]
+            tier_started = time.perf_counter()
+            reservation = quota_service.reserve(user_id)
+            quota_reserved = True
+            logger.debug(
+                "Query timing | tier and usage: {:.2f}ms",
+                (time.perf_counter() - tier_started) * 1000,
+            )
 
-        logger.info("Document lookup completed | Available documents: {}", len(available_filenames))
-        logger.info("Extracting file filters and optimizing query")
-        logger.info("Query timing | document lookup: {:.2f}ms", (time.perf_counter() - documents_started) * 1000)
+            documents_started = time.perf_counter()
+            available_documents = rag_service.get_user_documents(user_id)
+            available_filenames = [doc.filename for doc in available_documents]
+            logger.debug(
+                "Document lookup completed | Available documents: {}",
+                len(available_filenames),
+            )
+            logger.debug(
+                "Query timing | document lookup: {:.2f}ms",
+                (time.perf_counter() - documents_started) * 1000,
+            )
 
-        parser_started = time.perf_counter()
-        filter_result = await asyncio.to_thread(
-            query_parser_service.extract_file_filters,
-            query=request.query,
-            available_files=available_filenames,
-        )
-        logger.info("Query timing | query parser: {:.2f}ms", (time.perf_counter() - parser_started) * 1000)
+            parser_started = time.perf_counter()
+            filter_result = query_parser_service.extract_file_filters(
+                query=request.query, available_files=available_filenames
+            )
+            logger.debug(
+                "Query timing | query parser: {:.2f}ms",
+                (time.perf_counter() - parser_started) * 1000,
+            )
 
-        query_for_rag = filter_result.cleaned_query
-        include_files = (
-            filter_result.include_files if filter_result.include_files else None
-        )
-        exclude_files = (
-            filter_result.exclude_files if filter_result.exclude_files else None
-        )
+            include_files = filter_result.include_files or None
+            exclude_files = filter_result.exclude_files or None
+            logger.debug(
+                "File filters resolved | Included: {} | Excluded: {}",
+                len(include_files or []),
+                len(exclude_files or []),
+            )
+            rag_kwargs: dict[str, Any] = {
+                "include_files": include_files,
+                "exclude_files": exclude_files,
+                "raw_user_query": request.query,
+            }
+            if filter_result.is_compound:
+                rag_kwargs["retrieval_queries"] = filter_result.retrieval_queries
+            rag_started = time.perf_counter()
+            answer, sources = rag_service.answer_query(
+                filter_result.cleaned_query,
+                user_id,
+                request.conversation_history,
+                request.output_language,
+                **rag_kwargs,
+            )
+            logger.debug(
+                "Query timing | RAG answer: {:.2f}ms",
+                (time.perf_counter() - rag_started) * 1000,
+            )
+            logger.debug(
+                "Query timing | total: {:.2f}ms",
+                (time.perf_counter() - request_started) * 1000,
+            )
+            return reservation, answer, sources
 
-        logger.info(
-            "File filters resolved | Included: {} | Excluded: {}",
-            len(include_files or []),
-            len(exclude_files or []),
-        )
+        event_loop = asyncio.get_running_loop()
 
-        # Call RAG service
-        rag_started = time.perf_counter()
-        rag_kwargs: dict[str, Any] = {
-            "include_files": include_files,
-            "exclude_files": exclude_files,
-            "raw_user_query": request.query,
-        }
-        if filter_result.is_compound:
-            rag_kwargs["retrieval_queries"] = filter_result.retrieval_queries
-        answer, sources = await _run_provider_operation(
-            rag_service.answer_query,
-            query_for_rag,
-            user_id,
-            request.conversation_history,
-            request.output_language,
-            **rag_kwargs,
-        )
-        logger.info("Query timing | RAG answer: {:.2f}ms", (time.perf_counter() - rag_started) * 1000)
+        def worker_with_lease() -> tuple[Any, Any, Any]:
+            nonlocal worker_entered
+            worker_entered = True
+            try:
+                return run_rag_worker()
+            finally:
+                # asyncio cancellation cannot stop a running thread. Schedule
+                # release from the thread only after all paid work has ended.
+                event_loop.call_soon_threadsafe(
+                    lambda: asyncio.create_task(release_worker_leases())
+                )
 
-        logger.info("Query timing | total: {:.2f}ms", (time.perf_counter() - request_started) * 1000)
+        worker_started = True
+        worker_task = asyncio.create_task(asyncio.to_thread(worker_with_lease))
+
+        def release_if_worker_never_started(_task: asyncio.Task[Any]) -> None:
+            if not worker_entered:
+                asyncio.create_task(release_worker_leases())
+
+        worker_task.add_done_callback(release_if_worker_never_started)
+        try:
+            async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
+                reservation, answer, sources = await asyncio.shield(worker_task)
+        except TimeoutError as exc:
+            logger.warning("Provider-backed operation timed out")
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="The language service timed out. Please try again.",
+            ) from exc
         citations = _normalize_citations(sources)
-        source_documents = list(dict.fromkeys(citation.filename for citation in citations))
+        source_documents = list(
+            dict.fromkeys(citation.filename for citation in citations)
+        )
         _log_response_details(
             answer,
             citations,
@@ -249,8 +303,8 @@ async def query_document(
             detail="Unable to process the query. Please try again.",
         ) from e
     finally:
-        await query_concurrency_limiter.release(user_id)
-        await global_expensive_operation_limiter.release()
+        if not worker_started:
+            await release_worker_leases()
 
 
 @router.post("/summarize/", response_model=SummarizeResponse)

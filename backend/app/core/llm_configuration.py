@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
-from app.config.security_constants import LLM_MAX_RETRIES, LLM_TIMEOUT_SECONDS
+from app.core.config import settings
 
 @dataclass(frozen=True)
 class ModelCapabilities:
@@ -20,7 +20,7 @@ MODEL_CAPABILITIES = {
 class OpenAIClientOptions(TypedDict):
     """Transport options accepted by the synchronous OpenAI client."""
 
-    timeout: int
+    timeout: float
     max_retries: int
 
 
@@ -35,8 +35,8 @@ def chat_model_options(model: str, api_key: Any, temperature: float) -> dict[str
     return {
         "model": model,
         "api_key": api_key,
-        "timeout": LLM_TIMEOUT_SECONDS,
-        "max_retries": LLM_MAX_RETRIES,
+        "timeout": settings.OPENAI_TIMEOUT_SECONDS,
+        "max_retries": settings.OPENAI_MAX_RETRIES,
         **_temperature_options(model, temperature),
     }
 
@@ -48,4 +48,7 @@ def chat_completion_options(model: str, temperature: float) -> dict[str, Any]:
 
 def openai_client_options() -> OpenAIClientOptions:
     """Configure one bounded, non-retrying transport attempt for OpenAI clients."""
-    return {"timeout": LLM_TIMEOUT_SECONDS, "max_retries": LLM_MAX_RETRIES}
+    return {
+        "timeout": settings.OPENAI_TIMEOUT_SECONDS,
+        "max_retries": settings.OPENAI_MAX_RETRIES,
+    }

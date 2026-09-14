@@ -154,7 +154,7 @@ class FirestoreUsageTracker:
 
             reserved, new_count = reserve_in_transaction(transaction, usage_ref)
             if reserved:
-                logger.info(
+                logger.debug(
                     f"📊 Reserved query slot for user {user_id}: "
                     f"{new_count}/{max_queries}"
                 )
