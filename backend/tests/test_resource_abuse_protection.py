@@ -350,6 +350,7 @@ async def test_duplicate_upload_can_replace_without_consuming_an_extra_file_slot
     rag.delete_user_document.return_value = 3
     rag.index_document = AsyncMock(return_value=(2, "EN"))
     document_storage = Mock()
+    document_storage.get.return_value = None
 
     response = await documents_router.upload_document(
         None,

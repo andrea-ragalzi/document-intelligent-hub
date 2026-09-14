@@ -42,7 +42,7 @@ from app.services.demo_document_service import (
     DemoDocumentService,
 )
 from app.services.rag_orchestrator_service import RAGService
-from app.services.query_concurrency_limiter import GlobalExpensiveOperationLimiter, QueryConcurrencyLimiter, global_expensive_operation_limiter
+from app.services.query_concurrency_limiter import QueryConcurrencyLimiter, global_expensive_operation_limiter
 from app.services.tier_limit_service import (
     check_file_count_limit,
     get_max_upload_size_bytes,
@@ -198,7 +198,16 @@ def _read_existing_original(
 ) -> bytes | None:
     """Read an existing original before replacement makes destructive changes."""
     existing_original = document_storage.get(user_id, filename)
-    return existing_original.read_bytes() if existing_original is not None else None
+    if existing_original is None:
+        return None
+
+    storage_root = os.path.realpath(document_storage.root_path)
+    safe_existing_path = os.path.realpath(existing_original)
+    if not safe_existing_path.startswith(f"{storage_root}{os.sep}"):
+        raise ValueError("Invalid document storage path")
+
+    with open(safe_existing_path, "rb") as original_file:  # noqa: PTH123
+        return original_file.read()
 
 
 async def _restore_replaced_document(
