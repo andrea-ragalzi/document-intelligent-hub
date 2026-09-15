@@ -1,10 +1,15 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
-import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
+import { MAX_DOCUMENT_PAGES, MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
+import { getPdfPageCount } from "@/lib/pdfPageCount";
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ getIdToken: vi.fn().mockResolvedValue("firebase-token") }),
+}));
+
+vi.mock("@/lib/pdfPageCount", () => ({
+  getPdfPageCount: vi.fn().mockResolvedValue(1),
 }));
 
 describe("useDocumentUpload", () => {
@@ -32,8 +37,8 @@ describe("useDocumentUpload", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { result } = renderHook(() => useDocumentUpload());
-    act(() => {
-      result.current.handleFileChange({
+    await act(async () => {
+      await result.current.handleFileChange({
         target: { files: [first, second] },
       } as unknown as React.ChangeEvent<HTMLInputElement>);
     });
@@ -71,8 +76,8 @@ describe("useDocumentUpload", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { result } = renderHook(() => useDocumentUpload());
-    act(() => {
-      result.current.handleFileChange({
+    await act(async () => {
+      await result.current.handleFileChange({
         target: { files: [duplicate] },
       } as unknown as React.ChangeEvent<HTMLInputElement>);
     });
@@ -96,18 +101,51 @@ describe("useDocumentUpload", () => {
     expect(fetchMock.mock.calls[0][1].body.get("duplicate_action")).toBe("rename");
   });
 
-  it("rejects PDFs over the public-demo size limit before uploading", () => {
+  it("rejects PDFs over the public-demo size limit before uploading", async () => {
     const oversized = new File(["pdf"], "large.pdf", { type: "application/pdf" });
     Object.defineProperty(oversized, "size", { value: MAX_UPLOAD_SIZE_BYTES + 1 });
 
     const { result } = renderHook(() => useDocumentUpload());
-    act(() => {
-      result.current.handleFileChange({
+    await act(async () => {
+      await result.current.handleFileChange({
         target: { files: [oversized] },
       } as unknown as React.ChangeEvent<HTMLInputElement>);
     });
 
     expect(result.current.files).toEqual([]);
     expect(result.current.uploadAlert.message).toContain(`${MAX_UPLOAD_SIZE_MB} MB limit`);
+  });
+
+  it("accepts an oversized PDF for an UNLIMITED account", async () => {
+    const oversized = new File(["pdf"], "large.pdf", { type: "application/pdf" });
+    Object.defineProperty(oversized, "size", { value: MAX_UPLOAD_SIZE_BYTES + 1 });
+
+    const { result } = renderHook(() => useDocumentUpload({ isUnlimited: true }));
+    await act(async () => {
+      await result.current.handleFileChange({
+        target: { files: [oversized] },
+      } as unknown as React.ChangeEvent<HTMLInputElement>);
+    });
+
+    expect(result.current.files).toEqual([oversized]);
+  });
+
+  it("rejects a PDF over 100 pages before an upload is requested", async () => {
+    const largePdf = new File(["pdf"], "large-book.pdf", { type: "application/pdf" });
+    vi.mocked(getPdfPageCount).mockResolvedValueOnce(MAX_DOCUMENT_PAGES + 1);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useDocumentUpload());
+    await act(async () => {
+      await result.current.handleFileChange({
+        target: { files: [largePdf] },
+      } as unknown as React.ChangeEvent<HTMLInputElement>);
+    });
+
+    expect(result.current.files).toEqual([]);
+    expect(result.current.uploadAlert.message).toContain("101 pages");
+    expect(result.current.uploadAlert.message).toContain("maximum is 100 pages");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -3,13 +3,20 @@
 import { useCallback, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { AlertState } from "@/lib/types";
-import { API_BASE_URL, MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/constants";
+import {
+  API_BASE_URL,
+  MAX_DOCUMENT_PAGES,
+  MAX_UPLOAD_SIZE_BYTES,
+  MAX_UPLOAD_SIZE_MB,
+} from "@/lib/constants";
+import { getPdfPageCount } from "@/lib/pdfPageCount";
 import { useAuth } from "@/contexts/AuthContext";
 
 export type DuplicateAction = "replace" | "rename" | "skip";
 
 interface UseUploadOptions {
   onSuccess?: () => void;
+  isUnlimited?: boolean;
 }
 
 interface UseUploadResult {
@@ -17,7 +24,7 @@ interface UseUploadResult {
   isUploading: boolean;
   uploadAlert: AlertState;
   pendingDuplicate: File | null;
-  handleFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  handleFileChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleUpload: (
     event: FormEvent,
     currentUserId: string,
@@ -52,6 +59,13 @@ const getOversizedMessage = (fileNames: string[]): string => {
   return `${names} ${fileNames.length === 1 ? "is" : "are"} larger than the ${MAX_UPLOAD_SIZE_MB} MB limit.`;
 };
 
+const getOverPageLimitMessage = (files: Array<{ name: string; pages: number }>): string =>
+  files
+    .map(
+      ({ name, pages }) => `${name} has ${pages} pages. The maximum is ${MAX_DOCUMENT_PAGES} pages.`
+    )
+    .join(" ");
+
 const submitDocument = async (
   file: File,
   action: DuplicateAction | undefined,
@@ -85,7 +99,7 @@ const submitDocument = async (
 };
 
 export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult => {
-  const { onSuccess } = options || {};
+  const { onSuccess, isUnlimited = false } = options || {};
   const { getIdToken } = useAuth();
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -184,38 +198,75 @@ export const useDocumentUpload = (options?: UseUploadOptions): UseUploadResult =
     finishQueue();
   }, [finishQueue, getIdToken, pauseForDuplicate, recordUploadFailure]);
 
-  const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files || []);
-    const pdfFiles = selectedFiles.filter(
-      file => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
-    );
-    const oversizedFiles = pdfFiles.filter(file => file.size > MAX_UPLOAD_SIZE_BYTES);
-    const acceptedFiles = pdfFiles.filter(file => file.size <= MAX_UPLOAD_SIZE_BYTES);
+  const handleFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = Array.from(event.target.files || []);
+      const pdfFiles = selectedFiles.filter(
+        file => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+      );
+      const oversizedFiles = isUnlimited
+        ? []
+        : pdfFiles.filter(file => file.size > MAX_UPLOAD_SIZE_BYTES);
+      const sizeAcceptedFiles = isUnlimited
+        ? pdfFiles
+        : pdfFiles.filter(file => file.size <= MAX_UPLOAD_SIZE_BYTES);
 
-    setPendingDuplicate(null);
-    resolutionsRef.current.clear();
-    setFiles(acceptedFiles);
-    if (!acceptedFiles.length && oversizedFiles.length) {
+      setPendingDuplicate(null);
+      resolutionsRef.current.clear();
+      if (!sizeAcceptedFiles.length && oversizedFiles.length) {
+        setFiles([]);
+        setUploadAlert({
+          message: getOversizedMessage(oversizedFiles.map(file => file.name)),
+          type: "error",
+        });
+        return;
+      }
+      if (!sizeAcceptedFiles.length) {
+        setFiles([]);
+        setUploadAlert({ message: "Only PDF files are supported.", type: "error" });
+        return;
+      }
+
+      setFiles([]);
+      setUploadAlert({ message: "Checking PDF page counts...", type: "info" });
+      const pageCounts = await Promise.all(
+        sizeAcceptedFiles.map(async file => ({
+          file,
+          pages: await getPdfPageCount(file),
+        }))
+      );
+      const overPageLimit = pageCounts.filter(({ pages }) => pages > MAX_DOCUMENT_PAGES);
+      const acceptedFiles = pageCounts
+        .filter(({ pages }) => pages <= MAX_DOCUMENT_PAGES)
+        .map(({ file }) => file);
+
+      setFiles(acceptedFiles);
+      if (!acceptedFiles.length && overPageLimit.length) {
+        setUploadAlert({
+          message: getOverPageLimitMessage(
+            overPageLimit.map(({ file, pages }) => ({ name: file.name, pages }))
+          ),
+          type: "error",
+        });
+        return;
+      }
+
+      const ignoredCount = selectedFiles.length - pdfFiles.length;
+      const sizeWarning = oversizedFiles.length
+        ? ` ${getOversizedMessage(oversizedFiles.map(file => file.name))} They were skipped.`
+        : "";
+      const pageWarning = overPageLimit.length
+        ? ` ${getOverPageLimitMessage(
+            overPageLimit.map(({ file, pages }) => ({ name: file.name, pages }))
+          )} They were skipped.`
+        : "";
       setUploadAlert({
-        message: getOversizedMessage(oversizedFiles.map(file => file.name)),
-        type: "error",
+        message: `${getSelectionMessage(acceptedFiles.length, ignoredCount)}${sizeWarning}${pageWarning}`,
+        type: oversizedFiles.length || overPageLimit.length ? "error" : "info",
       });
-      return;
-    }
-    if (!acceptedFiles.length) {
-      setUploadAlert({ message: "Only PDF files are supported.", type: "error" });
-      return;
-    }
-
-    const ignoredCount = selectedFiles.length - pdfFiles.length;
-    const sizeWarning = oversizedFiles.length
-      ? ` ${getOversizedMessage(oversizedFiles.map(file => file.name))} They were skipped.`
-      : "";
-    setUploadAlert({
-      message: `${getSelectionMessage(acceptedFiles.length, ignoredCount)}${sizeWarning}`,
-      type: oversizedFiles.length ? "error" : "info",
-    });
-  }, []);
+    },
+    [isUnlimited]
+  );
 
   const handleUpload = useCallback(
     async (event: FormEvent, currentUserId: string, existingFilenames: string[]) => {

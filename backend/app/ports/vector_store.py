@@ -32,3 +32,8 @@ class VectorStorePort(Protocol):
         self, user_id: str, terms: list[str], limit_per_term: int = 20
     ) -> list[Document]:
         """Return bounded lexical candidates for reranking."""
+
+    def exact_occurrence_search(
+        self, user_id: str, term: str, filename: str | None = None
+    ) -> list[Document]:
+        """Return all tenant-scoped exact text occurrences for a deterministic route."""

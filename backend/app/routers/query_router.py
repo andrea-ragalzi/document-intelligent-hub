@@ -200,6 +200,29 @@ async def _execute_query_with_worker_lease(
                 (time.perf_counter() - documents_started) * 1000,
             )
 
+            deterministic_handler = getattr(rag_service, "try_deterministic_query", None)
+            deterministic = (
+                deterministic_handler(
+                    request.query,
+                    user_id,
+                    available_documents,
+                    request.conversation_history,
+                )
+                if callable(deterministic_handler)
+                else None
+            )
+            # Test doubles and external integrations which predate routing may
+            # return arbitrary mock values. Only a complete trusted result can
+            # bypass the established RAG path.
+            if isinstance(deterministic, tuple) and len(deterministic) == 4:
+                answer, sources, route, reason = deterministic
+                logger.info(
+                    "Query route completed | route={} reason={} luna_invoked=false",
+                    route,
+                    reason,
+                )
+                return reservation, answer, sources
+
             parser_started = time.perf_counter()
             filter_result = query_parser_service.extract_file_filters(
                 query=request.query, available_files=available_filenames

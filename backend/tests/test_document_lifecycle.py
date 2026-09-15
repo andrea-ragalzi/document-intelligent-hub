@@ -54,7 +54,10 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
     ]
     temporary_paths: list[str] = []
 
-    async def load_documents(temp_file_path: str) -> list[Document]:
+    async def load_documents(
+        temp_file_path: str, max_pages: int | None
+    ) -> list[Document]:
+        assert max_pages == 100
         temporary_paths.append(temp_file_path)
         return loaded_documents
 
@@ -83,8 +86,7 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
         for chunk in indexed_chunks
     )
     assert all(
-        chunk.metadata["original_language_code"] == "it"
-        for chunk in indexed_chunks
+        chunk.metadata["original_language_code"] == "it" for chunk in indexed_chunks
     )
     assert all("uploaded_at" in chunk.metadata for chunk in indexed_chunks)
     assert all(chunk.metadata["is_demo_document"] is True for chunk in indexed_chunks)
@@ -106,14 +108,19 @@ async def test_malformed_pdf_does_not_index_and_removes_temporary_file(
     upload = UploadFile(file=BytesIO(b"not a valid PDF"), filename="broken.pdf")
     temporary_paths: list[str] = []
 
-    async def reject_malformed_pdf(temp_file_path: str) -> list[Document]:
+    async def reject_malformed_pdf(
+        temp_file_path: str, max_pages: int | None
+    ) -> list[Document]:
+        assert max_pages == 100
         temporary_paths.append(temp_file_path)
         raise ValueError("malformed PDF")
 
     monkeypatch.setattr(
         "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 1
     )
-    monkeypatch.setattr(service, "_load_pdf_documents_with_timeout", reject_malformed_pdf)
+    monkeypatch.setattr(
+        service, "_load_pdf_documents_with_timeout", reject_malformed_pdf
+    )
     with pytest.raises(ValueError, match="malformed PDF"):
         await service.index_document(upload, user_id="verified-user")
 

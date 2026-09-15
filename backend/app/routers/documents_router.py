@@ -46,6 +46,7 @@ from app.services.query_concurrency_limiter import QueryConcurrencyLimiter, glob
 from app.services.tier_limit_service import (
     check_file_count_limit,
     get_max_upload_size_bytes,
+    get_user_tier_limits,
 )
 router = APIRouter(prefix="/rag", tags=["documents"])
 
@@ -409,6 +410,7 @@ async def upload_document(
         max_size_bytes, max_size_mb = await _get_upload_size_limits(
             user_id, rag_service, is_replacing
         )
+        is_unlimited = (await asyncio.to_thread(get_user_tier_limits, user_id))[0] == "UNLIMITED"
 
         file_content = await _read_and_validate_file_size(
             file, max_size_bytes, max_size_mb, user_id
@@ -426,7 +428,10 @@ async def upload_document(
                 file=BytesIO(file_content), filename=safe_filename
             )
             chunks_indexed, detected_language = await rag_service.index_document(
-                file=safe_file, user_id=user_id, document_language=None
+                file=safe_file,
+                user_id=user_id,
+                document_language=None,
+                allow_unlimited_document=is_unlimited,
             )
         except Exception:
             if is_replacing:
@@ -456,7 +461,8 @@ async def upload_document(
         raise
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid document upload."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc) or "Invalid document upload.",
         ) from exc
     except Exception as exc:
         _log_document_failure("indexing", exc)

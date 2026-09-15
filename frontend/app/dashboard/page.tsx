@@ -86,6 +86,7 @@ export default function Page() {
     resetAlert,
     documentsUploaded: _documentsUploaded,
   } = useDocumentUpload({
+    isUnlimited: tier === "UNLIMITED",
     onSuccess: () => {
       void refreshDocuments();
       setUploadModalOpen(false);
@@ -653,6 +654,7 @@ export default function Page() {
           onFileChange={handleFileChange}
           onUpload={submitUpload}
           onResolveDuplicate={resolveDuplicate}
+          isUnlimited={tier === "UNLIMITED"}
         />
 
         {/* Delete Account Modal */}

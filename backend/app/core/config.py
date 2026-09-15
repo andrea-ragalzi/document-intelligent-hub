@@ -44,7 +44,9 @@ def _load_prompt_from_file(
 class Settings(BaseSettings):
     # Specifica che le variabili devono essere caricate dal file .env
     # e le rende disponibili nell'ambiente (Docker, Railway)
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # One local configuration source for both direct imports and FastAPI startup.
+    # Process environment variables remain authoritative for Docker and Railway.
+    model_config = SettingsConfigDict(env_file=".env.local", extra="ignore")
 
     PROJECT_NAME: str = "Document Intelligent Hub Backend"
     PROJECT_VERSION: str = "1.0.0"

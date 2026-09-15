@@ -221,6 +221,31 @@ class VectorStoreRepository:
         logger.debug("Lexical candidate search returned %s chunks", len(state.documents))
         return state.documents
 
+    def exact_occurrence_search(
+        self, user_id: str, term: str, filename: str | None = None
+    ) -> list[Document]:
+        """Read exact tenant-owned occurrences for validated deterministic routes."""
+        where: dict[str, Any] = {"source": user_id}
+        if filename:
+            where = {"$and": [{"source": user_id}, {"original_filename": filename}]}
+        try:
+            results = self.collection.get(
+                where=where,
+                where_document={"$contains": term},
+                include=["documents", "metadatas"],
+                limit=10_000,
+            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning("Exact occurrence lookup failed | Type: {}", type(exc).__name__)
+            return []
+        return [
+            Document(page_content=content, metadata=metadata)
+            for content, metadata in zip(
+                results.get("documents", []) or [], results.get("metadatas", []) or []
+            )
+            if isinstance(content, str) and isinstance(metadata, dict)
+        ]
+
     @staticmethod
     def _append_lexical_results(
         results: Mapping[str, Any],
