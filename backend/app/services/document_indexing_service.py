@@ -15,8 +15,10 @@ Responsibilities:
 import asyncio
 import multiprocessing
 import os
+import re
 import tempfile
 import time
+from collections import defaultdict
 from typing import Any, cast
 
 from langchain_community.document_loaders import UnstructuredPDFLoader
@@ -40,6 +42,12 @@ MAX_EXTRACTED_DOCUMENT_TEXT = ChunkingConstants.MAX_EXTRACTED_DOCUMENT_TEXT
 MAX_DOCUMENT_CHUNKS = ChunkingConstants.MAX_DOCUMENT_CHUNKS
 MAX_DOCUMENT_PAGES = ChunkingConstants.MAX_DOCUMENT_PAGES
 PARSER_PROCESS_SHUTDOWN_SECONDS = 1
+LAYOUT_ROW_KIND = "layout_row"
+_LAYOUT_EXCLUDED_CATEGORIES = {"Header", "Footer"}
+_PARSER_TABLE_CATEGORIES = {"Table", "TableCell"}
+_PLAN_HEADER_PATTERN = re.compile(r"^NMP-\d+\s+\S.*$")
+_ROW_ALIGNMENT_TOLERANCE = 4.0
+_COLUMN_ALIGNMENT_TOLERANCE = 24.0
 
 
 def _write_temporary_pdf(descriptor: int, content: bytes) -> None:
@@ -54,11 +62,11 @@ def _get_pdf_page_count(temp_file_path: str) -> int:
 
 
 def _load_pdf_documents_worker(
-    temp_file_path: str, connection: Any
+    temp_file_path: str, connection: Any, max_pages: int | None
 ) -> None:
     """Run Unstructured in a disposable process so a timeout can stop it."""
     try:
-        if _get_pdf_page_count(temp_file_path) > MAX_DOCUMENT_PAGES:
+        if max_pages is not None and _get_pdf_page_count(temp_file_path) > max_pages:
             connection.send(("page_limit", None))
             return
         documents = UnstructuredPDFLoader(temp_file_path, mode="elements").load()
@@ -111,6 +119,7 @@ class DocumentIndexingService:
         user_id: str,
         document_language: str | None = None,
         document_metadata: dict[str, Any] | None = None,
+        allow_unlimited_document: bool = False,
     ) -> tuple[int, str]:
         """
         Load a PDF, split it into chunks, create embeddings, and save to ChromaDB.
@@ -133,7 +142,9 @@ class DocumentIndexingService:
         temp_file_path = await self._create_temp_file_from_upload(file)
 
         try:
-            documents = await self._load_pdf_documents_with_timeout(temp_file_path)
+            documents = await self._load_pdf_documents_with_timeout(
+                temp_file_path, None if allow_unlimited_document else MAX_DOCUMENT_PAGES
+            )
             # PDF parsing, chunking, embedding and Chroma writes are synchronous
             # libraries. Run the complete CPU/blocking section outside FastAPI's
             # event loop so health checks and independent requests can progress.
@@ -144,18 +155,19 @@ class DocumentIndexingService:
                 user_id,
                 doc_language,
                 document_metadata,
+                allow_unlimited_document,
             )
         finally:
             self._cleanup_temp_file(temp_file_path)
 
     async def _load_pdf_documents_with_timeout(
-        self, temp_file_path: str
+        self, temp_file_path: str, max_pages: int | None
     ) -> list[Document]:
         """Load through a child process and terminate it when parsing exceeds its deadline."""
         parent_connection, child_connection = multiprocessing.Pipe(duplex=False)
         process = multiprocessing.Process(
             target=_load_pdf_documents_worker,
-            args=(temp_file_path, child_connection),
+            args=(temp_file_path, child_connection, max_pages),
         )
         process.start()
         child_connection.close()
@@ -182,11 +194,15 @@ class DocumentIndexingService:
         user_id: str,
         document_language: str | None,
         document_metadata: dict[str, Any] | None,
+        allow_unlimited_document: bool,
     ) -> tuple[int, str]:
         """Execute the synchronous PDF-to-Chroma portion in a worker thread."""
         try:
             extracted_text_size = sum(len(doc.page_content or "") for doc in documents)
-            if extracted_text_size > MAX_EXTRACTED_DOCUMENT_TEXT:
+            if (
+                not allow_unlimited_document
+                and extracted_text_size > MAX_EXTRACTED_DOCUMENT_TEXT
+            ):
                 raise ValueError("Document contains too much extracted text.")
             full_text = " ".join(doc.page_content or "" for doc in documents)
             full_text_preview = full_text[:5000]
@@ -197,9 +213,16 @@ class DocumentIndexingService:
             )
             detected_language = detected_language.lower()
             category = self._classify_document(filename, full_text_preview)
-            chunks = self._apply_chunking_strategy(documents, category, full_text_preview)
+            # Build aggregates from raw parser elements before recursive splitting
+            # duplicates element metadata across prose fragments. Only explicit
+            # parser table/cell evidence is eligible for a relationship aggregate.
+            layout_rows = self._build_layout_row_aggregates(documents)
+            chunks = self._apply_chunking_strategy(
+                documents, category, full_text_preview
+            )
+            chunks.extend(layout_rows)
             chunks = filter_complex_metadata(chunks)
-            if len(chunks) > MAX_DOCUMENT_CHUNKS:
+            if not allow_unlimited_document and len(chunks) > MAX_DOCUMENT_CHUNKS:
                 raise ValueError("Document produces too many chunks.")
             final_chunks = self._prepare_chunks_with_metadata(
                 chunks, user_id, filename, detected_language, document_metadata
@@ -354,6 +377,236 @@ class DocumentIndexingService:
 
         return chunks
 
+    @staticmethod
+    def _layout_box(document: Document) -> tuple[float, float, float, float] | None:
+        """Return the parser bounding box when it is a usable four-corner polygon."""
+        coordinates = document.metadata.get("coordinates")
+        if not isinstance(coordinates, dict):
+            return None
+        points = coordinates.get("points")
+        if not isinstance(points, (tuple, list)) or not points:
+            return None
+        try:
+            x_values = [float(point[0]) for point in points]
+            y_values = [float(point[1]) for point in points]
+        except (TypeError, IndexError, ValueError):
+            return None
+        return min(x_values), min(y_values), max(x_values), max(y_values)
+
+    @staticmethod
+    def _normalized_layout_text(document: Document) -> str:
+        return " ".join((document.page_content or "").split())
+
+    @staticmethod
+    def _parser_table_group_id(document: Document) -> str | None:
+        """Return an explicit parser table identity for a raw table/cell element.
+
+        Coordinates and ``parent_id`` alone describe layout, not a table. A group
+        exists only when the parser has marked an element as a table/cell and also
+        supplied a table identifier or table parent. A standalone table element is
+        already an atomic source unit and needs no fabricated row aggregate.
+        """
+        metadata = document.metadata
+        category = metadata.get("category")
+        table_id = metadata.get("table_id")
+        if (
+            category in _PARSER_TABLE_CATEGORIES
+            and isinstance(table_id, str)
+            and table_id.strip()
+        ):
+            return f"table:{table_id}"
+        if category in _PARSER_TABLE_CATEGORIES:
+            parent_id = metadata.get("parent_id")
+            if isinstance(parent_id, str) and parent_id.strip():
+                return f"parent:{parent_id}"
+        return None
+
+    @staticmethod
+    def _shares_layout_relationship(row: list[Document]) -> bool:
+        """Require parser parent/child evidence before combining aligned cells."""
+        element_ids = {
+            str(document.metadata.get("element_id"))
+            for document in row
+            if document.metadata.get("element_id")
+        }
+        parent_ids = [
+            str(document.metadata.get("parent_id"))
+            for document in row
+            if document.metadata.get("parent_id")
+        ]
+        return len(parent_ids) != len(set(parent_ids)) or any(
+            parent_id in element_ids for parent_id in parent_ids
+        )
+
+    def _build_layout_row_aggregates(self, chunks: list[Document]) -> list[Document]:
+        """Build aggregates only from raw parser elements explicitly marked as cells."""
+        by_page: dict[
+            tuple[str, str],
+            list[tuple[int, Document, tuple[float, float, float, float]]],
+        ] = defaultdict(list)
+        for index, document in enumerate(chunks):
+            if document.metadata.get("chunk_kind") == LAYOUT_ROW_KIND:
+                continue
+            if document.metadata.get("category") in _LAYOUT_EXCLUDED_CATEGORIES:
+                continue
+            table_group_id = self._parser_table_group_id(document)
+            if table_group_id is None:
+                continue
+            if not self._normalized_layout_text(document):
+                continue
+            box = self._layout_box(document)
+            page = document.metadata.get("page_number")
+            if box is None or page is None:
+                continue
+            by_page[(str(page), table_group_id)].append((index, document, box))
+
+        aggregates: list[Document] = []
+        for page_elements in by_page.values():
+            aggregates.extend(self._build_page_layout_rows(page_elements))
+        return aggregates
+
+    def _build_page_layout_rows(
+        self,
+        page_elements: list[tuple[int, Document, tuple[float, float, float, float]]],
+    ) -> list[Document]:
+        """Aggregate aligned cells on one page, retaining only strong layout evidence."""
+        rows = self._group_layout_rows(page_elements)
+        plan_headers: list[tuple[float, str]] = []
+        aggregates: list[Document] = []
+        seen_text: set[str] = set()
+        for row in rows:
+            result = self._layout_row_candidate(row, plan_headers, seen_text)
+            if result is None:
+                continue
+            header_cells, aggregate = result
+            if header_cells:
+                plan_headers = header_cells
+            if aggregate is not None:
+                aggregates.append(aggregate)
+        return aggregates
+
+    @staticmethod
+    def _group_layout_rows(
+        page_elements: list[tuple[int, Document, tuple[float, float, float, float]]],
+    ) -> list[list[tuple[int, Document, tuple[float, float, float, float]]]]:
+        ordered = sorted(page_elements, key=lambda item: (item[2][1] + item[2][3], item[0]))
+        rows: list[list[tuple[int, Document, tuple[float, float, float, float]]]] = []
+        for item in ordered:
+            center_y = (item[2][1] + item[2][3]) / 2
+            if rows and abs(center_y - DocumentIndexingService._row_center(rows[-1])) <= _ROW_ALIGNMENT_TOLERANCE:
+                rows[-1].append(item)
+            else:
+                rows.append([item])
+        return rows
+
+    @staticmethod
+    def _row_center(row: list[tuple[int, Document, tuple[float, float, float, float]]]) -> float:
+        return sum((entry[2][1] + entry[2][3]) / 2 for entry in row) / len(row)
+
+    def _layout_row_candidate(
+        self,
+        row: list[tuple[int, Document, tuple[float, float, float, float]]],
+        plan_headers: list[tuple[float, str]],
+        seen_text: set[str],
+    ) -> tuple[list[tuple[float, str]], Document | None] | None:
+        row.sort(key=lambda item: item[2][0])
+        documents = [item[1] for item in row]
+        texts = [self._normalized_layout_text(document) for document in documents]
+        header_cells = [
+            ((box[0] + box[2]) / 2, text)
+            for (_, _, box), text in zip(row, texts)
+            if _PLAN_HEADER_PATTERN.fullmatch(text)
+        ]
+        if len(header_cells) >= 2:
+            return header_cells, None
+        if len(documents) < 2 or not self._shares_layout_relationship(documents):
+            return None
+        if not plan_headers and not any(any(character.isdigit() for character in text) for text in texts):
+            return None
+        aggregate_text = self._format_layout_row(row, texts, plan_headers)
+        normalized = " ".join(aggregate_text.lower().split())
+        if not aggregate_text or normalized in seen_text:
+            return None
+        seen_text.add(normalized)
+        return [], self._layout_row_document(documents, aggregate_text, plan_headers)
+
+    def _format_layout_row(
+        self,
+        row: list[tuple[int, Document, tuple[float, float, float, float]]],
+        texts: list[str],
+        plan_headers: list[tuple[float, str]],
+    ) -> str:
+        """Attach table values to headers only when every plan column aligns."""
+        if not plan_headers:
+            return " | ".join(texts)
+
+        centers = [(box[0] + box[2]) / 2 for _, _, box in row]
+        matches: dict[str, str] = {}
+        matched_indices: set[int] = set()
+        for header_center, header in plan_headers:
+            candidates = [
+                (abs(center - header_center), index)
+                for index, center in enumerate(centers)
+            ]
+            distance, index = min(candidates)
+            if distance > _COLUMN_ALIGNMENT_TOLERANCE or index in matched_indices:
+                return " | ".join(texts)
+            matched_indices.add(index)
+            matches[header] = texts[index]
+
+        label_parts = [
+            text for index, text in enumerate(texts) if index not in matched_indices
+        ]
+        if not label_parts:
+            return " | ".join(texts)
+        return " | ".join(
+            [" ".join(label_parts)]
+            + [f"{header}: {matches[header]}" for _, header in plan_headers]
+        )
+
+    def _layout_row_document(
+        self,
+        documents: list[Document],
+        text: str,
+        plan_headers: list[tuple[float, str]],
+    ) -> Document:
+        """Create one aggregate while retaining citation-safe source provenance."""
+        metadata = dict(documents[0].metadata)
+        metadata.update(
+            {
+                "chunk_kind": LAYOUT_ROW_KIND,
+                "element_type": LAYOUT_ROW_KIND,
+                "source_element_ids": ",".join(
+                    str(document.metadata["element_id"])
+                    for document in documents
+                    if document.metadata.get("element_id")
+                ),
+                "source_parent_ids": ",".join(
+                    sorted(
+                        {
+                            str(document.metadata["parent_id"])
+                            for document in documents
+                            if document.metadata.get("parent_id")
+                        }
+                    )
+                ),
+                "source_categories": ",".join(
+                    sorted(
+                        {
+                            str(document.metadata["category"])
+                            for document in documents
+                            if document.metadata.get("category")
+                        }
+                    )
+                ),
+            }
+        )
+        if plan_headers:
+            metadata["layout_column_headers"] = ",".join(
+                header for _, header in plan_headers
+            )
+        return Document(page_content=text, metadata=metadata)
+
     def _prepare_chunks_with_metadata(
         self,
         chunks: list[Document],
@@ -478,13 +731,17 @@ class DocumentIndexingService:
             temp_fd = -1
             await asyncio.to_thread(_write_temporary_pdf, descriptor, content)
 
-            documents = await self._load_pdf_documents_with_timeout(temp_file_path)
+            documents = await self._load_pdf_documents_with_timeout(
+                temp_file_path, MAX_DOCUMENT_PAGES
+            )
             return await asyncio.to_thread(
                 self._detect_document_language_from_documents, documents
             )
 
         except Exception as exc:
-            logger.error("Document language detection failed | Type: {}", type(exc).__name__)
+            logger.error(
+                "Document language detection failed | Type: {}", type(exc).__name__
+            )
             raise
         finally:
             if temp_fd != -1:

@@ -239,6 +239,37 @@ class RerankingService:
 
         return top_docs
 
+    def rerank_candidates(
+        self,
+        documents: list[Document],
+        original_query: str,
+        alternative_queries: list[str],
+        *,
+        required_query_groups: list[str] | None = None,
+    ) -> list[Document]:
+        """Score and order candidates without imposing final-context cardinality.
+
+        The score formula is intentionally shared with ``rerank_documents``.
+        Final context cardinality and complementary-evidence selection belong to
+        the dedicated final-context selector.
+        """
+        del alternative_queries
+        if not documents:
+            return []
+        keywords = self._extract_keywords([original_query])
+        subquery_keywords = [
+            self._extract_keywords([query]) for query in required_query_groups or []
+        ]
+        replaceable_atomic_ids = self._replaceable_atomic_ids(documents)
+        scored_documents = self._score_documents(
+            documents, keywords, subquery_keywords, [original_query]
+        )
+        return [
+            document
+            for _, document in scored_documents
+            if id(document) not in replaceable_atomic_ids
+        ]
+
     def _replaceable_atomic_ids(self, documents: list[Document]) -> set[int]:
         """Find atomic chunks fully preserved by an aggregate from the same page."""
         page_aggregates = [

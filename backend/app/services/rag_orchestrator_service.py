@@ -12,6 +12,8 @@ Architecture:
 - ConversationService: Conversation summarization
 """
 
+from decimal import Decimal
+import time
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -20,9 +22,11 @@ from app.core.logging import logger
 from app.ports.uploaded_file import UploadedFilePort
 from app.ports.translation import TranslationPort
 from app.ports.vector_store import VectorStorePort
-from app.schemas.rag_schema import ConversationMessage
+from app.schemas.rag_schema import ConversationMessage, DocumentInfo
 from app.services.answer_generation_service import AnswerGenerationService
 from app.services.conversation_service import ConversationService
+from app.services.deterministic_compute_service import DeterministicComputeService
+from app.services.deterministic_evidence_service import DeterministicEvidenceService
 from app.services.document_classifier_service import document_classifier_service
 
 # Import specialized services
@@ -33,6 +37,12 @@ from app.services.document_management_service import DocumentManagementService
 from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.query_processing_service import QueryProcessingService
+from app.services.query_routing_service import (
+    ComputeOperation,
+    DeterministicQueryRouter,
+    QueryRoute,
+    QueryRouteDecision,
+)
 from app.services.reranking_service import reranking_service
 
 
@@ -85,6 +95,9 @@ class RAGService:
         self.query_processing_service = QueryProcessingService(
             llm=self.llm, query_gen_llm=self.query_gen_llm
         )
+        self.query_router = DeterministicQueryRouter()
+        self.deterministic_evidence_service = DeterministicEvidenceService(repository)
+        self.deterministic_compute_service = DeterministicComputeService()
 
         self.answer_generation_service = AnswerGenerationService(
             llm=self.llm,
@@ -113,6 +126,7 @@ class RAGService:
         user_id: str,
         document_language: str | None = None,
         document_metadata: dict[str, Any] | None = None,
+        allow_unlimited_document: bool = False,
     ) -> tuple[int, str]:
         """
         Delegate to DocumentIndexingService.
@@ -127,7 +141,7 @@ class RAGService:
             Tuple of (chunks_indexed, detected_language)
         """
         return await self.indexing_service.index_document(
-            file, user_id, document_language, document_metadata
+            file, user_id, document_language, document_metadata, allow_unlimited_document
         )
 
     async def detect_document_language_preview(
@@ -160,10 +174,7 @@ class RAGService:
         """
         Process query and generate answer using RAG pipeline.
 
-        Workflow:
-        1. Reformulate query (QueryProcessingService)
-        2. Classify query (QueryProcessingService)
-        3. Generate answer (AnswerGenerationService)
+        Workflow: reformulate contextual queries, then generate a RAG answer.
 
         Args:
             query: User's question
@@ -199,11 +210,8 @@ class RAGService:
         )
         retrieval_language = self.language_service.detect_language(reformulated_query)
 
-        # Step 2: Classify query (for future optimizations)
-        query_tag = self.query_processing_service.classify_query(reformulated_query)
-        logger.debug("Query classified as: {}", query_tag)
-
-        # Step 3: Generate answer with full RAG pipeline
+        # Generate answer with the unchanged full RAG pipeline. The former
+        # semantic classification call had no behavioral consumer and was removed.
         answer_args: dict[str, Any] = dict(
             query=reformulated_query,
             user_id=user_id,
@@ -219,6 +227,122 @@ class RAGService:
                 **answer_args, retrieval_queries=retrieval_queries
             )
         return self.answer_generation_service.generate_answer(**answer_args)
+
+    def try_deterministic_query(
+        self,
+        query: str,
+        user_id: str,
+        documents: list[DocumentInfo],
+        conversation_history: list[ConversationMessage],
+    ) -> tuple[str, list[dict[str, str | int | None]], str, str] | None:
+        """Return one fully grounded deterministic result, or ``None`` for RAG.
+
+        This is intentionally a single decision and a single route. A failed
+        validation is indistinguishable from an unsupported request to callers:
+        both continue through normal RAG.
+        """
+        decision = self.query_router.decide(query, documents, conversation_history)
+        if decision.route is QueryRoute.RAG:
+            logger.info("Query route | route=rag reason={} luna_invoked=true", decision.reason)
+            return None
+
+        started = time.perf_counter()
+        try:
+            if decision.route is QueryRoute.DIRECT_LOOKUP:
+                return self._run_direct_lookup(decision, user_id)
+            if decision.route is QueryRoute.DIRECT_EXTRACT:
+                return self._run_direct_extract(decision, user_id)
+            if decision.route is QueryRoute.COMPUTE:
+                return self._run_compute(decision, user_id)
+        except (TypeError, ValueError):
+            logger.info("Query route validation failed | route={} luna_invoked=true", decision.route.value)
+            return None
+        finally:
+            elapsed = (time.perf_counter() - started) * 1000
+            logger.info(
+                "Query route evaluated | route={} reason={} duration_ms={:.2f} luna_invoked={}",
+                decision.route.value,
+                decision.reason,
+                elapsed,
+                "false",
+            )
+        return None
+
+    def _run_direct_lookup(
+        self, decision: QueryRouteDecision, user_id: str
+    ) -> tuple[str, list[dict[str, str | int | None]], str, str] | None:
+        if not decision.term:
+            return None
+        evidence = self.deterministic_evidence_service.occurrences(user_id, decision.term)
+        if not evidence:
+            return None
+        citations = self._unique_citations(evidence)
+        if decision.reason == "explicit_page_occurrence_lookup":
+            locations = ", ".join(
+                f"{item['filename']} p.{item['page_number']}" for item in citations
+            )
+            answer = f'"{decision.term}" was found on: {locations}.'
+        else:
+            filenames = ", ".join(
+                dict.fromkeys(
+                    str(item["filename"])
+                    for item in citations
+                    if item["filename"] is not None
+                )
+            )
+            answer = f'"{decision.term}" appears in: {filenames}.'
+        return answer, citations, decision.route.value, decision.reason
+
+    def _run_direct_extract(
+        self, decision: QueryRouteDecision, user_id: str
+    ) -> tuple[str, list[dict[str, str | int | None]], str, str] | None:
+        if not decision.filename or not decision.field_label:
+            return None
+        evidence = self.deterministic_evidence_service.labeled_value(
+            user_id, decision.filename, decision.field_label
+        )
+        if evidence is None:
+            return None
+        return (
+            f"{decision.field_label}: {evidence.value}",
+            [evidence.citation()],
+            decision.route.value,
+            decision.reason,
+        )
+
+    def _run_compute(
+        self, decision: QueryRouteDecision, user_id: str
+    ) -> tuple[str, list[dict[str, str | int | None]], str, str] | None:
+        if decision.operation is not ComputeOperation.COUNT or not decision.term:
+            return None
+        evidence = self.deterministic_evidence_service.occurrences(user_id, decision.term)
+        by_document = list({item.filename: item for item in evidence}.values())
+        if not by_document:
+            return None
+        result = self.deterministic_compute_service.compute(
+            ComputeOperation.COUNT,
+            [Decimal("1")] * len(by_document),
+            by_document,
+        )
+        answer = f'{result.value} document(s) mention "{decision.term}".'
+        return (
+            answer,
+            self._unique_citations(result.evidence),
+            decision.route.value,
+            decision.reason,
+        )
+
+    @staticmethod
+    def _unique_citations(evidence: list[Any]) -> list[dict[str, str | int | None]]:
+        citations: list[dict[str, str | int | None]] = []
+        seen: set[tuple[str, int | None]] = set()
+        for item in evidence:
+            citation = item.citation()
+            key = (str(citation["filename"]), citation["page_number"] if isinstance(citation["page_number"], int) else None)
+            if key not in seen:
+                seen.add(key)
+                citations.append(citation)
+        return citations[:5]
 
     # === DOCUMENT MANAGEMENT OPERATIONS ===
 

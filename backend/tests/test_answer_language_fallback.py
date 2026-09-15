@@ -21,7 +21,7 @@ def _service() -> tuple[AnswerGenerationService, Mock]:
         AnswerWithEvidence(answer="Italian fallback", evidence_ids=[]),
     ]
     reranking_service = Mock()
-    reranking_service.rerank_documents.return_value = []
+    reranking_service.rerank_candidates.return_value = []
     return (
         AnswerGenerationService(
             llm=service_llm,

@@ -29,6 +29,7 @@ interface UploadModalProps {
   onUpload: (e: FormEvent) => void;
   onResolveDuplicate: (action: DuplicateAction) => void;
   uploadProgress?: UploadProgressState;
+  isUnlimited?: boolean;
 }
 
 const SelectedFiles: React.FC<{ files: File[] }> = ({ files }) => {
@@ -112,6 +113,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onUpload,
   onResolveDuplicate,
   uploadProgress,
+  isUnlimited = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -237,7 +239,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                     <p className="mb-2 text-lg font-semibold text-ink">{dropZoneText}</p>
                     <p className="text-sm text-muted">or click to browse files</p>
                     <p className="mt-2 text-xs text-muted">
-                      PDF only · maximum {MAX_UPLOAD_SIZE_MB} MB per file
+                      {isUnlimited
+                        ? "PDF only · no file-size limit on your plan"
+                        : `PDF only · maximum ${MAX_UPLOAD_SIZE_MB} MB per file`}
                     </p>
                   </div>
 

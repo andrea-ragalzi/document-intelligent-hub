@@ -207,7 +207,7 @@ class TestQueryProcessing:
 
         retriever.invoke.side_effect = delayed_search
         mock_repository.get_retriever.return_value = retriever
-        answer_service.reranking_service.rerank_documents = Mock(side_effect=lambda **kwargs: kwargs["documents"])
+        answer_service.reranking_service.rerank_candidates = Mock(side_effect=lambda **kwargs: kwargs["documents"])
 
         started = time.monotonic()
         documents = answer_service._retrieve_and_rerank(

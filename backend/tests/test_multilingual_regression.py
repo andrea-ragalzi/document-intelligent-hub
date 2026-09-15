@@ -160,7 +160,7 @@ def test_no_document_fallback_receives_resolved_language(
         llm=llm, repository=repository, language_service=LanguageService(),
         translation_service=Mock(translate_query_to_language=lambda query, _target: query),
         query_expansion_service=Mock(generate_alternative_queries=lambda _query: []),
-        reranking_service=Mock(rerank_documents=lambda **_kwargs: []),
+        reranking_service=Mock(rerank_candidates=lambda **_kwargs: []),
     )
 
     resolved_language = LanguageService().resolve_response_language(current)

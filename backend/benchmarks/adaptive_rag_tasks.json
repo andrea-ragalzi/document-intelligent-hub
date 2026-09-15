@@ -1,0 +1,321 @@
+{
+  "schema_version": 1,
+  "corpus": {
+    "synthetic_user_id": "benchmark-adaptive-routing-user",
+    "documents": [
+      "Analisi Comportamentale Raptor.pdf",
+      "Contratto Legale Classificato.pdf",
+      "InGen: Inventario Pre-Operativo Isla Sorna.pdf",
+      "InGen: Memorandum - Decisione di Classificazione (Codice VELO).pdf",
+      "Northbyte_Systems_Payslip_August_2026.pdf",
+      "Northbyte_Systems_Payslip_July_2026.pdf",
+      "Asteria_Employee_Health_Benefits_Guide_2026.pdf"
+    ],
+    "upload_order": [
+      "Northbyte_Systems_Payslip_August_2026.pdf",
+      "Northbyte_Systems_Payslip_July_2026.pdf"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "D01",
+      "route": "DIRECT",
+      "query": "What was the amount of my latest payslip?",
+      "expected": {"status": "ambiguous", "reason": "gross and net monetary amounts are both present"},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["TOTAL TAXABLE GROSS", "NET PAYABLE"]
+    },
+    {
+      "id": "D02",
+      "route": "DIRECT",
+      "query": "What was my net salary on my latest payslip?",
+      "expected": {"value": "EUR 3,578.26", "field": "NET PAYABLE", "period": "2026-08"},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["NET PAYABLE", "3,578.26"]
+    },
+    {
+      "id": "D03",
+      "route": "DIRECT",
+      "query": "Which page contains the net payable amount?",
+      "expected": {"page": 1},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["NET PAYABLE"]
+    },
+    {
+      "id": "D04",
+      "route": "DIRECT",
+      "query": "Which documents mention VELO?",
+      "expected": {"filenames": ["Analisi Comportamentale Raptor.pdf", "InGen: Inventario Pre-Operativo Isla Sorna.pdf", "InGen: Memorandum - Decisione di Classificazione (Codice VELO).pdf"]},
+      "required_files": ["Analisi Comportamentale Raptor.pdf", "InGen: Inventario Pre-Operativo Isla Sorna.pdf", "InGen: Memorandum - Decisione di Classificazione (Codice VELO).pdf"],
+      "required_pages": [1, 2],
+      "evidence_markers": ["VELO"]
+    },
+    {
+      "id": "D05",
+      "route": "DIRECT",
+      "query": "Where is Level 5 containment mentioned?",
+      "expected": {"filename": "Analisi Comportamentale Raptor.pdf", "page": 1},
+      "required_files": ["Analisi Comportamentale Raptor.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["Livello 5"]
+    },
+    {
+      "id": "D06",
+      "route": "DIRECT",
+      "query": "Which payslip has payment date 31 August 2026?",
+      "expected": {"filename": "Northbyte_Systems_Payslip_August_2026.pdf", "page": 1},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["Payment date 31.08.2026"]
+    },
+    {
+      "id": "D07",
+      "route": "DIRECT",
+      "query": "Quale piano sanitario Asteria è indicato nella mia busta paga?",
+      "expected": {"value": "NORD-MED-04 / class NMP-2"},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["Asteria Assurance Europe", "NORD-MED-04 / class NMP-2"]
+    },
+    {
+      "id": "D08",
+      "route": "DIRECT",
+      "query": "In Northbyte_Systems_Payslip_August_2026.pdf, which page mentions Asteria?",
+      "expected": {"page": 1},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["Asteria Assurance Europe"]
+    },
+    {
+      "id": "D09",
+      "route": "DIRECT",
+      "query": "Qual è cronologicamente l'ultima busta paga?",
+      "expected": {"filename": "Northbyte_Systems_Payslip_August_2026.pdf", "period": "01.08.2026 - 31.08.2026"},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Northbyte_Systems_Payslip_July_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["Pay period 01.08.2026 - 31.08.2026"]
+    },
+    {
+      "id": "D10",
+      "route": "DIRECT",
+      "query": "And the net amount?",
+      "history": ["Which payslip is chronologically latest?", "Northbyte_Systems_Payslip_August_2026.pdf is latest."],
+      "expected": {"value": "EUR 3,578.26", "field": "NET PAYABLE"},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["NET PAYABLE", "3,578.26"]
+    },
+    {
+      "id": "C01",
+      "route": "COMPUTE",
+      "query": "How many documents mention VELO?",
+      "operation": "count",
+      "inputs": ["Analisi Comportamentale Raptor.pdf", "InGen: Inventario Pre-Operativo Isla Sorna.pdf", "InGen: Memorandum - Decisione di Classificazione (Codice VELO).pdf"],
+      "expected": {"value": 3},
+      "required_files": ["Analisi Comportamentale Raptor.pdf", "InGen: Inventario Pre-Operativo Isla Sorna.pdf", "InGen: Memorandum - Decisione di Classificazione (Codice VELO).pdf"],
+      "required_pages": [1, 2],
+      "evidence_markers": ["VELO"]
+    },
+    {
+      "id": "C02",
+      "route": "COMPUTE",
+      "query": "Quale percentuale dei grandi predatori nell'inventario ha rischio di evasione ESTREMO?",
+      "operation": "percentage",
+      "inputs": [1, 3],
+      "expected": {"value": 33.333333, "tolerance": 0.01},
+      "required_files": ["InGen: Inventario Pre-Operativo Isla Sorna.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["A. Grandi Predatori", "ESTREMO"]
+    },
+    {
+      "id": "C03",
+      "route": "COMPUTE",
+      "query": "What is the difference between gross pay and net payable on the August payslip?",
+      "operation": "difference",
+      "inputs": [5650.00, 3578.26],
+      "expected": {"value": 2071.74, "currency": "EUR", "tolerance": 0.005},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["TOTAL TAXABLE GROSS", "NET PAYABLE"]
+    },
+    {
+      "id": "C04",
+      "route": "COMPUTE",
+      "query": "What is the difference between the July and August net pays?",
+      "operation": "difference",
+      "inputs": [3578.26, 3400.00],
+      "expected": {"value": 178.26, "currency": "EUR", "tolerance": 0.005},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Northbyte_Systems_Payslip_July_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["NET PAYABLE"]
+    },
+    {
+      "id": "C05",
+      "route": "COMPUTE",
+      "query": "Qual è la somma dei netti di luglio e agosto?",
+      "operation": "sum",
+      "inputs": [3578.26, 3400.00],
+      "expected": {"value": 6978.26, "currency": "EUR", "tolerance": 0.005},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Northbyte_Systems_Payslip_July_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["NET PAYABLE"]
+    },
+    {
+      "id": "C06",
+      "route": "COMPUTE",
+      "query": "What is the average net pay across the two payslips?",
+      "operation": "average",
+      "inputs": [3578.26, 3400.00],
+      "expected": {"value": 3489.13, "currency": "EUR", "tolerance": 0.005},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Northbyte_Systems_Payslip_July_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["NET PAYABLE"]
+    },
+    {
+      "id": "C07",
+      "route": "COMPUTE",
+      "query": "Che percentuale del lordo imponibile di agosto è lo stipendio base mensile?",
+      "operation": "percentage",
+      "inputs": [5350.00, 5650.00],
+      "expected": {"value": 94.690265, "tolerance": 0.01},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["Monthly base salary", "TOTAL TAXABLE GROSS"]
+    },
+    {
+      "id": "C08",
+      "route": "COMPUTE",
+      "query": "How many days separate the starts of the July and August pay periods?",
+      "operation": "date_difference",
+      "inputs": ["2026-07-01", "2026-08-01"],
+      "expected": {"value": 31},
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Northbyte_Systems_Payslip_July_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["Pay period"]
+    },
+    {
+      "id": "R01",
+      "route": "RAG",
+      "query": "What does my insurance cover?",
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Asteria_Employee_Health_Benefits_Guide_2026.pdf"],
+      "required_pages": [1, 2, 3, 5],
+      "evidence_markers": ["NMP-2", "Specialist consultations", "Dental annual maximum"],
+      "facts": ["employee plan is NMP-2 Plus", "hospital accommodation is covered in full up to 45 nights", "specialist consultations are 90% up to EUR 2500/year", "out-patient aggregate limit is EUR 5000/year", "dental annual maximum is EUR 900/year"]
+    },
+    {
+      "id": "R02",
+      "route": "RAG",
+      "query": "What important exclusions or limits apply to my insurance?",
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Asteria_Employee_Health_Benefits_Guide_2026.pdf"],
+      "required_pages": [7],
+      "evidence_markers": ["Important exclusions and restrictions", "Pre-authorisation"],
+      "facts": ["not medically necessary or cosmetic treatment is excluded", "routine maternity and fertility treatment are excluded unless expressly added", "pre-existing-condition treatment depends on certificate or endorsement", "failure to obtain required authorisation can reduce reimbursement by 20%"]
+    },
+    {
+      "id": "R03",
+      "route": "RAG",
+      "query": "Why is VELO extreme escape risk?",
+      "required_files": ["Analisi Comportamentale Raptor.pdf", "InGen: Inventario Pre-Operativo Isla Sorna.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["ESTREMO", "Test Recinto", "Apprendimento Iper-rapido"],
+      "facts": ["inventory classifies VELO as extreme escape risk", "R-001 coordinated fence testing", "rapid lock-learning evidence supports the containment risk"]
+    },
+    {
+      "id": "R04",
+      "route": "RAG",
+      "query": "Evidence for Level 5 containment",
+      "required_files": ["Analisi Comportamentale Raptor.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["Livello 5", "Test Recinto", "12 secondi"],
+      "facts": ["behavioral report recommends Level 5", "coordinated fence testing is evidence", "lock-learning fell from 45 minutes to 12 seconds"]
+    },
+    {
+      "id": "R05",
+      "route": "RAG",
+      "query": "Why use Velociraptor?",
+      "required_files": ["InGen: Memorandum - Decisione di Classificazione (Codice VELO).pdf"],
+      "required_pages": [1, 2],
+      "evidence_markers": ["decisione aziendale e di marketing", "Deinonychus"],
+      "facts": ["the cloned animal is closer to Deinonychus", "Velociraptor was chosen for public recognition and marketing", "the naming decision is not scientific"]
+    },
+    {
+      "id": "R06",
+      "route": "RAG",
+      "query": "Which evidence shows VELO is dangerous?",
+      "required_files": ["Analisi Comportamentale Raptor.pdf", "InGen: Inventario Pre-Operativo Isla Sorna.pdf", "InGen: Memorandum - Decisione di Classificazione (Codice VELO).pdf"],
+      "required_pages": [1, 2],
+      "evidence_markers": ["ESTREMO", "Livello 5", "intelligenza di branco"],
+      "facts": ["inventory identifies extreme escape risk", "behavioral evidence shows coordinated fence testing", "behavioral report recommends Level 5 containment"]
+    },
+    {
+      "id": "R07",
+      "route": "RAG",
+      "query": "What does NMP-2 cover for specialist visits and diagnostic imaging?",
+      "required_files": ["Asteria_Employee_Health_Benefits_Guide_2026.pdf"],
+      "required_pages": [3],
+      "evidence_markers": ["Specialist consultations", "MRI, CT and PET imaging"],
+      "facts": ["specialist consultations are 90% up to EUR 2500/year", "MRI CT and PET have EUR 1500/year limit", "PET requires pre-authorisation"]
+    },
+    {
+      "id": "R08",
+      "route": "RAG",
+      "query": "Cosa copre il mio piano per dentista e occhiali?",
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Asteria_Employee_Health_Benefits_Guide_2026.pdf"],
+      "required_pages": [1, 5],
+      "evidence_markers": ["NMP-2", "Routine dental", "Prescription glasses"],
+      "facts": ["employee plan is NMP-2", "routine dental is 70% for one exam and one cleaning/year", "dental annual maximum is EUR 900/year", "glasses or contacts are EUR 180 every two years"]
+    },
+    {
+      "id": "R09",
+      "route": "RAG",
+      "query": "Quali cure ospedaliere e di day surgery sono comprese con Asteria?",
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Asteria_Employee_Health_Benefits_Guide_2026.pdf"],
+      "required_pages": [1, 2],
+      "evidence_markers": ["NMP-2", "Hospital accommodation", "Day-care surgery"],
+      "facts": ["hospital accommodation is fully covered up to 45 nights", "in-patient physician and specialist fees are fully covered", "day-care surgery is fully covered"]
+    },
+    {
+      "id": "R10",
+      "route": "RAG",
+      "query": "Does it include dental?",
+      "history": ["What does my insurance cover?", "Your Asteria plan is NMP-2 Plus."],
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Asteria_Employee_Health_Benefits_Guide_2026.pdf"],
+      "required_pages": [1, 5],
+      "evidence_markers": ["NMP-2", "Dental annual maximum"],
+      "facts": ["NMP-2 has routine dental benefits", "dental annual maximum is EUR 900/year", "routine dental waiting period may apply"]
+    },
+    {
+      "id": "R11",
+      "route": "RAG",
+      "query": "Quali limiti valgono per emergenze mediche in viaggio?",
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Asteria_Employee_Health_Benefits_Guide_2026.pdf"],
+      "required_pages": [1, 6],
+      "evidence_markers": ["NMP-2", "Emergency out-patient", "45 consecutive days"],
+      "facts": ["NMP-2 emergency out-patient travel treatment limit is EUR 5000/trip", "NMP-2 emergency in-patient travel treatment limit is EUR 75000/trip", "travel is limited to trips up to 45 consecutive days in the stated geography"]
+    },
+    {
+      "id": "R12",
+      "route": "RAG",
+      "query": "Why does the policy say another plan's benefit may not apply to me?",
+      "required_files": ["Northbyte_Systems_Payslip_August_2026.pdf", "Asteria_Employee_Health_Benefits_Guide_2026.pdf"],
+      "required_pages": [1],
+      "evidence_markers": ["member certificate", "NMP-2", "does not mean that benefit applies"],
+      "facts": ["the guide compares all three plan classes", "the employer enrolment or member record identifies the employee plan", "the payslip identifies NMP-2 for this employee"]
+    }
+  ],
+  "routing_paraphrases": [
+    ["P01", "DIRECT", "Locate the take-home figure on the newest payroll statement."],
+    ["P02", "DIRECT", "Find the document and sheet where the insurance provider is written."],
+    ["P03", "DIRECT", "Which file contains the term VELO?"],
+    ["P04", "COMPUTE", "Add together the two deposited payroll amounts."],
+    ["P05", "COMPUTE", "Compute the gap between taxable gross and the transferred amount."],
+    ["P06", "COMPUTE", "What fraction of the listed major predators is an extreme escape case?"],
+    ["P07", "RAG", "Explain the medical benefits attached to my enrolled coverage."],
+    ["P08", "RAG", "What behavioural observations justify maximum-security containment?"],
+    ["P09", "RAG", "Summarise the non-covered situations and authorisation rules."],
+    ["P10", "RAG", "Explain the business reason behind the VELO public name."]
+  ]
+}

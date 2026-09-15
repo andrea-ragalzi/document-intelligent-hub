@@ -61,7 +61,7 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
         "retention policy changes"
     ]
     reranker = Mock(spec=RerankingService)
-    reranker.rerank_documents.side_effect = lambda **kwargs: kwargs["documents"]
+    reranker.rerank_candidates.side_effect = lambda **kwargs: kwargs["documents"]
 
     llm = Mock()
     structured_llm = llm.with_structured_output.return_value
@@ -105,9 +105,7 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
     ]
 
     query_processing.reformulate_query.assert_called_once_with("What changed?", [])
-    query_processing.classify_query.assert_called_once_with(
-        "What changed in the retention policy?"
-    )
+    query_processing.classify_query.assert_not_called()
     query_expansion.generate_alternative_queries.assert_called_once_with(
         "What changed in the retention policy?"
     )
@@ -122,11 +120,10 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
         call("retention policy changes"),
     ]
 
-    rerank_call = reranker.rerank_documents.call_args.kwargs
+    rerank_call = reranker.rerank_candidates.call_args.kwargs
     assert rerank_call["documents"] == retrieved_documents
     assert rerank_call["original_query"] == "What changed in the retention policy?"
     assert rerank_call["alternative_queries"] == ["retention policy changes"]
-    assert rerank_call["top_n"] == QueryConstants.FINAL_RETRIEVAL_K
 
     structured_llm.invoke.assert_called_once()
     prompt = structured_llm.invoke.call_args.args[0]

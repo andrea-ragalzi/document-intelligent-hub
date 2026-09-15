@@ -100,7 +100,7 @@ Relevant files: `app/core/auth.py`, `app/core/firebase.py`, `app/routers/documen
 
 ## Configuration
 
-Create the ignored local configuration with `cp backend/.env.example backend/.env.local`. The backend loads only `backend/.env.local` when started through `main.py`; existing process variables remain authoritative. Local development expects the dedicated DEV service-account file at `backend/app/config/firebase-service-account.dev.json`. Deployment images exclude local environment files, and Railway supplies the PROD credential through `FIREBASE_CREDENTIALS`; never commit either credential.
+Create the ignored local configuration with `cp backend/.env.example backend/.env.local`. `Settings` loads `backend/.env.local` for every local execution path; existing process variables remain authoritative. Docker Compose passes the same file through `env_file`. Local development expects the dedicated DEV service-account file at `backend/app/config/firebase-service-account.dev.json`. Deployment images exclude local environment files, and Railway supplies the PROD credential through `FIREBASE_CREDENTIALS`; never commit either credential.
 
 | Variable                          | Controls                                                                |
 | --------------------------------- | ----------------------------------------------------------------------- |

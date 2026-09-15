@@ -4,23 +4,16 @@ import os
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-# Load one ignored local configuration file. Real process variables (tests,
-# Docker, and Railway) remain authoritative because local values never
-# overwrite them.
-env_path = Path(__file__).parent / ".env.local"
-load_dotenv(dotenv_path=env_path, override=False)
-
-# Now, import other modules (after load_dotenv to load env vars first)
+# Settings owns .env.local loading, while process variables remain authoritative.
+# Import application modules after settings can resolve local configuration.
 # pylint: disable=wrong-import-position
 from app.core.config import settings  # noqa: E402
 from app.core.firebase import initialize_firebase  # noqa: E402
@@ -96,7 +89,6 @@ class UploadBodyLimitMiddleware:
     """Bound multipart upload bodies before FastAPI starts parsing them."""
 
     _limits = {
-        "/rag/upload/": MAX_DOCUMENT_REQUEST_SIZE,
         "/rag/detect-language/": MAX_DOCUMENT_REQUEST_SIZE,
         "/rag/report-bug/": MAX_BUG_REPORT_REQUEST_SIZE,
     }
