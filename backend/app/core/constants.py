@@ -35,9 +35,9 @@ class ChunkingConstants:
     COMBINE_SMALL_CHUNKS_THRESHOLD = 200  # Combine chunks smaller than this
     # Resource ceilings for the public single-instance demo.  They are above
     # normal small-PDF use but abort pathological extraction before embeddings.
-    MAX_DOCUMENT_PAGES = 100
+    MAX_DOCUMENT_PAGES = 150
     MAX_EXTRACTED_DOCUMENT_TEXT = 500_000  # characters
-    MAX_DOCUMENT_CHUNKS = 500
+    MAX_DOCUMENT_CHUNKS = 1_500
 
 
 class QueryConstants:

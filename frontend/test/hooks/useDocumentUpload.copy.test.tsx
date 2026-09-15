@@ -130,7 +130,7 @@ describe("useDocumentUpload", () => {
     expect(result.current.files).toEqual([oversized]);
   });
 
-  it("rejects a PDF over 100 pages before an upload is requested", async () => {
+  it("rejects a PDF over 150 pages before an upload is requested", async () => {
     const largePdf = new File(["pdf"], "large-book.pdf", { type: "application/pdf" });
     vi.mocked(getPdfPageCount).mockResolvedValueOnce(MAX_DOCUMENT_PAGES + 1);
     const fetchMock = vi.fn();
@@ -144,8 +144,8 @@ describe("useDocumentUpload", () => {
     });
 
     expect(result.current.files).toEqual([]);
-    expect(result.current.uploadAlert.message).toContain("101 pages");
-    expect(result.current.uploadAlert.message).toContain("maximum is 100 pages");
+    expect(result.current.uploadAlert.message).toContain("151 pages");
+    expect(result.current.uploadAlert.message).toContain("maximum is 150 pages");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

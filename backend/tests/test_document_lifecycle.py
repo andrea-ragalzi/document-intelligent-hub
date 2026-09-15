@@ -57,7 +57,7 @@ async def test_valid_pdf_is_chunked_and_indexed_with_owner_metadata(
     async def load_documents(
         temp_file_path: str, max_pages: int | None
     ) -> list[Document]:
-        assert max_pages == 100
+        assert max_pages == 150
         temporary_paths.append(temp_file_path)
         return loaded_documents
 
@@ -111,7 +111,7 @@ async def test_malformed_pdf_does_not_index_and_removes_temporary_file(
     async def reject_malformed_pdf(
         temp_file_path: str, max_pages: int | None
     ) -> list[Document]:
-        assert max_pages == 100
+        assert max_pages == 150
         temporary_paths.append(temp_file_path)
         raise ValueError("malformed PDF")
 

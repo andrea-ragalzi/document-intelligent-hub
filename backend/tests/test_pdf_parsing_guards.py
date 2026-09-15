@@ -66,7 +66,7 @@ async def test_over_page_limit_rejects_before_unstructured_parsing(
             return []
 
     monkeypatch.setattr(
-        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 101
+        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 151
     )
     monkeypatch.setattr(
         "app.services.document_indexing_service.UnstructuredPDFLoader", UnexpectedLoader
@@ -172,7 +172,7 @@ async def test_language_preview_rejects_over_page_limit_and_removes_temp_file(
             return []
 
     monkeypatch.setattr(
-        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 101
+        "app.services.document_indexing_service._get_pdf_page_count", lambda _path: 151
     )
     monkeypatch.setattr(
         "app.services.document_indexing_service.UnstructuredPDFLoader", UnexpectedLoader

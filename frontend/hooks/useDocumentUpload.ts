@@ -66,6 +66,19 @@ const getOverPageLimitMessage = (files: Array<{ name: string; pages: number }>):
     )
     .join(" ");
 
+const getUploadFailureMessage = (detail: string | undefined): string => {
+  if (
+    detail?.toLowerCase().includes("too many chunks") ||
+    detail?.toLowerCase().includes("too complex to process")
+  ) {
+    return "Questo PDF contiene troppi elementi per essere elaborato. Prova a caricare un documento più breve o diviso in più file.";
+  }
+  if (detail?.toLowerCase().includes("too much extracted text")) {
+    return "Questo PDF contiene troppo testo per essere elaborato. Prova a dividerlo in più file.";
+  }
+  return detail || "Upload failed.";
+};
+
 const submitDocument = async (
   file: File,
   action: DuplicateAction | undefined,
@@ -90,7 +103,7 @@ const submitDocument = async (
     if (response.status === 413) {
       return { status: "failure", message: `Files must be ${MAX_UPLOAD_SIZE_MB} MB or smaller.` };
     }
-    if (!response.ok) return { status: "failure", message: data.detail || "Upload failed." };
+    if (!response.ok) return { status: "failure", message: getUploadFailureMessage(data.detail) };
 
     return { status: "success", filename: data.filename || file.name };
   } catch {
