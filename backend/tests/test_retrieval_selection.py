@@ -9,10 +9,15 @@ from app.services.query_expansion_service import QueryExpansionService
 from app.services.reranking_service import RerankingService
 
 
-def _document(content: str, filename: str, page: int = 1) -> Document:
+def _document(
+    content: str, filename: str, page: int = 1, category: str | None = None
+) -> Document:
+    metadata = {"original_filename": filename, "page_number": page}
+    if category is not None:
+        metadata["category"] = category
     return Document(
         page_content=content,
-        metadata={"original_filename": filename, "page_number": page},
+        metadata=metadata,
     )
 
 
@@ -34,7 +39,7 @@ def test_simple_query_keeps_single_query_expansion_path() -> None:
     service.repository.get_retriever.return_value.invoke.return_value = [
         _document("Alice follows the Cat.", "Alice.pdf")
     ]
-    service.reranking_service.rerank_documents.return_value = []
+    service.reranking_service.rerank_candidates.return_value = []
 
     service._retrieve_and_rerank(
         "What happens when the Cat disappears?",
@@ -60,7 +65,7 @@ def test_compound_query_uses_bounded_queries_and_deduplicates_candidates() -> No
         [second],
     ]
     service.repository.lexical_candidate_search.return_value = []
-    service.reranking_service.rerank_documents.return_value = []
+    service.reranking_service.rerank_candidates.return_value = []
 
     service._retrieve_and_rerank(
         "Who is Alice and what happens when the Cat disappears?",
@@ -73,12 +78,86 @@ def test_compound_query_uses_bounded_queries_and_deduplicates_candidates() -> No
 
     service.query_expansion_service.generate_alternative_queries.assert_not_called()
     assert service.repository.get_retriever.call_args.kwargs["k"] == 6
-    rerank_kwargs = service.reranking_service.rerank_documents.call_args.kwargs
+    rerank_kwargs = service.reranking_service.rerank_candidates.call_args.kwargs
     assert len(rerank_kwargs["documents"]) == 2
     assert rerank_kwargs["required_query_groups"] == [
         "Who is Alice?",
         "What happens when the Cat disappears?",
     ]
+
+
+def test_candidate_filter_keeps_one_exact_duplicate_per_source_in_order() -> None:
+    service = _answer_service()
+    first = _document("Containment report body.", "report.pdf", page=1)
+    duplicate = _document("  containment   report BODY. ", "report.pdf", page=2)
+    later = _document("Independent supporting fact.", "report.pdf", page=3)
+
+    retained = service._suppress_retrieval_noise([first, duplicate, later])
+
+    assert retained == [first, later]
+
+
+def test_candidate_filter_suppresses_only_repeated_page_furniture() -> None:
+    service = _answer_service()
+    header_one = _document("EBERRON", "book.pdf", page=10, category="Header")
+    header_two = _document("EBERRON", "book.pdf", page=11, category="Header")
+    footer_one = _document("10", "book.pdf", page=10, category="Footer")
+    footer_two = _document("10", "book.pdf", page=11, category="Footer")
+    body = _document("The Mourning ended the Last War.", "book.pdf", page=11)
+
+    retained = service._suppress_retrieval_noise(
+        [header_one, footer_one, body, header_two, footer_two]
+    )
+
+    assert retained == [body]
+
+
+def test_candidate_filter_retains_unique_meaningful_title_and_header() -> None:
+    service = _answer_service()
+    title = _document("House Jorasco Services", "book.pdf", page=82, category="Title")
+    header = _document("Medical Services", "book.pdf", page=82, category="Header")
+
+    assert service._suppress_retrieval_noise([title, header]) == [title, header]
+
+
+def test_candidate_filter_keeps_identical_text_from_distinct_sources() -> None:
+    service = _answer_service()
+    source_a = _document("Containment is Level 5.", "report-a.pdf", page=1)
+    source_b = _document("Containment is Level 5.", "report-b.pdf", page=1)
+
+    assert service._suppress_retrieval_noise([source_a, source_b]) == [
+        source_a,
+        source_b,
+    ]
+
+
+def test_candidate_filter_keeps_multiple_relevant_sources_for_final_context() -> None:
+    service = _answer_service()
+    inventory = _document(
+        "VELO is classified as an extreme escape risk.", "inventory.pdf"
+    )
+    behavior = _document(
+        "R-001 coordinated fence testing and rapid learning.", "behavior.pdf"
+    )
+    service.query_expansion_service.generate_alternative_queries.return_value = []
+    service.repository.lexical_candidate_search.return_value = []
+    service.repository.get_retriever.return_value.invoke.return_value = [
+        inventory,
+        behavior,
+    ]
+    service.reranking_service.rerank_candidates.side_effect = lambda **kwargs: kwargs[
+        "documents"
+    ]
+
+    context = service._retrieve_and_rerank(
+        "Why is VELO dangerous?",
+        "Why is VELO dangerous?",
+        "user",
+        include_files=None,
+        exclude_files=None,
+    )
+
+    assert context == [inventory, behavior]
 
 
 def test_invalid_compound_output_falls_back_to_simple_retrieval() -> None:
@@ -109,7 +188,9 @@ def test_inspection_result_outranks_related_vehicle_material() -> None:
 
     ranked = RerankingService().rerank_documents(documents, query, [], top_n=3)
 
-    assert ranked[0].metadata["original_filename"] == "Rapporto Ispezione Veicoli Tour.pdf"
+    assert (
+        ranked[0].metadata["original_filename"] == "Rapporto Ispezione Veicoli Tour.pdf"
+    )
 
 
 def test_exact_identifier_outranks_generic_emergency_chunk() -> None:
@@ -151,7 +232,9 @@ def test_compound_brachiosaurus_question_keeps_evidence_for_both_facts() -> None
         query,
         _answer_service()._split_compound_retrieval_queries(query),
         top_n=2,
-        required_query_groups=_answer_service()._split_compound_retrieval_queries(query),
+        required_query_groups=_answer_service()._split_compound_retrieval_queries(
+            query
+        ),
     )
 
     selected_text = " ".join(document.page_content for document in ranked).lower()
@@ -180,7 +263,9 @@ def test_duplicate_chunks_do_not_consume_multiple_final_evidence_positions() -> 
         documents, "Che cosa fa il comando SRI_LOCKOUT_F1?", [], top_n=3
     )
 
-    assert [document.page_content for document in ranked].count(duplicate.page_content) == 1
+    assert [document.page_content for document in ranked].count(
+        duplicate.page_content
+    ) == 1
 
 
 def test_complete_page_context_replaces_its_preserved_atomic_chunks() -> None:
@@ -385,12 +470,9 @@ def test_query_expansion_preserves_exact_identifier() -> None:
     service = QueryExpansionService.__new__(QueryExpansionService)
     service.llm = Mock()
     service.llm.invoke.return_value.content = (
-        "What does sri_lockout_f1 do?\n"
-        "SRI_LOCKOUT_F1 Phase 1 Lockout behavior"
+        "What does sri_lockout_f1 do?\nSRI_LOCKOUT_F1 Phase 1 Lockout behavior"
     )
 
-    alternatives = service.generate_alternative_queries(
-        "What does SRI_LOCKOUT_F1 do?"
-    )
+    alternatives = service.generate_alternative_queries("What does SRI_LOCKOUT_F1 do?")
 
     assert alternatives == ["SRI_LOCKOUT_F1 Phase 1 Lockout behavior"]

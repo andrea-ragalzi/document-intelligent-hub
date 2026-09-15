@@ -24,9 +24,11 @@ from app.core.logging import logger
 from app.ports.vector_store import VectorStorePort
 from app.ports.translation import TranslationPort
 from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
+from app.services.final_context_selector_service import FinalContextSelector
 from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.reranking_service import RerankingService
+
 SourceCitationData = dict[str, str | int | None]
 COMPOUND_QUERY_SPLIT = re.compile(
     r"\s+(?:e|ed)\s+(?=(?:quale|quali|perché|perche|chi|cosa|come)\b)", re.IGNORECASE
@@ -86,6 +88,7 @@ class AnswerGenerationService:
         *,  # Force keyword-only arguments below
         query_expansion_service: QueryExpansionService,
         reranking_service: RerankingService,
+        final_context_selector: FinalContextSelector | None = None,
     ) -> None:
         """
         Initialize AnswerGenerationService with all required dependencies.
@@ -104,6 +107,7 @@ class AnswerGenerationService:
         self.translation_service = translation_service
         self.query_expansion_service = query_expansion_service
         self.reranking_service = reranking_service
+        self.final_context_selector = final_context_selector or FinalContextSelector()
 
     def generate_answer(  # pylint: disable=too-many-arguments
         self,
@@ -143,9 +147,14 @@ class AnswerGenerationService:
             len(exclude_files or []),
         )
 
-        query_language_code = (query_language or self.language_service.detect_language(query)).upper()
-        response_language = response_language or self.language_service.resolve_response_language(
-            current_user_message, output_language=output_language
+        query_language_code = (
+            query_language or self.language_service.detect_language(query)
+        ).upper()
+        response_language = (
+            response_language
+            or self.language_service.resolve_response_language(
+                current_user_message, output_language=output_language
+            )
         )
         logger.debug("Detected query language: {}", query_language_code)
 
@@ -159,7 +168,9 @@ class AnswerGenerationService:
                 )
                 logger.debug("Query translated for retrieval")
             except Exception as exc:  # pylint: disable=broad-exception-caught
-                logger.error("Retrieval translation failed | Type: {}", type(exc).__name__)
+                logger.error(
+                    "Retrieval translation failed | Type: {}", type(exc).__name__
+                )
                 translated_query = query
         else:
             translated_query = query
@@ -182,7 +193,11 @@ class AnswerGenerationService:
 
         # Generate LLM response
         final_answer, source_documents = self._generate_llm_response(
-            query, current_user_message, context_docs, conversation_history, response_language
+            query,
+            current_user_message,
+            context_docs,
+            conversation_history,
+            response_language,
         )
 
         logger.debug(
@@ -220,7 +235,9 @@ class AnswerGenerationService:
         alternative_queries = (
             []
             if compound_queries
-            else self.query_expansion_service.generate_alternative_queries(translated_query)
+            else self.query_expansion_service.generate_alternative_queries(
+                translated_query
+            )
         )
         expansion_ms = (time.perf_counter() - expansion_started) * 1000
         logger.debug("Generated {} alternative queries", len(alternative_queries))
@@ -241,7 +258,10 @@ class AnswerGenerationService:
         retriever = self.repository.get_retriever(
             user_id=user_id,
             k=(
-                min(QueryConstants.BASE_RETRIEVAL_K, QueryConstants.FINAL_RETRIEVAL_K * 2)
+                min(
+                    QueryConstants.BASE_RETRIEVAL_K,
+                    QueryConstants.FINAL_RETRIEVAL_K * 2,
+                )
                 if compound_queries
                 else QueryConstants.BASE_RETRIEVAL_K
             ),  # Keep compound candidate pools bounded.
@@ -281,7 +301,9 @@ class AnswerGenerationService:
 
         lexical_terms = self._extract_lexical_terms([original_query] + compound_queries)
         if lexical_terms:
-            lexical_docs = self.repository.lexical_candidate_search(user_id, lexical_terms)
+            lexical_docs = self.repository.lexical_candidate_search(
+                user_id, lexical_terms
+            )
             logger.debug(
                 "🔤 Lexical candidate lookup for %s distinctive terms returned %s chunks",
                 len(lexical_terms),
@@ -308,16 +330,19 @@ class AnswerGenerationService:
         if compound_queries:
             all_retrieved_docs = self._rrf_order(all_retrieved_docs, search_results)
 
-        # Rerank to top N
-        logger.debug("Reranking documents to top {}", QueryConstants.FINAL_RETRIEVAL_K)
+        all_retrieved_docs = self._suppress_retrieval_noise(all_retrieved_docs)
+
+        # Score all eligible candidates first. Final cardinality is deliberately
+        # decided by the bounded adaptive selector, not by reranking.
+        logger.debug("Reranking documents before adaptive final-context selection")
         reranking_started = time.perf_counter()
-        context_docs = self.reranking_service.rerank_documents(
+        reranked_candidates = self.reranking_service.rerank_candidates(
             documents=all_retrieved_docs,
             original_query=original_query,
             alternative_queries=alternative_queries + compound_queries,
-            top_n=QueryConstants.FINAL_RETRIEVAL_K,
             required_query_groups=compound_queries,
         )
+        context_docs = self.final_context_selector.select(reranked_candidates)
         logger.debug("Reranking completed: {} documents", len(context_docs))
         logger.debug(
             f"⏱️ RAG timing | reranking="
@@ -351,7 +376,9 @@ class AnswerGenerationService:
         if len(parts) < 2:
             return []
         proper_nouns = [
-            token for token in PROPER_NOUN_PATTERN.findall(query) if token not in QUESTION_WORDS
+            token
+            for token in PROPER_NOUN_PATTERN.findall(query)
+            if token not in QUESTION_WORDS
         ]
         anchor = next(
             (token for token in proper_nouns if token.isupper() or "-" in token),
@@ -384,6 +411,63 @@ class AnswerGenerationService:
         return hash((document.page_content, metadata_tuple))
 
     @staticmethod
+    def _normalized_candidate_content(document: Any) -> str:
+        """Normalize only whitespace and case for deterministic exact matching."""
+        return " ".join(str(document.page_content or "").casefold().split())
+
+    @classmethod
+    def _suppress_retrieval_noise(cls, documents: list[Any]) -> list[Any]:
+        """Remove candidate-only boilerplate and exact same-source duplicates.
+
+        Storage remains complete for citations and later queries. A repeated header
+        or footer is considered boilerplate only when the same normalized content,
+        category, and filename occur on at least two distinct pages in this
+        candidate pool. Exact content is otherwise collapsed only inside its source
+        document, so identical evidence from separate documents is retained.
+        """
+        furniture_pages: dict[tuple[str, str, str], set[str]] = {}
+        for document in documents:
+            metadata = document.metadata
+            category = str(metadata.get("category", ""))
+            normalized = cls._normalized_candidate_content(document)
+            filename = str(metadata.get("original_filename", ""))
+            if category not in {"Header", "Footer"} or not normalized or not filename:
+                continue
+            key = (filename, category, normalized)
+            furniture_pages.setdefault(key, set()).add(
+                str(metadata.get("page_number", ""))
+            )
+
+        boilerplate = {key for key, pages in furniture_pages.items() if len(pages) >= 2}
+        retained: list[Any] = []
+        seen_same_source_content: set[tuple[str, str]] = set()
+        for document in documents:
+            metadata = document.metadata
+            normalized = cls._normalized_candidate_content(document)
+            filename = str(metadata.get("original_filename", ""))
+            category = str(metadata.get("category", ""))
+            furniture_key = (filename, category, normalized)
+            if furniture_key in boilerplate:
+                continue
+            source_content_key = (filename, normalized)
+            if (
+                normalized
+                and filename
+                and source_content_key in seen_same_source_content
+            ):
+                continue
+            if normalized and filename:
+                seen_same_source_content.add(source_content_key)
+            retained.append(document)
+
+        removed = len(documents) - len(retained)
+        if removed:
+            logger.debug(
+                "Suppressed {} repeated candidate fragments before reranking", removed
+            )
+        return retained
+
+    @staticmethod
     def _extract_lexical_terms(queries: list[str]) -> list[str]:
         """Keep a few high-signal IDs or proper names for bounded lexical recall."""
         terms = []
@@ -395,7 +479,9 @@ class AnswerGenerationService:
                     continue
                 if term not in terms:
                     terms.append(term)
-        identifiers = [term for term in terms if term.isupper() or "-" in term or "_" in term]
+        identifiers = [
+            term for term in terms if term.isupper() or "-" in term or "_" in term
+        ]
         names = [term for term in terms if term not in identifiers]
         return (identifiers + names)[:3]
 
@@ -422,7 +508,8 @@ class AnswerGenerationService:
         """
         history_str = self._format_conversation_history(conversation_history)
         context_by_id = {
-            f"C{index}": document for index, document in enumerate(context_docs, start=1)
+            f"C{index}": document
+            for index, document in enumerate(context_docs, start=1)
         }
         context_str = self._format_context_documents(context_by_id)
         final_llm_query = self._build_final_prompt(
@@ -430,15 +517,15 @@ class AnswerGenerationService:
         )
 
         try:
-            final_answer, evidence_ids = self._invoke_llm_and_translate(
-                final_llm_query
-            )
+            final_answer, evidence_ids = self._invoke_llm_and_translate(final_llm_query)
             return final_answer, self._citations_from_evidence_ids(
                 context_by_id, evidence_ids
             )
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            logger.error("Answer-model invocation failed | Type: {}", type(exc).__name__)
+            logger.error(
+                "Answer-model invocation failed | Type: {}", type(exc).__name__
+            )
             return self._get_fallback_response(), []
 
     def _format_conversation_history(
@@ -537,9 +624,7 @@ class AnswerGenerationService:
         """
         logger.debug("Invoking LLM for answer generation")
         structured_llm = self.llm.with_structured_output(AnswerWithEvidence)
-        llm_response = structured_llm.invoke(
-            prompt, max_tokens=LLMConstants.MAX_TOKENS
-        )
+        llm_response = structured_llm.invoke(prompt, max_tokens=LLMConstants.MAX_TOKENS)
         if not isinstance(llm_response, AnswerWithEvidence):
             llm_response = AnswerWithEvidence.model_validate(llm_response)
 
@@ -575,7 +660,9 @@ class AnswerGenerationService:
             filename = document.metadata.get("original_filename")
             if not isinstance(filename, str) or not filename:
                 continue
-            page_number = self._normalize_page_number(document.metadata.get("page_number"))
+            page_number = self._normalize_page_number(
+                document.metadata.get("page_number")
+            )
             citation_key = (filename, page_number)
             if citation_key in seen:
                 continue
