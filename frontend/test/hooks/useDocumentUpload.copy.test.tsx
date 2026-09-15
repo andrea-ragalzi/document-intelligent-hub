@@ -144,7 +144,7 @@ describe("useDocumentUpload", () => {
     });
 
     expect(result.current.files).toEqual([]);
-    expect(result.current.uploadAlert.message).toContain("101 pages");
+    expect(result.current.uploadAlert.message).toContain("151 pages");
     expect(result.current.uploadAlert.message).toContain("maximum is 150 pages");
     expect(fetchMock).not.toHaveBeenCalled();
   });
