@@ -332,6 +332,31 @@ class AnswerGenerationService:
 
         all_retrieved_docs = self._suppress_retrieval_noise(all_retrieved_docs)
 
+        # A retrieved page can be structurally fragmented even when lexical
+        # lookup did not identify a distinctive term. Add one temporary,
+        # tenant-scoped page context using the repository's existing heuristic.
+        page_contexts = self.repository.get_temporary_page_contexts(
+            user_id, all_retrieved_docs
+        )
+        if isinstance(page_contexts, list):
+            existing_pages = {
+                (
+                    str(document.metadata.get("original_filename", "")),
+                    str(document.metadata.get("page_number", "")),
+                )
+                for document in all_retrieved_docs
+                if document.metadata.get("context_aggregation") is True
+            }
+            all_retrieved_docs.extend(
+                context
+                for context in page_contexts
+                if (
+                    str(context.metadata.get("original_filename", "")),
+                    str(context.metadata.get("page_number", "")),
+                )
+                not in existing_pages
+            )
+
         # Score all eligible candidates first. Final cardinality is deliberately
         # decided by the bounded adaptive selector, not by reranking.
         logger.debug("Reranking documents before adaptive final-context selection")

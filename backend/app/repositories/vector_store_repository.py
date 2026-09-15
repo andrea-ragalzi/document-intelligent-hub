@@ -221,6 +221,53 @@ class VectorStoreRepository:
         logger.debug("Lexical candidate search returned %s chunks", len(state.documents))
         return state.documents
 
+    def get_temporary_page_contexts(
+        self, user_id: str, documents: list[Document]
+    ) -> list[Document]:
+        """Aggregate fragmented pages represented by the current candidate pool."""
+        page_keys = {
+            (
+                str(document.metadata.get("original_filename", "")),
+                str(document.metadata.get("page_number", "")),
+            )
+            for document in documents
+            if document.metadata.get("original_filename")
+            and document.metadata.get("page_number") is not None
+        }
+        if not page_keys:
+            return []
+        try:
+            results = self.collection.get(
+                where={"source": user_id},
+                include=["documents", "metadatas"],
+                limit=100_000,
+            )
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            logger.warning(
+                "Retrieved page context expansion failed: %s", type(error).__name__
+            )
+            return []
+
+        state = _LexicalCandidateState(max_candidates=100_000)
+        for chunk_id, content, metadata in zip(
+            results.get("ids", []) or [],
+            results.get("documents", []) or [],
+            results.get("metadatas", []) or [],
+        ):
+            if not isinstance(content, str) or not isinstance(metadata, dict):
+                continue
+            key = (
+                str(metadata.get("original_filename", "")),
+                str(metadata.get("page_number", "")),
+            )
+            if key not in page_keys or metadata.get("context_aggregation") is True:
+                continue
+            filename = key[0]
+            if filename:
+                self._append_page_fragment(state, str(chunk_id), content, filename, metadata)
+        self._append_fragmented_page_contexts(state)
+        return state.documents
+
     def exact_occurrence_search(
         self, user_id: str, term: str, filename: str | None = None
     ) -> list[Document]:
