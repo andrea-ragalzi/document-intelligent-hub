@@ -332,6 +332,11 @@ class AnswerGenerationService:
 
         all_retrieved_docs = self._suppress_retrieval_noise(all_retrieved_docs)
 
+        # A retrieved page can be structurally fragmented even when lexical
+        # lookup did not identify a distinctive term. Add one temporary,
+        # tenant-scoped page context using the repository's existing heuristic.
+        self._add_temporary_page_contexts(user_id, all_retrieved_docs)
+
         # Score all eligible candidates first. Final cardinality is deliberately
         # decided by the bounded adaptive selector, not by reranking.
         logger.debug("Reranking documents before adaptive final-context selection")
@@ -350,6 +355,28 @@ class AnswerGenerationService:
         )
 
         return context_docs
+
+    def _add_temporary_page_contexts(self, user_id: str, documents: list[Any]) -> None:
+        """Append one temporary aggregate per retrieved source page."""
+        page_contexts = self.repository.get_temporary_page_contexts(user_id, documents)
+        if not isinstance(page_contexts, list):
+            return
+        existing_pages = {
+            (
+                str(document.metadata.get("original_filename", "")),
+                str(document.metadata.get("page_number", "")),
+            )
+            for document in documents
+            if document.metadata.get("context_aggregation") is True
+        }
+        for context in page_contexts:
+            page_key = (
+                str(context.metadata.get("original_filename", "")),
+                str(context.metadata.get("page_number", "")),
+            )
+            if page_key not in existing_pages:
+                documents.append(context)
+                existing_pages.add(page_key)
 
     @staticmethod
     def _validated_compound_queries(

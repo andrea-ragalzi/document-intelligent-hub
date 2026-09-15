@@ -33,6 +33,11 @@ class VectorStorePort(Protocol):
     ) -> list[Document]:
         """Return bounded lexical candidates for reranking."""
 
+    def get_temporary_page_contexts(
+        self, user_id: str, documents: list[Document]
+    ) -> list[Document]:
+        """Build bounded, non-persisted context aggregates for retrieved pages."""
+
     def exact_occurrence_search(
         self, user_id: str, term: str, filename: str | None = None
     ) -> list[Document]:

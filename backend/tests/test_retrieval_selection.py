@@ -160,6 +160,35 @@ def test_candidate_filter_keeps_multiple_relevant_sources_for_final_context() ->
     assert context == [inventory, behavior]
 
 
+def test_retrieved_fragmented_page_adds_temporary_context() -> None:
+    service = _answer_service()
+    fragment = _document("Enterprise", "structured.pdf", page=2)
+    aggregate = _document(
+        "Enterprise | EUR 249 | 100 included tickets",
+        "structured.pdf",
+        page=2,
+    )
+    aggregate.metadata["context_aggregation"] = True
+    service.query_expansion_service.generate_alternative_queries.return_value = []
+    service.repository.get_temporary_page_contexts.return_value = [aggregate]
+    service.repository.get_retriever.return_value.invoke.return_value = [fragment]
+    service.repository.lexical_candidate_search.return_value = []
+    service.reranking_service.rerank_candidates.side_effect = lambda **kwargs: kwargs[
+        "documents"
+    ]
+
+    context = service._retrieve_and_rerank(
+        "Which plan includes 100 tickets?",
+        "Which plan includes 100 tickets?",
+        "user",
+        include_files=None,
+        exclude_files=None,
+    )
+
+    service.repository.get_temporary_page_contexts.assert_called_once()
+    assert aggregate in context
+
+
 def test_invalid_compound_output_falls_back_to_simple_retrieval() -> None:
     service = _answer_service()
 
