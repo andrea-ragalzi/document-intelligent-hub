@@ -67,7 +67,10 @@ const getOverPageLimitMessage = (files: Array<{ name: string; pages: number }>):
     .join(" ");
 
 const getUploadFailureMessage = (detail: string | undefined): string => {
-  if (detail?.toLowerCase().includes("too many chunks")) {
+  if (
+    detail?.toLowerCase().includes("too many chunks") ||
+    detail?.toLowerCase().includes("too complex to process")
+  ) {
     return "Questo PDF contiene troppi elementi per essere elaborato. Prova a caricare un documento più breve o diviso in più file.";
   }
   if (detail?.toLowerCase().includes("too much extracted text")) {

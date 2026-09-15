@@ -223,7 +223,9 @@ class DocumentIndexingService:
             chunks.extend(layout_rows)
             chunks = filter_complex_metadata(chunks)
             if not allow_unlimited_document and len(chunks) > MAX_DOCUMENT_CHUNKS:
-                raise ValueError("Document produces too many chunks.")
+                raise ValueError(
+                    "This PDF produces too many chunks to process. Try splitting it into smaller files."
+                )
             final_chunks = self._prepare_chunks_with_metadata(
                 chunks, user_id, filename, detected_language, document_metadata
             )
