@@ -28,6 +28,8 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = ROOT.parent.resolve()
+TEMP_ROOT = Path(tempfile.gettempdir()).resolve()
 TASKS_PATH = ROOT / "benchmarks" / "adaptive_rag_tasks.json"
 LUNA_MODEL = "gpt-5.6-luna"
 EXPECTED_DOCUMENTS = {
@@ -117,12 +119,25 @@ def _load_dev_configuration() -> dict[str, Any]:
 def _load_snapshot(path: Path | None) -> dict[str, Any] | None:
     if path is None:
         return None
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    snapshot_path = _validated_path(path, must_be_file=True)
+    # The CLI path is constrained to the repository or temporary benchmark workspace.
+    payload = json.loads(snapshot_path.read_text(encoding="utf-8"))  # NOSONAR
     required = {"model", "timeout_seconds", "max_retries", "prompt_digests", "stages"}
     missing = sorted(required - set(payload))
     if missing:
         raise ValueError(f"Production snapshot is incomplete: {', '.join(missing)}")
     return payload
+
+
+def _validated_path(path: Path, *, must_be_file: bool = False) -> Path:
+    """Restrict benchmark CLI paths to the repository or temporary workspace."""
+    resolved = path.expanduser().resolve()
+    allowed = resolved.is_relative_to(REPOSITORY_ROOT) or resolved.is_relative_to(TEMP_ROOT)
+    if not allowed:
+        raise ValueError("Benchmark paths must be inside the repository or temporary workspace.")
+    if must_be_file and not resolved.is_file():
+        raise ValueError(f"Benchmark input file does not exist: {resolved}")
+    return resolved
 
 
 def _parity_gate(dev: dict[str, Any], production: dict[str, Any] | None) -> GateResult:
@@ -187,9 +202,10 @@ def _july_payslip_pdf() -> bytes:
 
 
 def _write_july_fixture(output_dir: Path) -> Path:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    destination = output_dir / "Northbyte_Systems_Payslip_July_2026.pdf"
-    destination.write_bytes(_july_payslip_pdf())
+    destination_dir = _validated_path(output_dir)
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = destination_dir / "Northbyte_Systems_Payslip_July_2026.pdf"
+    destination.write_bytes(_july_payslip_pdf())  # NOSONAR
     return destination
 
 
@@ -229,7 +245,9 @@ def main() -> None:
     # set before importing any application configuration or OpenAI adapter.
     os.environ["ENVIRONMENT"] = "development"
     os.environ["LLM_MODEL"] = LUNA_MODEL
-    output_dir = args.output_dir or Path(tempfile.mkdtemp(prefix="dih-adaptive-benchmark-"))
+    output_dir = _validated_path(
+        args.output_dir or Path(tempfile.mkdtemp(prefix="dih-adaptive-benchmark-"))
+    )
     dev = _load_dev_configuration()
     production = _load_snapshot(args.prod_config_snapshot)
     gate = _parity_gate(dev, production)
@@ -243,7 +261,7 @@ def main() -> None:
         report["generated_benchmark_fixture"] = str(_write_july_fixture(output_dir))
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "preflight.json"
-    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")  # NOSONAR
     print(json.dumps(report, indent=2))
     if args.run and gate.status != "PASS":
         raise SystemExit("Refusing DEV benchmark because the production-parity gate is blocked.")

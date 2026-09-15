@@ -149,7 +149,8 @@ class TestComputeService:
         service = DeterministicComputeService()
         evidence = [_evidence("2026-01-01"), _evidence("2026-01-04")]
 
-        assert service.date_difference(date(2026, 1, 1), date(2026, 1, 4), evidence).value == 3
+        date_result = service.date_difference(date(2026, 1, 1), date(2026, 1, 4), evidence)
+        assert date_result.value == 3
         with pytest.raises(ValueError):
             service.compute(ComputeOperation.DIFFERENCE, [Decimal("1")], [_evidence()])
 

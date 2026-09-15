@@ -41,6 +41,7 @@ from app.services.query_routing_service import (
     ComputeOperation,
     DeterministicQueryRouter,
     QueryRoute,
+    QueryRouteDecision,
 )
 from app.services.reranking_service import reranking_service
 
@@ -247,56 +248,12 @@ class RAGService:
 
         started = time.perf_counter()
         try:
-            if decision.route is QueryRoute.DIRECT_LOOKUP and decision.term:
-                direct_evidence = self.deterministic_evidence_service.occurrences(
-                    user_id, decision.term
-                )
-                if not direct_evidence:
-                    return None
-                citations = self._unique_citations(direct_evidence)
-                if decision.reason == "explicit_page_occurrence_lookup":
-                    locations = ", ".join(
-                        f"{item['filename']} p.{item['page_number']}"
-                        for item in citations
-                    )
-                    answer = f'"{decision.term}" was found on: {locations}.'
-                else:
-                    filenames = ", ".join(
-                        dict.fromkeys(
-                            str(item["filename"])
-                            for item in citations
-                            if item["filename"] is not None
-                        )
-                    )
-                    answer = f'"{decision.term}" appears in: {filenames}.'
-                return answer, citations, decision.route.value, decision.reason
-
-            if decision.route is QueryRoute.DIRECT_EXTRACT and decision.filename and decision.field_label:
-                labeled_evidence = self.deterministic_evidence_service.labeled_value(
-                    user_id, decision.filename, decision.field_label
-                )
-                if labeled_evidence is None:
-                    return None
-                answer = f"{decision.field_label}: {labeled_evidence.value}"
-                return (
-                    answer,
-                    [labeled_evidence.citation()],
-                    decision.route.value,
-                    decision.reason,
-                )
-
-            if decision.route is QueryRoute.COMPUTE and decision.operation is ComputeOperation.COUNT and decision.term:
-                evidence = self.deterministic_evidence_service.occurrences(user_id, decision.term)
-                by_document = list({item.filename: item for item in evidence}.values())
-                if not by_document:
-                    return None
-                result = self.deterministic_compute_service.compute(
-                    ComputeOperation.COUNT,
-                    [Decimal("1")] * len(by_document),
-                    by_document,
-                )
-                answer = f'{result.value} document(s) mention "{decision.term}".'
-                return answer, self._unique_citations(result.evidence), decision.route.value, decision.reason
+            if decision.route is QueryRoute.DIRECT_LOOKUP:
+                return self._run_direct_lookup(decision, user_id)
+            if decision.route is QueryRoute.DIRECT_EXTRACT:
+                return self._run_direct_extract(decision, user_id)
+            if decision.route is QueryRoute.COMPUTE:
+                return self._run_compute(decision, user_id)
         except (TypeError, ValueError):
             logger.info("Query route validation failed | route={} luna_invoked=true", decision.route.value)
             return None
@@ -310,6 +267,70 @@ class RAGService:
                 "false",
             )
         return None
+
+    def _run_direct_lookup(
+        self, decision: QueryRouteDecision, user_id: str
+    ) -> tuple[str, list[dict[str, str | int | None]], str, str] | None:
+        if not decision.term:
+            return None
+        evidence = self.deterministic_evidence_service.occurrences(user_id, decision.term)
+        if not evidence:
+            return None
+        citations = self._unique_citations(evidence)
+        if decision.reason == "explicit_page_occurrence_lookup":
+            locations = ", ".join(
+                f"{item['filename']} p.{item['page_number']}" for item in citations
+            )
+            answer = f'"{decision.term}" was found on: {locations}.'
+        else:
+            filenames = ", ".join(
+                dict.fromkeys(
+                    str(item["filename"])
+                    for item in citations
+                    if item["filename"] is not None
+                )
+            )
+            answer = f'"{decision.term}" appears in: {filenames}.'
+        return answer, citations, decision.route.value, decision.reason
+
+    def _run_direct_extract(
+        self, decision: QueryRouteDecision, user_id: str
+    ) -> tuple[str, list[dict[str, str | int | None]], str, str] | None:
+        if not decision.filename or not decision.field_label:
+            return None
+        evidence = self.deterministic_evidence_service.labeled_value(
+            user_id, decision.filename, decision.field_label
+        )
+        if evidence is None:
+            return None
+        return (
+            f"{decision.field_label}: {evidence.value}",
+            [evidence.citation()],
+            decision.route.value,
+            decision.reason,
+        )
+
+    def _run_compute(
+        self, decision: QueryRouteDecision, user_id: str
+    ) -> tuple[str, list[dict[str, str | int | None]], str, str] | None:
+        if decision.operation is not ComputeOperation.COUNT or not decision.term:
+            return None
+        evidence = self.deterministic_evidence_service.occurrences(user_id, decision.term)
+        by_document = list({item.filename: item for item in evidence}.values())
+        if not by_document:
+            return None
+        result = self.deterministic_compute_service.compute(
+            ComputeOperation.COUNT,
+            [Decimal("1")] * len(by_document),
+            by_document,
+        )
+        answer = f'{result.value} document(s) mention "{decision.term}".'
+        return (
+            answer,
+            self._unique_citations(result.evidence),
+            decision.route.value,
+            decision.reason,
+        )
 
     @staticmethod
     def _unique_citations(evidence: list[Any]) -> list[dict[str, str | int | None]]:

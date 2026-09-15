@@ -253,6 +253,7 @@ class RerankingService:
         Final context cardinality and complementary-evidence selection belong to
         the dedicated final-context selector.
         """
+        del alternative_queries
         if not documents:
             return []
         keywords = self._extract_keywords([original_query])

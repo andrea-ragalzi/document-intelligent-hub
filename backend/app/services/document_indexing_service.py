@@ -45,7 +45,7 @@ PARSER_PROCESS_SHUTDOWN_SECONDS = 1
 LAYOUT_ROW_KIND = "layout_row"
 _LAYOUT_EXCLUDED_CATEGORIES = {"Header", "Footer"}
 _PARSER_TABLE_CATEGORIES = {"Table", "TableCell"}
-_PLAN_HEADER_PATTERN = re.compile(r"^NMP-\d+\s+.+$")
+_PLAN_HEADER_PATTERN = re.compile(r"^NMP-\d+\s+\S.*$")
 _ROW_ALIGNMENT_TOLERANCE = 4.0
 _COLUMN_ALIGNMENT_TOLERANCE = 24.0
 
@@ -470,56 +470,65 @@ class DocumentIndexingService:
         page_elements: list[tuple[int, Document, tuple[float, float, float, float]]],
     ) -> list[Document]:
         """Aggregate aligned cells on one page, retaining only strong layout evidence."""
-        ordered = sorted(
-            page_elements, key=lambda item: (item[2][1] + item[2][3], item[0])
-        )
-        rows: list[list[tuple[int, Document, tuple[float, float, float, float]]]] = []
-        for item in ordered:
-            center_y = (item[2][1] + item[2][3]) / 2
-            if rows:
-                previous = rows[-1]
-                previous_center = sum(
-                    (entry[2][1] + entry[2][3]) / 2 for entry in previous
-                ) / len(previous)
-                if abs(center_y - previous_center) <= _ROW_ALIGNMENT_TOLERANCE:
-                    previous.append(item)
-                    continue
-            rows.append([item])
-
+        rows = self._group_layout_rows(page_elements)
         plan_headers: list[tuple[float, str]] = []
         aggregates: list[Document] = []
         seen_text: set[str] = set()
         for row in rows:
-            row.sort(key=lambda item: item[2][0])
-            documents = [item[1] for item in row]
-            texts = [self._normalized_layout_text(document) for document in documents]
-            header_cells = [
-                ((box[0] + box[2]) / 2, text)
-                for (_, document, box), text in zip(row, texts)
-                if _PLAN_HEADER_PATTERN.fullmatch(text)
-            ]
-            if len(header_cells) >= 2:
+            result = self._layout_row_candidate(row, plan_headers, seen_text)
+            if result is None:
+                continue
+            header_cells, aggregate = result
+            if header_cells:
                 plan_headers = header_cells
-                continue
-            if len(documents) < 2 or not self._shares_layout_relationship(documents):
-                continue
-
-            # A plain, all-text horizontal line is usually a visual heading rather
-            # than a fact-bearing table row. Plan rows are handled separately.
-            if not plan_headers and not any(
-                any(character.isdigit() for character in text) for text in texts
-            ):
-                continue
-
-            aggregate_text = self._format_layout_row(row, texts, plan_headers)
-            normalized = " ".join(aggregate_text.lower().split())
-            if not aggregate_text or normalized in seen_text:
-                continue
-            seen_text.add(normalized)
-            aggregates.append(
-                self._layout_row_document(documents, aggregate_text, plan_headers)
-            )
+            if aggregate is not None:
+                aggregates.append(aggregate)
         return aggregates
+
+    @staticmethod
+    def _group_layout_rows(
+        page_elements: list[tuple[int, Document, tuple[float, float, float, float]]],
+    ) -> list[list[tuple[int, Document, tuple[float, float, float, float]]]]:
+        ordered = sorted(page_elements, key=lambda item: (item[2][1] + item[2][3], item[0]))
+        rows: list[list[tuple[int, Document, tuple[float, float, float, float]]]] = []
+        for item in ordered:
+            center_y = (item[2][1] + item[2][3]) / 2
+            if rows and abs(center_y - DocumentIndexingService._row_center(rows[-1])) <= _ROW_ALIGNMENT_TOLERANCE:
+                rows[-1].append(item)
+            else:
+                rows.append([item])
+        return rows
+
+    @staticmethod
+    def _row_center(row: list[tuple[int, Document, tuple[float, float, float, float]]]) -> float:
+        return sum((entry[2][1] + entry[2][3]) / 2 for entry in row) / len(row)
+
+    def _layout_row_candidate(
+        self,
+        row: list[tuple[int, Document, tuple[float, float, float, float]]],
+        plan_headers: list[tuple[float, str]],
+        seen_text: set[str],
+    ) -> tuple[list[tuple[float, str]], Document | None] | None:
+        row.sort(key=lambda item: item[2][0])
+        documents = [item[1] for item in row]
+        texts = [self._normalized_layout_text(document) for document in documents]
+        header_cells = [
+            ((box[0] + box[2]) / 2, text)
+            for (_, _, box), text in zip(row, texts)
+            if _PLAN_HEADER_PATTERN.fullmatch(text)
+        ]
+        if len(header_cells) >= 2:
+            return header_cells, None
+        if len(documents) < 2 or not self._shares_layout_relationship(documents):
+            return None
+        if not plan_headers and not any(any(character.isdigit() for character in text) for text in texts):
+            return None
+        aggregate_text = self._format_layout_row(row, texts, plan_headers)
+        normalized = " ".join(aggregate_text.lower().split())
+        if not aggregate_text or normalized in seen_text:
+            return None
+        seen_text.add(normalized)
+        return [], self._layout_row_document(documents, aggregate_text, plan_headers)
 
     def _format_layout_row(
         self,
