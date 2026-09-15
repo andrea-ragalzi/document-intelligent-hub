@@ -51,6 +51,14 @@ async function getConversationCount(userId: string): Promise<number> {
   return conversations.size;
 }
 
+async function isUnlimitedUser(): Promise<boolean> {
+  const currentUser = getFirebaseAuth().currentUser;
+  if (!currentUser) return false;
+
+  const tokenResult = await currentUser.getIdTokenResult();
+  return tokenResult.claims.tier === "UNLIMITED";
+}
+
 /**
  * Save a new conversation to Firestore
  */
@@ -69,9 +77,11 @@ export async function saveConversationToFirestore(
       throw new Error("UserId does not match authenticated user");
     }
 
-    const conversationCount = await getConversationCount(userId);
-    if (conversationCount >= MAX_SAVED_CONVERSATIONS_PER_USER) {
-      throw new Error("Conversation limit reached");
+    if (!(await isUnlimitedUser())) {
+      const conversationCount = await getConversationCount(userId);
+      if (conversationCount >= MAX_SAVED_CONVERSATIONS_PER_USER) {
+        throw new Error("Conversation limit reached");
+      }
     }
 
     const boundedHistory = boundConversationHistory(history);
@@ -258,8 +268,11 @@ export async function migrateLocalStorageToFirestore(
   localConversations: SavedConversation[]
 ): Promise<void> {
   try {
-    const existingCount = await getConversationCount(userId);
-    const availableSlots = Math.max(0, MAX_SAVED_CONVERSATIONS_PER_USER - existingCount);
+    const unlimited = await isUnlimitedUser();
+    const existingCount = unlimited ? 0 : await getConversationCount(userId);
+    const availableSlots = unlimited
+      ? localConversations.length
+      : Math.max(0, MAX_SAVED_CONVERSATIONS_PER_USER - existingCount);
 
     // Local storage is written newest-first. Migrate only what fits and save
     // sequentially so each create observes the count after the previous one.

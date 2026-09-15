@@ -13,13 +13,18 @@ const firestore = vi.hoisted(() => ({
   where: vi.fn(),
 }));
 
+const firebase = vi.hoisted(() => ({
+  getFirebaseAuth: vi.fn(),
+  getFirebaseDb: vi.fn(() => ({ id: "database" })),
+}));
+
 vi.mock("firebase/firestore", () => ({
   ...firestore,
 }));
 
 vi.mock("@/lib/firebase", () => ({
-  getFirebaseAuth: () => ({ currentUser: { uid: "user-a" } }),
-  getFirebaseDb: () => ({ id: "database" }),
+  getFirebaseAuth: firebase.getFirebaseAuth,
+  getFirebaseDb: firebase.getFirebaseDb,
 }));
 
 import {
@@ -47,6 +52,12 @@ const structuredHistory: ChatMessage[] = [
 describe("conversation citation persistence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    firebase.getFirebaseAuth.mockReturnValue({
+      currentUser: {
+        uid: "user-a",
+        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { tier: "FREE" } }),
+      },
+    });
     firestore.addDoc.mockResolvedValue({ id: "conversation-1" });
     firestore.getDocs.mockResolvedValue({ size: 0 });
   });
@@ -87,6 +98,23 @@ describe("conversation citation persistence", () => {
     ).rejects.toThrow("Failed to save conversation");
 
     expect(firestore.addDoc).not.toHaveBeenCalled();
+  });
+
+  it("does not apply the conversation-count limit to unlimited users", async () => {
+    firestore.getDocs.mockResolvedValue({ size: MAX_SAVED_CONVERSATIONS_PER_USER });
+    firebase.getFirebaseAuth.mockReturnValue({
+      currentUser: {
+        uid: "user-a",
+        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { tier: "UNLIMITED" } }),
+      },
+    } as never);
+
+    firestore.addDoc.mockResolvedValue({ id: "unlimited-conversation" });
+    const saved = await saveConversationToFirestore("user-a", "Unlimited", structuredHistory);
+
+    expect(saved.id).toBe("unlimited-conversation");
+    expect(firestore.getDocs).not.toHaveBeenCalled();
+    expect(firestore.addDoc).toHaveBeenCalledTimes(1);
   });
 
   it("persists only the most recent bounded message and text history", async () => {
@@ -152,5 +180,29 @@ describe("conversation citation persistence", () => {
     for (const [, data] of firestore.addDoc.mock.calls) {
       expect(data.history[0].text).toHaveLength(MAX_PERSISTED_CONVERSATION_TEXT_CHARS);
     }
+  });
+
+  it("migrates all local conversations for unlimited users", async () => {
+    firebase.getFirebaseAuth.mockReturnValue({
+      currentUser: {
+        uid: "user-a",
+        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { tier: "UNLIMITED" } }),
+      },
+    } as never);
+    firestore.addDoc.mockResolvedValue({ id: "migrated-conversation" });
+    const localConversations = Array.from(
+      { length: MAX_SAVED_CONVERSATIONS_PER_USER + 3 },
+      (_, index) => ({
+        id: `local-${index}`,
+        name: `Conversation ${index}`,
+        timestamp: "2026-01-01 12:00",
+        history: structuredHistory,
+      })
+    );
+
+    await migrateLocalStorageToFirestore("user-a", localConversations);
+
+    expect(firestore.getDocs).not.toHaveBeenCalled();
+    expect(firestore.addDoc).toHaveBeenCalledTimes(localConversations.length);
   });
 });
