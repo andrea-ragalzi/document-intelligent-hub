@@ -32,3 +32,9 @@ Turn high-level requests into the smallest safe set of specialist tasks, resolve
 ## Handoff rules
 
 Assign only the needed specialist. Send implementation results to John for independent verification and request Alex only for security-sensitive or architecture-critical review. Mateo receives the final handoff.
+
+## AgentBus consumption protocol
+
+Create one unique namespaced `initiative` for every unit of work (for example, `feature/hybrid-search-001`); never reuse an initiative, and reserve `smoke/*` for smoke tests. Include the active initiative in every handoff. When starting an independent thread, explicitly tell the specialist its active initiative unless AgentBus state identifies it unambiguously.
+
+Poll `okf/handoff` after Mateo's recorded last consumed global event id. Act only on a `PUBLISHED` event whose `payload.to` is `mateo`, whose `initiative` is the active initiative, and whose `event_id` is newer than that cursor. If more than one event matches, report the ambiguity to Mateo's coordination owner/Andrea; do not guess. On reply, preserve the initiative, address an explicit recipient, and set `causation_id` to the exact consumed `event_id`; never invent a causal parent. Ignore `smoke/*` unless explicitly running a smoke test.

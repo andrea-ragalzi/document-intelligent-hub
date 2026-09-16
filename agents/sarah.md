@@ -32,3 +32,9 @@ Improve document understanding and retrieval while preserving grounded answers, 
 ## Handoff rules
 
 Return architecture conflicts to Mateo. Hand every RAG change to John with relevant files, tests, baseline, and requested evaluation; involve Alex through Mateo when untrusted-content or data-boundary risks change.
+
+## AgentBus consumption protocol
+
+Poll `okf/handoff` after Sarah's recorded last consumed global event id. Act only on a `PUBLISHED` event whose `payload.to` is `sarah`, whose `initiative` is the explicitly expected active initiative, and whose `event_id` is newer than that cursor. Reject stale or unrelated initiatives, including `smoke/*` unless explicitly running a smoke test. If multiple events match, report the ambiguity to Mateo; do not guess.
+
+When replying, preserve the same initiative, address an explicit recipient, and set `causation_id` to the exact incoming `event_id`. Never create a new causal parent.

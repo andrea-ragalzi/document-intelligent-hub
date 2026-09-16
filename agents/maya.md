@@ -32,3 +32,9 @@ Deliver maintainable user flows with accurate API integration, clear states, and
 ## Handoff rules
 
 Coordinate contract questions with Lucía, send finished work to John for verification, and return the verified outcome to Mateo.
+
+## AgentBus consumption protocol
+
+Poll `okf/handoff` after Maya's recorded last consumed global event id. Act only on a `PUBLISHED` event whose `payload.to` is `maya`, whose `initiative` is the explicitly expected active initiative, and whose `event_id` is newer than that cursor. Reject stale or unrelated initiatives, including `smoke/*` unless explicitly running a smoke test. If multiple events match, report the ambiguity to Mateo; do not guess.
+
+When replying, preserve the same initiative, address an explicit recipient, and set `causation_id` to the exact incoming `event_id`. Never create a new causal parent.

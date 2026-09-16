@@ -56,12 +56,29 @@ Use the built-in `okf/handoff` topic for assignments, handoffs, test requests/ve
   "to": "sarah",
   "summary": "Inspect the RAG retrieval architecture; do not modify code.",
   "links": ["agents/sarah.md"],
-  "initiative": "task-slug",
+  "initiative": "feature/hybrid-search-001",
   "action": {"type": "message", "kind": "task_assigned"}
 }
 ```
 
-Use `action.kind` values `task_assigned`, `handoff`, `test_requested`, `test_failed`, `test_passed`, `review_requested`, `review_rejected`, `review_approved`, or `task_completed`. Use `action.type` `message`, `implementation`, or `qa_verdict` as appropriate. Use `okf/status/<task-slug>` with `active`, `blocked`, or `complete` for lifecycle updates. Put code, logs, lengthy reasoning, and durable decisions in repository artifacts; AgentBus messages link to them.
+Use `action.kind` values `task_assigned`, `handoff`, `test_requested`, `test_failed`, `test_passed`, `review_requested`, `review_rejected`, `review_approved`, or `task_completed`. Use `action.type` `message`, `implementation`, or `qa_verdict` as appropriate. Use `okf/status/<initiative>` with `active`, `blocked`, or `complete` for lifecycle updates. Put code, logs, lengthy reasoning, and durable decisions in repository artifacts; AgentBus messages link to them.
+
+## Deterministic event consumption
+
+Every real unit of work has one unique, namespaced `initiative`, such as `rag/retrieval-assessment-001`, `feature/hybrid-search-001`, or `bug/file-filter-001`. Mateo creates it and includes it in every handoff. A new independent thread must be told its active initiative when it cannot determine it unambiguously from AgentBus state. Never reuse an initiative.
+
+`agentbus_poll` in AgentBus 0.23.0 is an at-least-once, topic-wide poll: it returns only `PUBLISHED` events with `event_id > since_id`; it does not filter `payload.to` or `initiative`, and it has no persistent consumer cursor or acknowledgement facility. Each agent therefore records its own last consumed **global event id** and polls `okf/handoff` after that id. It may act only when all four conditions hold:
+
+1. `payload.to` exactly matches the agent id.
+2. `initiative` exactly matches the expected active initiative.
+3. `event_id` is newer than that agent's last consumed global event id.
+4. The event status is `PUBLISHED`.
+
+Advance the recorded cursor only after the poll results have been examined; retain the highest returned global id so unrelated events are not repeatedly reconsidered. A matching event is consumed only when its work is accepted. If multiple events match an agent and initiative, the agent reports the ambiguity to Mateo and does not guess.
+
+Replies retain the incoming `initiative`, specify an explicit `payload.to`, and set `causation_id` to the exact consumed `event_id`. A reply never invents a causal parent. The John failure occurred because he selected stale smoke-test event 2 merely because it mentioned him; topic ordering alone cannot identify the intended task.
+
+Smoke-test events use a distinct `smoke/*` initiative, for example `smoke/agentbus-001`. Real work never reuses a smoke initiative, and real agents ignore `smoke/*` unless explicitly running a smoke test. A small `read_inbox(agent, initiative, after_event_id)` MCP wrapper remains recommended to apply the recipient and initiative filters consistently, but is not implemented here because AgentBus 0.23.0 does not provide it.
 
 ## Zed
 
@@ -71,13 +88,13 @@ AgentBus cannot wake or resume an existing Zed-hosted Codex thread. Its autonomo
 
 ## End-to-end Zed AgentBus test
 
-Reopen this repository in Zed after installing the pinned environment so the project context server is loaded. Use three independent Codex threads; do not copy conversation context between them.
+Reopen this repository in Zed after installing the pinned environment so the project context server is loaded. Use three independent Codex threads; do not copy conversation context between them. This fresh test uses `rag/retrieval-assessment-002`; do not reuse old events. Each participant records its last consumed global event id before polling and acts only on the event matching its recipient and this initiative.
 
 ### Mateo thread
 
 Give the first thread this exact instruction:
 
-> You are Mateo. Read agents/mateo.md. Use AgentBus MCP to send Sarah a handoff asking her to inspect the current RAG retrieval architecture and identify the three highest-value improvement opportunities. Do not perform Sarah's work yourself.
+> You are Mateo. Read agents/mateo.md. Start the new initiative `rag/retrieval-assessment-002`. Use AgentBus MCP to publish a `PUBLISHED` handoff to Sarah asking her to inspect the current RAG retrieval architecture and identify the three highest-value improvement opportunities. Include that initiative. Do not perform Sarah's work yourself.
 
 Expected result: an AgentBus event addressed to Sarah is persisted.
 
@@ -85,19 +102,31 @@ Expected result: an AgentBus event addressed to Sarah is persisted.
 
 Give a separate thread this exact instruction:
 
-> You are Sarah. Read agents/sarah.md. Use AgentBus to read the latest handoff addressed to Sarah. Inspect the relevant RAG/retrieval code. Do not modify code. Send your assessment or completion status back through AgentBus.
+> You are Sarah. Read agents/sarah.md. Your active initiative is `rag/retrieval-assessment-002`. Poll AgentBus after your cursor, filter for `payload.to: "sarah"` and that initiative, and consume the single matching `PUBLISHED` Mateo event. Inspect the relevant RAG/retrieval code. Do not modify code. Publish a `PUBLISHED` assessment to John with the same initiative and `causation_id` set to Mateo's exact event id.
 
-Expected result: Sarah discovers Mateo's request without its contents being copied into her conversation, then publishes her assessment or status. If Sarah requests independent evaluation, that handoff is addressed to John in accordance with her role rules.
+Expected result: Sarah discovers Mateo's request without its contents being copied into her conversation, then publishes the second event, addressed to John. Its `initiative` remains `rag/retrieval-assessment-002` and its `causation_id` is Mateo's event id.
 
 ### John thread
 
 Give a third thread this exact instruction:
 
-> You are John. Read agents/john.md. Read your AgentBus inbox and act on the newest task addressed to you. Follow your role boundaries strictly.
+> You are John. Read agents/john.md. Your active initiative is `rag/retrieval-assessment-002`. Poll AgentBus after your cursor, filter for `payload.to: "john"` and that initiative, and consume the single matching `PUBLISHED` Sarah event. Do not act on any `smoke/*` event. Independently assess Sarah's findings without modifying implementation, then publish a `PUBLISHED` verdict to Sarah with the same initiative and `causation_id` set to Sarah's exact event id.
 
-Expected result: John discovers work through AgentBus rather than conversation context. Ensure a task has first been addressed to John; the CLI smoke test also leaves a harmless Sarah → John evaluation request in the local event store.
+Expected result: John publishes the third event, addressed to Sarah, with the same initiative and causation pointing to Sarah's first event. Sarah then consumes that single matching event and publishes the fourth, final `task_completed` event to Mateo, preserving the initiative and setting causation to John's event id.
 
-This proves shared coordination only after all three independent Zed threads complete the experiment. AgentBus is the shared storage and coordination layer; the threads do not share conversational memory. AgentBus persists work for inactive threads but does not wake them. Autonomous wake or spawn requires a supported process-level runner such as the separate Codex CLI, so no Codex runner is configured while `codex` is unavailable in `PATH`.
+### Sarah final handoff
+
+Resume the Sarah thread with this instruction:
+
+> You are Sarah. Continue the active initiative `rag/retrieval-assessment-002`. Poll AgentBus after your updated cursor, filter for `payload.to: "sarah"` and that initiative, and consume the single matching `PUBLISHED` John verdict. Publish the final `PUBLISHED` `task_completed` handoff to Mateo with the same initiative and `causation_id` set to John's exact event id.
+
+Verify the persisted graph with:
+
+```bash
+.agentbus-venv/bin/agentbus poll --workspace "$PWD" --topic okf/handoff --since-id <cursor-before-test> --limit 100
+```
+
+It must prove this exact four-event chain before calling the test successful: Mateo → Sarah → John → Sarah → Mateo, all with `initiative: rag/retrieval-assessment-002`, and each event after the first with `causation_id` equal to the preceding event's exact `event_id`. AgentBus is the shared storage and coordination layer; the threads do not share conversational memory. AgentBus persists work for inactive threads but does not wake them. Autonomous wake or spawn requires a supported process-level runner such as the separate Codex CLI, so no Codex runner is configured while `codex` is unavailable in `PATH`.
 
 ## Runtime files
 
