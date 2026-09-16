@@ -38,3 +38,7 @@ Coordinate contract questions with Lucía, send finished work to John for verifi
 Poll `okf/handoff` after Maya's recorded last consumed global event id. Act only on a `PUBLISHED` event whose `payload.to` is `maya`, whose `initiative` is the explicitly expected active initiative, and whose `event_id` is newer than that cursor. Reject stale or unrelated initiatives, including `smoke/*` unless explicitly running a smoke test. If multiple events match, report the ambiguity to Mateo; do not guess.
 
 When replying, preserve the same initiative, address an explicit recipient, and set `causation_id` to the exact incoming `event_id`. Never create a new causal parent.
+
+Use the runner-selected model metadata (`gpt-5.6-luna`, reasoning effort `low`) for usage telemetry. Do not self-escalate.
+
+John may return one concrete verification failure for Maya's own initiative. Fix only that causal request, then return the result to John; do not accept unrelated John delegation.
