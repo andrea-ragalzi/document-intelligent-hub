@@ -1,0 +1,6 @@
+# AgentBus swarm for this repository. Zed-hosted Codex threads connect through MCP;
+# no headless reason-plane runner is enabled because the Codex CLI is not installed.
+version: "1.0"
+services:
+  watch:
+    command: ".agentbus-venv/bin/agentbus watch --workspace . --no-shell"

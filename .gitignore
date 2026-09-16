@@ -263,3 +263,20 @@ backend/evaluation/results/*.json
 
 # Quality Gate Reports
 scripts/report-data.json
+
+# AgentBus local runtime. Declarative swarm/RBAC config under .agentbus remains trackable.
+.agentbus-venv/
+.agentbus/events.db*
+.agentbus/token
+.agentbus/workspace
+.agentbus/identity/
+.agentbus/droid_proofs.json
+.agentbus/logs/
+.agentbus/runs/
+.agentbus/ingress/
+.agentbus/waits/
+.agentbus/swarm.state.json
+.agentbus/wiretap.jsonl
+.agentbus/WAKE.*.json
+.agentbus/runner.*.state.json
+.agentbus/runner.*.done.ids

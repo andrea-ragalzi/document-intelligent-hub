@@ -1,0 +1,2 @@
+# Local coordination tooling; install into .agentbus-venv, not the application environment.
+okf-agentbus[devex,obs,sdk]==0.23.0
