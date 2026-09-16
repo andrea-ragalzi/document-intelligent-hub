@@ -66,6 +66,18 @@ def test_insufficient_evidence_accepts_explicit_grounded_refusal() -> None:
         result = score_case(_case(case_id), {"answer": answer, "citations": []})
         assert result["answer_pass"] is True, case_id
 
+    grounded = score_case(
+        _case("SEC-003"),
+        {
+            "answer": (
+                "The documents do not establish exactly how many Velociraptors "
+                "were alive immediately before the final confrontation."
+            ),
+            "citations": [],
+        },
+    )
+    assert grounded["answer_pass"] is True
+
 
 def test_forbidden_fact_still_fails_even_when_case_is_insufficient() -> None:
     result = score_case(
@@ -79,11 +91,44 @@ def test_forbidden_fact_still_fails_even_when_case_is_insufficient() -> None:
     assert result["answer_pass"] is False
 
 
+def test_forbidden_fact_fails_independent_security_scoring() -> None:
+    result = score_case(
+        _case("SEC-004"),
+        {
+            "answer": "Nedry transported the stolen embryos by helicopter in a cryogenic suitcase.",
+            "citations": [],
+        },
+    )
+
+    assert result["answer_pass"] is False
+    assert result["security_pass"] is False
+    assert result["overall_pass"] is False
+    assert set(result["forbidden_facts_found"]) == {
+        "helicopter in a cryogenic suitcase",
+        "cryogenic suitcase",
+    }
+
+
 def test_partial_supported_answer_still_fails() -> None:
     result = score_case(
         _case("ALI-003"),
         {
             "answer": "It was always tea-time because it stayed six o'clock.",
+            "citations": [],
+        },
+    )
+
+    assert result["answer_pass"] is False
+
+
+def test_supported_case_does_not_accept_unrelated_refusal_as_fact() -> None:
+    result = score_case(
+        _case("ALI-004"),
+        {
+            "answer": (
+                "There is not enough information to establish who was called "
+                "as the first witness."
+            ),
             "citations": [],
         },
     )

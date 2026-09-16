@@ -125,3 +125,126 @@ def test_long_narrative_parent_does_not_become_temporary_context() -> None:
         context.metadata.get("context_parent_id") == "narrative-section"
         for context in contexts
     )
+
+
+def test_fragmented_page_promotes_precise_values_without_heading_parent_context() -> None:
+    """A complete page context can carry values while title-only groups stay out."""
+    collection = Mock()
+    fragments = [
+        ("label", "NET PAYABLE", "Title", "page-heading"),
+        ("value", "EUR 3,578.26", "UncategorizedText", "page-heading"),
+        ("other-label", "TOTAL TAXABLE GROSS", "Title", "page-heading"),
+        ("other-value", "EUR 5,650.00", "UncategorizedText", "page-heading"),
+        ("title-only-1", "NET PAYABLE", "Title", "title-only"),
+        ("title-only-2", "EUR 999.00", "Title", "title-only"),
+    ]
+    collection.get.return_value = {
+        "ids": [item[0] for item in fragments],
+        "documents": [item[1] for item in fragments],
+        "metadatas": [
+            {
+                "original_filename": "payslip.pdf",
+                "page_number": 1,
+                "category": item[2],
+                "parent_id": item[3],
+            }
+            for item in fragments
+        ],
+    }
+    repository = VectorStoreRepository(Mock(spec=Chroma), collection)
+    retrieved = [
+        Document(
+            page_content="NET PAYABLE",
+            metadata={
+                "original_filename": "payslip.pdf",
+                "page_number": 1,
+                "parent_id": "page-heading",
+            },
+        ),
+        Document(
+            page_content="Payment method",
+            metadata={
+                "original_filename": "payslip.pdf",
+                "page_number": 1,
+                "parent_id": "title-only",
+            },
+        )
+    ]
+
+    contexts = repository.get_temporary_page_contexts("user", retrieved)
+
+    page_context = next(
+        context for context in contexts if context.metadata.get("context_parent_id") is None
+    )
+    assert "NET PAYABLE" in page_context.page_content
+    assert "EUR 3,578.26" in page_context.page_content
+
+
+def test_retrieved_page_discovers_other_compact_parser_groups() -> None:
+    """A page hit may expose a precise parser group missed by the query."""
+    collection = Mock()
+    collection.get.return_value = {
+        "ids": ["hit", "hit-2", "precise-label", "precise-value"],
+        "documents": [
+            "General page text",
+            "Additional page text",
+            "SPECIFICATION",
+            "6 mm; compliant standard",
+        ],
+        "metadatas": [
+            {
+                "original_filename": "manual.pdf",
+                "page_number": 24,
+                "parent_id": "hit-group",
+                "category": "NarrativeText",
+            },
+            {
+                "original_filename": "manual.pdf",
+                "page_number": 24,
+                "parent_id": "hit-group",
+                "category": "NarrativeText",
+            },
+            {
+                "original_filename": "manual.pdf",
+                "page_number": 24,
+                "parent_id": "precise-group",
+                "category": "NarrativeText",
+            },
+            {
+                "original_filename": "manual.pdf",
+                "page_number": 24,
+                "parent_id": "precise-group",
+                "category": "NarrativeText",
+            },
+        ],
+    }
+    repository = VectorStoreRepository(Mock(spec=Chroma), collection)
+    retrieved = [
+        Document(
+            page_content="General page text",
+            metadata={
+                "original_filename": "manual.pdf",
+                "page_number": 24,
+                "parent_id": "hit-group",
+            },
+        )
+    ]
+
+    contexts = repository.get_temporary_page_contexts("user", retrieved)
+
+    precise = next(
+        context
+        for context in contexts
+        if context.metadata.get("context_parent_id") == "precise-group"
+    )
+    assert "6 mm" in precise.page_content
+    page_context = next(
+        context
+        for context in contexts
+        if context.metadata.get("context_origin") == "parser_parent_page"
+    )
+    assert "6 mm" in page_context.page_content
+    assert not any(
+        context.metadata.get("context_parent_id") == "title-only"
+        for context in contexts
+    )

@@ -359,10 +359,19 @@ class RerankingService:
 
     @staticmethod
     def _context_score(document: Document, keyword_score: float) -> float:
-        """Prefer parser-declared context over a heuristic page aggregate."""
+        """Prefer explicitly sourced context over unproven aggregates."""
         if document.metadata.get("context_aggregation") is not True or keyword_score <= 0:
             return 0.0
-        return 0.6 if document.metadata.get("context_parent_id") else 0.25
+        if document.metadata.get("context_origin") == "parser_parent":
+            return 0.6
+        if document.metadata.get("context_origin") == "parser_parent_page":
+            return 0.6
+        if document.metadata.get("context_origin") in {
+            "lexical_page",
+            "retrieved_page",
+        }:
+            return 0.25
+        return 0.0
 
     def _select_required_group_documents(
         self,

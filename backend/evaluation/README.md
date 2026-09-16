@@ -33,6 +33,12 @@ machine-readable report is written to `results/runs/` for public runs or
 `private/RESULTS.md` and `private/results/history.csv`. Markdown history is
 generated from the JSON report and never overwrites earlier runs.
 
+Use `--suite all` to execute the suites independently. The public history then
+keeps its complete public case table and adds private and combined summaries
+containing aggregate counters only. Private case IDs, questions, answers,
+citations, and document details remain exclusively under the ignored
+`private/` directory.
+
 The dataset fingerprint hashes case definitions and each referenced fixture's
 identity. It changes when cases or fixture bytes change, making score
 comparisons explicit rather than implying that a benchmark changed system

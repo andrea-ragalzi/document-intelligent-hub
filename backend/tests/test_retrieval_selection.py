@@ -7,6 +7,7 @@ from langchain_core.documents import Document
 from app.services.answer_generation_service import AnswerGenerationService
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.reranking_service import RerankingService
+from app.services.final_context_selector_service import FinalContextSelector
 
 
 def _document(
@@ -212,6 +213,40 @@ def test_retrieved_fragmented_page_adds_temporary_context() -> None:
     assert aggregate in context
 
 
+def test_complete_retrieved_page_promotes_precise_context_over_lexical_prefix() -> None:
+    """Only a repository-marked complete page read can replace a lexical prefix."""
+    service = _answer_service()
+    partial = _document("NET PAYABLE", "payslip.pdf", page=1)
+    partial.metadata.update(
+        {"context_aggregation": True, "context_origin": "lexical_page"}
+    )
+    precise = _document(
+        "NET PAYABLE\nEUR 3,578.26", "payslip.pdf", page=1
+    )
+    precise.metadata.update(
+        {"context_aggregation": True, "context_origin": "retrieved_page"}
+    )
+    conflicting = _document(
+        "NET PAYABLE\nEUR 999.00", "payslip.pdf", page=1
+    )
+    conflicting.metadata.update(
+        {"context_aggregation": True, "context_parent_id": "untrusted-parent"}
+    )
+    service.repository.get_temporary_page_contexts.return_value = [precise]
+    candidates = [partial, conflicting]
+
+    service._add_temporary_page_contexts("tenant-a", candidates)
+
+    assert candidates[0] is precise
+    assert candidates[0].page_content.endswith("EUR 3,578.26")
+    assert candidates[1] is conflicting
+    ranked = RerankingService().rerank_candidates(
+        candidates, "What is the net payable amount?", []
+    )
+    assert ranked[0] is precise
+    assert ranked[0] is not conflicting
+
+
 def test_insurance_query_reranks_with_its_translated_retrieval_representation() -> None:
     """A faithful translation may rank source-language benefit evidence."""
     query = "Quali sono le mie coperture assicurative?"
@@ -227,7 +262,9 @@ def test_insurance_query_reranks_with_its_translated_retrieval_representation() 
             page=1,
         ),
     ]
-    documents[1].metadata["context_aggregation"] = True
+    documents[1].metadata.update(
+        {"context_aggregation": True, "context_origin": "retrieved_page"}
+    )
 
     ranked = RerankingService().rerank_candidates(
         documents,
@@ -256,12 +293,31 @@ def test_pellet_query_prefers_parser_parent_evidence_over_page_heuristic() -> No
     ]
     documents[0].metadata["context_aggregation"] = True
     documents[1].metadata.update(
-        {"context_aggregation": True, "context_parent_id": "pellet-specification"}
+        {
+            "context_aggregation": True,
+            "context_parent_id": "pellet-specification",
+            "context_origin": "parser_parent",
+        }
     )
 
     ranked = RerankingService().rerank_candidates(documents, query, [])
 
     assert ranked[0].metadata["page_number"] == 24
+
+
+def test_adaptive_selector_keeps_close_score_complementary_page_evidence() -> None:
+    selector = FinalContextSelector()
+    candidates = [
+        _document("Repeated maintenance detail", "burner.pdf", page=40),
+        _document("Another maintenance detail", "burner.pdf", page=27),
+        _document("Pellet standards and 6 mm diameter", "burner.pdf", page=24),
+    ]
+    for document, score in zip(candidates, (1.34, 1.29, 1.26)):
+        document.metadata["rerank_score"] = score
+
+    selected = selector.select(candidates)
+
+    assert any(document.metadata["page_number"] == 24 for document in selected)
 
 
 def test_invalid_compound_output_falls_back_to_simple_retrieval() -> None:

@@ -17,7 +17,10 @@ class FinalContextSelector:
     relative_threshold = 0.70
     min_final_chunks = 2
     max_final_chunks = 5
-    _similar_score_margin = 0.05
+    # Treat close scores as ties for bounded diversity selection.  A slightly
+    # wider margin keeps complementary, provenance-bearing evidence from being
+    # crowded out by several near-identical fragments from one page.
+    _similar_score_margin = 0.10
 
     def select(self, candidates: Sequence[Document]) -> list[Document]:
         """Return up to five provenance-preserving context documents."""

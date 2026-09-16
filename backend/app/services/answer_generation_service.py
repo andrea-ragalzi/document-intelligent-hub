@@ -369,8 +369,8 @@ class AnswerGenerationService:
                 str(document.metadata.get("original_filename", "")),
                 str(document.metadata.get("page_number", "")),
                 str(document.metadata.get("context_parent_id", "")),
-            )
-            for document in documents
+            ): index
+            for index, document in enumerate(documents)
             if document.metadata.get("context_aggregation") is True
         }
         page_ranks: dict[tuple[str, str], int] = {}
@@ -386,13 +386,21 @@ class AnswerGenerationService:
                 str(context.metadata.get("page_number", "")),
                 str(context.metadata.get("context_parent_id", "")),
             )
-            if context_key not in existing_contexts:
-                page_key = context_key[:2]
-                context.metadata["retrieval_rank"] = page_ranks.get(
-                    page_key, len(documents)
-                )
+            page_key = context_key[:2]
+            context.metadata["retrieval_rank"] = page_ranks.get(
+                page_key, len(documents)
+            )
+            existing_index = existing_contexts.get(context_key)
+            if (
+                existing_index is not None
+                and documents[existing_index].metadata.get("context_origin")
+                == "lexical_page"
+                and context.metadata.get("context_origin") == "retrieved_page"
+            ):
+                documents[existing_index] = context
+            elif existing_index is None:
+                existing_contexts[context_key] = len(documents)
                 documents.append(context)
-                existing_contexts.add(context_key)
 
     @staticmethod
     def _validated_compound_queries(
