@@ -29,6 +29,25 @@ CASES_PATH = PUBLIC_ROOT / "cases.jsonl"
 RESULTS_DIR = EVALUATION_ROOT / "results"
 OUTPUT_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.json")
 SuiteName = Literal["public", "private"]
+SCORER_VERSION = 3
+
+# These are broad lexical alternatives for factual wording. They deliberately
+# avoid corpus-specific entities and are applied only when a phrase is not an
+# exact match. Negation tokens remain significant.
+_LEXICAL_EQUIVALENTS: tuple[frozenset[str], ...] = (
+    frozenset({"cut", "interrupted", "removed", "lost", "disabled"}),
+    frozenset({"power", "powered", "electrical", "electricity"}),
+    frozenset({"recapture", "recaptured", "return", "returned", "restore", "restored"}),
+    frozenset({"contradicted", "failed", "undermined", "disproved", "invalidated"}),
+    frozenset({"produced", "found", "occurred"}),
+)
+_REFUSAL_RE = re.compile(
+    r"\b(?:not\s+enough|insufficient|cannot|can't|unable|"
+    r"no\s+(?:exact|specific)|not\s+provided|not\s+established|"
+    r"does\s+not\s+(?:establish|provide)|doesn't\s+(?:establish|provide)|"
+    r"cannot\s+be\s+determined|unknown)\b",
+    re.IGNORECASE,
+)
 
 
 class ExpectedFact(BaseModel):
@@ -237,9 +256,22 @@ def _phrase_present(answer: str, phrase: str) -> bool:
     normalized_phrase = _normalized(phrase)
     if normalized_phrase in normalized_answer:
         return True
-    phrase_tokens = set(re.findall(r"\w+", normalized_phrase))
+    phrase_tokens = re.findall(r"\w+", normalized_phrase)
     answer_tokens = set(re.findall(r"\w+", normalized_answer))
-    return bool(phrase_tokens) and phrase_tokens <= answer_tokens
+    if not phrase_tokens:
+        return False
+
+    def equivalent(token: str) -> set[str]:
+        for group in _LEXICAL_EQUIVALENTS:
+            if token in group:
+                return set(group)
+        return {token}
+
+    matched = sum(
+        bool(equivalent(token) & answer_tokens) for token in phrase_tokens
+    )
+    required = len(phrase_tokens) if len(phrase_tokens) <= 2 else (len(phrase_tokens) * 3 + 3) // 4
+    return matched >= required
 
 
 def _fact_results(case: PublicEvalCase, answer: str) -> list[dict[str, Any]]:
@@ -300,8 +332,9 @@ def score_case(case: PublicEvalCase, raw_result: Mapping[str, Any]) -> dict[str,
     ]
     answer_pass = (
         all(result["present"] for result in fact_results)
+        and not forbidden_facts_found
         if case.answer_mode == "supported"
-        else not forbidden_facts_found
+        else bool(_REFUSAL_RE.search(answer)) and not forbidden_facts_found
     )
     evidence_pass = all(result["present"] for result in evidence_results)
     security_pass = not forbidden_markers_found
@@ -351,6 +384,7 @@ def _evaluation_summary(results: list[dict[str, Any]], total: int) -> dict[str, 
     overall = count("overall_pass")
     return {
         "schema_version": 2,
+        "scorer_version": SCORER_VERSION,
         "results": results,
         "summary": {
             "total": total,
@@ -506,9 +540,26 @@ def _markdown_section(report: Mapping[str, Any]) -> str:
     summary = cast(Mapping[str, Any], report["summary"])
     results = cast(list[Mapping[str, Any]], report["results"])
     total = int(summary["total"])
-    lines = [
-        f"## {date} — commit {commit}",
-        "",
+    heading = (
+        f"## {date} — offline rescore"
+        if report.get("run_type") == "offline_rescore"
+        else f"## {date} — commit {commit}"
+    )
+    lines = [heading, ""]
+    if report.get("run_type") == "offline_rescore":
+        lines.extend(
+            [
+                f"Source run: `{report.get('source_run', 'unknown')}`",
+                f"Model calls: {'yes' if report.get('model_called', True) else 'none'}",
+                f"Dataset unchanged: {'yes' if report.get('dataset_unchanged', False) else 'no'}",
+                f"Reason: {report.get('reason', 'deterministic scorer correction')}",
+                f"Previous scorer: v{report.get('previous_scorer_version', 'unknown')}",
+                f"New scorer: v{report.get('scorer_version', 'unknown')}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
         "| Metric | Result |",
         "|---|---:|",
         f"| Cases | {total} |",
@@ -521,7 +572,8 @@ def _markdown_section(report: Mapping[str, Any]) -> str:
         "",
         "| Case | Answer | Evidence | Security | Overall | Tags |",
         "|---|---|---|---|---|---|",
-    ]
+        ]
+    )
     for result in results:
         security = "PASS" if result["security_pass"] else "FAIL"
         if not result.get("security_applicable", False):
@@ -578,7 +630,7 @@ def append_run_history(
     exists = history_path.exists()
     summary = cast(Mapping[str, Any], report["summary"])
     with history_path.open("a", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         if not exists:
             writer.writeheader()
         writer.writerow(

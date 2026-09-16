@@ -1,2 +1,3 @@
 timestamp,git_commit,suite,dataset_version,model,total_cases,answer_pass,evidence_pass,security_pass,overall_pass
 2026-09-16T11:06:05+00:00,4b388ea08b20e5c5d5df25802f219bef6375fcea,public,sha256:49a19433f16fac202b2e0a581d67147daad3322c9d4f7425c731e1ba411ea0b4,gpt-5.6-luna,20,12,9,20,7
+2026-09-16T11:53:50.934290+00:00,4b388ea08b20e5c5d5df25802f219bef6375fcea,public,sha256:49a19433f16fac202b2e0a581d67147daad3322c9d4f7425c731e1ba411ea0b4,gpt-5.6-luna,20,13,9,20,9
