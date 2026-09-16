@@ -248,7 +248,9 @@ class AnswerGenerationService:
         # reranker inputs unchanged for distinct queries.
         all_queries = []
         seen_queries = set()
-        for candidate in [translated_query] + alternative_queries + compound_queries:
+        for candidate in (
+            [translated_query, original_query] + alternative_queries + compound_queries
+        ):
             normalized = " ".join(candidate.lower().split())
             if normalized and normalized not in seen_queries:
                 seen_queries.add(normalized)
@@ -345,6 +347,7 @@ class AnswerGenerationService:
             documents=all_retrieved_docs,
             original_query=original_query,
             alternative_queries=alternative_queries + compound_queries,
+            retrieval_query=translated_query,
             required_query_groups=compound_queries,
         )
         context_docs = self.final_context_selector.select(reranked_candidates)
@@ -361,22 +364,35 @@ class AnswerGenerationService:
         page_contexts = self.repository.get_temporary_page_contexts(user_id, documents)
         if not isinstance(page_contexts, list):
             return
-        existing_pages = {
+        existing_contexts = {
             (
                 str(document.metadata.get("original_filename", "")),
                 str(document.metadata.get("page_number", "")),
+                str(document.metadata.get("context_parent_id", "")),
             )
             for document in documents
             if document.metadata.get("context_aggregation") is True
         }
-        for context in page_contexts:
+        page_ranks: dict[tuple[str, str], int] = {}
+        for index, document in enumerate(documents):
             page_key = (
+                str(document.metadata.get("original_filename", "")),
+                str(document.metadata.get("page_number", "")),
+            )
+            page_ranks.setdefault(page_key, index)
+        for context in page_contexts:
+            context_key = (
                 str(context.metadata.get("original_filename", "")),
                 str(context.metadata.get("page_number", "")),
+                str(context.metadata.get("context_parent_id", "")),
             )
-            if page_key not in existing_pages:
+            if context_key not in existing_contexts:
+                page_key = context_key[:2]
+                context.metadata["retrieval_rank"] = page_ranks.get(
+                    page_key, len(documents)
+                )
                 documents.append(context)
-                existing_pages.add(page_key)
+                existing_contexts.add(context_key)
 
     @staticmethod
     def _validated_compound_queries(

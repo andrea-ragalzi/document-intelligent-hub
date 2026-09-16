@@ -27,6 +27,9 @@ from langchain_core.vectorstores import VectorStoreRetriever
 from app.core.logging import logger
 
 
+PARENT_CONTEXT_MAX_FRAGMENT_LENGTH = 256
+
+
 @dataclass
 class _LexicalCandidateState:
     """Mutable state shared by the bounded lexical-candidate helpers."""
@@ -123,7 +126,9 @@ class VectorStoreRepository:
             logger.debug("Document existence check completed | Exists: {}", exists)
             return exists
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            logger.error("Unable to check document existence | Type: {}", type(exc).__name__)
+            logger.error(
+                "Unable to check document existence | Type: {}", type(exc).__name__
+            )
             return False
 
     def get_user_chunks_sample(
@@ -148,10 +153,14 @@ class VectorStoreRepository:
             results = self.collection.get(where={"source": user_id}, limit=sample_size)
             metadatas = results.get("metadatas", []) or []
             ids = results.get("ids", []) or []
-            logger.debug("Document metadata sample retrieved | Chunks: {}", len(metadatas))
+            logger.debug(
+                "Document metadata sample retrieved | Chunks: {}", len(metadatas)
+            )
             return metadatas, ids
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            logger.error("Unable to read document chunks | Type: {}", type(exc).__name__)
+            logger.error(
+                "Unable to read document chunks | Type: {}", type(exc).__name__
+            )
             return [], []
 
     def count_document_chunks(self, user_id: str, filename: str) -> int:
@@ -174,7 +183,9 @@ class VectorStoreRepository:
             logger.debug("Document chunk count: {}", count)
             return count
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            logger.error("Unable to count document chunks | Type: {}", type(exc).__name__)
+            logger.error(
+                "Unable to count document chunks | Type: {}", type(exc).__name__
+            )
             return 0
 
     def similarity_search(
@@ -218,24 +229,19 @@ class VectorStoreRepository:
         self._collect_document_context(user_id, ranked_filenames, state)
         self._append_fragmented_page_contexts(state)
 
-        logger.debug("Lexical candidate search returned %s chunks", len(state.documents))
+        logger.debug(
+            "Lexical candidate search returned %s chunks", len(state.documents)
+        )
         return state.documents
 
     def get_temporary_page_contexts(
         self, user_id: str, documents: list[Document]
     ) -> list[Document]:
-        """Aggregate fragmented pages represented by the current candidate pool."""
-        page_keys = {
-            (
-                str(document.metadata.get("original_filename", "")),
-                str(document.metadata.get("page_number", "")),
-            )
-            for document in documents
-            if document.metadata.get("original_filename")
-            and document.metadata.get("page_number") is not None
-        }
+        """Build bounded page or parser-parent context for retrieved evidence."""
+        page_keys = self._page_keys(documents)
         if not page_keys:
             return []
+        parent_keys = self._parent_keys(documents)
         try:
             results = self.collection.get(
                 where={"source": user_id},
@@ -249,6 +255,51 @@ class VectorStoreRepository:
             return []
 
         state = _LexicalCandidateState(max_candidates=100_000)
+        parent_fragments, parent_metadata = self._collect_context_fragments(
+            results, page_keys, parent_keys, state
+        )
+        self._append_fragmented_page_contexts(state)
+        self._append_parent_contexts(state, parent_fragments, parent_metadata)
+        return state.documents
+
+    @staticmethod
+    def _page_keys(documents: list[Document]) -> set[tuple[str, str]]:
+        return {
+            (
+                str(doc.metadata.get("original_filename", "")),
+                str(doc.metadata.get("page_number", "")),
+            )
+            for doc in documents
+            if doc.metadata.get("original_filename")
+            and doc.metadata.get("page_number") is not None
+        }
+
+    @staticmethod
+    def _parent_keys(documents: list[Document]) -> set[tuple[str, str, str]]:
+        return {
+            (
+                str(doc.metadata.get("original_filename", "")),
+                str(doc.metadata.get("page_number", "")),
+                str(doc.metadata.get("parent_id", "")),
+            )
+            for doc in documents
+            if doc.metadata.get("original_filename")
+            and doc.metadata.get("page_number") is not None
+            and doc.metadata.get("parent_id")
+        }
+
+    def _collect_context_fragments(
+        self,
+        results: Mapping[str, Any],
+        page_keys: set[tuple[str, str]],
+        parent_keys: set[tuple[str, str, str]],
+        state: _LexicalCandidateState,
+    ) -> tuple[
+        dict[tuple[str, str, str], list[str]],
+        dict[tuple[str, str, str], dict[str, Any]],
+    ]:
+        parent_fragments: dict[tuple[str, str, str], list[str]] = {}
+        parent_metadata: dict[tuple[str, str, str], dict[str, Any]] = {}
         for chunk_id, content, metadata in zip(
             results.get("ids", []) or [],
             results.get("documents", []) or [],
@@ -262,11 +313,15 @@ class VectorStoreRepository:
             )
             if key not in page_keys or metadata.get("context_aggregation") is True:
                 continue
-            filename = key[0]
-            if filename:
-                self._append_page_fragment(state, str(chunk_id), content, filename, metadata)
-        self._append_fragmented_page_contexts(state)
-        return state.documents
+            if key[0]:
+                self._append_page_fragment(
+                    state, str(chunk_id), content, key[0], metadata
+                )
+            parent_key = (key[0], key[1], str(metadata.get("parent_id", "")))
+            if parent_key in parent_keys:
+                parent_fragments.setdefault(parent_key, []).append(content)
+                parent_metadata.setdefault(parent_key, metadata)
+        return parent_fragments, parent_metadata
 
     def exact_occurrence_search(
         self, user_id: str, term: str, filename: str | None = None
@@ -283,7 +338,9 @@ class VectorStoreRepository:
                 limit=10_000,
             )
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            logger.warning("Exact occurrence lookup failed | Type: {}", type(exc).__name__)
+            logger.warning(
+                "Exact occurrence lookup failed | Type: {}", type(exc).__name__
+            )
             return []
         return [
             Document(page_content=content, metadata=metadata)
@@ -325,7 +382,9 @@ class VectorStoreRepository:
                 and len(state.documents) < state.max_candidates
             ):
                 state.seen_ids.add(str(chunk_id))
-                state.documents.append(Document(page_content=content, metadata=metadata))
+                state.documents.append(
+                    Document(page_content=content, metadata=metadata)
+                )
 
     @staticmethod
     def _append_page_fragment(
@@ -344,6 +403,26 @@ class VectorStoreRepository:
         collected_ids.add(chunk_id)
         state.page_fragments.setdefault(page_key, []).append(content)
         state.page_metadata.setdefault(page_key, metadata)
+
+    @staticmethod
+    def _append_parent_contexts(
+        state: _LexicalCandidateState,
+        parent_fragments: dict[tuple[str, str, str], list[str]],
+        parent_metadata: dict[tuple[str, str, str], dict[str, Any]],
+    ) -> None:
+        """Preserve compact parser-declared groups without inferring layout."""
+        for parent_key, fragments in parent_fragments.items():
+            if len(fragments) < 2 or any(
+                len(fragment.strip()) > PARENT_CONTEXT_MAX_FRAGMENT_LENGTH
+                for fragment in fragments
+            ):
+                continue
+            metadata = dict(parent_metadata[parent_key])
+            metadata["context_aggregation"] = True
+            metadata["context_parent_id"] = parent_key[2]
+            state.documents.append(
+                Document(page_content="\n".join(fragments)[:6_000], metadata=metadata)
+            )
 
     def _collect_term_candidates(
         self,
@@ -391,8 +470,10 @@ class VectorStoreRepository:
             if not isinstance(metadata, dict):
                 continue
             filename = metadata.get("original_filename")
-            if isinstance(filename, str) and filename and any(
-                term in filename.lower() for term in normalized_terms
+            if (
+                isinstance(filename, str)
+                and filename
+                and any(term in filename.lower() for term in normalized_terms)
             ):
                 state.title_matches[filename] += 1
 
@@ -461,7 +542,9 @@ class VectorStoreRepository:
             metadata = dict(state.page_metadata[page_key])
             metadata["context_aggregation"] = True
             page_content = "\n".join(fragments)[:6_000]
-            state.documents.append(Document(page_content=page_content, metadata=metadata))
+            state.documents.append(
+                Document(page_content=page_content, metadata=metadata)
+            )
 
     def get_retriever(
         self,
@@ -548,7 +631,9 @@ class VectorStoreRepository:
             return chunks_count
 
         except Exception as exc:
-            logger.error("Unable to delete document chunks | Type: {}", type(exc).__name__)
+            logger.error(
+                "Unable to delete document chunks | Type: {}", type(exc).__name__
+            )
             raise
 
     def delete_all_user_documents(self, user_id: str) -> int:
@@ -575,5 +660,7 @@ class VectorStoreRepository:
             return total_chunks
 
         except Exception as exc:
-            logger.error("Unable to delete all document chunks | Type: {}", type(exc).__name__)
+            logger.error(
+                "Unable to delete all document chunks | Type: {}", type(exc).__name__
+            )
             raise
