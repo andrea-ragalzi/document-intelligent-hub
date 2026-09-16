@@ -280,3 +280,7 @@ scripts/report-data.json
 .agentbus/WAKE.*.json
 .agentbus/runner.*.state.json
 .agentbus/runner.*.done.ids
+.agentbus/worker-*.pid
+.agentbus/worker.*.cursor
+.agentbus/worker.*.state.json
+.agentbus/team-runtime/

@@ -1,6 +1,18 @@
-# AgentBus swarm for this repository. Zed-hosted Codex threads connect through MCP;
-# no headless reason-plane runner is enabled because the Codex CLI is not installed.
+# AgentBus swarm for this repository. Zed remains the control and monitoring UI;
+# All six agents are available through bounded one-shot headless Codex turns.
 version: "1.0"
 services:
   watch:
     command: ".agentbus-venv/bin/agentbus watch --workspace . --no-shell"
+  sarah-wake:
+    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.sarah.yaml"
+  john-wake:
+    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.john.yaml"
+  mateo-wake:
+    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.mateo.yaml"
+  lucia-wake:
+    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.lucia.yaml"
+  maya-wake:
+    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.maya.yaml"
+  alex-wake:
+    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.alex.yaml"

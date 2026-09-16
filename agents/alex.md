@@ -37,3 +37,7 @@ Return approvals or rejections to Mateo and the implementation owner. A rejectio
 Poll `okf/handoff` after Alex's recorded last consumed global event id. Act only on a `PUBLISHED` event whose `payload.to` is `alex`, whose `initiative` is the explicitly expected active initiative, and whose `event_id` is newer than that cursor. Reject stale or unrelated initiatives, including `smoke/*` unless explicitly running a smoke test. If multiple events match, report the ambiguity to Mateo; do not guess.
 
 When replying, preserve the same initiative, address an explicit recipient, and set `causation_id` to the exact incoming `event_id`. Never create a new causal parent.
+
+Use the runner-selected model metadata (`gpt-5.6-luna`, reasoning effort `low`) for usage telemetry. Do not self-escalate.
+
+Accept autonomous wake only for auth/authz, tenant isolation, sensitive document boundaries, migrations, security-sensitive behavior, or architecture-critical review.

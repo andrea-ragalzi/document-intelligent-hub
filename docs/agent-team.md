@@ -82,9 +82,39 @@ Smoke-test events use a distinct `smoke/*` initiative, for example `smoke/agentb
 
 ## Zed
 
-The tracked `.zed/settings.json` registers AgentBus as a project-local stdio MCP context server using `./.agentbus-venv/bin/agentbus`. Open this repository as the Zed worktree after installing the pinned environment. Codex threads that Zed exposes to configured MCP servers can then share this repository's AgentBus event store.
+The tracked `.zed/settings.json` registers AgentBus as a project-local stdio MCP context server using `./.agentbus-venv/bin/agentbus`. Open this repository as the Zed worktree after installing the pinned environment. Zed remains the control and monitoring environment.
 
-AgentBus cannot wake or resume an existing Zed-hosted Codex thread. Its autonomous Codex adapter requires a separate `codex` CLI and starts headless `codex exec` processes; that executable is not installed on this machine, so no headless runners are enabled. Handoffs are persisted and visible, but Andrea starts or resumes the corresponding Zed thread.
+## Headless Codex runners
+
+AgentBus 0.23.0 runs one-shot Codex turns through its native `codex` adapter. `.agentbus/swarm.yaml` starts six wake workers and each worker invokes the native `agentbus run --once` path through the small `.agentbus/dispatch.py` policy gate. The gate is needed because 0.23.0 workers cannot filter nested payload fields or enforce a team-wide initiative budget. It never replaces AgentBus routing or the runner.
+
+Every runner invokes `codex exec -C <workspace> --ephemeral --json -m gpt-5.6-luna --sandbox workspace-write -c model_reasoning_effort="low" -`. This per-run selection leaves the interactive Codex default untouched. The gate writes local usage records under `.agentbus/team-runtime/usage.jsonl`, containing the event, initiative, agent, selected model, effort, exit code, and `turn.completed` token usage.
+
+An autonomous handoff must be `PUBLISHED`, addressed to its target, newer than that agent's gate cursor, have a non-smoke initiative (unless `execution.smoke_test: true`), and include:
+
+```yaml
+execution:
+  autonomous: true
+  expected_initiative: <same initiative>
+  budget_profile: simple | normal | high_risk | cross_cutting
+  implementation_owner: sarah | lucia | maya
+```
+
+Mateo selects and persists the profile at initiative creation. Each profile separates an immediately usable base from a protected QA-fix reserve: `simple` and `normal` allow 3 base runs plus a 2-run reserve (5 absolute maximum); `high_risk` allows 4 base runs plus a 2-run reserve (6 absolute maximum). `cross_cutting` allows 5 base runs plus the same 2-run reserve (7 absolute maximum), and requires `cross_cutting_ownership_domains` to name at least two of `sarah`, `lucia`, and `maya`; it is only for work spanning two ownership domains, such as Sarah + Lucía + John or Lucía + Maya + John + Alex. Difficulty alone does not qualify: a difficult single-owner task remains `normal` or `high_risk`. Declaring multiple domains under a smaller profile does not enlarge its base budget. A cross-cutting specialist-to-specialist handoff must be between declared domains and set `cross_cutting_handoff: true`.
+
+The reserve unlocks once, and only when John publishes a valid concrete verification failure to the recorded implementation owner: same initiative, exact causation, `verification_failure: true`, non-empty summary, and an unused fix cycle. Its two runs are exclusively that owner’s fix and John’s re-verification; Mateo, Alex, other specialists, retries, and unrelated handoffs cannot consume it. A John pass closes the initiative without unlocking the reserve. A second verification failure is `BLOCKED` to Mateo/Andrea. Handoff and retry caps remain unchanged. Once persisted, a profile cannot change through AgentBus; an increase requires Andrea/manual approval. The gate does not invoke Codex after budget exhaustion; it publishes `BLOCKED` with `reason: budget_exhausted` to Mateo. Quota, rate, and account-limit errors publish `BLOCKED` with `reason: quota_exhausted` and do not retry.
+
+Mateo alone may request a one-run override by adding `execution.model_override` with `requested_by: mateo`, `scope: one_run`, an approved reason, and exactly one allowed target: Luna at medium effort, Terra at low effort, or Sol at low effort. The gate creates an ephemeral runner config for that one invocation and then returns to Luna low. It never escalates after a failure.
+
+Routing stays deliberately narrow: Mateo normally starts work; Sarah, Lucía, and Maya receive from Mateo or John; John receives from Mateo or an implementation specialist and runs only when `execution.qa_mode: reasoning`; Alex accepts review requests only from Mateo or John and only with an allowed `execution.review_scope`. Mateo's worker runs only when `execution.mateo_reasoning_reason` is initial decomposition/routing, ambiguity, ownership conflict, architecture decision, blocked initiative, or an explicit final decision requiring judgment. Mechanical test execution should be performed by local automation and reported directly; it must not wake John merely to interpret a deterministic command. Normal paths are Mateo → Sarah/Lucía/Maya → John → `okf/status/<initiative>: complete` → Andrea. Alex is reserved for auth/authz, tenant isolation, sensitive document boundaries, migrations, security-sensitive behavior, and architecture-critical review.
+
+A routine John pass is not an `okf/handoff` to Mateo. John publishes `okf/status/<initiative>` with `status: complete`, explicit `to: andrea`, the same initiative, and causation set to the verified event. The status event closes and reports the initiative without a Mateo Codex turn. Likewise, a deterministic specialist-to-John route does not relay through Mateo.
+
+John may address an implementation owner only for one concrete verification failure. The handoff must identify the same `implementation_owner`, preserve `causation_id` to the exact owner event John consumed, set `verification_failure: true` with a non-empty `verification_failure_summary`, and declare `fix_cycles_used` below the selected profile limit. The gate records that single cycle. The owner returns only to John, with `fix_cycle: 1` and causation set to John's fix request. A second John-to-owner request is blocked and returned to Mateo; John cannot delegate unrelated work or select a different owner.
+
+For a headless task, Sarah and John publish the substantive handoff with the received initiative and exact `causation_id`, then return `NO-OP` as the final CLI marker. AgentBus treats that marker as an instruction to suppress its synthetic `RUNNER_ACK`, which otherwise lacks the initiative and would violate this repository's event protocol.
+
+The autonomous smoke run `smoke/autonomous-codex-004` verified the worker wake and Sarah's published handoff (events 35 and 36). John's process was started automatically but Codex exited after the account usage limit was reached, so no substantive John result was persisted. Event 38 is the resulting operational error and is not part of a valid initiative chain. Resolve the quota and replace or wrap the native runner acknowledgement path before broadening this rollout: the native acknowledgement can omit `initiative`, and successful suppression currently depends on the headless turn returning the `NO-OP` marker.
 
 ## End-to-end Zed AgentBus test
 
@@ -126,7 +156,7 @@ Verify the persisted graph with:
 .agentbus-venv/bin/agentbus poll --workspace "$PWD" --topic okf/handoff --since-id <cursor-before-test> --limit 100
 ```
 
-It must prove this exact four-event chain before calling the test successful: Mateo → Sarah → John → Sarah → Mateo, all with `initiative: rag/retrieval-assessment-002`, and each event after the first with `causation_id` equal to the preceding event's exact `event_id`. AgentBus is the shared storage and coordination layer; the threads do not share conversational memory. AgentBus persists work for inactive threads but does not wake them. Autonomous wake or spawn requires a supported process-level runner such as the separate Codex CLI, so no Codex runner is configured while `codex` is unavailable in `PATH`.
+It must prove this exact four-event chain before calling the test successful: Mateo → Sarah → John → Sarah → Mateo, all with `initiative: rag/retrieval-assessment-002`, and each event after the first with `causation_id` equal to the preceding event's exact `event_id`. AgentBus is the shared storage and coordination layer; the threads do not share conversational memory. The configured workers provide autonomous process-level wake for Sarah and John; the one-shot Codex processes exit after each turn while the workers remain available for later handoffs.
 
 ## Runtime files
 

@@ -1,0 +1,24 @@
+version: "1.0"
+runner_id: john-codex
+producer_id: john
+intake:
+  mode: wake_file
+  wake_file: .agentbus/WAKE.john.json
+adapter:
+  type: codex
+  command: /home/andrea/.var/app/dev.zed.Zed/data/zed/node/node-v24.11.0-linux-x64/bin/codex
+  model: gpt-5.6-luna
+  output_format: json
+  timeout_seconds: 600
+  extra_args:
+    - --sandbox
+    - workspace-write
+    - -c
+    - model_reasoning_effort="low"
+accept_to:
+  - john
+budget:
+  max_turns_per_chain: 4
+  max_event_age_hours: 1
+poll_interval_ms: 250
+runs_dir: .agentbus/runs
