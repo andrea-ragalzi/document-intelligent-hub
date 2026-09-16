@@ -92,10 +92,7 @@ jobs:
     permissions:
       contents: read
     needs: changes
-    if: >-
-      needs.changes.outputs.backend == 'true' &&
-      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
+    if: needs.changes.outputs.backend == 'true'
     defaults:
       run:
         working-directory: ./backend
@@ -166,10 +163,7 @@ jobs:
     permissions:
       contents: read
     needs: changes
-    if: >-
-      needs.changes.outputs.frontend == 'true' &&
-      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
+    if: needs.changes.outputs.frontend == 'true'
     defaults:
       run:
         working-directory: ./frontend
@@ -209,10 +203,7 @@ jobs:
     permissions:
       contents: read
     needs: changes
-    if: >-
-      needs.changes.outputs.backend_docker == 'true' &&
-      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
+    if: needs.changes.outputs.backend_docker == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -235,10 +226,7 @@ jobs:
     permissions:
       contents: read
     needs: changes
-    if: >-
-      needs.changes.outputs.firebase_auth == 'true' &&
-      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
+    if: needs.changes.outputs.firebase_auth == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -292,76 +280,52 @@ jobs:
     permissions:
       contents: read
     needs: [secret-scan, changes, backend-ci, frontend-ci, backend-docker, firebase-auth-emulator]
-    if: >-
-      always() &&
-      ((github.event_name == 'pull_request' && github.base_ref == 'develop') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
+    if: always()
     steps:
-      - name: "📊 Validate selected checks"
+      - name: "📊 Validate CI results"
         env:
           BACKEND: ${{ needs.backend-ci.result }}
           FRONTEND: ${{ needs.frontend-ci.result }}
           DOCKER: ${{ needs.backend-docker.result }}
           FIREBASE_AUTH: ${{ needs.firebase-auth-emulator.result }}
           SECRET_SCAN: ${{ needs.secret-scan.result }}
+          CHANGES: ${{ needs.changes.result }}
         run: |
-          for result in "$SECRET_SCAN" "$BACKEND" "$FRONTEND" "$DOCKER" "$FIREBASE_AUTH"; do
+          if [ "$SECRET_SCAN" != "success" ] || [ "$CHANGES" != "success" ]; then
+            echo "A required foundational check failed or was cancelled."
+            exit 1
+          fi
+          for result in "$BACKEND" "$FRONTEND" "$DOCKER" "$FIREBASE_AUTH"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
-              echo "A selected check failed or was cancelled: $result"
+              echo "A conditional check failed or was cancelled: $result"
               exit 1
             fi
           done
-          echo "Selected CI checks passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "CI checks passed." >> "$GITHUB_STEP_SUMMARY"
 
   release-gate:
     name: "🚀 Develop to main release gate"
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       contents: read
       pull-requests: read
-    needs: secret-scan
+    needs: ci-summary
     if: >-
-      needs.secret-scan.result == 'success' &&
-      ((github.event_name == 'pull_request' && github.base_ref == 'main') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+      always() &&
+      (github.base_ref == 'main' || github.ref == 'refs/heads/main')
     steps:
-      - uses: actions/checkout@v4
-
-      - name: "🔒 Validate release source and configuration"
+      - name: "🔒 Validate release promotion"
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           COMMIT_SHA: ${{ github.sha }}
+          CI_SUMMARY: ${{ needs.ci-summary.result }}
         run: |
-          test -f backend/Dockerfile
-          test -f frontend/next.config.ts
+          test "$CI_SUMMARY" = "success"
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             test "$HEAD_REF" = "develop"
-            deadline=$((SECONDS + 720))
-            while true; do
-              develop_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=develop&event=push&head_sha=$HEAD_SHA" \
-                --jq '([.workflow_runs[] | select(.name == "CI/CD Pipeline")][0] // {"status":"missing","conclusion":"pending"}) | "\(.status) \(.conclusion)"')
-
-              case "$develop_run" in
-                "completed success") break ;;
-                "completed "*)
-                  echo "The CI/CD Pipeline on develop did not succeed: $develop_run"
-                  exit 1
-                  ;;
-              esac
-
-              if [ "$SECONDS" -ge "$deadline" ]; then
-                echo "Timed out waiting for the CI/CD Pipeline on develop."
-                exit 1
-              fi
-
-              echo "Waiting for the CI/CD Pipeline on develop: $develop_run"
-              sleep 20
-            done
           else
             gh api "repos/$GITHUB_REPOSITORY/commits/$COMMIT_SHA/pulls" \
               --jq '.[] | select(.base.ref == "main" and .head.ref == "develop" and .merged_at != null) | .number' \
