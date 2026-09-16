@@ -27,6 +27,9 @@ from langchain_core.vectorstores import VectorStoreRetriever
 from app.core.logging import logger
 
 
+PARENT_CONTEXT_MAX_FRAGMENT_LENGTH = 256
+
+
 @dataclass
 class _LexicalCandidateState:
     """Mutable state shared by the bounded lexical-candidate helpers."""
@@ -224,7 +227,7 @@ class VectorStoreRepository:
     def get_temporary_page_contexts(
         self, user_id: str, documents: list[Document]
     ) -> list[Document]:
-        """Aggregate fragmented pages represented by the current candidate pool."""
+        """Build bounded page or parser-parent context for retrieved evidence."""
         page_keys = {
             (
                 str(document.metadata.get("original_filename", "")),
@@ -236,6 +239,17 @@ class VectorStoreRepository:
         }
         if not page_keys:
             return []
+        parent_keys = {
+            (
+                str(document.metadata.get("original_filename", "")),
+                str(document.metadata.get("page_number", "")),
+                str(document.metadata.get("parent_id", "")),
+            )
+            for document in documents
+            if document.metadata.get("original_filename")
+            and document.metadata.get("page_number") is not None
+            and document.metadata.get("parent_id")
+        }
         try:
             results = self.collection.get(
                 where={"source": user_id},
@@ -249,6 +263,8 @@ class VectorStoreRepository:
             return []
 
         state = _LexicalCandidateState(max_candidates=100_000)
+        parent_fragments: dict[tuple[str, str, str], list[str]] = {}
+        parent_metadata: dict[tuple[str, str, str], dict[str, Any]] = {}
         for chunk_id, content, metadata in zip(
             results.get("ids", []) or [],
             results.get("documents", []) or [],
@@ -265,7 +281,12 @@ class VectorStoreRepository:
             filename = key[0]
             if filename:
                 self._append_page_fragment(state, str(chunk_id), content, filename, metadata)
+            parent_key = (key[0], key[1], str(metadata.get("parent_id", "")))
+            if parent_key in parent_keys:
+                parent_fragments.setdefault(parent_key, []).append(content)
+                parent_metadata.setdefault(parent_key, metadata)
         self._append_fragmented_page_contexts(state)
+        self._append_parent_contexts(state, parent_fragments, parent_metadata)
         return state.documents
 
     def exact_occurrence_search(
@@ -344,6 +365,26 @@ class VectorStoreRepository:
         collected_ids.add(chunk_id)
         state.page_fragments.setdefault(page_key, []).append(content)
         state.page_metadata.setdefault(page_key, metadata)
+
+    @staticmethod
+    def _append_parent_contexts(
+        state: _LexicalCandidateState,
+        parent_fragments: dict[tuple[str, str, str], list[str]],
+        parent_metadata: dict[tuple[str, str, str], dict[str, Any]],
+    ) -> None:
+        """Preserve compact parser-declared groups without inferring layout."""
+        for parent_key, fragments in parent_fragments.items():
+            if len(fragments) < 2 or any(
+                len(fragment.strip()) > PARENT_CONTEXT_MAX_FRAGMENT_LENGTH
+                for fragment in fragments
+            ):
+                continue
+            metadata = dict(parent_metadata[parent_key])
+            metadata["context_aggregation"] = True
+            metadata["context_parent_id"] = parent_key[2]
+            state.documents.append(
+                Document(page_content="\n".join(fragments)[:6_000], metadata=metadata)
+            )
 
     def _collect_term_candidates(
         self,

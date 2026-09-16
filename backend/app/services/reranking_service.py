@@ -245,6 +245,7 @@ class RerankingService:
         original_query: str,
         alternative_queries: list[str],
         *,
+        retrieval_query: str | None = None,
         required_query_groups: list[str] | None = None,
     ) -> list[Document]:
         """Score and order candidates without imposing final-context cardinality.
@@ -256,13 +257,16 @@ class RerankingService:
         del alternative_queries
         if not documents:
             return []
-        keywords = self._extract_keywords([original_query])
+        relevance_queries = [original_query]
+        if retrieval_query and retrieval_query.strip() != original_query.strip():
+            relevance_queries.append(retrieval_query)
+        keywords = self._extract_keywords(relevance_queries)
         subquery_keywords = [
             self._extract_keywords([query]) for query in required_query_groups or []
         ]
         replaceable_atomic_ids = self._replaceable_atomic_ids(documents)
         scored_documents = self._score_documents(
-            documents, keywords, subquery_keywords, [original_query]
+            documents, keywords, subquery_keywords, relevance_queries
         )
         return [
             document
@@ -322,7 +326,13 @@ class RerankingService:
         coverage: dict[str, float],
     ) -> tuple[float, Document]:
         """Calculate and record the combined relevance score for one chunk."""
-        vector_score = 1.0 - (index / total_documents)
+        retrieval_rank = document.metadata.get("retrieval_rank", index)
+        vector_index = (
+            retrieval_rank
+            if isinstance(retrieval_rank, int) and retrieval_rank >= 0
+            else index
+        )
+        vector_score = 1.0 - (vector_index / total_documents)
         keyword_score = self._calculate_tf_score(document.page_content, keywords)
         subquery_score = max(
             (
@@ -335,12 +345,7 @@ class RerankingService:
         metadata_score = self._metadata_score(document, keywords)
         filename = str(document.metadata.get("original_filename", ""))
         identifier_score = self._identifier_score(document, queries)
-        context_score = (
-            0.5
-            if document.metadata.get("context_aggregation") is True
-            and keyword_score > 0
-            else 0.0
-        )
+        context_score = self._context_score(document, keyword_score)
         combined_score = (
             self.vector_weight * vector_score
             + self.keyword_weight * keyword_score
@@ -351,6 +356,13 @@ class RerankingService:
         )
         document.metadata["rerank_score"] = round(combined_score, 6)
         return combined_score, document
+
+    @staticmethod
+    def _context_score(document: Document, keyword_score: float) -> float:
+        """Prefer parser-declared context over a heuristic page aggregate."""
+        if document.metadata.get("context_aggregation") is not True or keyword_score <= 0:
+            return 0.0
+        return 0.6 if document.metadata.get("context_parent_id") else 0.25
 
     def _select_required_group_documents(
         self,

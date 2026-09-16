@@ -54,6 +54,29 @@ def test_simple_query_keeps_single_query_expansion_path() -> None:
     assert service.repository.get_retriever.call_args.kwargs["k"] == 12
 
 
+def test_pellet_query_keeps_original_language_vector_retrieval_control() -> None:
+    """Translation supplements, rather than replaces, a source-language query."""
+    service = _answer_service()
+    service.query_expansion_service.generate_alternative_queries.return_value = []
+    service.repository.lexical_candidate_search.return_value = []
+    service.repository.get_retriever.return_value.invoke.return_value = []
+    service.reranking_service.rerank_candidates.return_value = []
+
+    service._retrieve_and_rerank(
+        "What type of pellets do I need for the boiler?",
+        "Che tipo di pellet mi serve per la caldaia?",
+        "user",
+        include_files=None,
+        exclude_files=None,
+    )
+
+    invoked_queries = [call.args[0] for call in service.repository.get_retriever.return_value.invoke.call_args_list]
+    assert invoked_queries == [
+        "What type of pellets do I need for the boiler?",
+        "Che tipo di pellet mi serve per la caldaia?",
+    ]
+
+
 def test_compound_query_uses_bounded_queries_and_deduplicates_candidates() -> None:
     service = _answer_service()
     duplicate_a = _document("Alice follows the Cat.", "Alice.pdf")
@@ -187,6 +210,58 @@ def test_retrieved_fragmented_page_adds_temporary_context() -> None:
 
     service.repository.get_temporary_page_contexts.assert_called_once()
     assert aggregate in context
+
+
+def test_insurance_query_reranks_with_its_translated_retrieval_representation() -> None:
+    """A faithful translation may rank source-language benefit evidence."""
+    query = "Quali sono le mie coperture assicurative?"
+    documents = [
+        _document(
+            "Chronic conditions are covered within the terms of your policy.",
+            "policy.pdf",
+            page=6,
+        ),
+        _document(
+            "Table of Benefits. Insurance cover. Remote Technology Standard Core Plan. Hospital accommodation Full Refund.",
+            "policy.pdf",
+            page=1,
+        ),
+    ]
+    documents[1].metadata["context_aggregation"] = True
+
+    ranked = RerankingService().rerank_candidates(
+        documents,
+        query,
+        [],
+        retrieval_query="What insurance coverage do I have?",
+    )
+
+    assert ranked[0].metadata["page_number"] == 1
+
+
+def test_pellet_query_prefers_parser_parent_evidence_over_page_heuristic() -> None:
+    """Explicit parser relationships outrank a broad page-level keyword match."""
+    query = "Che tipo di pellet mi serve per la caldaia?"
+    documents = [
+        _document(
+            "Manuale della caldaia: carico pellet e manutenzione ordinaria.",
+            "burner.pdf",
+            page=23,
+        ),
+        _document(
+            "UNI EN 16961-2 classe A1 o A2. Pellet consigliato: diametro 6 mm.",
+            "burner.pdf",
+            page=24,
+        ),
+    ]
+    documents[0].metadata["context_aggregation"] = True
+    documents[1].metadata.update(
+        {"context_aggregation": True, "context_parent_id": "pellet-specification"}
+    )
+
+    ranked = RerankingService().rerank_candidates(documents, query, [])
+
+    assert ranked[0].metadata["page_number"] == 24
 
 
 def test_invalid_compound_output_falls_back_to_simple_retrieval() -> None:
