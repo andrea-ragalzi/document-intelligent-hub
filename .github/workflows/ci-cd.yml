@@ -92,11 +92,7 @@ jobs:
     permissions:
       contents: read
     needs: changes
-    if: >-
-      needs.changes.outputs.backend == 'true' &&
-      (github.event_name == 'pull_request' ||
-      (github.event_name == 'push' &&
-      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')))
+    if: needs.changes.outputs.backend == 'true'
     defaults:
       run:
         working-directory: ./backend
@@ -167,11 +163,7 @@ jobs:
     permissions:
       contents: read
     needs: changes
-    if: >-
-      needs.changes.outputs.frontend == 'true' &&
-      (github.event_name == 'pull_request' ||
-      (github.event_name == 'push' &&
-      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')))
+    if: needs.changes.outputs.frontend == 'true'
     defaults:
       run:
         working-directory: ./frontend
@@ -211,11 +203,7 @@ jobs:
     permissions:
       contents: read
     needs: changes
-    if: >-
-      needs.changes.outputs.backend_docker == 'true' &&
-      (github.event_name == 'pull_request' ||
-      (github.event_name == 'push' &&
-      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')))
+    if: needs.changes.outputs.backend_docker == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -238,11 +226,7 @@ jobs:
     permissions:
       contents: read
     needs: changes
-    if: >-
-      needs.changes.outputs.firebase_auth == 'true' &&
-      (github.event_name == 'pull_request' ||
-      (github.event_name == 'push' &&
-      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')))
+    if: needs.changes.outputs.firebase_auth == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -296,13 +280,9 @@ jobs:
     permissions:
       contents: read
     needs: [secret-scan, changes, backend-ci, frontend-ci, backend-docker, firebase-auth-emulator]
-    if: >-
-      always() &&
-      (github.event_name == 'pull_request' ||
-      (github.event_name == 'push' &&
-      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')))
+    if: always()
     steps:
-      - name: "📊 Validate selected checks"
+      - name: "📊 Validate CI results"
         env:
           BACKEND: ${{ needs.backend-ci.result }}
           FRONTEND: ${{ needs.frontend-ci.result }}
@@ -311,13 +291,17 @@ jobs:
           SECRET_SCAN: ${{ needs.secret-scan.result }}
           CHANGES: ${{ needs.changes.result }}
         run: |
-          for result in "$SECRET_SCAN" "$CHANGES" "$BACKEND" "$FRONTEND" "$DOCKER" "$FIREBASE_AUTH"; do
+          if [ "$SECRET_SCAN" != "success" ] || [ "$CHANGES" != "success" ]; then
+            echo "A required foundational check failed or was cancelled."
+            exit 1
+          fi
+          for result in "$BACKEND" "$FRONTEND" "$DOCKER" "$FIREBASE_AUTH"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
-              echo "A selected check failed or was cancelled: $result"
+              echo "A conditional check failed or was cancelled: $result"
               exit 1
             fi
           done
-          echo "Selected CI checks passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "CI checks passed." >> "$GITHUB_STEP_SUMMARY"
 
   release-gate:
     name: "🚀 Develop to main release gate"
@@ -325,37 +309,20 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    needs: [secret-scan, changes, backend-ci, frontend-ci, backend-docker, firebase-auth-emulator, ci-summary]
+    needs: ci-summary
     if: >-
       always() &&
-      ((github.event_name == 'pull_request' && github.base_ref == 'main') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+      (github.base_ref == 'main' || github.ref == 'refs/heads/main')
     steps:
-      - uses: actions/checkout@v4
-
-      - name: "🔒 Validate release source and configuration"
+      - name: "🔒 Validate release promotion"
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
           COMMIT_SHA: ${{ github.sha }}
-          SECRET_SCAN: ${{ needs.secret-scan.result }}
-          CHANGES: ${{ needs.changes.result }}
-          BACKEND: ${{ needs.backend-ci.result }}
-          FRONTEND: ${{ needs.frontend-ci.result }}
-          DOCKER: ${{ needs.backend-docker.result }}
-          FIREBASE_AUTH: ${{ needs.firebase-auth-emulator.result }}
           CI_SUMMARY: ${{ needs.ci-summary.result }}
         run: |
-          test -f backend/Dockerfile
-          test -f frontend/next.config.ts
-
-          for result in "$SECRET_SCAN" "$CHANGES" "$BACKEND" "$FRONTEND" "$DOCKER" "$FIREBASE_AUTH" "$CI_SUMMARY"; do
-            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
-              echo "A required CI check failed or was cancelled: $result"
-              exit 1
-            fi
-          done
+          test "$CI_SUMMARY" = "success"
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             test "$HEAD_REF" = "develop"
