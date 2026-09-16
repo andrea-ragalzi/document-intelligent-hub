@@ -6,11 +6,22 @@ import pytest
 
 from app.services.demo_document_service import (
     DEMO_DOCUMENT_FILENAME,
+    DEMO_DOCUMENT_PATH,
     DemoDocumentService,
 )
 from app.services.document_file_storage import DocumentFileStorage
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.services.rag_orchestrator_service import RAGService
+
+LEGACY_DEMO_DOCUMENT_FILENAME = "alice-cheshire-cat-demo.pdf"
+
+
+def test_full_alice_pdf_is_the_bundled_demo_document() -> None:
+    """The demo fixture must be the complete Alice in Wonderland PDF."""
+    assert DEMO_DOCUMENT_FILENAME == "alices-adventures-in-wonderland.pdf"
+    assert DEMO_DOCUMENT_PATH.name == DEMO_DOCUMENT_FILENAME
+    assert DEMO_DOCUMENT_PATH.read_bytes().startswith(b"%PDF")
+    assert DEMO_DOCUMENT_PATH.stat().st_size > 1_000_000
 
 
 @pytest.mark.asyncio
@@ -28,12 +39,11 @@ async def test_all_tiers_get_the_same_private_demo_document(
 
     assert result.status == "seeded"
     assert result.chunks_indexed == 4
-    rag_service.user_document_exists.assert_called_once_with(
-        user_id, DEMO_DOCUMENT_FILENAME
-    )
+    rag_service.user_document_exists.assert_any_call(user_id, DEMO_DOCUMENT_FILENAME)
     call = rag_service.index_document.await_args.kwargs
     assert call["user_id"] == user_id
     assert call["file"].filename == DEMO_DOCUMENT_FILENAME
+    assert call["file"].content == DEMO_DOCUMENT_PATH.read_bytes()
     assert call["document_metadata"] == {"is_demo_document": True}
     assert storage.get(user_id, DEMO_DOCUMENT_FILENAME) is not None
 
@@ -42,7 +52,7 @@ async def test_all_tiers_get_the_same_private_demo_document(
 async def test_repeated_seed_does_not_duplicate_the_demo_document(tmp_path) -> None:
     """A refresh or re-login finds the user's existing private Chroma chunks."""
     rag_service = Mock(spec=RAGService)
-    rag_service.user_document_exists.side_effect = [False, True]
+    rag_service.user_document_exists.side_effect = [False, False, True]
     rag_service.index_document = AsyncMock(return_value=(4, "EN"))
     service = DemoDocumentService(rag_service, DocumentFileStorage(tmp_path))
 
@@ -52,6 +62,27 @@ async def test_repeated_seed_does_not_duplicate_the_demo_document(tmp_path) -> N
     assert first.status == "seeded"
     assert second.status == "ready"
     rag_service.index_document.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_seed_replaces_the_legacy_alice_demo_document(tmp_path) -> None:
+    """Existing excerpt seeds are removed before the complete Alice PDF is added."""
+    rag_service = Mock(spec=RAGService)
+    rag_service.user_document_exists.side_effect = lambda _user_id, filename: (
+        filename == LEGACY_DEMO_DOCUMENT_FILENAME
+    )
+    rag_service.index_document = AsyncMock(return_value=(4, "EN"))
+    storage = DocumentFileStorage(tmp_path)
+    storage.store("user-a", LEGACY_DEMO_DOCUMENT_FILENAME, b"old excerpt")
+
+    result = await DemoDocumentService(rag_service, storage).seed_for_user("user-a")
+
+    assert result.status == "seeded"
+    rag_service.delete_user_document.assert_called_once_with(
+        "user-a", LEGACY_DEMO_DOCUMENT_FILENAME
+    )
+    assert storage.get("user-a", LEGACY_DEMO_DOCUMENT_FILENAME) is None
+    assert storage.get("user-a", DEMO_DOCUMENT_FILENAME) is not None
 
 
 @pytest.mark.asyncio

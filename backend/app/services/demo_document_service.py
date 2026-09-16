@@ -8,7 +8,8 @@ from typing import Literal
 from app.ports.file_storage import FileStoragePort
 from app.services.rag_orchestrator_service import RAGService
 
-DEMO_DOCUMENT_FILENAME = "alice-cheshire-cat-demo.pdf"
+DEMO_DOCUMENT_FILENAME = "alices-adventures-in-wonderland.pdf"
+_LEGACY_DEMO_DOCUMENT_FILENAMES = ("alice-cheshire-cat-demo.pdf",)
 DEMO_DOCUMENT_PATH = (
     Path(__file__).resolve().parents[2] / "assets" / DEMO_DOCUMENT_FILENAME
 )
@@ -72,6 +73,12 @@ class DemoDocumentService:
                     )
                 return DemoSeedResult(status="ready", chunks_indexed=0)
 
+            legacy_documents = [
+                filename
+                for filename in _LEGACY_DEMO_DOCUMENT_FILENAMES
+                if self.rag_service.user_document_exists(user_id, filename)
+            ]
+
             upload = _InMemoryUpload(
                 content=content,
                 filename=DEMO_DOCUMENT_FILENAME,
@@ -84,6 +91,9 @@ class DemoDocumentService:
                     document_metadata={"is_demo_document": True},
                 )
                 self.document_storage.store(user_id, DEMO_DOCUMENT_FILENAME, content)
+                for legacy_filename in legacy_documents:
+                    self.rag_service.delete_user_document(user_id, legacy_filename)
+                    self.document_storage.delete(user_id, legacy_filename)
             except Exception:
                 # Indexing implementations rollback their own failed batches,
                 # but storing the original can fail after a successful index.
