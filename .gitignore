@@ -248,5 +248,14 @@ backend/config/*.txt
 
 *.zip
 
+# Private evaluation corpora stay local. Public cases belong in evaluation/public.
+evaluation/private/
+evaluation/private/**
+backend/evaluation/private/
+backend/evaluation/private/**
+backend/evaluation/results/*.json
+*.private.pdf
+*.private.docx
+
 # Quality Gate Reports
 scripts/report-data.json
