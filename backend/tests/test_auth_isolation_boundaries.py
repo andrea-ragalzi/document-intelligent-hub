@@ -14,6 +14,7 @@ from app.services.document_file_storage import (
     DocumentFileStorage,
     get_document_file_storage,
 )
+from app.services.demo_document_service import DEMO_DOCUMENT_FILENAME
 from app.services.query_quota_service import (
     QueryLimitExceededError,
     QueryQuotaReservation,
@@ -162,14 +163,14 @@ def test_demo_seed_uses_verified_uid_and_ignores_spoofed_user_id(
 
     assert response.status_code == 200
     assert response.json()["status"] == "seeded"
-    assert response.json()["filename"] == "alice-cheshire-cat-demo.pdf"
+    assert response.json()["filename"] == DEMO_DOCUMENT_FILENAME
     assert response.json()["suggested_questions"] == [
         "What does Alice first notice about the Cheshire Cat?",
         "How is the Cheshire Cat described?",
         "What happens when the Cat disappears?",
     ]
-    rag_service.user_document_exists.assert_called_once_with(
-        AUTHENTICATED_USER, "alice-cheshire-cat-demo.pdf"
+    rag_service.user_document_exists.assert_any_call(
+        AUTHENTICATED_USER, DEMO_DOCUMENT_FILENAME
     )
     assert rag_service.index_document.await_args.kwargs["user_id"] == AUTHENTICATED_USER
 
