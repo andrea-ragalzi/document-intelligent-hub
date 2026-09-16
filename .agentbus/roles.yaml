@@ -1,0 +1,35 @@
+roles:
+  architect:
+    can_publish_topics:
+    - okf/handoff
+    - okf/approval
+    - okf/status/*
+    can_approve: true
+  implementer:
+    can_publish_topics:
+    - okf/handoff
+    - okf/status/*
+  qa:
+    can_publish_topics:
+    - okf/handoff
+    - okf/status/*
+  reviewer:
+    can_publish_topics:
+    - okf/handoff
+    - okf/approval
+    - okf/status/*
+    can_approve: true
+  observer:
+    can_publish_topics:
+    - system/*
+producers:
+  mateo: architect
+  sarah: implementer
+  lucia: implementer
+  maya: implementer
+  john: qa
+  alex: reviewer
+  wiretap: observer
+  os-watcher: observer
+  swarm-tail: observer
+token_roles: {}
