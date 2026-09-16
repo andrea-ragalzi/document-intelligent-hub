@@ -9,6 +9,7 @@ from pypdf import PdfWriter
 from evaluation.run_eval import (
     append_run_history,
     build_run_report,
+    combine_summaries,
     dataset_fingerprint,
     load_suite,
     score_case,
@@ -59,12 +60,15 @@ def test_public_and_private_suite_selection_share_schema(tmp_path: Path) -> None
 
 def test_private_directory_is_gitignored() -> None:
     repository = Path(__file__).resolve().parents[3]
-    result = subprocess.run(
-        ["git", "check-ignore", "-q", "backend/evaluation/private/cases.jsonl"],
-        cwd=repository,
-        check=False,
-    )
-    assert result.returncode == 0
+    for path in (
+        "backend/evaluation/private/cases.jsonl",
+        "backend/evaluation/private/documents/example.pdf",
+        "backend/evaluation/private/results/run.json",
+    ):
+        result = subprocess.run(
+            ["git", "check-ignore", "-q", path], cwd=repository, check=False
+        )
+        assert result.returncode == 0, path
 
 
 def test_missing_referenced_document_fails_before_execution(tmp_path: Path) -> None:
@@ -187,6 +191,66 @@ def test_private_history_does_not_touch_public_history(tmp_path: Path) -> None:
     assert (private_root / "RESULTS.md").exists()
     assert run_path.parent == private_root / "results" / "runs"
     assert (private_root / "results" / "history.csv").exists()
+
+
+def test_combined_metrics_add_public_and_private_counters() -> None:
+    public = {
+        "total": 20,
+        "answer_pass": 13,
+        "evidence_pass": 9,
+        "security_pass": 20,
+        "overall_pass": 9,
+    }
+    private = {
+        "total": 5,
+        "answer_pass": 4,
+        "evidence_pass": 4,
+        "security_pass": 5,
+        "overall_pass": 4,
+    }
+
+    assert combine_summaries(public, private) == {
+        "total": 25,
+        "answer_pass": 17,
+        "evidence_pass": 13,
+        "security_pass": 25,
+        "overall_pass": 13,
+    }
+
+
+def test_public_history_exposes_private_aggregates_without_private_content(
+    tmp_path: Path,
+) -> None:
+    case = load_cases()[0]
+    result = score_case(case, {"answer": "Three remained", "citations": []})
+    report = build_run_report(
+        suite="public",
+        cases=[case],
+        results=[result],
+        dataset_version="sha256:public",
+        git_commit="abc1234",
+        timestamp="2026-09-16T12:00:00+00:00",
+        model="gpt-5.6-luna",
+    )
+    report["private_summary"] = {
+        "total": 5,
+        "answer_pass": 4,
+        "evidence_pass": 4,
+        "security_pass": 5,
+        "overall_pass": 4,
+    }
+    report["combined_summary"] = combine_summaries(
+        report["summary"], report["private_summary"]
+    )
+
+    append_run_history(report, tmp_path)
+    markdown = (tmp_path / "RESULTS.md").read_text(encoding="utf-8")
+
+    assert "Private summary (aggregate only)" in markdown
+    assert "Combined summary" in markdown
+    assert "private.pdf" not in markdown
+    assert "private question" not in markdown
+    assert "PRIVATE_CASE" not in markdown
 
 
 def test_dataset_fingerprint_changes_only_when_dataset_changes(tmp_path: Path) -> None:

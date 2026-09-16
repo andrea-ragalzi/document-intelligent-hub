@@ -161,6 +161,10 @@ venv.bak/
 # Private originals retained locally for authenticated document preview/download.
 backend/uploads/
 
+# Local-only evaluation corpus and results. Never commit private documents or
+# their questions, answers, citations, or derived reports.
+backend/evaluation/private/
+
 # Firebase credentials (NEVER commit service account keys!)
 backend/app/config/firebase-service-account.json
 
