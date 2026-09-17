@@ -4,9 +4,11 @@ Authentication Module - Firebase Auth Token Verification
 Provides dependency injection for FastAPI endpoints to verify Firebase Auth tokens.
 """
 
-from app.core.logging import logger
 from fastapi import Depends, Header, HTTPException, status
 from firebase_admin import auth
+
+from app.core.config import settings
+from app.core.logging import logger
 
 
 def verify_firebase_token(authorization: str = Header(None)) -> str:
@@ -134,5 +136,17 @@ def require_verified_email(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Please verify your email address before using this feature.",
+        )
+
+    custom_claims = getattr(user, "custom_claims", None) or {}
+    if settings.requires_invitation_for_registration() and custom_claims.get("tier") not in {
+        "FREE",
+        "PRO",
+        "UNLIMITED",
+    }:
+        logger.info("⛔ Expensive operation rejected for an unprovisioned account")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="An invitation code is required before using this feature.",
         )
     return user_id

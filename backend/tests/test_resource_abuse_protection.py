@@ -10,6 +10,7 @@ from fastapi import HTTPException, UploadFile
 from langchain_core.documents import Document
 
 from app.core.auth import require_verified_email
+from app.core.config import settings
 from app.config.security_constants import UNLIMITED_TIER_MAX_QUERIES
 from app.core.constants import ConversationConstants, LLMConstants, QueryConstants
 from app.routers import documents_router, query_router
@@ -49,6 +50,31 @@ def test_unverified_firebase_user_is_rejected_before_expensive_work() -> None:
         with pytest.raises(HTTPException) as error:
             require_verified_email("verified-token-uid")
     assert error.value.status_code == 403
+
+
+def test_production_rejects_unprovisioned_user_before_expensive_work() -> None:
+    """A Firebase identity without a claimed tier cannot bypass invite-only registration."""
+    with patch.object(settings, "ENVIRONMENT", "production"), patch(
+        "app.core.auth.auth.get_user"
+    ) as get_user:
+        get_user.return_value.email_verified = True
+        get_user.return_value.custom_claims = {}
+        with pytest.raises(HTTPException) as error:
+            require_verified_email("unprovisioned-user")
+
+    assert error.value.status_code == 403
+    assert error.value.detail == "An invitation code is required before using this feature."
+
+
+def test_production_allows_provisioned_user_to_start_expensive_work() -> None:
+    """Existing accounts with a server-issued tier remain usable in invite-only mode."""
+    with patch.object(settings, "ENVIRONMENT", "production"), patch(
+        "app.core.auth.auth.get_user"
+    ) as get_user:
+        get_user.return_value.email_verified = True
+        get_user.return_value.custom_claims = {"tier": "FREE"}
+
+        assert require_verified_email("provisioned-user") == "provisioned-user"
 
 
 def test_summarize_without_authentication_is_rejected(client: object) -> None:

@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from firebase_admin import auth
 from google.cloud.firestore import SERVER_TIMESTAMP, transactional as firestore_transactional
 
+from app.core.config import settings
 from app.core.logging import logger
 from app.dependencies import get_email_service, get_usage_service
 from app.infrastructure import firebase_config
@@ -25,6 +26,11 @@ from app.services.support_rate_limiter import support_rate_limiter
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 SUPPORTED_TIERS = frozenset({"FREE", "PRO", "UNLIMITED"})
+
+
+def _registration_requires_invitation() -> bool:
+    """Return whether new registrations must present an invitation code."""
+    return settings.requires_invitation_for_registration()
 
 
 def get_db() -> Any:
@@ -332,12 +338,11 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
 
     Flow:
     1. Verify Firebase ID token
-    2. Check if user email is in unlimited list (skip invitation code if true)
-    3. Preserve an existing valid Firebase tier
-    4. Assign FREE when no invitation code is supplied
-    5. Validate an optional invitation code for elevated access
-    6. Assign tier via Firebase Custom Claims
-    7. Mark invitation code as used (if applicable)
+    2. Preserve an existing valid Firebase tier on a no-code retry
+    3. Require an invitation for new production registrations
+    4. Assign FREE without a code only outside invite-only mode
+    5. Atomically validate and consume supplied invitations
+    6. Assign the server-selected tier via Firebase Custom Claims
 
     Args:
         registration_data: Registration request with ID token and optional invitation code
@@ -354,16 +359,6 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
     # Step 1: Verify Firebase ID token
     user_id, user_email = _verify_token_and_get_user_info(registration_data.id_token)
 
-    # Step 2: Check if user is in unlimited emails list
-    app_config = load_app_config()
-    unlimited_emails = app_config["unlimited_emails"]
-
-    if user_email and user_email in unlimited_emails:
-        logger.info("Registration matched an unlimited-tier allowlist entry")
-        return _assign_tier_to_user(user_id, "UNLIMITED")
-
-    # Step 3: No code means normal public FREE registration. Preserve any
-    # existing valid Firebase tier so repeat registration cannot downgrade users.
     invitation_code = (registration_data.invitation_code or "").strip()
     if not invitation_code:
         existing_tier = _get_existing_user_tier(user_id)
@@ -375,16 +370,29 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
                 message="Existing account tier preserved.",
             )
 
+        if _registration_requires_invitation():
+            logger.info("Registration rejected because an invitation code is required")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An invitation code is required for registration.",
+            )
+
+        app_config = load_app_config()
+        unlimited_emails = app_config["unlimited_emails"]
+        if user_email and user_email in unlimited_emails:
+            logger.info("Registration matched an unlimited-tier allowlist entry")
+            return _assign_tier_to_user(user_id, "UNLIMITED")
+
         logger.info("Registration assigned the free tier")
         return _assign_tier_to_user(user_id, "FREE")
 
     db = get_db()
 
-    # Step 4: Atomically validate and consume the invitation. Its tier comes
+    # Atomically validate and consume the invitation. Its tier comes
     # only from server-side Firestore data; request bodies cannot select it.
     assigned_tier = _claim_invitation_code(invitation_code, user_id, db)
 
-    # Step 5: Assign the tier that was atomically claimed.
+    # Assign the tier that was atomically claimed.
     return _assign_tier_to_user(user_id, assigned_tier)
 
 
