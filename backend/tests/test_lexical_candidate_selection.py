@@ -120,3 +120,60 @@ def test_lexical_candidates_have_a_global_bound() -> None:
     )
 
     assert len(candidates) <= 60
+
+
+def test_lexical_candidates_honor_include_filter_across_exact_and_title_expansion() -> None:
+    allowed = "allowed.pdf"
+    excluded = "excluded.pdf"
+    collection = Mock()
+    collection.get.side_effect = [
+        _results(
+            [
+                ("allowed-hit", "needle allowed", _metadata(allowed)),
+                ("excluded-hit", "needle excluded", _metadata(excluded)),
+            ]
+        ),
+        {"metadatas": [_metadata(allowed), _metadata(excluded)]},
+        _results(
+            [
+                ("allowed-context", "context", _metadata(allowed)),
+                ("excluded-context", "context", _metadata(excluded)),
+            ]
+        ),
+    ]
+    repository = VectorStoreRepository(Mock(), collection)
+
+    candidates = repository.lexical_candidate_search(
+        "user-1", ["needle"], include_files=[allowed]
+    )
+
+    assert candidates
+    assert {candidate.metadata["original_filename"] for candidate in candidates} == {
+        allowed
+    }
+
+
+def test_lexical_candidates_honor_exclude_filter() -> None:
+    allowed = "allowed.pdf"
+    excluded = "excluded.pdf"
+    collection = Mock()
+    collection.get.side_effect = [
+        _results(
+            [
+                ("allowed-hit", "needle allowed", _metadata(allowed)),
+                ("excluded-hit", "needle excluded", _metadata(excluded)),
+            ]
+        ),
+        {"metadatas": [_metadata(allowed), _metadata(excluded)]},
+        _results([]),
+    ]
+    repository = VectorStoreRepository(Mock(), collection)
+
+    candidates = repository.lexical_candidate_search(
+        "user-1", ["needle"], exclude_files=[excluded]
+    )
+
+    assert candidates
+    assert {candidate.metadata["original_filename"] for candidate in candidates} == {
+        allowed
+    }

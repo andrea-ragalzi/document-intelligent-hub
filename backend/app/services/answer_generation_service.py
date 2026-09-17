@@ -304,7 +304,10 @@ class AnswerGenerationService:
         lexical_terms = self._extract_lexical_terms([original_query] + compound_queries)
         if lexical_terms:
             lexical_docs = self.repository.lexical_candidate_search(
-                user_id, lexical_terms
+                user_id,
+                lexical_terms,
+                include_files=include_files,
+                exclude_files=exclude_files,
             )
             logger.debug(
                 "🔤 Lexical candidate lookup for %s distinctive terms returned %s chunks",

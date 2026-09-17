@@ -214,7 +214,12 @@ class VectorStoreRepository:
             return []
 
     def lexical_candidate_search(
-        self, user_id: str, terms: list[str], limit_per_term: int = 20
+        self,
+        user_id: str,
+        terms: list[str],
+        limit_per_term: int = 20,
+        include_files: list[str] | None = None,
+        exclude_files: list[str] | None = None,
     ) -> list[Document]:
         """Return tenant-scoped chunks containing distinctive query terms.
 
@@ -223,10 +228,16 @@ class VectorStoreRepository:
         for deciding whether these chunks are actual evidence.
         """
         state = _LexicalCandidateState(max_candidates=60)
-        self._collect_term_candidates(user_id, terms, limit_per_term, state)
-        self._collect_title_matches(user_id, terms, state)
+        self._collect_term_candidates(
+            user_id, terms, limit_per_term, state, include_files, exclude_files
+        )
+        self._collect_title_matches(
+            user_id, terms, state, include_files, exclude_files
+        )
         ranked_filenames = self._rank_expansion_filenames(state, limit=3)
-        self._collect_document_context(user_id, ranked_filenames, state)
+        self._collect_document_context(
+            user_id, ranked_filenames, state, include_files, exclude_files
+        )
         self._append_fragmented_page_contexts(state, origin="lexical_page")
 
         logger.debug(
@@ -357,6 +368,8 @@ class VectorStoreRepository:
         add_candidates: bool,
         collect_page_context: bool = False,
         record_matches: bool = False,
+        include_files: list[str] | None = None,
+        exclude_files: list[str] | None = None,
     ) -> None:
         """Merge one bounded Chroma result into lexical-candidate state."""
         result_ids = results.get("ids", []) or []
@@ -368,6 +381,10 @@ class VectorStoreRepository:
             if not isinstance(content, str) or not isinstance(metadata, dict):
                 continue
             filename = metadata.get("original_filename")
+            if not VectorStoreRepository._filename_allowed(
+                filename, include_files, exclude_files
+            ):
+                continue
             if isinstance(filename, str) and filename:
                 if record_matches:
                     state.matched_filenames[filename] += 1
@@ -384,6 +401,19 @@ class VectorStoreRepository:
                 state.documents.append(
                     Document(page_content=content, metadata=metadata)
                 )
+
+    @staticmethod
+    def _filename_allowed(
+        filename: Any,
+        include_files: list[str] | None,
+        exclude_files: list[str] | None,
+    ) -> bool:
+        """Apply the same include precedence and exclusion semantics as dense retrieval."""
+        if not isinstance(filename, str):
+            return False
+        if include_files:
+            return filename in include_files
+        return filename not in (exclude_files or [])
 
     @staticmethod
     def _append_page_fragment(
@@ -464,6 +494,8 @@ class VectorStoreRepository:
         terms: list[str],
         limit_per_term: int,
         state: _LexicalCandidateState,
+        include_files: list[str] | None,
+        exclude_files: list[str] | None,
     ) -> None:
         """Fetch bounded exact-content matches for distinctive query terms."""
         eligible_terms = dict.fromkeys(term for term in terms if len(term.strip()) >= 3)
@@ -482,11 +514,21 @@ class VectorStoreRepository:
                 )
                 continue
             self._append_lexical_results(
-                results, state, add_candidates=True, record_matches=True
+                results,
+                state,
+                add_candidates=True,
+                record_matches=True,
+                include_files=include_files,
+                exclude_files=exclude_files,
             )
 
     def _collect_title_matches(
-        self, user_id: str, terms: list[str], state: _LexicalCandidateState
+        self,
+        user_id: str,
+        terms: list[str],
+        state: _LexicalCandidateState,
+        include_files: list[str] | None,
+        exclude_files: list[str] | None,
     ) -> None:
         """Find tenant-scoped filenames containing distinctive query terms."""
         try:
@@ -507,6 +549,7 @@ class VectorStoreRepository:
             if (
                 isinstance(filename, str)
                 and filename
+                and self._filename_allowed(filename, include_files, exclude_files)
                 and any(term in filename.lower() for term in normalized_terms)
             ):
                 state.title_matches[filename] += 1
@@ -537,6 +580,8 @@ class VectorStoreRepository:
         user_id: str,
         filenames: list[str],
         state: _LexicalCandidateState,
+        include_files: list[str] | None,
+        exclude_files: list[str] | None,
     ) -> None:
         """Collect bounded fragments from the strongest matching documents."""
         for filename in filenames:
@@ -561,6 +606,8 @@ class VectorStoreRepository:
                 state,
                 add_candidates=bool(state.title_matches.get(filename)),
                 collect_page_context=True,
+                include_files=include_files,
+                exclude_files=exclude_files,
             )
 
     @staticmethod
