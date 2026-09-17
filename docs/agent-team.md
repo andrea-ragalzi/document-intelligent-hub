@@ -43,6 +43,7 @@ For a non-interactive status check:
 | Maya | Frontend / product engineer | John, then Mateo |
 | John | QA & RAG evaluation engineer | Owner on failure; Mateo on verdict |
 | Alex | Independent reviewer / security gate | Mateo and implementation owner |
+| Alice | Theoretical RAG and information-retrieval specialist | Mateo, on demand |
 
 Typical flows are `Andrea → Mateo → Sarah → John → Mateo` and `Andrea → Mateo → Lucía → John → Alex → Mateo`. Mateo assigns only the specialists the task actually needs.
 
@@ -86,9 +87,9 @@ The tracked `.zed/settings.json` registers AgentBus as a project-local stdio MCP
 
 ## Headless Codex runners
 
-AgentBus 0.23.0 runs one-shot Codex turns through its native `codex` adapter. `.agentbus/swarm.yaml` starts six wake workers and each worker invokes the native `agentbus run --once` path through the small `.agentbus/dispatch.py` policy gate. The gate is needed because 0.23.0 workers cannot filter nested payload fields or enforce a team-wide initiative budget. It never replaces AgentBus routing or the runner.
+AgentBus 0.23.0 runs one-shot Codex turns through its native `codex` adapter. `.agentbus/swarm.yaml` starts seven wake workers and each worker invokes the native `agentbus run --once` path through the small `.agentbus/dispatch.py` policy gate. The gate is needed because 0.23.0 workers cannot filter nested payload fields or enforce a team-wide initiative budget. It never replaces AgentBus routing or the runner.
 
-Every runner invokes `codex exec -C <workspace> --ephemeral --json -m gpt-5.6-luna --sandbox workspace-write -c model_reasoning_effort="low" -`. This per-run selection leaves the interactive Codex default untouched. The gate writes local usage records under `.agentbus/team-runtime/usage.jsonl`, containing the event, initiative, agent, selected model, effort, exit code, and `turn.completed` token usage.
+Every standard runner invokes `codex exec -C <workspace> --ephemeral --json -m gpt-5.6-luna --sandbox workspace-write -c model_reasoning_effort="low" -`. Alice is the permanent on-demand exception: her runner uses `gpt-5.6-sol` with `model_reasoning_effort="high"` for theoretical RAG/IR analysis. This per-run selection leaves the interactive Codex default untouched. The gate writes local usage records under `.agentbus/team-runtime/usage.jsonl`, containing the event, initiative, agent, selected model, effort, exit code, and `turn.completed` token usage.
 
 An autonomous handoff must be `PUBLISHED`, addressed to its target, newer than that agent's gate cursor, have a non-smoke initiative (unless `execution.smoke_test: true`), and include:
 
@@ -107,6 +108,8 @@ The reserve unlocks once, and only when John publishes a valid concrete verifica
 Mateo alone may request a one-run override by adding `execution.model_override` with `requested_by: mateo`, `scope: one_run`, an approved reason, and exactly one allowed target: Luna at medium effort, Terra at low effort, or Sol at low effort. The gate creates an ephemeral runner config for that one invocation and then returns to Luna low. It never escalates after a failure.
 
 Routing stays deliberately narrow: Mateo normally starts work; Sarah, Lucía, and Maya receive from Mateo or John. A specialist-to-specialist handoff, including Lucía → Maya or Maya → Lucía, is accepted only for a genuinely cross-cutting initiative using the `cross_cutting` profile whose declared ownership domains include both specialists, whose execution metadata marks `cross_cutting_handoff: true`, and whose causation points to the source specialist's consumed `PUBLISHED` event in the same initiative. John receives from Mateo or an implementation specialist and runs only when `execution.qa_mode: reasoning`; Alex accepts review requests only from Mateo or John and only with an allowed `execution.review_scope`. Mateo's worker runs only when `execution.mateo_reasoning_reason` is initial decomposition/routing, ambiguity, ownership conflict, architecture decision, blocked initiative, or an explicit final decision requiring judgment. Mechanical test execution should be performed by local automation and reported directly; it must not wake John merely to interpret a deterministic command. Normal paths are Mateo → Sarah/Lucía/Maya → John → `okf/status/<initiative>: complete` → Andrea. Alex is reserved for auth/authz, tenant isolation, sensitive document boundaries, migrations, security-sensitive behavior, and architecture-critical review.
+
+Alice is a permanent on-demand theoretical RAG/IR specialist. Mateo may route an active RAG blocker to Alice for unexplained retrieval or ranking failure, long-document degradation, score comparability, context-selection or hierarchical-retrieval proposals, evaluation methodology, or quality/security trade-offs. Alice does not implement production code, tune benchmark constants, hard-code evaluation cases, run private evaluation without authorization, override Mateo, or begin broad research. She returns a concise theory critique and falsifiable experiment design to Mateo; Sarah remains the implementation owner and John remains the independent evaluator. Alice consumes a normal budgeted agent run, so Mateo selects a profile that can accommodate her review rather than creating a separate budget.
 
 A routine John pass is not an `okf/handoff` to Mateo. John publishes `okf/status/<initiative>` with `status: complete`, explicit `to: andrea`, the same initiative, and causation set to the verified event. The status event closes and reports the initiative without a Mateo Codex turn. Likewise, a deterministic specialist-to-John route does not relay through Mateo.
 

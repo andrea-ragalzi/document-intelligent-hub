@@ -19,6 +19,10 @@ roles:
     - okf/approval
     - okf/status/*
     can_approve: true
+  analyst:
+    can_publish_topics:
+    - okf/handoff
+    - okf/status/*
   observer:
     can_publish_topics:
     - system/*
@@ -29,6 +33,7 @@ producers:
   maya: implementer
   john: qa
   alex: reviewer
+  alice: analyst
   wiretap: observer
   os-watcher: observer
   swarm-tail: observer

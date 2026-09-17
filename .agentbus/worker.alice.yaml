@@ -1,0 +1,12 @@
+version: "1.0"
+worker_id: alice-codex-wake
+role: alice
+producer_id: alice
+cursor_path: .agentbus/worker.alice.cursor
+state_path: .agentbus/worker.alice.state.json
+subscribe:
+  - topic: okf/handoff
+    from: [mateo, sarah, john, lucia, alex, maya]
+    to: [alice]
+watch: { mode: auto, poll_fallback_ms: 500, paths: [.agentbus/events.db, .agentbus/events.db-wal] }
+wake_mode: file

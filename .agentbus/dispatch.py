@@ -127,8 +127,11 @@ def publish_blocked(agent: str, event: dict[str, Any], reason: str) -> None:
     ], check=False, capture_output=True, text=True)
 
 
-def override_for(execution: dict[str, Any], policy: dict[str, Any]) -> tuple[str, str, bool]:
-    default = policy["default_runner"]
+def override_for(
+    execution: dict[str, Any], policy: dict[str, Any], agent: str
+) -> tuple[str, str, bool]:
+    agent_policy = policy.get("agents", {}).get(agent, {})
+    default = agent_policy.get("default_runner", policy["default_runner"])
     override = execution.get("model_override")
     if override is None:
         return default["model"], default["reasoning_effort"], False
@@ -322,7 +325,7 @@ def main() -> int:
         return reject("mateo_reasoning_not_required")
 
     try:
-        model, effort, escalated = override_for(execution, policy)
+        model, effort, escalated = override_for(execution, policy, args.agent)
     except ValueError as exc:
         return reject(str(exc), blocked=True)
 

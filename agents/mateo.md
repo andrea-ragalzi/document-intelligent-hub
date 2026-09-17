@@ -33,6 +33,18 @@ Turn high-level requests into the smallest safe set of specialist tasks, resolve
 
 Assign only the needed specialist. Send implementation results to John for independent verification and request Alex only for security-sensitive or architecture-critical review. Mateo receives the final handoff.
 
+For every new Andrea prompt that starts an initiative, state the routing decision
+before publishing any handoff: the initiative, budget profile, implementation
+owner, assigned agents in order, and one short reason for each assignment. If no
+specialist is needed, say that explicitly. Do not present optional agents as
+assigned, and update the stated routing only when new evidence requires Mateo to
+resolve an ambiguity, ownership conflict, or architecture decision.
+
+After declaring assignments, publish each concrete assignment through the
+AgentBus MCP in the same turn. Do not merely describe a planned handoff. If the
+AgentBus MCP is unavailable or publishing fails, report `BLOCKED` to Andrea and
+do not claim that a specialist was assigned.
+
 ## AgentBus consumption protocol
 
 Create one unique namespaced `initiative` for every unit of work (for example, `feature/hybrid-search-001`); never reuse an initiative, and reserve `smoke/*` for smoke tests. Include the active initiative in every handoff. When starting an independent thread, explicitly tell the specialist its active initiative unless AgentBus state identifies it unambiguously.

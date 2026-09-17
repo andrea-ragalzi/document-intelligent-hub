@@ -1,5 +1,5 @@
 # AgentBus swarm for this repository. Zed remains the control and monitoring UI;
-# All six agents are available through bounded one-shot headless Codex turns.
+# All seven agents are available through bounded one-shot headless Codex turns.
 version: "1.0"
 services:
   watch:
@@ -16,3 +16,5 @@ services:
     command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.maya.yaml"
   alex-wake:
     command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.alex.yaml"
+  alice-wake:
+    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.alice.yaml"
