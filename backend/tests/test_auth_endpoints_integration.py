@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.routers.auth_router import clear_cache
+from app.core.config import settings
 from app.dependencies import get_email_service
 from app.core.logging import logger
 from app.services.support_rate_limiter import support_rate_limiter
@@ -22,6 +23,89 @@ client = TestClient(app)
 
 class TestRegistrationEndpoint:
     """Integration tests for POST /auth/register endpoint"""
+
+    def test_production_rejects_new_registration_without_invitation(self) -> None:
+        """Invite-only mode must reject before any tier or invitation mutation."""
+        with patch.object(settings, "ENVIRONMENT", "production"), patch(
+            "app.routers.auth_router.auth"
+        ) as mock_auth, patch("app.routers.auth_router.get_db") as mock_get_db, patch(
+            "app.routers.auth_router.load_app_config"
+        ) as mock_config:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "new_invite_only_user",
+                "email": "new@example.com",
+            }
+            firebase_user = MagicMock()
+            firebase_user.custom_claims = {}
+            mock_auth.get_user.return_value = firebase_user
+
+            response = client.post(
+                "/auth/register",
+                json={
+                    "id_token": "valid_token",
+                    "invitation_code": None,
+                    "tier": "UNLIMITED",
+                },
+            )
+
+            assert response.status_code == 400
+            assert response.json()["detail"] == "An invitation code is required for registration."
+            mock_auth.set_custom_user_claims.assert_not_called()
+            mock_get_db.assert_not_called()
+            mock_config.assert_not_called()
+
+    def test_production_registration_claims_a_valid_invitation_tier(self) -> None:
+        """Production assigns only the tier atomically returned by the invitation claim."""
+        with patch.object(settings, "ENVIRONMENT", "production"), patch(
+            "app.routers.auth_router.auth"
+        ) as mock_auth, patch(
+            "app.routers.auth_router.get_db"
+        ) as mock_get_db, patch(
+            "app.routers.auth_router._claim_invitation_code", return_value="PRO"
+        ) as mock_claim:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "invited_user",
+                "email": "invited@example.com",
+            }
+            firebase_user = MagicMock()
+            firebase_user.custom_claims = {}
+            mock_auth.get_user.return_value = firebase_user
+            database = MagicMock()
+            mock_get_db.return_value = database
+
+            response = client.post(
+                "/auth/register",
+                json={"id_token": "valid_token", "invitation_code": "VALID_PRO_CODE"},
+            )
+
+            assert response.status_code == 200
+            assert response.json()["tier"] == "PRO"
+            mock_claim.assert_called_once_with("VALID_PRO_CODE", "invited_user", database)
+            mock_auth.set_custom_user_claims.assert_called_once_with(
+                "invited_user", {"tier": "PRO"}
+            )
+
+    def test_production_preserves_existing_user_tier_without_an_invitation(self) -> None:
+        """Invite-only mode does not disrupt an already provisioned account."""
+        with patch.object(settings, "ENVIRONMENT", "production"), patch(
+            "app.routers.auth_router.auth"
+        ) as mock_auth:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "existing_user",
+                "email": "existing@example.com",
+            }
+            firebase_user = MagicMock()
+            firebase_user.custom_claims = {"tier": "FREE"}
+            mock_auth.get_user.return_value = firebase_user
+
+            response = client.post(
+                "/auth/register",
+                json={"id_token": "valid_token", "invitation_code": None},
+            )
+
+            assert response.status_code == 200
+            assert response.json()["tier"] == "FREE"
+            mock_auth.set_custom_user_claims.assert_not_called()
 
     def test_new_user_registers_as_free_without_invitation(self) -> None:
         """A verified Firebase user with no claims receives the FREE tier."""

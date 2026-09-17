@@ -230,6 +230,7 @@ describe("InvitationCodeModal public FREE onboarding", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -261,6 +262,26 @@ describe("InvitationCodeModal public FREE onboarding", () => {
     expect(screen.queryByText(/UNLIMITED/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Invitation Code")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /request one here/i })).not.toBeInTheDocument();
+  });
+
+  it("requires an invitation code and hides FREE onboarding in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    (globalThis.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: "success", tier: "PRO" }),
+    });
+    const onSuccess = vi.fn();
+    const user = userEvent.setup();
+
+    render(createElement(InvitationCodeModal, { isOpen: true, onSuccess }));
+
+    expect(screen.queryByRole("button", { name: "Continue with FREE" })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Invitation Code"), "VALID_PRO_CODE");
+    await user.click(screen.getByRole("button", { name: "Continue with invitation" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("PRO"));
+    const fetchCall = (globalThis.fetch as any).mock.calls[0];
+    expect(JSON.parse(fetchCall[1].body).invitation_code).toBe("VALID_PRO_CODE");
   });
 });
 

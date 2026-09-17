@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { EmailVerificationCard } from "@/components/EmailVerificationCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegistration } from "@/hooks/useRegistration";
+import { requiresInvitationForRegistration } from "@/lib/registration-mode";
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -24,9 +25,11 @@ function VerifyEmailContent() {
       return false;
     }
 
-    const tier = await register();
-    if (!tier) {
-      throw new Error("Registration could not be completed");
+    if (!requiresInvitationForRegistration()) {
+      const tier = await register();
+      if (!tier) {
+        throw new Error("Registration could not be completed");
+      }
     }
 
     router.replace("/dashboard");
