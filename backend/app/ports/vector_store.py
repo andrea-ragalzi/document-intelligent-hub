@@ -29,7 +29,12 @@ class VectorStorePort(Protocol):
         """Build the adapter's tenant-scoped retriever."""
 
     def lexical_candidate_search(
-        self, user_id: str, terms: list[str], limit_per_term: int = 20
+        self,
+        user_id: str,
+        terms: list[str],
+        limit_per_term: int = 20,
+        include_files: list[str] | None = None,
+        exclude_files: list[str] | None = None,
     ) -> list[Document]:
         """Return bounded lexical candidates for reranking."""
 

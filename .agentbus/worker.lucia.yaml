@@ -6,7 +6,7 @@ cursor_path: .agentbus/worker.lucia.cursor
 state_path: .agentbus/worker.lucia.state.json
 subscribe:
   - topic: okf/handoff
-    from: [mateo, john, sarah]
+    from: [mateo, john, sarah, maya]
     to: [lucia]
 watch:
   mode: auto

@@ -196,6 +196,7 @@ def owner_for(execution: dict[str, Any], state: dict[str, Any], domains: set[str
 def validate_fix_route(
     agent: str, event: dict[str, Any], execution: dict[str, Any],
     state: dict[str, Any], limits: dict[str, Any], owner: str, domains: set[str],
+    profile: str,
 ) -> str | None:
     payload = event["payload"]
     source = payload.get("from")
@@ -227,7 +228,19 @@ def validate_fix_route(
         if agent != owner and agent not in domains:
             raise ValueError("implementation_owner_mismatch")
     elif agent in IMPLEMENTERS and source in IMPLEMENTERS:
-        if not domains or source not in domains or agent not in domains or execution.get("cross_cutting_handoff") is not True:
+        causation_id = event.get("causation_id")
+        parent = event_from_store(causation_id) if isinstance(causation_id, int) else None
+        if (
+            profile != "cross_cutting"
+            or not domains
+            or source not in domains
+            or agent not in domains
+            or execution.get("cross_cutting_handoff") is not True
+            or parent is None
+            or parent["status"] != "PUBLISHED"
+            or parent["payload"].get("to") != source
+            or parent["payload"].get("initiative") != initiative
+        ):
             raise ValueError("cross_cutting_handoff_not_eligible")
     elif agent in IMPLEMENTERS:
         raise ValueError("implementer_source_not_allowed")
@@ -299,6 +312,8 @@ def main() -> int:
     if payload["initiative"].startswith("smoke/") and execution.get("smoke_test") is not True:
         return reject("smoke_not_explicit", blocked=True)
     if args.agent == "alex":
+        if payload.get("from") not in {"mateo", "john"}:
+            return reject("alex_sender_not_allowed", blocked=True)
         if execution.get("review_scope") not in policy["alex_review_scopes"]:
             return reject("alex_review_not_eligible", blocked=True)
     if args.agent == "john" and execution.get("qa_mode") != "reasoning":
@@ -328,7 +343,7 @@ def main() -> int:
         profile, limits = profile_for(execution, state, policy)
         domains = cross_cutting_domains_for(execution, state, profile)
         owner = owner_for(execution, state, domains)
-        reserve_role = validate_fix_route(args.agent, event, execution, state, limits, owner, domains)
+        reserve_role = validate_fix_route(args.agent, event, execution, state, limits, owner, domains, profile)
     except ValueError as exc:
         write_json(state_path, state)
         return reject(str(exc), blocked=True)

@@ -6,7 +6,7 @@ cursor_path: .agentbus/worker.maya.cursor
 state_path: .agentbus/worker.maya.state.json
 subscribe:
   - topic: okf/handoff
-    from: [mateo, john]
+    from: [mateo, john, lucia]
     to: [maya]
 watch:
   mode: auto
