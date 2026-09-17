@@ -12,9 +12,10 @@ import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from openai import APITimeoutError
 
-from app.config.security_constants import LLM_TIMEOUT_SECONDS
 from app.core.auth import require_verified_email
+from app.core.config import settings
 from app.core.logging import logger
 from app.dependencies import (
     get_query_quota_service,
@@ -134,19 +135,6 @@ async def _acquire_query_leases(user_id: str) -> None:
     )
 
 
-async def _run_provider_operation(operation: Any, *args: Any, **kwargs: Any) -> Any:
-    """Run one blocking RAG operation with the public provider deadline."""
-    try:
-        async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
-            return await asyncio.to_thread(operation, *args, **kwargs)
-    except TimeoutError as exc:
-        logger.warning("Provider-backed operation timed out")
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="The language service timed out. Please try again.",
-        ) from exc
-
-
 async def _execute_query_with_worker_lease(
     request: QueryRequest,
     user_id: str = Depends(require_verified_email),
@@ -202,7 +190,7 @@ async def _execute_query_with_worker_lease(
 
             deterministic_handler = getattr(rag_service, "try_deterministic_query", None)
             deterministic = (
-                deterministic_handler(
+                deterministic_handler(  # pylint: disable=not-callable
                     request.query,
                     user_id,
                     available_documents,
@@ -215,7 +203,7 @@ async def _execute_query_with_worker_lease(
             # return arbitrary mock values. Only a complete trusted result can
             # bypass the established RAG path.
             if isinstance(deterministic, tuple) and len(deterministic) == 4:
-                answer, sources, route, reason = deterministic
+                answer, sources, route, reason = tuple(deterministic)
                 logger.info(
                     "Query route completed | route={} reason={} luna_invoked=false",
                     route,
@@ -285,7 +273,7 @@ async def _execute_query_with_worker_lease(
 
         worker_task.add_done_callback(release_if_worker_never_started)
         try:
-            async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
+            async with asyncio.timeout(settings.OPENAI_TIMEOUT_SECONDS):
                 reservation, answer, sources = await asyncio.shield(worker_task)
         except TimeoutError as exc:
             logger.warning("Provider-backed operation timed out")
@@ -313,6 +301,12 @@ async def _execute_query_with_worker_lease(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(exc),
+        ) from exc
+    except (TimeoutError, APITimeoutError) as exc:
+        logger.warning("Provider-backed operation timed out")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="The language service timed out. Please try again.",
         ) from exc
     except HTTPException:
         raise
@@ -377,18 +371,71 @@ async def summarize_conversation(
             headers={"Retry-After": "5"},
         )
     quota_reserved = False
+    worker_started = False
+    worker_entered = False
+    leases_released = False
+
+    async def release_worker_leases() -> None:
+        """Release leases once the synchronous provider work has actually ended."""
+        nonlocal leases_released
+        if leases_released:
+            return
+        leases_released = True
+        await query_concurrency_limiter.release(user_id)
+        await global_expensive_operation_limiter.release()
+
+    def schedule_worker_lease_release() -> None:
+        release_task = asyncio.create_task(release_worker_leases())
+        _track_background_task(release_task)
+
     try:
-        await asyncio.to_thread(quota_service.reserve, user_id)
-        quota_reserved = True
-        logger.info("📝 Generating bounded conversation summary")
-        summary = await _run_provider_operation(
-            rag_service.generate_conversation_summary, request.conversation_history
-        )
+        event_loop = asyncio.get_running_loop()
+
+        def run_summary_worker() -> str:
+            nonlocal quota_reserved
+            quota_service.reserve(user_id)
+            quota_reserved = True
+            logger.info("📝 Generating bounded conversation summary")
+            return rag_service.generate_conversation_summary(request.conversation_history)
+
+        def worker_with_lease() -> str:
+            nonlocal worker_entered
+            worker_entered = True
+            try:
+                return run_summary_worker()
+            finally:
+                # Cancelling the request cannot stop this thread. Keep the
+                # shared capacity lease until the provider call terminates.
+                event_loop.call_soon_threadsafe(schedule_worker_lease_release)
+
+        worker_started = True
+        worker_task = asyncio.create_task(asyncio.to_thread(worker_with_lease))
+
+        def release_if_worker_never_started(_task: asyncio.Task[Any]) -> None:
+            if not worker_entered:
+                schedule_worker_lease_release()
+
+        worker_task.add_done_callback(release_if_worker_never_started)
+        try:
+            async with asyncio.timeout(settings.OPENAI_TIMEOUT_SECONDS):
+                summary = await asyncio.shield(worker_task)
+        except TimeoutError as exc:
+            logger.warning("Provider-backed operation timed out")
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="The language service timed out. Please try again.",
+            ) from exc
         return SummarizeResponse(summary=summary)
     except QueryLimitExceededError as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(exc),
+        ) from exc
+    except (TimeoutError, APITimeoutError) as exc:
+        logger.warning("Provider-backed operation timed out")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="The language service timed out. Please try again.",
         ) from exc
     except HTTPException:
         raise
@@ -401,5 +448,5 @@ async def summarize_conversation(
             detail="Unable to generate the conversation summary. Please try again.",
         ) from exc
     finally:
-        await query_concurrency_limiter.release(user_id)
-        await global_expensive_operation_limiter.release()
+        if not worker_started:
+            await release_worker_leases()

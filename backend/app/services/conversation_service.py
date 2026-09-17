@@ -10,10 +10,11 @@ Responsibilities:
 - Support long-term memory in RAG conversations
 """
 
-from app.core.logging import logger
-from app.core.constants import LLMConstants
-from app.schemas.rag_schema import ConversationMessage
 from langchain_core.language_models import BaseChatModel
+
+from app.core.constants import LLMConstants
+from app.core.logging import logger
+from app.schemas.rag_schema import ConversationMessage
 
 
 class ConversationService:
@@ -56,7 +57,8 @@ class ConversationService:
             )
 
             # Summarization prompt
-            summary_prompt = f"""You are a conversation summarizer. Generate a concise summary of the following conversation.
+            summary_prompt = f"""You are a conversation summarizer. Generate a concise
+summary of the following conversation.
 
 Extract:
 - Key facts and information discussed
@@ -80,4 +82,4 @@ SUMMARY (3-5 sentences):"""
 
         except Exception as exc:
             logger.error("Conversation summarization failed | Type: {}", type(exc).__name__)
-            return "Unable to generate summary."
+            raise
