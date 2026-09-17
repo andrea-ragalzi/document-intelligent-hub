@@ -17,7 +17,7 @@ def test_runner_executes_cases_loaded_from_jsonl_in_dataset_order() -> None:
 
     assert executed == [case.id for case in cases]
     assert [result["id"] for result in report["results"]] == executed
-    assert report["summary"]["total"] == 20
+    assert report["summary"]["total"] == 23
     json.dumps(report)
 
 

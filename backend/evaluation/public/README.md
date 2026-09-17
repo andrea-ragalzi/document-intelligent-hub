@@ -4,7 +4,7 @@ A golden set is a frozen collection of questions, expected atomic facts, source
 pages, and forbidden claims used to measure retrieval and grounded-answer
 quality without changing the expected result after execution.
 
-`cases.jsonl` is the single source of truth for the 20 public cases. The corpus
+`cases.jsonl` is the single source of truth for the 23 public cases. The corpus
 uses synthetic InGen and Northbyte fixtures plus the pre-existing Alice demo
 asset. Tags cover pinpoint and numeric retrieval, tables, arithmetic,
 multilingual retrieval, long-document locality, synthesis, insufficient
