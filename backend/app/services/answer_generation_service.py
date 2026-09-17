@@ -178,7 +178,7 @@ class AnswerGenerationService:
         # Retrieve documents with query expansion
         context_docs = self._retrieve_and_rerank(
             translated_query,
-            query,
+            current_user_message,
             user_id,
             include_files=include_files,
             exclude_files=exclude_files,
