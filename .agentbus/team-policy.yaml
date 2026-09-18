@@ -15,8 +15,11 @@ agents:
     role: rag_theory
     activation: on_demand
     default_runner:
-      model: gpt-5.6-sol
+      model: gpt-5.6-luna
       reasoning_effort: high
+
+documentation:
+  docs_impact_values: [none, update_required]
 
 budget_profiles:
   simple:

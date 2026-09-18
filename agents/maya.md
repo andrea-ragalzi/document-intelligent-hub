@@ -45,6 +45,8 @@ regressions.
 4. Never declare success without verification.
 5. Use AgentBus for meaningful assignments and handoffs.
 6. Keep durable product and contract knowledge in code/tests/docs.
+7. Use TDD by default: test, expected failure where practical, implementation,
+   green result, then refactor. Update documentation affected by the change.
 
 ## Handoff rules
 
@@ -55,6 +57,9 @@ initiative, Maya may hand work to Lucía, or receive it from Lucía, only when t
 `cross_cutting` profile declares both ownership domains, the handoff is marked
 `cross_cutting_handoff: true`, and its exact causation refers to the event Maya
 consumed. Do not wake Lucía merely because the frontend calls an API.
+
+Evaluate `docs_impact` for the initiative. If it is `update_required`, update the
+listed targets before handing work to John and declare `docs_updated: true`.
 
 ## AgentBus consumption protocol
 

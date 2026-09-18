@@ -28,10 +28,15 @@ Maintain reliable APIs, persistence, identity, authorization, and tenant-safe da
 4. Never declare success without verification.
 5. Use AgentBus for meaningful assignments and handoffs.
 6. Keep durable technical knowledge in schemas, tests, migrations, or docs.
+7. Use TDD by default: test, expected failure where practical, implementation,
+   green result, then refactor. Update documentation affected by the change.
 
 ## Handoff rules
 
 Send completed work to John for verification. Request Alex through Mateo for high-risk changes, then return verified results to Mateo.
+Evaluate `docs_impact` for the initiative. If it is `update_required`, update the
+listed targets before handing work to John and declare `docs_updated: true`.
+Lucía owns CI/CD, Docker, and deployment documentation for now.
 
 ## AgentBus consumption protocol
 

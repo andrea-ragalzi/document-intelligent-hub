@@ -196,6 +196,38 @@ def owner_for(execution: dict[str, Any], state: dict[str, Any], domains: set[str
     return str(requested)
 
 
+def is_nonempty(value: Any) -> bool:
+    """Return whether a handoff-contract field carries useful content."""
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple)):
+        return bool(value) and all(is_nonempty(item) for item in value)
+    return value is not None
+
+
+def validate_docs_impact_handoff(
+    agent: str, event: dict[str, Any], execution: dict[str, Any], policy: dict[str, Any]
+) -> None:
+    """Make documentation impact part of an implementation's QA contract."""
+    payload = event["payload"]
+    source = payload.get("from")
+    needs_assessment = (source == "mateo" and agent in IMPLEMENTERS) or (
+        source in IMPLEMENTERS and agent == "john"
+    )
+    if not needs_assessment:
+        return
+    impact = execution.get("docs_impact")
+    if impact not in policy["documentation"]["docs_impact_values"]:
+        raise ValueError("docs_impact_missing_or_invalid")
+    if impact != "update_required":
+        return
+    targets = execution.get("docs_targets")
+    if not isinstance(targets, list) or not targets or not all(is_nonempty(target) for target in targets):
+        raise ValueError("docs_targets_required")
+    if agent == "john" and execution.get("docs_updated") is not True:
+        raise ValueError("required_docs_not_updated")
+
+
 def validate_fix_route(
     agent: str, event: dict[str, Any], execution: dict[str, Any],
     state: dict[str, Any], limits: dict[str, Any], owner: str, domains: set[str],
@@ -346,7 +378,10 @@ def main() -> int:
         profile, limits = profile_for(execution, state, policy)
         domains = cross_cutting_domains_for(execution, state, profile)
         owner = owner_for(execution, state, domains)
-        reserve_role = validate_fix_route(args.agent, event, execution, state, limits, owner, domains, profile)
+        validate_docs_impact_handoff(args.agent, event, execution, policy)
+        reserve_role = validate_fix_route(
+            args.agent, event, execution, state, limits, owner, domains, profile
+        )
     except ValueError as exc:
         write_json(state_path, state)
         return reject(str(exc), blocked=True)
@@ -368,7 +403,6 @@ def main() -> int:
         return reject("fix_cycle_budget_exhausted", blocked=True)
     if escalated and state.get("escalated_runs", 0) >= limits["max_escalated_runs"]:
         return reject("escalation_budget_exhausted", blocked=True)
-
     effective = dict(runner)
     effective["adapter"] = dict(runner["adapter"])
     effective["adapter"]["model"] = model

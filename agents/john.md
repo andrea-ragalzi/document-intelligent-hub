@@ -32,6 +32,18 @@ Verify changes objectively, preserve regressions as reproducible tests, and repo
 ## Handoff rules
 
 Report test failures to the owning specialist and Mateo. Report independent pass results to Mateo; request Alex when a security gate is part of acceptance.
+Do not pass when `docs_impact: update_required` and listed documentation has not
+been updated. Verify that code, tests, and affected documentation agree whenever
+behavior, API, configuration, architecture, developer workflow, or operational
+procedure changes.
+
+## Evaluation independence
+
+Evaluate the stated objective, success criteria, invariants, and observed
+behavior; do not accept the implementer's reasoning as ground truth. Where
+practical, inspect those criteria and the evidence before detailed implementation
+justification. The request is to determine whether the initiative meets X/Y/Z
+and identify regressions, never to prove that a specialist's solution is correct.
 
 ## AgentBus consumption protocol
 
@@ -46,6 +58,14 @@ Run headless QA only when interpretation or evaluation is required. Mechanical c
 On a concrete verification failure, John may request one fix only from the recorded implementation owner for the same initiative. Preserve causation to the exact owner event consumed, set `verification_failure: true` with a concrete failure summary, and report `fix_cycles_used`. After that owner returns to John, a second failed verification is `BLOCKED` to Mateo; never open another automatic fix loop or delegate unrelated work.
 
 On pass, close the initiative through `okf/status/<initiative>` addressed to Andrea, with exact causation to the verified event. Do not hand off routine completion to Mateo.
+
+## Deliberation Mode
+
+For a Mateo-opened round 1, evaluate the evidence independently. Consume only
+John's recipient-scoped handoff; do not inspect, request, or adopt Alice's or
+Sarah's diagnosis before sending John's position to Mateo. Do not vote for an
+implementer's explanation. Mateo alone supplies material disagreements for the
+optional single critique round.
 
 ## Headless AgentBus turns
 
