@@ -997,24 +997,36 @@ class AnswerGenerationService:
         included = set(include_files or [])
         excluded = set(exclude_files or [])
         for document in candidates:
-            metadata = getattr(document, "metadata", {})
-            if metadata.get("context_aggregation") is True:
-                continue
-            if metadata.get("source") != user_id:
-                continue
-            filename = metadata.get("original_filename")
-            if not isinstance(filename, str) or not filename:
-                continue
-            if included and filename not in included:
-                continue
-            if filename in excluded:
-                continue
-            page = self._normalize_page_number(metadata.get("page_number"))
             source_id = self._document_source_id(document)
-            if page is None or source_id is None or source_id in allowed:
+            if source_id is None or source_id in allowed:
+                continue
+            if not self._is_authorized_atomic_candidate(
+                document, user_id=user_id, included=included, excluded=excluded
+            ):
                 continue
             allowed[source_id] = document
         return allowed
+
+    def _is_authorized_atomic_candidate(
+        self,
+        document: Any,
+        *,
+        user_id: str,
+        included: set[str],
+        excluded: set[str],
+    ) -> bool:
+        """Check trusted metadata before exposing an atom to extraction."""
+        metadata = getattr(document, "metadata", {})
+        filename = metadata.get("original_filename")
+        return (
+            metadata.get("context_aggregation") is not True
+            and metadata.get("source") == user_id
+            and isinstance(filename, str)
+            and bool(filename)
+            and (not included or filename in included)
+            and filename not in excluded
+            and self._normalize_page_number(metadata.get("page_number")) is not None
+        )
 
     def _extract_atomic_evidence(
         self, question: str, candidates: dict[str, Any]

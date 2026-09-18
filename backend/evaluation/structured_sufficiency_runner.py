@@ -105,6 +105,15 @@ class ObservabilityFailure(RuntimeError):
     """The durable evaluation artifact is missing required observations."""
 
 
+def _artifact_path(path: Path, allowed_root: Path) -> Path:
+    """Keep evaluation artifacts beneath their caller-approved directory."""
+    root = allowed_root.resolve()
+    resolved = path.resolve()
+    if resolved.suffix != ".json" or not resolved.is_relative_to(root):
+        raise ObservabilityFailure("artifact path must be a JSON file under results")
+    return resolved
+
+
 def _atomic_write(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
@@ -138,15 +147,9 @@ def load_artifact(path: Path) -> dict[str, Any]:
     return cast(dict[str, Any], value)
 
 
-def validate_complete_artifact(
-    artifact: Mapping[str, Any], expected_case_ids: Sequence[str]
-) -> None:
-    """Require every case and metric needed for the acceptance decision."""
-    if artifact.get("status") != "complete":
-        raise ObservabilityFailure("artifact status is not complete")
-    results = artifact.get("cases")
-    if not isinstance(results, list):
-        raise ObservabilityFailure("artifact cases must be a list")
+def _validate_case_ids(
+    results: list[Any], expected_case_ids: Sequence[str]
+) -> list[str]:
     raw_ids = [item.get("case_id") for item in results if isinstance(item, Mapping)]
     if not all(isinstance(case_id, str) for case_id in raw_ids):
         raise ObservabilityFailure("artifact contains an invalid case ID")
@@ -159,6 +162,10 @@ def validate_complete_artifact(
         raise ObservabilityFailure(
             f"artifact case set is incomplete: missing={missing}, unexpected={unexpected}"
         )
+    return ids
+
+
+def _validate_case_fields(results: list[Any]) -> None:
     for item in results:
         assert isinstance(item, Mapping)
         missing_fields = sorted(CASE_FIELDS - set(item))
@@ -167,7 +174,8 @@ def validate_complete_artifact(
                 f"case {item.get('case_id')} missing fields: {missing_fields}"
             )
 
-    aggregates = artifact.get("cohort_aggregates")
+
+def _validate_aggregate_fields(aggregates: Any) -> None:
     if not isinstance(aggregates, Mapping):
         raise ObservabilityFailure("cohort aggregates are missing")
     required = {
@@ -185,11 +193,31 @@ def validate_complete_artifact(
             )
 
 
+def validate_complete_artifact(
+    artifact: Mapping[str, Any], expected_case_ids: Sequence[str]
+) -> None:
+    """Require every case and metric needed for the acceptance decision."""
+    if artifact.get("status") != "complete":
+        raise ObservabilityFailure("artifact status is not complete")
+    results = artifact.get("cases")
+    if not isinstance(results, list):
+        raise ObservabilityFailure("artifact cases must be a list")
+    _validate_case_ids(results, expected_case_ids)
+    _validate_case_fields(results)
+    _validate_aggregate_fields(artifact.get("cohort_aggregates"))
+
+
 class IncrementalArtifact:
     """Persist a complete snapshot after every evaluation state transition."""
 
-    def __init__(self, path: Path, expected_case_ids: Sequence[str]) -> None:
-        self.path = path
+    def __init__(
+        self,
+        path: Path,
+        expected_case_ids: Sequence[str],
+        *,
+        allowed_root: Path = RESULTS_DIR,
+    ) -> None:
+        self.path = _artifact_path(path, allowed_root)
         self.expected_case_ids = list(expected_case_ids)
         self.payload: dict[str, Any] = {
             "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
@@ -336,6 +364,43 @@ def _target_observations(
     )
 
 
+def _trace_list(trace: Mapping[str, Any], field: str) -> list[Any]:
+    value = _trace_value(trace, field, [])
+    return value if isinstance(value, list) else []
+
+
+def _artifact_first_loss(
+    case_id: str,
+    selection: Mapping[str, Any],
+    *,
+    current: Any,
+    final_coverage: float | None,
+    evidence_available: bool,
+    rescue_triggered: bool,
+    extracted: bool | None,
+    validated: bool | None,
+    reached: bool | None,
+    valid_normal_evidence_ids: Sequence[str],
+) -> Any:
+    first_loss = current if current is not None else selection.get("first_loss_stage")
+    if case_id in ALICE_TARGETS and final_coverage is not None and final_coverage < 1.0:
+        if not evidence_available:
+            first_loss = selection.get("first_loss_stage") or "reranked_atomic_candidates"
+        elif not rescue_triggered:
+            first_loss = "normal_generation"
+        elif extracted is not True:
+            first_loss = "extraction"
+        elif validated is not True:
+            first_loss = "validation"
+        elif reached is not True:
+            first_loss = "rescue_context"
+        else:
+            first_loss = "rescue_generation"
+    if first_loss == "NOT_OBSERVABLE" and rescue_triggered and not valid_normal_evidence_ids:
+        return "citation_validation"
+    return first_loss
+
+
 def build_case_artifact(
     case: PublicEvalCase,
     raw_result: Mapping[str, Any],
@@ -345,24 +410,13 @@ def build_case_artifact(
     trace_value = raw_result.get("trace")
     trace = trace_value if isinstance(trace_value, Mapping) else {}
     normal_answer = str(_trace_value(trace, "normal_answer", ""))
-    normal_evidence_value = _trace_value(trace, "normal_evidence_ids", [])
-    normal_evidence_ids = (
-        [str(value) for value in normal_evidence_value]
-        if isinstance(normal_evidence_value, list)
-        else []
-    )
-    valid_normal_value = _trace_value(trace, "valid_normal_evidence_ids", [])
-    valid_normal_evidence_ids = (
-        [str(value) for value in valid_normal_value]
-        if isinstance(valid_normal_value, list)
-        else []
-    )
-    normal_citations_value = _trace_value(trace, "normal_citations", [])
-    normal_citations = (
-        normal_citations_value
-        if isinstance(normal_citations_value, list)
-        else _normal_citations(trace, normal_evidence_ids)
-    )
+    normal_evidence_ids = [str(value) for value in _trace_list(trace, "normal_evidence_ids")]
+    valid_normal_evidence_ids = [
+        str(value) for value in _trace_list(trace, "valid_normal_evidence_ids")
+    ]
+    normal_citations = _trace_list(trace, "normal_citations")
+    if not normal_citations:
+        normal_citations = _normal_citations(trace, normal_evidence_ids)
     normal = score_case(
         case,
         {
@@ -383,24 +437,14 @@ def build_case_artifact(
     abstention = cast(Mapping[str, Any], scored["stage_metrics"])["abstention"]
     selection = cast(Mapping[str, Any], scored["stage_metrics"])["selection"]
 
-    extraction_records_value = _trace_value(trace, "extraction_records", [])
-    validation_results_value = _trace_value(trace, "validation_results", [])
-    verified_records_value = _trace_value(
-        trace, "verified_spans_reaching_generation", []
-    )
-    extraction_records = (
-        extraction_records_value if isinstance(extraction_records_value, list) else []
-    )
-    validation_results = (
-        validation_results_value if isinstance(validation_results_value, list) else []
-    )
-    verified_records = verified_records_value if isinstance(verified_records_value, list) else []
+    extraction_records = _trace_list(trace, "extraction_records")
+    validation_results = _trace_list(trace, "validation_results")
+    verified_records = _trace_list(trace, "verified_spans_reaching_generation")
     accepted = _accepted_records(extraction_records, validation_results)
     extracted, validated, reached = _target_observations(
         case.id, extraction_records, accepted, verified_records
     )
-    atomic_ids_value = _trace_value(trace, "reranked_atomic_ids", [])
-    atomic_ids = [str(value) for value in atomic_ids_value] if isinstance(atomic_ids_value, list) else []
+    atomic_ids = [str(value) for value in _trace_list(trace, "reranked_atomic_ids")]
     rescue_triggered = bool(_trace_value(trace, "rescue_triggered", False))
     rescue_reason = _trace_value(trace, "rescue_reason")
     rescue_answer_value = _trace_value(trace, "rescue_answer")
@@ -412,23 +456,19 @@ def build_case_artifact(
     correct_evidence_available = _expected_atomic_evidence_available(
         case, trace, atomic_ids
     )
-    first_loss = _trace_value(trace, "first_loss_stage")
-    if first_loss is None:
-        first_loss = selection.get("first_loss_stage")
     final_coverage = _number(final_quality["fact_coverage"])
-    if case.id in ALICE_TARGETS and final_coverage is not None and final_coverage < 1.0:
-        if not correct_evidence_available:
-            first_loss = selection.get("first_loss_stage") or "reranked_atomic_candidates"
-        elif not rescue_triggered:
-            first_loss = "normal_generation"
-        elif extracted is not True:
-            first_loss = "extraction"
-        elif validated is not True:
-            first_loss = "validation"
-        elif reached is not True:
-            first_loss = "rescue_context"
-        else:
-            first_loss = "rescue_generation"
+    first_loss = _artifact_first_loss(
+        case.id,
+        selection,
+        current=_trace_value(trace, "first_loss_stage"),
+        final_coverage=final_coverage,
+        evidence_available=correct_evidence_available,
+        rescue_triggered=rescue_triggered,
+        extracted=extracted,
+        validated=validated,
+        reached=reached,
+        valid_normal_evidence_ids=valid_normal_evidence_ids,
+    )
     normal_coverage = _number(normal_quality["fact_coverage"])
     rescue_improved = (
         rescue_triggered
@@ -436,13 +476,6 @@ def build_case_artifact(
         and normal_coverage is not None
         and final_coverage > normal_coverage
     )
-    if (
-        first_loss == "NOT_OBSERVABLE"
-        and rescue_triggered
-        and not valid_normal_evidence_ids
-    ):
-        first_loss = "citation_validation"
-
     metrics = raw_result.get("metrics")
     latency = metrics.get("latency_ms") if isinstance(metrics, Mapping) else None
     return {
@@ -487,7 +520,7 @@ def build_case_artifact(
 
 def build_error_case_artifact(case: PublicEvalCase, exc: Exception) -> dict[str, Any]:
     """Keep a failed case observable while allowing later cases to complete."""
-    result: dict[str, Any] = {field: None for field in CASE_FIELDS}
+    result: dict[str, Any] = dict.fromkeys(CASE_FIELDS)
     result.update(
         {
             "case_id": case.id,
@@ -511,6 +544,56 @@ def _mean_numeric(results: Sequence[Mapping[str, Any]], field: str) -> float | N
     values = [_number(result.get(field)) for result in results]
     observed = [value for value in values if value is not None]
     return sum(observed) / len(observed) if observed else None
+
+
+def _coverage_improved(result: Mapping[str, Any]) -> bool:
+    final = _number(result.get("final_expected_fact_coverage"))
+    normal = _number(result.get("normal_expected_fact_coverage"))
+    return final is not None and normal is not None and final > normal
+
+
+def _extraction_aggregate(results: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    validated_records = 0
+    matching_validated_records = 0
+    matched_targets = 0
+    for result in results:
+        case_id = str(result["case_id"])
+        targets = ALICE_TARGETS[case_id]
+        accepted_spans = [
+            str(record.get("exact_evidence_span", ""))
+            for record, validation in zip(
+                cast(list[Any], result.get("extraction_records", [])),
+                cast(list[Any], result.get("extraction_validation_results", [])),
+                strict=False,
+            )
+            if isinstance(record, Mapping)
+            and isinstance(validation, Mapping)
+            and validation.get("accepted") is True
+        ]
+        validated_records += len(accepted_spans)
+        matching_validated_records += sum(
+            any(target in span for target in targets) for span in accepted_spans
+        )
+        matched_targets += sum(
+            any(target in span for span in accepted_spans) for target in targets
+        )
+    available_targets = sum(
+        len(ALICE_TARGETS[str(result["case_id"])])
+        for result in results
+        if result.get("rescue_triggered") is True
+        and result.get("correct_evidence_available") is True
+    )
+    return {
+        "extraction_precision": (
+            matching_validated_records / validated_records if validated_records else 0.0
+        ),
+        "extraction_recall": (
+            matched_targets / available_targets if available_targets else 0.0
+        ),
+        "first_loss_distribution": dict(
+            Counter(str(result.get("first_loss_stage")) for result in results)
+        ),
+    }
 
 
 def _cohort_aggregate(
@@ -555,13 +638,7 @@ def _cohort_aggregate(
             for result in results
         ),
         "rescue_triggers": len(rescue_results),
-        "rescue_successes": sum(
-            _number(result.get("final_expected_fact_coverage")) is not None
-            and _number(result.get("normal_expected_fact_coverage")) is not None
-            and cast(float, _number(result.get("final_expected_fact_coverage")))
-            > cast(float, _number(result.get("normal_expected_fact_coverage")))
-            for result in rescue_results
-        ),
+        "rescue_successes": sum(_coverage_improved(result) for result in rescue_results),
         "baseline_citation_precision": baseline_citation_precision,
         "baseline_citation_recall": baseline_citation_recall,
         "citation_precision_delta": (
@@ -578,52 +655,7 @@ def _cohort_aggregate(
         "false_abstention_delta": false_abstentions - baseline_false_abstentions,
     }
     if include_extraction:
-        validated_records = 0
-        matching_validated_records = 0
-        matched_targets = 0
-        for result in results:
-            case_id = str(result["case_id"])
-            targets = ALICE_TARGETS[case_id]
-            records = cast(list[Any], result.get("extraction_records", []))
-            validations = cast(
-                list[Any], result.get("extraction_validation_results", [])
-            )
-            accepted_spans: list[str] = []
-            for record, validation in zip(records, validations, strict=False):
-                if (
-                    isinstance(record, Mapping)
-                    and isinstance(validation, Mapping)
-                    and validation.get("accepted") is True
-                ):
-                    validated_records += 1
-                    span = str(record.get("exact_evidence_span", ""))
-                    accepted_spans.append(span)
-                    if any(target in span for target in targets):
-                        matching_validated_records += 1
-            matched_targets += sum(
-                any(target in span for span in accepted_spans) for target in targets
-            )
-        available_targets = sum(
-            len(ALICE_TARGETS[str(result["case_id"])])
-            for result in results
-            if result.get("rescue_triggered") is True
-            and result.get("correct_evidence_available") is True
-        )
-        aggregate.update(
-            {
-                "extraction_precision": (
-                    matching_validated_records / validated_records
-                    if validated_records
-                    else 0.0
-                ),
-                "extraction_recall": (
-                    matched_targets / available_targets if available_targets else 0.0
-                ),
-                "first_loss_distribution": dict(
-                    Counter(str(result.get("first_loss_stage")) for result in results)
-                ),
-            }
-        )
+        aggregate.update(_extraction_aggregate(results))
     return aggregate
 
 

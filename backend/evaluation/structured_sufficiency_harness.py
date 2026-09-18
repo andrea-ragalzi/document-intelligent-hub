@@ -41,6 +41,6 @@ def missing_targets(chunks: list[str]) -> list[str]:
     return [target for targets in ALICE_TARGETS.values() for target in targets if target not in corpus]
 
 def trace_payload(**values: Any) -> dict[str, Any]:
-    payload = {field: None for field in TRACE_FIELDS}
+    payload = dict.fromkeys(TRACE_FIELDS)
     payload.update(values)
     return payload

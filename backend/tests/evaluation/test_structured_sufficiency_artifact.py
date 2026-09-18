@@ -52,7 +52,7 @@ def test_artifact_path_exists_before_evaluation_and_flushes_each_case(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "nested" / "artifact.json"
-    writer = IncrementalArtifact(path, _ids())
+    writer = IncrementalArtifact(path, _ids(), allowed_root=tmp_path)
 
     assert path.is_file()
     assert load_artifact(path)["cases"] == []
@@ -62,9 +62,14 @@ def test_artifact_path_exists_before_evaluation_and_flushes_each_case(
     assert [item["case_id"] for item in load_artifact(path)["cases"]] == ["ALI-001"]
 
 
+def test_artifact_path_is_confined_to_the_allowed_directory(tmp_path: Path) -> None:
+    with pytest.raises(ObservabilityFailure, match="under results"):
+        IncrementalArtifact(tmp_path.parent / "artifact.json", _ids(), allowed_root=tmp_path)
+
+
 def test_partial_results_survive_a_later_failure(tmp_path: Path) -> None:
     path = tmp_path / "artifact.json"
-    writer = IncrementalArtifact(path, _ids())
+    writer = IncrementalArtifact(path, _ids(), allowed_root=tmp_path)
     writer.record_case(_case("ALI-001"))
     writer.record_failure("later case failed", status="evaluation_failure")
 
@@ -77,7 +82,7 @@ def test_partial_results_survive_a_later_failure(tmp_path: Path) -> None:
 
 def test_finalized_artifact_reloads_with_all_30_cases(tmp_path: Path) -> None:
     path = tmp_path / "artifact.json"
-    writer = IncrementalArtifact(path, _ids())
+    writer = IncrementalArtifact(path, _ids(), allowed_root=tmp_path)
     for case_id in _ids():
         writer.record_case(_case(case_id))
 
@@ -89,7 +94,9 @@ def test_finalized_artifact_reloads_with_all_30_cases(tmp_path: Path) -> None:
 
 
 def test_missing_case_is_observability_failure(tmp_path: Path) -> None:
-    writer = IncrementalArtifact(tmp_path / "artifact.json", _ids())
+    writer = IncrementalArtifact(
+        tmp_path / "artifact.json", _ids(), allowed_root=tmp_path
+    )
     for case_id in _ids()[:-1]:
         writer.record_case(_case(case_id))
     writer.payload["status"] = "complete"
@@ -100,7 +107,9 @@ def test_missing_case_is_observability_failure(tmp_path: Path) -> None:
 
 
 def test_missing_case_metric_is_observability_failure(tmp_path: Path) -> None:
-    writer = IncrementalArtifact(tmp_path / "artifact.json", _ids())
+    writer = IncrementalArtifact(
+        tmp_path / "artifact.json", _ids(), allowed_root=tmp_path
+    )
     cases = [_case(case_id) for case_id in _ids()]
     del cases[0]["citation_recall"]
     writer.payload.update(
@@ -112,7 +121,9 @@ def test_missing_case_metric_is_observability_failure(tmp_path: Path) -> None:
 
 
 def test_missing_cohort_metric_is_observability_failure(tmp_path: Path) -> None:
-    writer = IncrementalArtifact(tmp_path / "artifact.json", _ids())
+    writer = IncrementalArtifact(
+        tmp_path / "artifact.json", _ids(), allowed_root=tmp_path
+    )
     aggregates = _aggregates()
     del aggregates["alice-14"]["extraction_recall"]
     writer.payload.update(
