@@ -117,12 +117,13 @@ def test_authenticated_rag_happy_path_is_scoped_and_returns_sources() -> None:
     )
     assert retriever.invoke.call_args_list == [
         call("What changed in the retention policy?"),
+        call("What changed?"),
         call("retention policy changes"),
     ]
 
     rerank_call = reranker.rerank_candidates.call_args.kwargs
     assert rerank_call["documents"] == retrieved_documents
-    assert rerank_call["original_query"] == "What changed in the retention policy?"
+    assert rerank_call["original_query"] == "What changed?"
     assert rerank_call["alternative_queries"] == ["retention policy changes"]
 
     structured_llm.invoke.assert_called_once()

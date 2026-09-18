@@ -1,11 +1,11 @@
 from evaluation.run_public_eval import CASES_PATH, load_cases
 
 
-def test_public_dataset_has_exactly_twenty_unique_valid_cases() -> None:
+def test_public_dataset_has_exactly_twenty_three_unique_valid_cases() -> None:
     cases = load_cases(CASES_PATH)
 
-    assert len(cases) == 20
-    assert len({case.id for case in cases}) == 20
+    assert len(cases) == 23
+    assert len({case.id for case in cases}) == 23
     assert all(case.question.strip() for case in cases)
     assert all(case.expected_evidence for case in cases)
     assert all(case.tags for case in cases)

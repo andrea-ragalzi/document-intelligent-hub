@@ -11,6 +11,12 @@ agents:
   maya: { role: frontend }
   john: { role: qa }
   alex: { role: reviewer }
+  alice:
+    role: rag_theory
+    activation: on_demand
+    default_runner:
+      model: gpt-5.6-sol
+      reasoning_effort: high
 
 budget_profiles:
   simple:

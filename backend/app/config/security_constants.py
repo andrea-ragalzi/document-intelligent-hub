@@ -82,11 +82,5 @@ MAX_FILENAME_LENGTH = 255
 
 # === TIMEOUT SETTINGS ===
 
-# Maximum time to wait for LLM response (seconds)
-LLM_TIMEOUT_SECONDS = 60
-# One provider attempt keeps the effective wait bounded by the configured
-# timeout instead of multiplying it through SDK retries.
-LLM_MAX_RETRIES = 0
-
 # Maximum time to wait for PDF parsing (seconds)
 PDF_PARSING_TIMEOUT_SECONDS = 30
