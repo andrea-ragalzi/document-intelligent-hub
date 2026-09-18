@@ -23,6 +23,7 @@ from app.core.constants import LLMConstants, QueryConstants
 from app.core.logging import logger
 from app.ports.vector_store import VectorStorePort
 from app.ports.translation import TranslationPort
+from app.ports.evaluation_trace import EvaluationTraceObserver
 from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
 from app.services.final_context_selector_service import FinalContextSelector
 from app.services.language_service import LanguageService
@@ -108,6 +109,37 @@ class AnswerGenerationService:
         self.query_expansion_service = query_expansion_service
         self.reranking_service = reranking_service
         self.final_context_selector = final_context_selector or FinalContextSelector()
+        self.evaluation_trace_observer: EvaluationTraceObserver | None = None
+
+    def _trace(self, stage: str, payload: dict[str, Any]) -> None:
+        """Emit evaluator-only metadata without touching pipeline state."""
+        if self.evaluation_trace_observer is not None:
+            self.evaluation_trace_observer.record(stage, payload)
+
+    @staticmethod
+    def _trace_document(document: Any, rank: int | None = None) -> dict[str, Any]:
+        """Return metadata-only identity for evaluator traces."""
+        metadata = getattr(document, "metadata", {})
+        identifier = (
+            metadata.get("chunk_id")
+            or metadata.get("element_id")
+            or metadata.get("context_parent_id")
+        )
+        result: dict[str, Any] = {
+            "id": str(identifier) if identifier is not None else None,
+            "filename": metadata.get("original_filename"),
+            "page_number": metadata.get("page_number"),
+            "type": "aggregate"
+            if metadata.get("context_aggregation") is True
+            else "atomic",
+            "citable": metadata.get("context_aggregation") is not True,
+        }
+        if rank is not None:
+            result["rank"] = rank
+        score = metadata.get("rerank_score")
+        if isinstance(score, (int, float)) and not isinstance(score, bool):
+            result["score"] = float(score)
+        return result
 
     def generate_answer(  # pylint: disable=too-many-arguments
         self,
@@ -285,6 +317,29 @@ class AnswerGenerationService:
         with ThreadPoolExecutor(max_workers=min(4, len(all_queries))) as executor:
             search_results = list(executor.map(search_query, all_queries))
 
+        self._trace(
+            "retrieval",
+            {
+                "query_expansion_ms": round(expansion_ms, 2),
+                "expansions": alternative_queries + compound_queries,
+                "queries": all_queries,
+                "dense": [
+                    {
+                        "query": query,
+                        "latency_ms": round(search_ms, 2),
+                        "candidates": [
+                            self._trace_document(document, rank)
+                            for rank, document in enumerate(documents, start=1)
+                        ],
+                    }
+                    for query, (documents, search_ms) in zip(
+                        all_queries, search_results, strict=False
+                    )
+                ],
+                "lexical": [],
+            },
+        )
+
         all_retrieved_docs = []
         doc_ids = set()
 
@@ -303,6 +358,7 @@ class AnswerGenerationService:
 
         lexical_terms = self._extract_lexical_terms([original_query] + compound_queries)
         if lexical_terms:
+            lexical_started = time.perf_counter()
             lexical_docs = self.repository.lexical_candidate_search(
                 user_id,
                 lexical_terms,
@@ -313,6 +369,17 @@ class AnswerGenerationService:
                 "🔤 Lexical candidate lookup for %s distinctive terms returned %s chunks",
                 len(lexical_terms),
                 len(lexical_docs),
+            )
+            self._trace(
+                "retrieval",
+                {
+                    "lexical": [
+                        self._trace_document(document, rank)
+                        for rank, document in enumerate(lexical_docs, start=1)
+                    ],
+                    "lexical_terms": lexical_terms,
+                    "latency_ms": round((time.perf_counter() - lexical_started) * 1000, 2),
+                },
             )
             for document in lexical_docs:
                 document_id = self._document_key(document)
@@ -337,6 +404,17 @@ class AnswerGenerationService:
 
         all_retrieved_docs = self._suppress_retrieval_noise(all_retrieved_docs)
 
+        self._trace(
+            "merge",
+            {
+                "latency_ms": round((time.perf_counter() - retrieval_started) * 1000, 2),
+                "candidates": [
+                    self._trace_document(document, rank)
+                    for rank, document in enumerate(all_retrieved_docs, start=1)
+                ]
+            },
+        )
+
         # A retrieved page can be structurally fragmented even when lexical
         # lookup did not identify a distinctive term. Add one temporary,
         # tenant-scoped page context using the repository's existing heuristic.
@@ -353,7 +431,32 @@ class AnswerGenerationService:
             retrieval_query=translated_query,
             required_query_groups=compound_queries,
         )
+        self._trace(
+            "rerank",
+            {
+                "latency_ms": round((time.perf_counter() - reranking_started) * 1000, 2),
+                "candidates": [
+                    self._trace_document(document, rank)
+                    for rank, document in enumerate(reranked_candidates, start=1)
+                ]
+            },
+        )
+        selection_started = time.perf_counter()
         context_docs = self.final_context_selector.select(reranked_candidates)
+        self._trace(
+            "selection",
+            {
+                "latency_ms": round((time.perf_counter() - selection_started) * 1000, 2),
+                "selected": [
+                    self._trace_document(document, rank)
+                    for rank, document in enumerate(context_docs, start=1)
+                ],
+                "candidates": [
+                    self._trace_document(document, rank)
+                    for rank, document in enumerate(reranked_candidates, start=1)
+                ],
+            },
+        )
         logger.debug("Reranking completed: {} documents", len(context_docs))
         logger.debug(
             f"⏱️ RAG timing | reranking="
@@ -566,19 +669,54 @@ class AnswerGenerationService:
             for index, document in enumerate(context_docs, start=1)
         }
         context_str = self._format_context_documents(context_by_id)
+        self._trace(
+            "generation_context",
+            {
+                "contexts": [
+                    {
+                        "context_id": context_id,
+                        **self._trace_document(document),
+                    }
+                    for context_id, document in context_by_id.items()
+                ]
+            },
+        )
         final_llm_query = self._build_final_prompt(
             context_str, history_str, current_user_message, response_language
         )
 
         try:
             final_answer, evidence_ids = self._invoke_llm_and_translate(final_llm_query)
-            return final_answer, self._citations_from_evidence_ids(
+            citations = self._citations_from_evidence_ids(
                 context_by_id, evidence_ids
             )
+            self._trace(
+                "generation_result",
+                {
+                    "returned_evidence_ids": list(evidence_ids),
+                    "citations": citations,
+                    "abstention": final_answer == self._get_fallback_response(),
+                    "fallback_reason": (
+                        "provider_or_generation_error"
+                        if final_answer == self._get_fallback_response()
+                        else None
+                    ),
+                },
+            )
+            return final_answer, citations
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.error(
                 "Answer-model invocation failed | Type: {}", type(exc).__name__
+            )
+            self._trace(
+                "generation_result",
+                {
+                    "returned_evidence_ids": [],
+                    "citations": [],
+                    "abstention": True,
+                    "fallback_reason": "provider_or_generation_error",
+                },
             )
             return self._get_fallback_response(), []
 
