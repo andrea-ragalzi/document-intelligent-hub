@@ -7,7 +7,7 @@ intake:
 adapter:
   type: codex
   command: /home/andrea/.var/app/dev.zed.Zed/data/zed/node/node-v24.11.0-linux-x64/bin/codex
-  model: gpt-5.6-sol
+  model: gpt-5.6-luna
   output_format: json
   timeout_seconds: 600
   extra_args:
