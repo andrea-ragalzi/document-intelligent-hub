@@ -63,8 +63,10 @@ def test_artifact_path_exists_before_evaluation_and_flushes_each_case(
 
 
 def test_artifact_path_is_confined_to_the_allowed_directory(tmp_path: Path) -> None:
+    case_ids = _ids()
+    outside_path = tmp_path.parent / "artifact.json"
     with pytest.raises(ObservabilityFailure, match="under results"):
-        IncrementalArtifact(tmp_path.parent / "artifact.json", _ids(), allowed_root=tmp_path)
+        IncrementalArtifact(outside_path, case_ids, allowed_root=tmp_path)
 
 
 def test_partial_results_survive_a_later_failure(tmp_path: Path) -> None:
@@ -94,48 +96,54 @@ def test_finalized_artifact_reloads_with_all_30_cases(tmp_path: Path) -> None:
 
 
 def test_missing_case_is_observability_failure(tmp_path: Path) -> None:
+    case_ids = _ids()
     writer = IncrementalArtifact(
-        tmp_path / "artifact.json", _ids(), allowed_root=tmp_path
+        tmp_path / "artifact.json", case_ids, allowed_root=tmp_path
     )
-    for case_id in _ids()[:-1]:
+    for case_id in case_ids[:-1]:
         writer.record_case(_case(case_id))
     writer.payload["status"] = "complete"
     writer.payload["cohort_aggregates"] = _aggregates()
+    artifact = writer.payload
 
     with pytest.raises(ObservabilityFailure, match="case set is incomplete"):
-        validate_complete_artifact(writer.payload, _ids())
+        validate_complete_artifact(artifact, case_ids)
 
 
 def test_missing_case_metric_is_observability_failure(tmp_path: Path) -> None:
+    case_ids = _ids()
     writer = IncrementalArtifact(
-        tmp_path / "artifact.json", _ids(), allowed_root=tmp_path
+        tmp_path / "artifact.json", case_ids, allowed_root=tmp_path
     )
-    cases = [_case(case_id) for case_id in _ids()]
+    cases = [_case(case_id) for case_id in case_ids]
     del cases[0]["citation_recall"]
     writer.payload.update(
         {"status": "complete", "cases": cases, "cohort_aggregates": _aggregates()}
     )
+    artifact = writer.payload
 
     with pytest.raises(ObservabilityFailure, match="citation_recall"):
-        validate_complete_artifact(writer.payload, _ids())
+        validate_complete_artifact(artifact, case_ids)
 
 
 def test_missing_cohort_metric_is_observability_failure(tmp_path: Path) -> None:
+    case_ids = _ids()
     writer = IncrementalArtifact(
-        tmp_path / "artifact.json", _ids(), allowed_root=tmp_path
+        tmp_path / "artifact.json", case_ids, allowed_root=tmp_path
     )
     aggregates = _aggregates()
     del aggregates["alice-14"]["extraction_recall"]
     writer.payload.update(
         {
             "status": "complete",
-            "cases": [_case(case_id) for case_id in _ids()],
+            "cases": [_case(case_id) for case_id in case_ids],
             "cohort_aggregates": aggregates,
         }
     )
+    artifact = writer.payload
 
     with pytest.raises(ObservabilityFailure, match="extraction_recall"):
-        validate_complete_artifact(writer.payload, _ids())
+        validate_complete_artifact(artifact, case_ids)
 
 
 def test_case_projection_persists_baseline_and_final_comparison() -> None:

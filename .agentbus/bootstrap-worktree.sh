@@ -8,4 +8,4 @@ cd "$worktree/backend"
 poetry config virtualenvs.in-project false --local
 poetry config virtualenvs.path "$worktree/.poetry-venvs" --local
 poetry env remove --all >/dev/null 2>&1 || true
-poetry install --no-root
+poetry install --no-root --no-directory
