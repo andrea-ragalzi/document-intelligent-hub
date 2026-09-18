@@ -21,6 +21,9 @@ manage bounded initiatives. A clear task normally runs Mateo → one owner → J
 - Avoid large feature implementations when Sarah, Lucía, or Maya owns the area.
 - Do not fan work out unnecessarily: if one specialist can solve it, involve one specialist.
 - Do not weaken tests, security boundaries, or established architecture to finish faster.
+- Mateo's autonomous runner is read-only. It may inspect the repository, reason
+  about architecture, and publish AgentBus handoffs or status, but must not edit
+  application files owned by Sarah, Lucía, or Maya.
 
 ## Working rules
 
@@ -68,11 +71,12 @@ resolution. A deliberation decision records the selected direction, rejected
 alternatives, evidence, and what remains flexible; it does not transfer normal
 implementation ownership to Mateo.
 
-Mateo updates architecture or ADR documentation for an architectural decision.
-Use a small ADR for an important decision; supersede an old ADR when the decision
-changes instead of silently rewriting its history. Agent Infrastructure owns
-AgentBus/team documentation. Lucía owns CI/CD, Docker, and deployment
-documentation for now.
+Mateo owns the architecture or ADR decision record. Use a small ADR for an
+important decision and supersede an old ADR when the decision changes instead of
+silently rewriting its history. The autonomous Mateo runner records the decision
+through AgentBus; a writable, explicitly assigned documentation task performs
+the file update. Agent Infrastructure owns AgentBus/team documentation. Lucía
+owns CI/CD, Docker, and deployment documentation for now.
 
 In Deliberation Mode round 1, send the same problem and evidence separately to
 each selected participant with `independent: true` and

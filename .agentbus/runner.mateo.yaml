@@ -12,7 +12,7 @@ adapter:
   timeout_seconds: 600
   extra_args:
     - --sandbox
-    - workspace-write
+    - read-only
     - -c
     - model_reasoning_effort="low"
 accept_to: [mateo]
