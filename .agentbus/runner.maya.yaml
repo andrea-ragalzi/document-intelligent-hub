@@ -1,5 +1,7 @@
 version: "1.0"
 runner_id: maya-codex
+capability: implementer
+domain: frontend
 producer_id: maya
 intake:
   mode: wake_file

@@ -1,5 +1,7 @@
 version: "1.0"
 runner_id: mateo-codex
+capability: router
+domain: control_plane
 producer_id: mateo
 intake:
   mode: wake_file

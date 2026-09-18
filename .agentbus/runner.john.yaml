@@ -1,5 +1,7 @@
 version: "1.0"
 runner_id: john-codex
+capability: verifier
+domain: independent
 producer_id: john
 intake:
   mode: wake_file

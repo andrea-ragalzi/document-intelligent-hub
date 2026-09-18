@@ -1,5 +1,7 @@
 version: "1.0"
 runner_id: sarah-codex
+capability: implementer
+domain: rag
 producer_id: sarah
 intake:
   mode: wake_file
