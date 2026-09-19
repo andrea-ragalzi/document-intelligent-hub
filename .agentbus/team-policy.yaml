@@ -4,19 +4,14 @@ default_runner:
   model: gpt-5.6-luna
   reasoning_effort: low
 
-agents:
-  mateo: { role: orchestrator }
-  sarah: { role: rag }
-  lucia: { role: backend }
-  maya: { role: frontend }
-  john: { role: qa }
-  alex: { role: reviewer }
-  alice:
-    role: rag_theory
-    activation: on_demand
-    default_runner:
-      model: gpt-5.6-luna
-      reasoning_effort: high
+# Runner files may retain human-readable producer aliases. Dispatch decisions
+# use this capability vocabulary, not personality-specific workflow branches.
+capabilities:
+  implementer: [rag, backend, frontend, infra]
+  verifier: [independent]
+  router: [control_plane]
+  analysis: [rag]
+  security_review: [security]
 
 documentation:
   docs_impact_values: [none, update_required]

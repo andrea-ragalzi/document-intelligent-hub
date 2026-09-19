@@ -1,5 +1,7 @@
 version: "1.0"
 runner_id: lucia-codex
+capability: implementer
+domain: backend
 producer_id: lucia
 intake:
   mode: wake_file

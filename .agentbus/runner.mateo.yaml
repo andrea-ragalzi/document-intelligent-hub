@@ -1,5 +1,7 @@
 version: "1.0"
 runner_id: mateo-codex
+capability: router
+domain: control_plane
 producer_id: mateo
 intake:
   mode: wake_file
@@ -12,7 +14,7 @@ adapter:
   timeout_seconds: 600
   extra_args:
     - --sandbox
-    - workspace-write
+    - read-only
     - -c
     - model_reasoning_effort="low"
 accept_to: [mateo]

@@ -22,6 +22,7 @@ from app.core.logging import logger
 from app.ports.uploaded_file import UploadedFilePort
 from app.ports.translation import TranslationPort
 from app.ports.vector_store import VectorStorePort
+from app.ports.evaluation_trace import EvaluationTraceObserver
 from app.schemas.rag_schema import ConversationMessage, DocumentInfo
 from app.services.answer_generation_service import AnswerGenerationService
 from app.services.conversation_service import ConversationService
@@ -78,6 +79,9 @@ class RAGService:
             query_gen_llm: Model used for classification and summarization
         """
         self.repository = repository
+        # Set only by the isolated evaluator.  Normal API requests leave this
+        # disabled, so tracing has no effect on production behavior.
+        self.evaluation_trace_observer: EvaluationTraceObserver | None = None
 
         self.llm = llm
         self.query_gen_llm = query_gen_llm
@@ -208,6 +212,24 @@ class RAGService:
         reformulated_query = self.query_processing_service.reformulate_query(
             query, relevant_history
         )
+        trace_observer = getattr(self, "evaluation_trace_observer", None)
+        if trace_observer is not None:
+            trace_observer.record(
+                "query_processing",
+                {
+                    "raw_query": current_user_query,
+                    "input_query": query,
+                    "processed_query": reformulated_query,
+                    "response_language": response_language,
+                },
+            )
+            trace_observer.record(
+                "filters",
+                {
+                    "include_files": list(include_files or []),
+                    "exclude_files": list(exclude_files or []),
+                },
+            )
         retrieval_language = self.language_service.detect_language(reformulated_query)
 
         # Generate answer with the unchanged full RAG pipeline. The former
@@ -221,6 +243,9 @@ class RAGService:
             current_user_message=current_user_query,
             include_files=include_files,
             exclude_files=exclude_files,
+        )
+        self.answer_generation_service.evaluation_trace_observer = (
+            trace_observer
         )
         if retrieval_queries:
             return self.answer_generation_service.generate_answer(

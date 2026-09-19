@@ -16,6 +16,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from langchain_core.documents import Document
 from langchain_core.language_models import BaseChatModel
 
 from app.core.config import settings
@@ -23,7 +24,13 @@ from app.core.constants import LLMConstants, QueryConstants
 from app.core.logging import logger
 from app.ports.vector_store import VectorStorePort
 from app.ports.translation import TranslationPort
-from app.schemas.rag_schema import AnswerWithEvidence, ConversationMessage
+from app.ports.evaluation_trace import EvaluationTraceObserver
+from app.schemas.rag_schema import (
+    AnswerWithEvidence,
+    ConversationMessage,
+    ExtractedEvidence,
+    ExtractedEvidenceRecord,
+)
 from app.services.final_context_selector_service import FinalContextSelector
 from app.services.language_service import LanguageService
 from app.services.query_expansion_service import QueryExpansionService
@@ -108,6 +115,37 @@ class AnswerGenerationService:
         self.query_expansion_service = query_expansion_service
         self.reranking_service = reranking_service
         self.final_context_selector = final_context_selector or FinalContextSelector()
+        self.evaluation_trace_observer: EvaluationTraceObserver | None = None
+
+    def _trace(self, stage: str, payload: dict[str, Any]) -> None:
+        """Emit evaluator-only metadata without touching pipeline state."""
+        if self.evaluation_trace_observer is not None:
+            self.evaluation_trace_observer.record(stage, payload)
+
+    @staticmethod
+    def _trace_document(document: Any, rank: int | None = None) -> dict[str, Any]:
+        """Return metadata-only identity for evaluator traces."""
+        metadata = getattr(document, "metadata", {})
+        identifier = (
+            metadata.get("chunk_id")
+            or metadata.get("element_id")
+            or metadata.get("context_parent_id")
+        )
+        result: dict[str, Any] = {
+            "id": str(identifier) if identifier is not None else None,
+            "filename": metadata.get("original_filename"),
+            "page_number": metadata.get("page_number"),
+            "type": "aggregate"
+            if metadata.get("context_aggregation") is True
+            else "atomic",
+            "citable": metadata.get("context_aggregation") is not True,
+        }
+        if rank is not None:
+            result["rank"] = rank
+        score = metadata.get("rerank_score")
+        if isinstance(score, (int, float)) and not isinstance(score, bool):
+            result["score"] = float(score)
+        return result
 
     def generate_answer(  # pylint: disable=too-many-arguments
         self,
@@ -176,6 +214,7 @@ class AnswerGenerationService:
             translated_query = query
 
         # Retrieve documents with query expansion
+        reranked_atomic_candidates: list[Any] = []
         context_docs = self._retrieve_and_rerank(
             translated_query,
             current_user_message,
@@ -183,6 +222,7 @@ class AnswerGenerationService:
             include_files=include_files,
             exclude_files=exclude_files,
             retrieval_queries=retrieval_queries,
+            atomic_candidates_out=reranked_atomic_candidates,
         )
 
         # Handle no documents found
@@ -198,6 +238,10 @@ class AnswerGenerationService:
             context_docs,
             conversation_history,
             response_language,
+            user_id=user_id,
+            include_files=include_files,
+            exclude_files=exclude_files,
+            reranked_atomic_candidates=reranked_atomic_candidates,
         )
 
         logger.debug(
@@ -215,6 +259,7 @@ class AnswerGenerationService:
         include_files: list[str] | None,
         exclude_files: list[str] | None,
         retrieval_queries: list[str] | None = None,
+        atomic_candidates_out: list[Any] | None = None,
     ) -> list[Any]:
         """
         Execute retrieval with query expansion and rerank results.
@@ -285,6 +330,29 @@ class AnswerGenerationService:
         with ThreadPoolExecutor(max_workers=min(4, len(all_queries))) as executor:
             search_results = list(executor.map(search_query, all_queries))
 
+        self._trace(
+            "retrieval",
+            {
+                "query_expansion_ms": round(expansion_ms, 2),
+                "expansions": alternative_queries + compound_queries,
+                "queries": all_queries,
+                "dense": [
+                    {
+                        "query": query,
+                        "latency_ms": round(search_ms, 2),
+                        "candidates": [
+                            self._trace_document(document, rank)
+                            for rank, document in enumerate(documents, start=1)
+                        ],
+                    }
+                    for query, (documents, search_ms) in zip(
+                        all_queries, search_results, strict=False
+                    )
+                ],
+                "lexical": [],
+            },
+        )
+
         all_retrieved_docs = []
         doc_ids = set()
 
@@ -303,6 +371,7 @@ class AnswerGenerationService:
 
         lexical_terms = self._extract_lexical_terms([original_query] + compound_queries)
         if lexical_terms:
+            lexical_started = time.perf_counter()
             lexical_docs = self.repository.lexical_candidate_search(
                 user_id,
                 lexical_terms,
@@ -313,6 +382,17 @@ class AnswerGenerationService:
                 "🔤 Lexical candidate lookup for %s distinctive terms returned %s chunks",
                 len(lexical_terms),
                 len(lexical_docs),
+            )
+            self._trace(
+                "retrieval",
+                {
+                    "lexical": [
+                        self._trace_document(document, rank)
+                        for rank, document in enumerate(lexical_docs, start=1)
+                    ],
+                    "lexical_terms": lexical_terms,
+                    "latency_ms": round((time.perf_counter() - lexical_started) * 1000, 2),
+                },
             )
             for document in lexical_docs:
                 document_id = self._document_key(document)
@@ -337,6 +417,17 @@ class AnswerGenerationService:
 
         all_retrieved_docs = self._suppress_retrieval_noise(all_retrieved_docs)
 
+        self._trace(
+            "merge",
+            {
+                "latency_ms": round((time.perf_counter() - retrieval_started) * 1000, 2),
+                "candidates": [
+                    self._trace_document(document, rank)
+                    for rank, document in enumerate(all_retrieved_docs, start=1)
+                ]
+            },
+        )
+
         # A retrieved page can be structurally fragmented even when lexical
         # lookup did not identify a distinctive term. Add one temporary,
         # tenant-scoped page context using the repository's existing heuristic.
@@ -353,7 +444,38 @@ class AnswerGenerationService:
             retrieval_query=translated_query,
             required_query_groups=compound_queries,
         )
+        if atomic_candidates_out is not None:
+            atomic_candidates_out.extend(
+                document
+                for document in reranked_candidates
+                if document.metadata.get("context_aggregation") is not True
+            )
+        self._trace(
+            "rerank",
+            {
+                "latency_ms": round((time.perf_counter() - reranking_started) * 1000, 2),
+                "candidates": [
+                    self._trace_document(document, rank)
+                    for rank, document in enumerate(reranked_candidates, start=1)
+                ]
+            },
+        )
+        selection_started = time.perf_counter()
         context_docs = self.final_context_selector.select(reranked_candidates)
+        self._trace(
+            "selection",
+            {
+                "latency_ms": round((time.perf_counter() - selection_started) * 1000, 2),
+                "selected": [
+                    self._trace_document(document, rank)
+                    for rank, document in enumerate(context_docs, start=1)
+                ],
+                "candidates": [
+                    self._trace_document(document, rank)
+                    for rank, document in enumerate(reranked_candidates, start=1)
+                ],
+            },
+        )
         logger.debug("Reranking completed: {} documents", len(context_docs))
         logger.debug(
             f"⏱️ RAG timing | reranking="
@@ -539,13 +661,18 @@ class AnswerGenerationService:
         names = [term for term in terms if term not in identifiers]
         return (identifiers + names)[:3]
 
-    def _generate_llm_response(  # pylint: disable=too-many-positional-arguments
+    def _generate_llm_response(  # pylint: disable=too-many-positional-arguments,too-many-arguments
         self,
         query: str,
         current_user_message: str,
         context_docs: list[Any],
         conversation_history: list[ConversationMessage],
         response_language: str,
+        *,
+        user_id: str = "",
+        include_files: list[str] | None = None,
+        exclude_files: list[str] | None = None,
+        reranked_atomic_candidates: list[Any] | None = None,
     ) -> tuple[str, list[SourceCitationData]]:
         """
         Generate LLM response with context and history.
@@ -566,21 +693,417 @@ class AnswerGenerationService:
             for index, document in enumerate(context_docs, start=1)
         }
         context_str = self._format_context_documents(context_by_id)
+        self._trace(
+            "generation_context",
+            {
+                "contexts": [
+                    {
+                        "context_id": context_id,
+                        **self._trace_document(document),
+                    }
+                    for context_id, document in context_by_id.items()
+                ]
+            },
+        )
         final_llm_query = self._build_final_prompt(
             context_str, history_str, current_user_message, response_language
         )
 
         try:
-            final_answer, evidence_ids = self._invoke_llm_and_translate(final_llm_query)
-            return final_answer, self._citations_from_evidence_ids(
-                context_by_id, evidence_ids
+            normal_answer, normal_evidence_ids = self._invoke_llm_and_translate(
+                final_llm_query
             )
+            normal_citations = self._citations_from_evidence_ids(
+                context_by_id, normal_evidence_ids
+            )
+            valid_normal_evidence_ids = self._valid_evidence_ids(
+                context_by_id, normal_evidence_ids
+            )
+            self._trace("normal_answer", {"value": normal_answer})
+            self._trace(
+                "normal_evidence_ids", {"value": list(normal_evidence_ids)}
+            )
+            self._trace(
+                "valid_normal_evidence_ids",
+                {"value": valid_normal_evidence_ids},
+            )
+            self._trace("normal_citations", {"value": normal_citations})
+
+            atomic_candidates = reranked_atomic_candidates or []
+            self._trace(
+                "reranked_atomic_ids",
+                {
+                    "value": [
+                        source_id
+                        for document in atomic_candidates
+                        if (source_id := self._document_source_id(document))
+                        is not None
+                    ]
+                },
+            )
+
+            if normal_citations:
+                self._trace("rescue_triggered", {"value": False})
+                self._trace("rescue_reason", {"value": "normal_valid_citations"})
+                self._trace("extraction_records", {"value": []})
+                self._trace("validation_results", {"value": []})
+                self._trace("verified_spans_reaching_generation", {"value": []})
+                self._trace("rescue_answer", {"value": None})
+                self._trace("final_answer", {"value": normal_answer})
+                self._trace("final_citations", {"value": normal_citations})
+                self._trace_generation_result(
+                    normal_answer, normal_evidence_ids, normal_citations
+                )
+                return normal_answer, normal_citations
+
+            if not atomic_candidates:
+                self._trace("rescue_triggered", {"value": False})
+                self._trace("rescue_reason", {"value": "no_atomic_candidates"})
+                self._trace("extraction_records", {"value": []})
+                self._trace("validation_results", {"value": []})
+                self._trace("verified_spans_reaching_generation", {"value": []})
+                self._trace("rescue_answer", {"value": None})
+                self._trace("final_answer", {"value": normal_answer})
+                self._trace("final_citations", {"value": normal_citations})
+                self._trace_generation_result(
+                    normal_answer, normal_evidence_ids, normal_citations
+                )
+                return normal_answer, normal_citations
+
+            try:
+                return self._run_citation_rescue(
+                    normal_answer=normal_answer,
+                    normal_evidence_ids=normal_evidence_ids,
+                    normal_citations=normal_citations,
+                    question=current_user_message,
+                    history=history_str,
+                    response_language=response_language,
+                    atomic_candidates=atomic_candidates,
+                    user_id=user_id,
+                    include_files=include_files,
+                    exclude_files=exclude_files,
+                )
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                logger.error(
+                    "Citation rescue failed | Type: {}", type(exc).__name__
+                )
+                return self._preserve_normal_result(
+                    normal_answer,
+                    normal_evidence_ids,
+                    normal_citations,
+                    reason="rescue_failed",
+                )
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.error(
                 "Answer-model invocation failed | Type: {}", type(exc).__name__
             )
-            return self._get_fallback_response(), []
+            fallback = self._get_fallback_response()
+            self._trace("normal_answer", {"value": fallback})
+            self._trace("normal_evidence_ids", {"value": []})
+            self._trace("valid_normal_evidence_ids", {"value": []})
+            self._trace("normal_citations", {"value": []})
+            self._trace("rescue_triggered", {"value": False})
+            self._trace("rescue_reason", {"value": "normal_generation_failed"})
+            self._trace("extraction_records", {"value": []})
+            self._trace("validation_results", {"value": []})
+            self._trace("verified_spans_reaching_generation", {"value": []})
+            self._trace("rescue_answer", {"value": None})
+            self._trace("final_answer", {"value": fallback})
+            self._trace("final_citations", {"value": []})
+            self._trace(
+                "generation_result",
+                {
+                    "returned_evidence_ids": [],
+                    "citations": [],
+                    "abstention": True,
+                    "fallback_reason": "provider_or_generation_error",
+                },
+            )
+            return fallback, []
+
+    def _run_citation_rescue(  # pylint: disable=too-many-arguments
+        self,
+        *,
+        normal_answer: str,
+        normal_evidence_ids: list[str],
+        normal_citations: list[SourceCitationData],
+        question: str,
+        history: str,
+        response_language: str,
+        atomic_candidates: list[Any],
+        user_id: str,
+        include_files: list[str] | None,
+        exclude_files: list[str] | None,
+    ) -> tuple[str, list[SourceCitationData]]:
+        """Run one verified extraction after deterministic citation failure."""
+        self._trace("rescue_triggered", {"value": True})
+        self._trace("rescue_reason", {"value": "zero_valid_normal_citations"})
+        authorized = self._authorized_atomic_candidates(
+            atomic_candidates,
+            user_id=user_id,
+            include_files=include_files,
+            exclude_files=exclude_files,
+        )
+        try:
+            extracted = self._extract_atomic_evidence(question, authorized)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error(
+                "Evidence-extraction invocation failed | Type: {}",
+                type(exc).__name__,
+            )
+            return self._preserve_normal_result(
+                normal_answer,
+                normal_evidence_ids,
+                normal_citations,
+                reason="extraction_failed",
+            )
+
+        extraction_records = [
+            record.model_dump(mode="json") for record in extracted.evidence_records
+        ]
+        self._trace("extraction_records", {"value": extraction_records})
+        verified, validation_results = self._validate_extracted_evidence(
+            extracted.evidence_records, authorized
+        )
+        self._trace("validation_results", {"value": validation_results})
+        verified_records = [
+            record
+            for record, result in zip(
+                extraction_records, validation_results, strict=False
+            )
+            if result["accepted"] is True
+        ]
+        self._trace(
+            "verified_spans_reaching_generation", {"value": verified_records}
+        )
+        if not verified:
+            return self._preserve_normal_result(
+                normal_answer,
+                normal_evidence_ids,
+                normal_citations,
+                reason="zero_valid_extracted_evidence",
+            )
+
+        rescue_prompt = self._build_final_prompt(
+            self._format_context_documents(verified),
+            history,
+            question,
+            response_language,
+        )
+        try:
+            rescue_answer, rescue_evidence_ids = self._invoke_llm_and_translate(
+                rescue_prompt
+            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error(
+                "Rescue answer invocation failed | Type: {}", type(exc).__name__
+            )
+            return self._preserve_normal_result(
+                normal_answer,
+                normal_evidence_ids,
+                normal_citations,
+                reason="rescue_generation_failed",
+            )
+
+        rescue_citations = self._citations_from_evidence_ids(
+            verified, rescue_evidence_ids
+        )
+        self._trace("rescue_reason", {"value": "rescue_generated"})
+        self._trace("rescue_answer", {"value": rescue_answer})
+        self._trace("final_answer", {"value": rescue_answer})
+        self._trace("final_citations", {"value": rescue_citations})
+        self._trace_generation_result(
+            rescue_answer, rescue_evidence_ids, rescue_citations
+        )
+        return rescue_answer, rescue_citations
+
+    def _preserve_normal_result(
+        self,
+        answer: str,
+        evidence_ids: list[str],
+        citations: list[SourceCitationData],
+        *,
+        reason: str,
+    ) -> tuple[str, list[SourceCitationData]]:
+        self._trace("rescue_reason", {"value": reason})
+        self._trace("rescue_answer", {"value": None})
+        self._trace("final_answer", {"value": answer})
+        self._trace("final_citations", {"value": citations})
+        self._trace_generation_result(answer, evidence_ids, citations)
+        return answer, citations
+
+    def _trace_generation_result(
+        self,
+        answer: str,
+        evidence_ids: list[str],
+        citations: list[SourceCitationData],
+    ) -> None:
+        self._trace(
+            "generation_result",
+            {
+                "returned_evidence_ids": list(evidence_ids),
+                "citations": citations,
+                "abstention": answer == self._get_fallback_response(),
+                "fallback_reason": None,
+            },
+        )
+
+    def _valid_evidence_ids(
+        self, context_by_id: dict[str, Any], evidence_ids: list[str]
+    ) -> list[str]:
+        """Return IDs that survive the existing server-side citation mapping."""
+        selected_ids = {
+            evidence_id
+            for evidence_id in evidence_ids
+            if isinstance(evidence_id, str) and evidence_id in context_by_id
+        }
+        valid: list[str] = []
+        seen: set[tuple[str, int | None]] = set()
+        for context_id, document in context_by_id.items():
+            if context_id not in selected_ids:
+                continue
+            filename = document.metadata.get("original_filename")
+            if not isinstance(filename, str) or not filename:
+                continue
+            citation_key = (
+                filename,
+                self._normalize_page_number(document.metadata.get("page_number")),
+            )
+            if citation_key in seen:
+                continue
+            seen.add(citation_key)
+            valid.append(context_id)
+        return valid
+
+    @staticmethod
+    def _document_source_id(document: Any) -> str | None:
+        metadata = getattr(document, "metadata", {})
+        source_id = metadata.get("chunk_id") or metadata.get("element_id")
+        if source_id is None:
+            source_id = getattr(document, "id", None)
+        return str(source_id) if source_id is not None and str(source_id) else None
+
+    def _authorized_atomic_candidates(
+        self,
+        candidates: list[Any],
+        *,
+        user_id: str,
+        include_files: list[str] | None,
+        exclude_files: list[str] | None,
+    ) -> dict[str, Any]:
+        """Build an extractor allowlist from trusted atomic metadata only."""
+        allowed: dict[str, Any] = {}
+        included = set(include_files or [])
+        excluded = set(exclude_files or [])
+        for document in candidates:
+            source_id = self._document_source_id(document)
+            if source_id is None or source_id in allowed:
+                continue
+            if not self._is_authorized_atomic_candidate(
+                document, user_id=user_id, included=included, excluded=excluded
+            ):
+                continue
+            allowed[source_id] = document
+        return allowed
+
+    def _is_authorized_atomic_candidate(
+        self,
+        document: Any,
+        *,
+        user_id: str,
+        included: set[str],
+        excluded: set[str],
+    ) -> bool:
+        """Check trusted metadata before exposing an atom to extraction."""
+        metadata = getattr(document, "metadata", {})
+        filename = metadata.get("original_filename")
+        return (
+            metadata.get("context_aggregation") is not True
+            and metadata.get("source") == user_id
+            and isinstance(filename, str)
+            and bool(filename)
+            and (not included or filename in included)
+            and filename not in excluded
+            and self._normalize_page_number(metadata.get("page_number")) is not None
+        )
+
+    def _extract_atomic_evidence(
+        self, question: str, candidates: dict[str, Any]
+    ) -> ExtractedEvidence:
+        context = "\n---\n".join(
+            f"[{source_id}|{document.metadata['original_filename']}|"
+            f"p{document.metadata['page_number']}]\n{document.page_content}"
+            for source_id, document in candidates.items()
+        )
+        prompt = (
+            "Extract only verbatim evidence spans that directly answer the question "
+            "from the atomic candidates below. Every record must use an existing "
+            "source_id and its server-supplied page. Do not paraphrase, combine, or "
+            "rewrite evidence. Return an empty evidence_records list when no candidate "
+            f"contains sufficient evidence.\n\nQ:\n{question}\n\nATOMIC CANDIDATES:\n{context}"
+        )
+        structured_llm = self.llm.with_structured_output(ExtractedEvidence)
+        response = structured_llm.invoke(prompt, max_tokens=LLMConstants.MAX_TOKENS)
+        if not isinstance(response, ExtractedEvidence):
+            response = ExtractedEvidence.model_validate(response)
+        return response
+
+    def _validate_extracted_evidence(
+        self,
+        records: list[ExtractedEvidenceRecord],
+        candidates: dict[str, Any],
+    ) -> tuple[dict[str, Document], list[dict[str, Any]]]:
+        """Accept exact, unique spans from allowlisted server-owned atoms."""
+        verified: dict[str, Document] = {}
+        results: list[dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()
+        for record in records:
+            document = candidates.get(record.source_id)
+            accepted = False
+            reason = "unknown_source_id"
+            span = record.exact_evidence_span
+            if document is not None:
+                page = self._normalize_page_number(
+                    document.metadata.get("page_number")
+                )
+                key = (record.source_id, span)
+                if not span:
+                    reason = "empty_span"
+                elif record.page != page:
+                    reason = "page_mismatch"
+                elif span not in document.page_content:
+                    reason = "span_not_verbatim"
+                elif key in seen:
+                    reason = "duplicate"
+                else:
+                    accepted = True
+                    reason = "accepted"
+                    seen.add(key)
+                    existing = verified.get(record.source_id)
+                    if existing is not None:
+                        existing.page_content = f"{existing.page_content}\n{span}"
+                    else:
+                        verified[record.source_id] = Document(
+                            page_content=span,
+                            metadata={
+                                "source": document.metadata["source"],
+                                "original_filename": document.metadata[
+                                    "original_filename"
+                                ],
+                                "page_number": page,
+                                "chunk_id": record.source_id,
+                            },
+                        )
+            results.append(
+                {
+                    "source_id": record.source_id,
+                    "page": record.page,
+                    "accepted": accepted,
+                    "reason": reason,
+                }
+            )
+        return verified, results
 
     def _format_conversation_history(
         self, conversation_history: list[ConversationMessage]

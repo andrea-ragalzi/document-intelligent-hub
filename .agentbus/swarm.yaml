@@ -1,5 +1,6 @@
 # AgentBus swarm for this repository. Zed remains the control and monitoring UI;
-# All seven agents are available through bounded one-shot headless Codex turns.
+# Core capability workers are available through bounded one-shot headless turns.
+# Analysis and security-review workers remain configured but are started on demand.
 version: "1.0"
 services:
   watch:
@@ -14,7 +15,3 @@ services:
     command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.lucia.yaml"
   maya-wake:
     command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.maya.yaml"
-  alex-wake:
-    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.alex.yaml"
-  alice-wake:
-    command: ".agentbus-venv/bin/agentbus worker up --workspace . --config .agentbus/worker.alice.yaml"

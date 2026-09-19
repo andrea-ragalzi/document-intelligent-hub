@@ -1,5 +1,7 @@
 version: "1.0"
 runner_id: alice-codex
+capability: analysis
+domain: rag
 producer_id: alice
 intake:
   mode: wake_file

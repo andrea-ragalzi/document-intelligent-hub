@@ -249,6 +249,20 @@ class AnswerWithEvidence(BaseModel):
     )
 
 
+class ExtractedEvidenceRecord(BaseModel):
+    """One proposed verbatim span tied to an existing atomic source."""
+
+    source_id: str = Field(..., min_length=1)
+    page: int = Field(..., ge=1)
+    exact_evidence_span: str
+
+
+class ExtractedEvidence(BaseModel):
+    """Structured output for conditional atomic evidence extraction."""
+
+    evidence_records: list[ExtractedEvidenceRecord] = Field(default_factory=list)
+
+
 class QueryResponse(BaseModel):
     """Schema for the outgoing RAG query response."""
 

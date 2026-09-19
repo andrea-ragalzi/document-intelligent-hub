@@ -1,5 +1,7 @@
 version: "1.0"
 runner_id: alex-codex
+capability: security_review
+domain: security
 producer_id: alex
 intake:
   mode: wake_file

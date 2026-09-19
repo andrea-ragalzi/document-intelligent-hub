@@ -173,9 +173,35 @@ The tracked `.zed/settings.json` registers AgentBus as a project-local stdio MCP
 
 ## Headless Codex runners
 
-AgentBus 0.23.0 runs one-shot Codex turns through its native `codex` adapter. `.agentbus/swarm.yaml` starts seven wake workers and each worker invokes the native `agentbus run --once` path through the small `.agentbus/dispatch.py` policy gate. The gate is needed because 0.23.0 workers cannot filter nested payload fields or enforce a team-wide initiative budget. It never replaces AgentBus routing or the runner.
+### Capability execution model
 
-Every runner invokes `codex exec -C <workspace> --ephemeral --json -m gpt-5.6-luna --sandbox workspace-write -c model_reasoning_effort="low" -`, except Alice, whose on-demand theory runner uses the same Luna model with `model_reasoning_effort="high"`. Mateo decides whether Alice's additional reasoning is warranted; the other six agents remain Luna low by default. This per-run selection leaves the interactive Codex default untouched. The gate writes local usage records under `.agentbus/team-runtime/usage.jsonl`, containing the event, initiative, agent, selected model, effort, exit code, and `turn.completed` token usage.
+The execution contract is intentionally small: deterministic route, one
+`implementer`, one independent `verifier`, then completion. `router`,
+`analysis(domain=rag)`, and `security_review` are optional capabilities used
+only when semantic arbitration, unresolved diagnosis, or a security boundary
+requires them. Runner files may retain human-readable producer aliases for the
+Zed UI, but `.agentbus/dispatch.py` authorizes by the runner's capability.
+
+Each real handoff must carry `execution.workspace_path`; it is the authoritative
+worktree for that initiative. The gate resolves it, verifies the branch and
+optional base SHA, runs `poetry check --directory <workspace>/backend`, and
+only then invokes AgentBus. The native command receives `agentbus run
+--workspace <workspace>`, while the Codex adapter receives `codex exec -C
+<workspace>`. A missing or invalid environment produces `INFRASTRUCTURE_FAILURE`
+without consuming initiative budget or retrying. Worktrees therefore never
+fall back to the control repository.
+
+The project toolchain remains Poetry-based. Dependencies are installed and
+locked outside model execution; preflight only verifies the declared project
+configuration and requires a worktree-specific Poetry environment. Bootstrap a new
+worktree once with `.agentbus/bootstrap-worktree.sh <worktree>`; it uses
+configures a worktree-local Poetry virtualenv path and runs
+`poetry install --no-root`, so each worktree has an isolated environment and
+no dependency installation occurs during a model run.
+
+AgentBus 0.23.0 runs one-shot Codex turns through its native `codex` adapter. `.agentbus/swarm.yaml` starts wake workers and each worker invokes the native `agentbus run --once` path through the small `.agentbus/dispatch.py` policy gate. The gate is needed because 0.23.0 workers cannot filter nested payload fields or enforce a team-wide initiative budget. It never replaces AgentBus routing or the runner.
+
+Implementer, verifier, router, analysis and security-review runners select their capability in YAML; human names are only producer aliases. Defaults remain Luna low, with the explicitly configured Alice analysis alias retaining Luna high. Mateo's router runner uses `--sandbox read-only`: it may inspect, reason, and publish coordination events, but cannot edit application files. This per-run selection leaves the interactive Codex default untouched. The gate writes local usage records under `.agentbus/team-runtime/usage.jsonl`, containing the event, initiative, capability, selected model, effort, and exit code.
 
 An autonomous handoff must be `PUBLISHED`, addressed to its target, newer than that agent's gate cursor, have a non-smoke initiative (unless `execution.smoke_test: true`), and include:
 
