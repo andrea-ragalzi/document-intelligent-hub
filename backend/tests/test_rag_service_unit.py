@@ -328,10 +328,10 @@ class TestDocumentCount:
 
         assert count == 0
 
-    def test_demo_document_does_not_consume_personal_upload_allowance(
+    def test_demo_document_counts_like_every_other_document(
         self, rag_service: Any, mock_repository: Any
     ) -> None:
-        """The private starter PDF must not reduce the tier's user-upload limit."""
+        """The private starter PDF is included in the ordinary document count."""
         mock_repository.get_user_chunks_sample.return_value = (
             [
                 {
@@ -344,7 +344,28 @@ class TestDocumentCount:
         )
 
         assert rag_service.get_user_document_count("test-user") == 2
-        assert rag_service.get_user_document_count("test-user", include_demo=False) == 1
+
+
+def test_upload_limit_count_includes_demo_document(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The upload admission path must not request the removed demo exclusion."""
+    from app.routers import documents_router
+
+    rag_service = Mock(spec=RAGService)
+    rag_service.get_user_document_count.return_value = 1
+    observed_counts: list[int] = []
+    monkeypatch.setattr(
+        documents_router,
+        "check_file_count_limit",
+        lambda _user_id, count: (observed_counts.append(count) or True, 5),
+    )
+    monkeypatch.setattr(documents_router, "get_max_upload_size_bytes", lambda _user_id: 1024)
+    monkeypatch.setattr(documents_router, "get_safe_file_size_mb", lambda _bytes: 1.0)
+
+    assert documents_router._check_file_limits("test-user", rag_service) == (1024, 1.0)
+    rag_service.get_user_document_count.assert_called_once_with("test-user")
+    assert observed_counts == [1]
 
 
 # pylint: disable=W0621  # Fixtures redefine names from outer scope (pytest pattern)

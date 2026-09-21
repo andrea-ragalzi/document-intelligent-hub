@@ -15,6 +15,7 @@ from app.services.document_file_storage import (
     get_document_file_storage,
 )
 from app.services.demo_document_service import DEMO_DOCUMENT_FILENAME
+from app.services.demo_document_state_service import DemoDocumentStateService
 from app.services.query_quota_service import (
     QueryLimitExceededError,
     QueryQuotaReservation,
@@ -203,6 +204,249 @@ def test_delete_cannot_target_another_user_via_client_user_id(
         user_id=AUTHENTICATED_USER,
         filename="shared.pdf",
     )
+
+
+def test_delete_alice_uses_normal_deletion_and_persists_dismissal(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Alice follows the same storage/vector deletion path as any user PDF."""
+    client, rag_service = protected_client
+    rag_service.delete_user_document.return_value = 4
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(
+            filename=DEMO_DOCUMENT_FILENAME,
+            chunks_count=4,
+            is_demo_document=True,
+        )
+    ]
+    state_service = Mock(spec=DemoDocumentStateService)
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        lambda: state_service,
+    )
+
+    with patch(
+        "app.core.auth.auth.verify_id_token",
+        return_value={"uid": AUTHENTICATED_USER},
+    ):
+        response = client.delete(
+            "/rag/documents/delete",
+            params={"filename": DEMO_DOCUMENT_FILENAME},
+            headers=VALID_AUTH_HEADER,
+        )
+
+    assert response.status_code == 200
+    assert response.json()["chunks_deleted"] == 4
+    rag_service.delete_user_document.assert_called_once_with(
+        user_id=AUTHENTICATED_USER, filename=DEMO_DOCUMENT_FILENAME
+    )
+    state_service.mark_deleted.assert_called_once_with(AUTHENTICATED_USER)
+
+
+def test_demo_tombstone_failure_leaves_alice_intact(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """A failed dismissal write must prevent every destructive Alice operation."""
+    client, rag_service = protected_client
+    storage = DocumentFileStorage(tmp_path / "originals")
+    storage.store(AUTHENTICATED_USER, DEMO_DOCUMENT_FILENAME, b"%PDF-1.4 Alice")
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(
+            filename=DEMO_DOCUMENT_FILENAME,
+            chunks_count=4,
+            is_demo_document=True,
+        )
+    ]
+    state_service = Mock(spec=DemoDocumentStateService)
+    state_service.mark_deleted.side_effect = OSError("Firestore unavailable")
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        lambda: state_service,
+    )
+
+    with patch("app.core.auth.auth.verify_id_token", return_value={"uid": AUTHENTICATED_USER}):
+        response = client.delete(
+            "/rag/documents/delete",
+            params={"filename": DEMO_DOCUMENT_FILENAME},
+            headers=VALID_AUTH_HEADER,
+        )
+
+    assert response.status_code == 500
+    assert storage.get(AUTHENTICATED_USER, DEMO_DOCUMENT_FILENAME) is not None
+    rag_service.delete_user_document.assert_not_called()
+
+
+def test_same_named_user_upload_is_not_marked_as_demo_deletion(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Filename alone cannot turn a normal upload into Alice."""
+    client, rag_service = protected_client
+    rag_service.delete_user_document.return_value = 2
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(
+            filename=DEMO_DOCUMENT_FILENAME,
+            chunks_count=2,
+            is_demo_document=False,
+        )
+    ]
+    def unavailable_state_service() -> DemoDocumentStateService:
+        raise OSError("Firestore unavailable")
+
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        unavailable_state_service,
+    )
+
+    with patch("app.core.auth.auth.verify_id_token", return_value={"uid": AUTHENTICATED_USER}):
+        response = client.delete(
+            "/rag/documents/delete",
+            params={"filename": DEMO_DOCUMENT_FILENAME},
+            headers=VALID_AUTH_HEADER,
+        )
+
+    assert response.status_code == 200
+
+
+def test_legacy_demo_delete_persists_dismissal(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Legacy Alice metadata remains sufficient to preserve an explicit delete."""
+    client, rag_service = protected_client
+    legacy_filename = "alice-cheshire-cat-demo.pdf"
+    rag_service.delete_user_document.return_value = 3
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(filename=legacy_filename, chunks_count=3, is_demo_document=True)
+    ]
+    state_service = Mock(spec=DemoDocumentStateService)
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        lambda: state_service,
+    )
+
+    with patch("app.core.auth.auth.verify_id_token", return_value={"uid": AUTHENTICATED_USER}):
+        response = client.delete(
+            "/rag/documents/delete",
+            params={"filename": legacy_filename},
+            headers=VALID_AUTH_HEADER,
+        )
+
+    assert response.status_code == 200
+    state_service.mark_deleted.assert_called_once_with(AUTHENTICATED_USER)
+
+
+def test_original_only_legacy_filename_without_provenance_is_ordinary(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """A legacy filename alone is insufficient to identify Alice."""
+    client, rag_service = protected_client
+    legacy_filename = "alice-cheshire-cat-demo.pdf"
+    storage = DocumentFileStorage(tmp_path / "originals")
+    storage.store(AUTHENTICATED_USER, legacy_filename, b"%PDF-1.4 old Alice")
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+    rag_service.get_user_documents.return_value = []
+    rag_service.delete_user_document.return_value = 0
+    state_service = Mock(spec=DemoDocumentStateService)
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        lambda: state_service,
+    )
+
+    with patch("app.core.auth.auth.verify_id_token", return_value={"uid": AUTHENTICATED_USER}):
+        response = client.delete(
+            "/rag/documents/delete",
+            params={"filename": legacy_filename},
+            headers=VALID_AUTH_HEADER,
+        )
+
+    assert response.status_code == 200
+    assert storage.get(AUTHENTICATED_USER, legacy_filename) is None
+    state_service.mark_deleted.assert_not_called()
+
+
+def test_original_only_current_demo_delete_persists_dismissal(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """The bundled-PDF digest identifies a current original when vectors are gone."""
+    from app.services.demo_document_service import DEMO_DOCUMENT_PATH
+
+    client, rag_service = protected_client
+    storage = DocumentFileStorage(tmp_path / "originals")
+    storage.store(AUTHENTICATED_USER, DEMO_DOCUMENT_FILENAME, DEMO_DOCUMENT_PATH.read_bytes())
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+    rag_service.get_user_documents.return_value = []
+    rag_service.delete_user_document.return_value = 0
+    state_service = Mock(spec=DemoDocumentStateService)
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        lambda: state_service,
+    )
+
+    with patch("app.core.auth.auth.verify_id_token", return_value={"uid": AUTHENTICATED_USER}):
+        response = client.delete(
+            "/rag/documents/delete",
+            params={"filename": DEMO_DOCUMENT_FILENAME},
+            headers=VALID_AUTH_HEADER,
+        )
+
+    assert response.status_code == 200
+    assert storage.get(AUTHENTICATED_USER, DEMO_DOCUMENT_FILENAME) is None
+    state_service.mark_deleted.assert_called_once_with(AUTHENTICATED_USER)
+
+
+def test_original_only_legacy_demo_content_delete_persists_dismissal(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """A legacy filename remains compatible when its original is the bundled PDF."""
+    from app.services.demo_document_service import DEMO_DOCUMENT_PATH
+
+    client, rag_service = protected_client
+    legacy_filename = "alice-cheshire-cat-demo.pdf"
+    storage = DocumentFileStorage(tmp_path / "originals")
+    storage.store(AUTHENTICATED_USER, legacy_filename, DEMO_DOCUMENT_PATH.read_bytes())
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+    rag_service.get_user_documents.return_value = []
+    rag_service.delete_user_document.return_value = 0
+    state_service = Mock(spec=DemoDocumentStateService)
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        lambda: state_service,
+    )
+
+    with patch("app.core.auth.auth.verify_id_token", return_value={"uid": AUTHENTICATED_USER}):
+        response = client.delete(
+            "/rag/documents/delete",
+            params={"filename": legacy_filename},
+            headers=VALID_AUTH_HEADER,
+        )
+
+    assert response.status_code == 200
+    assert storage.get(AUTHENTICATED_USER, legacy_filename) is None
+    state_service.mark_deleted.assert_called_once_with(AUTHENTICATED_USER)
+
+
+def test_bulk_delete_of_legacy_filename_without_provenance_does_not_dismiss_alice(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """Bulk deletion of a normal legacy-named upload does not dismiss Alice."""
+    client, rag_service = protected_client
+    legacy_filename = "alice-cheshire-cat-demo.pdf"
+    storage = DocumentFileStorage(tmp_path / "originals")
+    storage.store(AUTHENTICATED_USER, legacy_filename, b"%PDF-1.4 old Alice")
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+    rag_service.get_user_documents.return_value = []
+    rag_service.delete_all_user_documents.return_value = 1
+    state_service = Mock(spec=DemoDocumentStateService)
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        lambda: state_service,
+    )
+
+    with patch("app.core.auth.auth.verify_id_token", return_value={"uid": AUTHENTICATED_USER}):
+        response = client.delete("/rag/documents/delete-all", headers=VALID_AUTH_HEADER)
+
+    assert response.status_code == 200
+    state_service.mark_deleted.assert_not_called()
 
 
 def test_document_content_uses_verified_uid_not_client_user_id(

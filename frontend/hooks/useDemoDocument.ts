@@ -13,7 +13,7 @@ const DEMO_SEED_RETRY_DELAY_MS = 750;
 const DEMO_SEED_MAX_ATTEMPTS = 2;
 
 interface DemoDocumentResponse {
-  status: "seeded" | "ready";
+  status: "seeded" | "ready" | "absent";
   filename: string;
   suggested_questions: string[];
 }
@@ -69,6 +69,11 @@ export function useDemoDocument({ userId, onReady }: UseDemoDocumentOptions) {
           if (activeUserId.current !== userId) return;
           if (!refreshed) {
             setState("failed");
+            return;
+          }
+          if (data.status === "absent") {
+            setSuggestedQuestions([]);
+            setState("idle");
             return;
           }
           setSuggestedQuestions(data.suggested_questions);

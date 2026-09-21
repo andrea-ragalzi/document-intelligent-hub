@@ -158,6 +158,27 @@ describe("useDemoDocument", () => {
     expect(result.current.suggestedQuestions).toEqual(["How is the Cheshire Cat described?"]);
   });
 
+  it("keeps suggestions absent when the backend records an explicit Alice deletion", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "absent",
+          filename: "alices-adventures-in-wonderland.pdf",
+          suggested_questions: [],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    const onReady = vi.fn();
+
+    const { result, rerender } = renderHook(() => useDemoDocument({ userId: "user-a", onReady }));
+
+    await waitFor(() => expect(result.current.state).toBe("idle"));
+    expect(result.current.suggestedQuestions).toEqual([]);
+    rerender();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
   it("finishes seeding when an auth-driven rerender occurs while the request is pending", async () => {
     let resolveSeed!: (response: Response) => void;
     vi.mocked(fetch).mockReturnValue(

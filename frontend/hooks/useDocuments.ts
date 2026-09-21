@@ -11,6 +11,7 @@ export interface Document {
   language?: string;
   uploaded_at?: string;
   original_available?: boolean;
+  is_demo_document?: boolean;
 }
 
 interface DocumentsResponse {
