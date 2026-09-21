@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import os
 from io import BytesIO
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
@@ -233,7 +234,7 @@ def _read_existing_original(
 ) -> bytes | None:
     """Read an existing original before replacement makes destructive changes."""
     existing_original = document_storage.get(user_id, filename)
-    if existing_original is None:
+    if not isinstance(existing_original, Path):
         return None
 
     storage_root = os.path.realpath(document_storage.root_path)
