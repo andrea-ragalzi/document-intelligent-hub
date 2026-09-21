@@ -12,6 +12,7 @@ import {
 import type { SavedConversation } from "@/lib/types";
 import { toAiSdkMessages } from "@/lib/chatMessagePersistence";
 import { deleteAccountData } from "@/lib/accountDataCleanup";
+import { rethrowAccountDeletionFailure } from "@/lib/accountDeletionErrors";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserId } from "@/hooks/useUserId";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
@@ -94,17 +95,17 @@ export default function Page() {
     },
   });
 
+  // Check if user has uploaded documents
+  const { hasDocuments, isChecking, refreshDocumentStatus } = useDocumentStatus(userId);
+
   const handleDemoDocumentReady = useCallback(async () => {
-    await refreshDocuments();
-    globalThis.dispatchEvent(new Event("refreshDocumentStatus"));
-  }, [refreshDocuments]);
+    const [, statusRefreshed] = await Promise.all([refreshDocuments(), refreshDocumentStatus()]);
+    return statusRefreshed;
+  }, [refreshDocuments, refreshDocumentStatus]);
   const { state: demoDocumentState, suggestedQuestions } = useDemoDocument({
     userId,
     onReady: handleDemoDocumentReady,
   });
-
-  // Check if user has uploaded documents
-  const { hasDocuments, isChecking } = useDocumentStatus(userId);
 
   // Server status monitoring
   const {
@@ -475,17 +476,7 @@ export default function Page() {
       await user.delete();
       router.push("/login");
     } catch (error) {
-      console.error("Account deletion failed.");
-      if (typeof error === "object" && error !== null && "code" in error) {
-        const code = error.code;
-        if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
-          throw new Error("The password is incorrect. Please try again.");
-        }
-        if (code === "auth/popup-closed-by-user") {
-          throw new Error("Sign-in was cancelled. Your account has not been deleted.");
-        }
-      }
-      throw error;
+      rethrowAccountDeletionFailure(error);
     }
   };
 
@@ -686,10 +677,7 @@ export default function Page() {
           onSuccess={_assignedTier => {
             // useRegistration already forced token refresh, so update tier immediately
             refreshTier();
-            // Small delay before closing modal for better UX
-            setTimeout(() => {
-              setInvitationCodeModalOpen(false);
-            }, 300);
+            setInvitationCodeModalOpen(false);
           }}
         />
       </div>

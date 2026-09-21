@@ -3,10 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 
 describe("DeleteAccountModal", () => {
-  it("confirms with the current password and displays a deletion failure", async () => {
+  it("shows a handled credential failure without logging it", async () => {
     const onConfirm = vi
       .fn()
       .mockRejectedValue(new Error("The password is incorrect. Please try again."));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     render(
       <DeleteAccountModal
@@ -29,5 +30,8 @@ describe("DeleteAccountModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The password is incorrect. Please try again."
     );
+    expect(consoleError).not.toHaveBeenCalled();
+
+    consoleError.mockRestore();
   });
 });

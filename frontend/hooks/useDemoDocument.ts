@@ -20,7 +20,7 @@ interface DemoDocumentResponse {
 
 interface UseDemoDocumentOptions {
   userId: string | null;
-  onReady?: () => void | Promise<void>;
+  onReady?: () => void | boolean | Promise<void | boolean>;
 }
 
 /** Seed the private starter PDF once per signed-in user without blocking the UI. */
@@ -47,7 +47,7 @@ export function useDemoDocument({ userId, onReady }: UseDemoDocumentOptions) {
     const refreshDocumentState = async () => {
       // Refresh both the list and the chat availability after either outcome:
       // a proxy can report a transient error after the backend has indexed it.
-      await onReady?.();
+      return (await onReady?.()) !== false;
     };
 
     const seed = async () => {
@@ -65,9 +65,14 @@ export function useDemoDocument({ userId, onReady }: UseDemoDocumentOptions) {
 
           const data: DemoDocumentResponse = await response.json();
           if (activeUserId.current !== userId) return;
+          const refreshed = await refreshDocumentState();
+          if (activeUserId.current !== userId) return;
+          if (!refreshed) {
+            setState("failed");
+            return;
+          }
           setSuggestedQuestions(data.suggested_questions);
           setState("ready");
-          await refreshDocumentState();
           return;
         } catch (error) {
           if (activeUserId.current !== userId) return;
