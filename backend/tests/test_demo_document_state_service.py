@@ -24,7 +24,10 @@ def test_demo_state_reads_and_writes_persisted_flags() -> None:
     database = Mock()
     database.collection.return_value.document.return_value = document_ref
 
-    with patch("app.services.demo_document_state_service.firestore.client", return_value=database):
+    with patch(
+        "app.services.demo_document_state_service.firestore.client",
+        return_value=database,
+    ):
         state = DemoDocumentStateService()
         assert state.is_deleted("user-a") is True
         state.mark_deleted("user-a")
@@ -43,41 +46,65 @@ class _LifecycleState:
         self.deleted = True
 
 
-@pytest.mark.asyncio
-async def test_inflight_seed_cannot_recreate_alice_after_serialized_delete(tmp_path) -> None:
-    """The shared user lock makes delete wait for the seed, then suppresses retries."""
-    state = _LifecycleState()
+class _BlockingRAG:
+    def __init__(
+        self,
+        documents: list[DocumentInfo],
+        started_indexing: asyncio.Event,
+        release_indexing: asyncio.Event,
+    ) -> None:
+        self.documents = documents
+        self.started_indexing = started_indexing
+        self.release_indexing = release_indexing
+
+    def get_user_documents(self, _user_id: str) -> list[DocumentInfo]:
+        return self.documents
+
+    def user_document_exists(self, _user_id: str, filename: str) -> bool:
+        return any(document.filename == filename for document in self.documents)
+
+    async def index_document(self, **_kwargs: object) -> tuple[int, str]:
+        self.started_indexing.set()
+        await self.release_indexing.wait()
+        self.documents.append(
+            DocumentInfo(
+                filename=DEMO_DOCUMENT_FILENAME,
+                chunks_count=1,
+                language=None,
+                uploaded_at=None,
+                original_available=False,
+                is_demo_document=True,
+            )
+        )
+        return 1, "EN"
+
+    def delete_user_document(
+        self, _user_id: str | None = None, filename: str = "", **_kwargs: object
+    ) -> int:
+        before = len(self.documents)
+        self.documents[:] = [
+            document for document in self.documents if document.filename != filename
+        ]
+        return before - len(self.documents)
+
+
+def _make_blocking_rag() -> tuple[
+    _BlockingRAG, list[DocumentInfo], asyncio.Event, asyncio.Event
+]:
+    documents: list[DocumentInfo] = []
     started_indexing = asyncio.Event()
     release_indexing = asyncio.Event()
-    documents: list[DocumentInfo] = []
+    rag = _BlockingRAG(documents, started_indexing, release_indexing)
+    return rag, documents, started_indexing, release_indexing
 
-    class RAG:
-        def get_user_documents(self, _user_id: str) -> list[DocumentInfo]:
-            return documents
 
-        def user_document_exists(self, _user_id: str, filename: str) -> bool:
-            return any(document.filename == filename for document in documents)
-
-        async def index_document(self, **_kwargs: object) -> tuple[int, str]:
-            started_indexing.set()
-            await release_indexing.wait()
-            documents.append(
-                DocumentInfo(
-                    filename=DEMO_DOCUMENT_FILENAME,
-                    chunks_count=1,
-                    is_demo_document=True,
-                )
-            )
-            return 1, "EN"
-
-        def delete_user_document(
-            self, _user_id: str | None = None, filename: str = "", **_kwargs: object
-        ) -> int:
-            before = len(documents)
-            documents[:] = [document for document in documents if document.filename != filename]
-            return before - len(documents)
-
-    rag = RAG()
+@pytest.mark.asyncio
+async def test_inflight_seed_cannot_recreate_alice_after_serialized_delete(
+    tmp_path,
+) -> None:
+    """The shared user lock makes delete wait for the seed, then suppresses retries."""
+    state = _LifecycleState()
+    rag, documents, started_indexing, release_indexing = _make_blocking_rag()
     storage = DocumentFileStorage(tmp_path)
     service = DemoDocumentService(rag, storage, state_service=state)  # type: ignore[arg-type]
 
@@ -108,38 +135,12 @@ async def test_inflight_seed_cannot_recreate_alice_after_serialized_delete(tmp_p
 
 
 @pytest.mark.asyncio
-async def test_router_seed_and_delete_share_the_same_lock(tmp_path, monkeypatch) -> None:
+async def test_router_seed_and_delete_share_the_same_lock(
+    tmp_path, monkeypatch
+) -> None:
     """The actual seed and delete router handlers serialize one user's lifecycle."""
     state = _LifecycleState()
-    started_indexing = asyncio.Event()
-    release_indexing = asyncio.Event()
-    documents: list[DocumentInfo] = []
-
-    class RAG:
-        def get_user_documents(self, _user_id: str) -> list[DocumentInfo]:
-            return documents
-
-        def user_document_exists(self, _user_id: str, filename: str) -> bool:
-            return any(document.filename == filename for document in documents)
-
-        async def index_document(self, **_kwargs: object) -> tuple[int, str]:
-            started_indexing.set()
-            await release_indexing.wait()
-            documents.append(
-                DocumentInfo(
-                    filename=DEMO_DOCUMENT_FILENAME,
-                    chunks_count=1,
-                    is_demo_document=True,
-                )
-            )
-            return 1, "EN"
-
-        def delete_user_document(
-            self, _user_id: str | None = None, filename: str = "", **_kwargs: object
-        ) -> int:
-            before = len(documents)
-            documents[:] = [document for document in documents if document.filename != filename]
-            return before - len(documents)
+    rag, documents, started_indexing, release_indexing = _make_blocking_rag()
 
     class Limiter:
         async def acquire(self) -> bool:
@@ -152,16 +153,19 @@ async def test_router_seed_and_delete_share_the_same_lock(tmp_path, monkeypatch)
         def __new__(cls) -> _LifecycleState:
             return state
 
-    monkeypatch.setattr(documents_router, "global_expensive_operation_limiter", Limiter())
+    monkeypatch.setattr(
+        documents_router, "global_expensive_operation_limiter", Limiter()
+    )
     monkeypatch.setattr(documents_router, "DemoDocumentStateService", StateFactory)
     monkeypatch.setattr(
         "app.services.demo_document_service.DemoDocumentStateService", StateFactory
     )
 
-    rag = RAG()
     storage = DocumentFileStorage(tmp_path)
     user_id = "router-race-user"
-    seed = asyncio.create_task(documents_router.seed_demo_document(user_id, rag, storage))
+    seed = asyncio.create_task(
+        documents_router.seed_demo_document(user_id, rag, storage)
+    )
     await started_indexing.wait()
     delete = asyncio.create_task(
         documents_router.delete_document(DEMO_DOCUMENT_FILENAME, user_id, rag, storage)
