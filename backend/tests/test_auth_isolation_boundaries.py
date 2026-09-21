@@ -394,6 +394,43 @@ def test_original_only_current_demo_delete_persists_dismissal(
     state_service.mark_deleted.assert_called_once_with(AUTHENTICATED_USER)
 
 
+def test_demo_detection_rejects_original_outside_storage_root(
+    protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """A path outside storage cannot be read to identify the demo document."""
+    from app.services.demo_document_service import DEMO_DOCUMENT_PATH
+
+    client, rag_service = protected_client
+    storage = DocumentFileStorage(tmp_path / "originals")
+    outside_file = tmp_path / "outside.pdf"
+    outside_file.write_bytes(DEMO_DOCUMENT_PATH.read_bytes())
+    storage.get = Mock(return_value=outside_file)  # type: ignore[method-assign]
+    rag_service.get_user_documents.return_value = []
+    rag_service.delete_user_document.return_value = 0
+    state_service = Mock(spec=DemoDocumentStateService)
+    monkeypatch.setattr(
+        "app.routers.documents_router.DemoDocumentStateService",
+        lambda: state_service,
+    )
+    app.dependency_overrides[get_document_file_storage] = lambda: storage
+
+    try:
+        with patch(
+            "app.core.auth.auth.verify_id_token",
+            return_value={"uid": AUTHENTICATED_USER},
+        ):
+            response = client.delete(
+                "/rag/documents/delete",
+                params={"filename": DEMO_DOCUMENT_FILENAME},
+                headers=VALID_AUTH_HEADER,
+            )
+    finally:
+        app.dependency_overrides.pop(get_document_file_storage, None)
+
+    assert response.status_code == 404
+    state_service.mark_deleted.assert_not_called()
+
+
 def test_original_only_legacy_demo_content_delete_persists_dismissal(
     protected_client: tuple[TestClient, Mock], monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:

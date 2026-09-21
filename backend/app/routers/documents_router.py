@@ -15,7 +15,6 @@ import asyncio
 import hashlib
 import os
 from io import BytesIO
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
@@ -108,14 +107,19 @@ def _is_demo_document(
         )
         if matching_document is not None:
             return bool(matching_document.is_demo_document)
-    original = document_storage.get(user_id, filename)
-    if not isinstance(original, Path):
+    if filename not in DEMO_DOCUMENT_FILENAMES:
         return False
-    if filename in DEMO_DOCUMENT_FILENAMES:
-        return hashlib.sha256(original.read_bytes()).digest() == hashlib.sha256(
-            DEMO_DOCUMENT_PATH.read_bytes()
-        ).digest()
-    return False
+
+    try:
+        original_content = _read_existing_original(user_id, filename, document_storage)
+    except ValueError:
+        return False
+    if original_content is None:
+        return False
+
+    return hashlib.sha256(original_content).digest() == hashlib.sha256(
+        DEMO_DOCUMENT_PATH.read_bytes()
+    ).digest()
 
 
 def _validate_and_sanitize_filename(filename: str | None) -> str:
