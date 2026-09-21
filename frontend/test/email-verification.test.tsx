@@ -144,7 +144,10 @@ describe("email verification lifecycle", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
 
     await waitFor(() => {
-      expect(firebaseMocks.sendEmailVerification).toHaveBeenCalledWith(user);
+      expect(firebaseMocks.sendEmailVerification).toHaveBeenCalledWith(user, {
+        url: "http://localhost:3000/verify-email",
+        handleCodeInApp: false,
+      });
     });
   });
 

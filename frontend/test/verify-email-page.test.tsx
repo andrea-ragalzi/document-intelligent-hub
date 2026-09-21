@@ -58,14 +58,14 @@ describe("VerifyEmailPage", () => {
     });
   });
 
-  it("defers registration to the invitation screen in production", async () => {
+  it("registers after verification in production as well", async () => {
     vi.stubEnv("NODE_ENV", "production");
     mocks.auth.refreshEmailVerification.mockResolvedValue(true);
     render(<VerifyEmailPage />);
     fireEvent.click(screen.getByRole("button", { name: /i.?ve verified/i }));
 
     await waitFor(() => {
-      expect(mocks.register).not.toHaveBeenCalled();
+      expect(mocks.register).toHaveBeenCalledOnce();
       expect(mocks.replace).toHaveBeenCalledWith("/dashboard");
     });
   });
