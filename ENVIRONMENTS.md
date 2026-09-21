@@ -73,9 +73,7 @@ domain in the PROD project's authorized domains.
 5. Create `app_config/settings` with `unlimited_emails` as an empty array and the
    explicit constrained limits: FREE 20 queries/day, 5 files, 10 MB/file; PRO
    500 queries/day, 50 files, 50 MB/file; UNLIMITED 9999 values.
-6. Registration does not depend on an `invitation_codes` collection. Do not create invitation-code documents for ordinary registration testing.
-   A code document uses `tier`, `is_used`, and optional `expires_at` fields.
-7. Create a DEV service-account key and store it only at the ignored local path
+6. Create a DEV service-account key and store it only at the ignored local path
    above. Fill `frontend/.env.local` using the DEV Web app config.
 
 ### Firebase-hosted verification email

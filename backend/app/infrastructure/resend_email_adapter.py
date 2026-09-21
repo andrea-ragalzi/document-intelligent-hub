@@ -125,24 +125,6 @@ class ResendEmailAdapter:
         }
         return self._send(payload, "Feedback")
 
-    def send_invitation_request(self, first_name: str, last_name: str, email: str) -> bool:
-        """Keep the existing invitation notification on the same backend provider."""
-        text = "\n".join(
-            (
-                "DIH invitation code request",
-                f"Name: {_safe_text(first_name)} {_safe_text(last_name)}",
-                f"Email: {_safe_text(email)}",
-            )
-        )
-        payload: resend.Emails.SendParams = {
-            "from": self.from_email or "",
-            "to": [self.recipient_email or ""],
-            "subject": "DIH invitation code request",
-            "text": text,
-        }
-        return self._send(payload, "Invitation request")
-
-
 _email_service: ResendEmailAdapter | None = None
 
 
