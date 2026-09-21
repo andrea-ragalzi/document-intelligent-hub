@@ -10,12 +10,12 @@ Treat those docs as the source of truth for routing, rendering, Server/Client Co
 
 Preserve the existing structure:
 
-* `app/`: routes, pages, layouts, and Next.js framework boundaries;
-* `components/`: presentation and reusable UI;
-* `hooks/`: reusable client workflows and stateful behavior;
-* `lib/`: shared technical infrastructure and API/Firebase utilities;
-* `contexts/`: contextual dependencies such as authentication;
-* `stores/`: genuinely shared application/UI state.
+- `app/`: routes, pages, layouts, and Next.js framework boundaries;
+- `components/`: presentation and reusable UI;
+- `hooks/`: reusable client workflows and stateful behavior;
+- `lib/`: shared technical infrastructure and API/Firebase utilities;
+- `contexts/`: contextual dependencies such as authentication;
+- `stores/`: genuinely shared application/UI state.
 
 Keep components focused on presentation and interaction.
 
