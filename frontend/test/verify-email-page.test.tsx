@@ -47,13 +47,14 @@ describe("VerifyEmailPage", () => {
     });
   });
 
-  it("activates FREE registration and opens the dashboard only after a refreshed verified status", async () => {
+  it("completes verification and opens the dashboard with a no-code FREE registration", async () => {
     mocks.auth.refreshEmailVerification.mockResolvedValue(true);
     render(<VerifyEmailPage />);
     fireEvent.click(screen.getByRole("button", { name: /i.?ve verified/i }));
 
     await waitFor(() => {
       expect(mocks.register).toHaveBeenCalledOnce();
+      expect(mocks.register).toHaveBeenCalledWith();
       expect(mocks.replace).toHaveBeenCalledWith("/dashboard");
     });
   });

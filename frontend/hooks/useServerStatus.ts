@@ -18,7 +18,6 @@ export const useServerStatus = (): UseServerStatusResult => {
   const [isOnline, setIsOnline] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
-  const [consecutiveFailures, setConsecutiveFailures] = useState(0);
 
   const checkStatus = useCallback(async () => {
     setIsChecking(true);
@@ -36,18 +35,11 @@ export const useServerStatus = (): UseServerStatusResult => {
 
       if (response.ok) {
         setIsOnline(true);
-        setConsecutiveFailures(0); // Reset failure count on success
       } else {
         setIsOnline(false);
-        setConsecutiveFailures(prev => prev + 1);
       }
     } catch {
-      // Only log on first failure to avoid console spam
-      if (consecutiveFailures === 0) {
-        console.log("⚠️ Server offline - switched to read-only mode");
-      }
       setIsOnline(false);
-      setConsecutiveFailures(prev => prev + 1);
     } finally {
       setLastChecked(new Date());
       setIsChecking(false);

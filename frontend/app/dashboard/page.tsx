@@ -28,7 +28,7 @@ import { RenameModal } from "@/components/RenameModal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { BugReportModal } from "@/components/BugReportModal";
 import { FeedbackModal } from "@/components/FeedbackModal";
-import InvitationCodeModal from "@/components/InvitationCodeModal";
+import AccountProvisioningModal from "@/components/AccountProvisioningModal";
 import { ServerOfflineBanner } from "@/components/ServerOfflineBanner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,6 +36,7 @@ import { useServerStatus } from "@/hooks/useServerStatus";
 import { useUserTier } from "@/hooks/useUserTier";
 import { useQueryUsage } from "@/hooks/useQueryUsage";
 import { useDemoDocument } from "@/hooks/useDemoDocument";
+import { getDemoDocumentVisibility } from "@/lib/demoDocumentVisibility";
 import { useVisualViewportHeight } from "@/hooks/useVisualViewportHeight";
 
 // Zustand store e TanStack Query
@@ -61,7 +62,7 @@ export default function Page() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
-  const [invitationCodeModalOpen, setInvitationCodeModalOpen] = useState(false);
+  const [accountProvisioningModalOpen, setAccountProvisioningModalOpen] = useState(false);
 
   // Document management
   const {
@@ -106,6 +107,11 @@ export default function Page() {
     userId,
     onReady: handleDemoDocumentReady,
   });
+  const visibleDemoDocument = getDemoDocumentVisibility(
+    documents,
+    demoDocumentState,
+    suggestedQuestions
+  );
 
   // Server status monitoring
   const {
@@ -150,7 +156,6 @@ export default function Page() {
   useEffect(() => {
     // Only refresh if server changed from offline to online (not on initial mount)
     if (isServerOnline && !previousServerStatusRef.current && userId) {
-      console.log("✅ Server is back online - refreshing data...");
       refreshDocuments();
       // Also trigger document status refresh
       globalThis.dispatchEvent(new Event("refreshDocumentStatus"));
@@ -285,14 +290,14 @@ export default function Page() {
     setCurrentConversation,
   ]);
 
-  // Show invitation code modal on first login if no tier
+  // Provision a tier on first login when Firebase has not issued a claim yet.
   useEffect(() => {
     if (!isTierLoading && user && tier === "FREE") {
       // Check if user has custom claims set
       user.getIdTokenResult().then(tokenResult => {
-        // If no tier claim exists, show invitation modal
+        // If no tier claim exists, show account provisioning.
         if (!tokenResult.claims.tier) {
-          setInvitationCodeModalOpen(true);
+          setAccountProvisioningModalOpen(true);
         }
       });
     }
@@ -398,7 +403,6 @@ export default function Page() {
   };
 
   const handleNewConversation = () => {
-    console.log("🆕 Starting new conversation");
     setMessages([]);
     resetConversation();
     setStatusAlert({
@@ -572,8 +576,8 @@ export default function Page() {
               onOpenUploadModal={() => setUploadModalOpen(true)}
               isServerOnline={isServerOnline}
               isLimitReached={isLimitReached}
-              demoDocumentState={demoDocumentState}
-              suggestedQuestions={suggestedQuestions}
+              demoDocumentState={visibleDemoDocument.state}
+              suggestedQuestions={visibleDemoDocument.suggestedQuestions}
               onSuggestedQuestion={handleQueryChange}
             />
           </div>
@@ -671,13 +675,12 @@ export default function Page() {
           conversationId={currentConversationId}
         />
 
-        {/* Invitation Code Modal */}
-        <InvitationCodeModal
-          isOpen={invitationCodeModalOpen}
+        <AccountProvisioningModal
+          isOpen={accountProvisioningModalOpen}
           onSuccess={_assignedTier => {
             // useRegistration already forced token refresh, so update tier immediately
             refreshTier();
-            setInvitationCodeModalOpen(false);
+            setAccountProvisioningModalOpen(false);
           }}
         />
       </div>

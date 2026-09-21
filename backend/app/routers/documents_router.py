@@ -12,8 +12,10 @@ All endpoints require valid Firebase Auth token in Authorization header.
 """
 
 import asyncio
+import hashlib
 import os
 from io import BytesIO
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
@@ -38,9 +40,13 @@ from app.schemas.rag_schema import (
 )
 from app.services.demo_document_service import (
     DEMO_DOCUMENT_FILENAME,
+    DEMO_DOCUMENT_FILENAMES,
+    DEMO_DOCUMENT_PATH,
     DEMO_SUGGESTED_QUESTIONS,
     DemoDocumentService,
+    get_demo_document_lock,
 )
+from app.services.demo_document_state_service import DemoDocumentStateService
 from app.services.rag_orchestrator_service import RAGService
 from app.services.query_concurrency_limiter import QueryConcurrencyLimiter, global_expensive_operation_limiter
 from app.services.tier_limit_service import (
@@ -86,6 +92,35 @@ def _delete_user_firestore_data(user_id: str, db: Any) -> int:
 def _log_document_failure(operation: str, error: Exception) -> None:
     """Record operational diagnostics without retaining user or SDK details."""
     logger.error("Document {} failed | Type: {}", operation, type(error).__name__)
+
+
+def _is_demo_document(
+    user_id: str,
+    filename: str,
+    rag_service: RAGService,
+    document_storage: FileStoragePort,
+) -> bool:
+    """Identify Alice from the current document's provenance or content."""
+    documents = rag_service.get_user_documents(user_id)
+    if isinstance(documents, list):
+        matching_document = next(
+            (document for document in documents if document.filename == filename), None
+        )
+        if matching_document is not None:
+            return bool(matching_document.is_demo_document)
+    if filename not in DEMO_DOCUMENT_FILENAMES:
+        return False
+
+    try:
+        original_content = _read_existing_original(user_id, filename, document_storage)
+    except ValueError:
+        return False
+    if original_content is None:
+        return False
+
+    return hashlib.sha256(original_content).digest() == hashlib.sha256(
+        DEMO_DOCUMENT_PATH.read_bytes()
+    ).digest()
 
 
 def _validate_and_sanitize_filename(filename: str | None) -> str:
@@ -199,7 +234,7 @@ def _read_existing_original(
 ) -> bytes | None:
     """Read an existing original before replacement makes destructive changes."""
     existing_original = document_storage.get(user_id, filename)
-    if existing_original is None:
+    if not isinstance(existing_original, Path):
         return None
 
     storage_root = os.path.realpath(document_storage.root_path)
@@ -247,11 +282,7 @@ def _check_file_limits(user_id: str, rag_service: RAGService) -> tuple[int, floa
     Raises:
         HTTPException: If file count limit is reached
     """
-    # The bundled starter PDF is private per user but does not consume the
-    # user's personal-upload allowance.
-    current_file_count = rag_service.get_user_document_count(
-        user_id, include_demo=False
-    )
+    current_file_count = rag_service.get_user_document_count(user_id)
     can_upload, max_files = check_file_count_limit(user_id, current_file_count)
 
     if not can_upload:
@@ -345,13 +376,18 @@ async def seed_demo_document(
         return DemoDocumentSeedResponse(
             status=result.status,
             message=(
+                "Demo document was removed."
+                if result.status == "absent"
+                else
                 "Demo document ready."
                 if result.status == "ready"
                 else "Demo document indexed successfully."
             ),
             filename=DEMO_DOCUMENT_FILENAME,
             chunks_indexed=result.chunks_indexed,
-            suggested_questions=DEMO_SUGGESTED_QUESTIONS,
+            suggested_questions=(
+                [] if result.status == "absent" else DEMO_SUGGESTED_QUESTIONS
+            ),
         )
     except Exception as exc:
         _log_document_failure("demo seeding", exc)
@@ -614,17 +650,25 @@ async def delete_document(
     logger.bind(AUDIT=True).warning("Document deletion requested")
 
     try:
+        demo_lock = await get_demo_document_lock(user_id)
+        async with demo_lock:
+            is_demo = _is_demo_document(user_id, filename, rag_service, document_storage)
+            # This must happen before any destructive operation. If Firestore
+            # rejects the write, Alice remains intact and can never become a
+            # temporary deletion that seeding later reverses.
+            if is_demo:
+                DemoDocumentStateService().mark_deleted(user_id)
         # Delete the original first.  If that operation fails, indexed chunks
         # remain available for a safe retry instead of leaving an orphan file.
-        original_deleted = document_storage.delete(user_id, filename)
-        deleted_count = rag_service.delete_user_document(
-            user_id=user_id, filename=filename
-        )
-        if not original_deleted and deleted_count == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found.",
+            original_deleted = document_storage.delete(user_id, filename)
+            deleted_count = rag_service.delete_user_document(
+                user_id=user_id, filename=filename
             )
+            if not original_deleted and deleted_count == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Document not found.",
+                )
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning("Document deleted | Chunks: {}", deleted_count)
@@ -710,10 +754,18 @@ async def delete_all_documents(
     logger.bind(AUDIT=True).warning("Bulk document deletion requested")
 
     try:
+        demo_lock = await get_demo_document_lock(user_id)
+        async with demo_lock:
+            has_demo = any(
+                _is_demo_document(user_id, filename, rag_service, document_storage)
+                for filename in DEMO_DOCUMENT_FILENAMES
+            )
+            if has_demo:
+                DemoDocumentStateService().mark_deleted(user_id)
         # Both resources may already be absent, or one may have been created
         # by an older version.  The operation is intentionally idempotent.
-        document_storage.delete_all(user_id)
-        deleted_count = rag_service.delete_all_user_documents(user_id)
+            document_storage.delete_all(user_id)
+            deleted_count = rag_service.delete_all_user_documents(user_id)
 
         # Audit log AFTER successful deletion
         logger.bind(AUDIT=True).warning(

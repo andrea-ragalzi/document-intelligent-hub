@@ -136,11 +136,9 @@ export async function saveConversationToFirestore(
 export async function loadConversationsFromFirestore(userId: string): Promise<SavedConversation[]> {
   try {
     // Simplified query without orderBy to avoid index requirement
-    // TODO: Add orderBy when index is created
     const q = query(
       collection(getFirebaseDb(), CONVERSATIONS_COLLECTION),
       where("userId", "==", userId)
-      // orderBy("createdAt", "desc") // Temporarily commented
     );
 
     const querySnapshot = await getDocs(q);

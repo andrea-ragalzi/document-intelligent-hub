@@ -1,8 +1,7 @@
 /**
  * TanStack Query hooks to manage conversations with Firestore
  *
- * This file replaces useConversations.ts with more robust
- * server state management through TanStack Query.
+ * Server-state management through TanStack Query.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

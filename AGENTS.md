@@ -2,109 +2,62 @@
 
 Work directly on the requested task.
 
-Do not use AgentBus.
-Do not spawn, delegate to, or invoke other agents unless the user explicitly asks.
-Do not create autonomous teams.
-
-## General workflow
-
 Before editing:
-- inspect the relevant code and tests;
-- understand the objective and acceptance criteria;
-- avoid unrelated refactors.
 
-Use the repository's declared tooling and environment.
+- inspect the relevant code, tests, and documentation;
+- understand the current architecture and existing patterns;
+- keep the change focused and preserve unrelated work.
 
-Prefer small, focused changes.
+For backend changes, read `backend/AGENTS.md` before editing backend code.
 
-## IMPLEMENTER mode
+For frontend changes, read `frontend/AGENTS.md` before editing frontend code.
 
-When the user asks you to implement, fix, refactor, or build something:
+## Development
 
-- act as the sole implementation owner;
-- reason about the problem yourself;
-- use TDD when practical;
-- write or update tests before/with the implementation;
-- implement the smallest correct change;
-- update affected documentation;
-- run relevant tests, lint, type checks, and evaluations;
-- inspect the final diff for accidental changes.
+Use TDD for behavior changes when practical:
 
-Do not delegate implementation to another agent.
+1. add or update a test that demonstrates the expected behavior;
+2. confirm the failure when fixing a bug;
+3. implement the smallest correct change;
+4. run the relevant regression tests.
 
-At the end report:
-- what changed;
-- tests/checks run;
-- remaining uncertainty or risks.
+Prefer simple, cohesive code over new abstractions.
 
-## REVIEWER mode
+Do not:
 
-When the user asks you to review or verify work:
+- introduce unrelated refactors;
+- duplicate existing business rules;
+- add dependencies without a concrete need;
+- create god modules, classes, hooks, or components;
+- add substantial new behavior to an already oversized file without first separating a coherent responsibility.
 
-- act as an independent reviewer;
-- do not assume the implementation is correct;
-- inspect the objective, acceptance criteria, diff, relevant code, and tests;
-- run relevant tests/evaluations;
-- look for regressions, edge cases, incorrect assumptions, and missing documentation;
-- prefer objective evidence over the implementer's explanation.
+Treat files approaching 600–700 lines as a signal to check responsibilities. Avoid production files growing toward 1,000+ lines. Do not split cohesive code only to satisfy a line-count target.
 
-Do not modify implementation code unless the user explicitly asks you to fix it.
-
-Return one of:
-
-PASS
-
-or
-
-FAIL
-
-For FAIL, provide concrete evidence and the minimum information needed for the
-Implementer to reproduce the problem.
-
-## Fix policy
-
-If Reviewer returns FAIL:
-- the user sends the evidence back to the Implementer;
-- the Implementer gets one focused fix attempt;
-- Reviewer verifies again.
-
-If the second verification still fails or Implementer and Reviewer materially
-disagree:
-- stop;
-- present the evidence to the user;
-- the user decides the next step.
+Preserve the repository's typing, linting, formatting, and testing standards.
 
 ## Documentation
 
 Documentation is part of Definition of Done.
 
-If behavior, architecture, setup, configuration, APIs, or workflows change,
-update the relevant documentation in the same implementation.
+Update relevant documentation when behavior, architecture, APIs, configuration, setup, deployment, or workflows change.
 
-Do not create documentation changes for purely internal/mechanical edits when
-they are unnecessary.
+## Verification
 
-## Git
+Before finishing:
 
-Do not commit, push, merge, rebase, or delete branches unless the user explicitly asks.
+- run relevant tests;
+- run relevant lint/type/format checks;
+- inspect `git status`;
+- inspect `git diff`;
+- confirm only intended files changed.
 
-Always preserve unrelated user changes.
+Do not disable valid tests or quality checks to make the change pass.
 
-Before declaring implementation complete, inspect:
-- git status
-- git diff
-- relevant tests/checks
+Do not commit, push, merge, rebase, reset, or delete branches unless explicitly requested.
 
-## RAG work
+At the end report:
 
-For RAG failures, diagnose the pipeline before proposing architectural changes:
-
-1. source/parser evidence exists;
-2. candidate retrieval contains the evidence;
-3. ranking/reranking preserves it;
-4. context selection preserves it;
-5. the model receives the required evidence;
-6. generation answers correctly;
-7. citations/grounding are correct.
-
-Do not jump to a new retrieval architecture before identifying the failing stage.
+- what changed;
+- tests/checks run;
+- documentation updated;
+- remaining risks or uncertainty.

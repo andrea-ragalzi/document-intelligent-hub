@@ -47,7 +47,6 @@ export default defineConfig({
         "app/**/*", // Escludi tutte le pages Next.js (non unit-testabili facilmente)
         "contexts/**", // Escludi i contexts che richiedono mocking complesso
         "public/**",
-        "hooks/useConversations.ts", // Hook con dipendenze Firebase complesse
         "hooks/useChatAI.ts", // Hook con Vercel AI SDK
         "hooks/useRAGChat.ts", // Hook con chiamate backend
         "hooks/useDocumentUpload.ts", // Hook con file upload

@@ -179,7 +179,7 @@ app.add_middleware(
 )
 
 # Accept forwarded client addresses only from explicitly trusted deployment
-# proxies. The invitation limiter relies on request.client.host after this.
+# proxies. Authenticated support endpoints rely on request.client.host after this.
 app.add_middleware(
     ProxyHeadersMiddleware,
     trusted_hosts=[host.strip() for host in settings.TRUSTED_PROXY_IPS.split(",") if host.strip()],

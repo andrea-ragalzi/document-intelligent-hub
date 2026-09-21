@@ -1,11 +1,10 @@
-.PHONY: help setup build build-frontend build-backend up down restart logs test clean prune
+.PHONY: help build build-frontend build-backend up down restart logs test clean prune
 
 # Default target
 help:
 	@echo "🧠 Document Intelligent Hub - Available Commands"
 	@echo ""
 	@echo "Setup & Deployment:"
-	@echo "  make setup      - Initial setup (creates .env, builds, starts services)"
 	@echo "  make build      - Build Docker images"
 	@echo "  make up         - Start all services"
 	@echo "  make down       - Stop all services"
@@ -19,8 +18,7 @@ help:
 	@echo "  make logs-frontend - View frontend logs only"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test         - Run all tests"
-	@echo "  make test-backend - Run backend tests"
+	@echo "  make test         - Run backend tests in the Compose service"
 	@echo "  make test-coverage - Run tests with coverage"
 	@echo ""
 	@echo "Code Quality:"
@@ -32,11 +30,6 @@ help:
 	@echo "  make shell-backend  - Access backend container shell"
 	@echo "  make shell-frontend - Access frontend container shell"
 	@echo ""
-
-# Setup
-setup:
-	@echo "🚀 Running setup script..."
-	@./setup.sh
 
 # Build images
 # Frontend requires NEXT_PUBLIC_* vars from frontend/.env.local at build time.
@@ -99,10 +92,6 @@ dev-frontend:
 
 # Testing
 test:
-	@echo "🧪 Running all tests..."
-	docker compose exec backend pytest -v
-
-test-backend:
 	@echo "🧪 Running backend tests..."
 	docker compose exec backend pytest tests/ -v
 

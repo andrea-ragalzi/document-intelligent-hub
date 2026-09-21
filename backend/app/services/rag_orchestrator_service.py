@@ -377,8 +377,6 @@ class RAGService:
 
         Args:
             user_id: User identifier
-            include_demo: Whether to include the bundled starter document.
-
         Returns:
             List of DocumentInfo objects
         """
@@ -409,7 +407,7 @@ class RAGService:
         """
         return self.document_management_service.delete_all_user_documents(user_id)
 
-    def get_user_document_count(self, user_id: str, include_demo: bool = True) -> int:
+    def get_user_document_count(self, user_id: str) -> int:
         """
         Delegate to DocumentManagementService.
 
@@ -419,9 +417,7 @@ class RAGService:
         Returns:
             Number of unique documents
         """
-        return self.document_management_service.get_user_document_count(
-            user_id, include_demo=include_demo
-        )
+        return self.document_management_service.get_user_document_count(user_id)
 
     def user_document_exists(self, user_id: str, filename: str) -> bool:
         """Return whether this authenticated user's document is already indexed."""

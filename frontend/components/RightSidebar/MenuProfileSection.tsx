@@ -12,7 +12,7 @@ interface Document {
 }
 
 export const getPersonalDocumentCount = (documents: Document[] | undefined): number =>
-  documents?.filter(document => document.is_demo_document !== true).length || 0;
+  documents?.length || 0;
 
 interface MenuProfileSectionProps {
   user: User | null;
