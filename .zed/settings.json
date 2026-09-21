@@ -14,15 +14,5 @@
         }
       }
     }
-  },
-  "context_servers": {
-    "agentbus": {
-      "command": "./.agentbus-venv/bin/agentbus",
-      "args": ["mcp-serve", "--workspace", ".", "--wiretap"],
-      "env": {
-        "AGENTBUS_WORKSPACE": ".",
-        "AGENTBUS_PRODUCER_ID": "mateo"
-      }
-    }
   }
 }
