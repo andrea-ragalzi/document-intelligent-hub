@@ -40,6 +40,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onClose,
   onToggleTheme,
   documents,
+  isLoadingDocuments = false,
   onDeleteDocument,
   onPreviewDocument,
   onDownloadDocument,
@@ -85,7 +86,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
       await logout();
       router.push("/login");
     } catch (error) {
-      console.error("Sign-out failed.");
       setLogoutError(
         error instanceof Error ? error.message : "We couldn't sign you out. Please try again."
       );
@@ -218,6 +218,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               onDeleteDocument={onDeleteDocument}
               onPreviewDocument={onPreviewDocument}
               onDownloadDocument={onDownloadDocument}
+              isLoadingDocuments={isLoadingDocuments}
               isServerOnline={isServerOnline}
             />
           ) : null}

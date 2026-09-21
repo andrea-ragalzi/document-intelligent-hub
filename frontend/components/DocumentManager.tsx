@@ -49,10 +49,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   // Refresh documents when upload completes
   useEffect(() => {
     if (prevUploadingRef.current === true && isUploading === false) {
-      // Small delay to ensure backend has processed everything
-      setTimeout(() => {
-        refreshDocuments();
-      }, 500);
+      void refreshDocuments();
     }
     prevUploadingRef.current = isUploading;
   }, [isUploading, refreshDocuments]);

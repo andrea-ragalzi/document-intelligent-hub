@@ -111,6 +111,14 @@ describe("DocumentManager", () => {
     expect(uploadButton).toBeDisabled();
   });
 
+  it("refreshes documents as soon as an upload completes", () => {
+    const { rerender } = render(<DocumentManager {...defaultProps} isUploading={true} />);
+
+    rerender(<DocumentManager {...defaultProps} isUploading={false} />);
+
+    expect(mockRefreshDocuments).toHaveBeenCalledOnce();
+  });
+
   it("should call onUpload when form is submitted", () => {
     render(<DocumentManager {...defaultProps} file={mockFile} />);
 

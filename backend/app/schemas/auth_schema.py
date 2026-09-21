@@ -1,7 +1,7 @@
 """
 Authentication and Registration Schemas
 
-Pydantic models for user authentication and tier assignment via invitation codes.
+Pydantic models for user authentication and tier assignment.
 """
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -9,17 +9,13 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 class RegistrationData(BaseModel):
     """
-    User registration request with Firebase ID token and optional invitation code.
+    User registration request with Firebase ID token.
 
     Attributes:
         id_token: Firebase ID token for user authentication
-        invitation_code: Optional invitation code for elevated tier assignment
     """
 
     id_token: str = Field(..., description="Firebase ID token")
-    invitation_code: str | None = Field(
-        None, description="Optional invitation code for elevated tier assignment"
-    )
 
 
 class RegistrationResponse(BaseModel):

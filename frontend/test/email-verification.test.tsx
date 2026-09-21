@@ -41,6 +41,26 @@ function SignUpTrigger() {
   return <button onClick={() => void signUp("recruiter@example.com", "password")}>Sign up</button>;
 }
 
+function EmailSignInTrigger() {
+  const { signIn } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <>
+      <button
+        onClick={() =>
+          void signIn("recruiter@example.com", "secret-password").catch(error =>
+            setError(error instanceof Error ? error.message : "unknown error")
+          )
+        }
+      >
+        Sign in
+      </button>
+      {error && <output>{error}</output>}
+    </>
+  );
+}
+
 function VerificationRefreshTrigger() {
   const { refreshEmailVerification } = useAuth();
   const [verified, setVerified] = useState<boolean | null>(null);
@@ -110,6 +130,25 @@ describe("email verification lifecycle", () => {
     await waitFor(() => expect(firebaseMocks.signInWithPopup).toHaveBeenCalledOnce());
   });
 
+  it("maps invalid credentials inline without logging the Firebase error", async () => {
+    firebaseMocks.signInWithEmailAndPassword.mockRejectedValue({
+      code: "auth/invalid-credential",
+      message: "password=secret-password",
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    render(createElement(AuthProvider, null, createElement(EmailSignInTrigger)));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Incorrect email or password.")).toBeInTheDocument()
+    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalledWith(expect.stringContaining("secret-password"));
+
+    consoleError.mockRestore();
+  });
+
   it("restores Firebase auth state and clears user-scoped state after logout", async () => {
     firebaseMocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
       callback(user);
@@ -144,7 +183,10 @@ describe("email verification lifecycle", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
 
     await waitFor(() => {
-      expect(firebaseMocks.sendEmailVerification).toHaveBeenCalledWith(user);
+      expect(firebaseMocks.sendEmailVerification).toHaveBeenCalledWith(user, {
+        url: "http://localhost:3000/verify-email",
+        handleCodeInApp: false,
+      });
     });
   });
 

@@ -174,7 +174,7 @@ The latest validation recorded 73 targeted tests passing and 322 backend tests p
 
 - Run Uvicorn from `backend/`: `.env.local`, the default prompt paths, and the relative `CHROMA_DB_PATH` are resolved from the backend working directory.
 - Firebase initialization is attempted at startup. Without valid Firebase credentials the process can start, but protected/authentication routes are unavailable.
-- Registration without an invitation assigns the constrained FREE tier. Optional elevated access uses `app_config/settings.unlimited_emails` or an unused `invitation_codes` document; the assigned tier is stored as a Firebase custom claim.
+- Registration assigns the constrained FREE tier by default. The configured `app_config/settings.unlimited_emails` allowlist can receive the UNLIMITED tier; the assigned tier is stored as a Firebase custom claim.
 - Startup preloads the local HuggingFace embedding model and creates the persistent ChromaDB directory if needed; the first run can be slow and may require model download access.
 - ChromaDB contains the local search index rather than the original PDFs. Deleting `CHROMA_DB_PATH` loses indexed chunks and requires the documents to be uploaded again.
 - Development CORS allows all origins. Setting `ENVIRONMENT=production` switches to the comma-separated `ALLOWED_ORIGINS` list.

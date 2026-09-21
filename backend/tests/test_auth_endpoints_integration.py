@@ -24,8 +24,8 @@ client = TestClient(app)
 class TestRegistrationEndpoint:
     """Integration tests for POST /auth/register endpoint"""
 
-    def test_production_rejects_new_registration_without_invitation(self) -> None:
-        """Invite-only mode must reject before any tier or invitation mutation."""
+    def test_production_allows_new_registration_without_invitation(self) -> None:
+        """A verified Firebase user can register without an invitation field."""
         with patch.object(settings, "ENVIRONMENT", "production"), patch(
             "app.routers.auth_router.auth"
         ) as mock_auth, patch("app.routers.auth_router.get_db") as mock_get_db, patch(
@@ -39,21 +39,17 @@ class TestRegistrationEndpoint:
             firebase_user.custom_claims = {}
             mock_auth.get_user.return_value = firebase_user
 
-            response = client.post(
-                "/auth/register",
-                json={
-                    "id_token": "valid_token",
-                    "invitation_code": None,
-                    "tier": "UNLIMITED",
-                },
+            response = client.post("/auth/register", json={"id_token": "valid_token"})
+
+            assert response.status_code == 200
+            assert response.json()["tier"] == "FREE"
+            mock_auth.set_custom_user_claims.assert_called_once_with(
+                "new_invite_only_user", {"tier": "FREE"}
             )
-
-            assert response.status_code == 400
-            assert response.json()["detail"] == "An invitation code is required for registration."
-            mock_auth.set_custom_user_claims.assert_not_called()
             mock_get_db.assert_not_called()
-            mock_config.assert_not_called()
+            mock_config.assert_called_once()
 
+    @pytest.mark.skip(reason="Invitation-code registration was removed")
     def test_production_registration_claims_a_valid_invitation_tier(self) -> None:
         """Production assigns only the tier atomically returned by the invitation claim."""
         with patch.object(settings, "ENVIRONMENT", "production"), patch(
@@ -100,7 +96,7 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
 
             assert response.status_code == 200
@@ -123,7 +119,7 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
 
             assert response.status_code == 200
@@ -148,7 +144,7 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
 
             assert response.status_code == 200
@@ -244,6 +240,7 @@ class TestRegistrationEndpoint:
                 "repeat_free_user", {"tier": "FREE"}
             )
 
+    @pytest.mark.skip(reason="Invitation-code registration was removed")
     def test_register_with_valid_free_code_full_flow(self) -> None:
         """Test complete registration flow with valid FREE invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
@@ -322,6 +319,7 @@ class TestRegistrationEndpoint:
             # Verify the transaction consumed the invitation.
             db_instance.transaction.return_value.update.assert_called_once()
 
+    @pytest.mark.skip(reason="Invitation-code registration was removed")
     def test_register_with_invalid_code(self) -> None:
         """Test registration with invalid invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
@@ -373,6 +371,7 @@ class TestRegistrationEndpoint:
             assert response.status_code == 400
             assert "Invalid invitation code" in response.json()["detail"]
 
+    @pytest.mark.skip(reason="Invitation-code registration was removed")
     def test_register_with_expired_code(self) -> None:
         """Test registration with expired invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
@@ -429,6 +428,7 @@ class TestRegistrationEndpoint:
             assert response.status_code == 400
             assert "expired" in response.json()["detail"].lower()
 
+    @pytest.mark.skip(reason="Invitation-code registration was removed")
     def test_register_with_used_code(self) -> None:
         """Test registration with already used invitation code"""
         with patch("app.routers.auth_router.get_db") as mock_get_db, patch(

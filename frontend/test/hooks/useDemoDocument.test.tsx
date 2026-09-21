@@ -1,4 +1,5 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { useCallback, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getIdToken = vi.fn();
@@ -8,9 +9,45 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 import { useDemoDocument } from "@/hooks/useDemoDocument";
+import { ChatSection } from "@/components/ChatSection";
+
+let completeDocumentRefresh: (() => void) | undefined;
+
+function DemoWorkspace() {
+  const [hasDocuments, setHasDocuments] = useState(false);
+  const onReady = useCallback(
+    () =>
+      new Promise<void>(resolve => {
+        completeDocumentRefresh = () => {
+          setHasDocuments(true);
+          resolve();
+        };
+      }),
+    []
+  );
+  const { state, suggestedQuestions } = useDemoDocument({ userId: "user-a", onReady });
+
+  return (
+    <ChatSection
+      chatHistory={[]}
+      query=""
+      isQuerying={false}
+      userId="user-a"
+      onQueryChange={vi.fn()}
+      onQuerySubmit={vi.fn()}
+      hasDocuments={hasDocuments}
+      isCheckingDocuments={false}
+      onOpenUploadModal={vi.fn()}
+      demoDocumentState={state}
+      suggestedQuestions={suggestedQuestions}
+      onSuggestedQuestion={vi.fn()}
+    />
+  );
+}
 
 describe("useDemoDocument", () => {
   beforeEach(() => {
+    completeDocumentRefresh = undefined;
     getIdToken.mockReset();
     getIdToken.mockResolvedValue("firebase-token");
     vi.stubGlobal("fetch", vi.fn());
@@ -45,6 +82,50 @@ describe("useDemoDocument", () => {
     await waitFor(() => expect(result.current.state).toBe("ready"));
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(onReady).toHaveBeenCalledOnce();
+  });
+
+  it("does not become ready when the post-seed document refresh fails", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "seeded",
+          filename: "alice-cheshire-cat-demo.pdf",
+          suggested_questions: ["How is the Cheshire Cat described?"],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    const onReady = vi.fn().mockResolvedValue(false);
+
+    const { result } = renderHook(() => useDemoDocument({ userId: "user-a", onReady }));
+
+    await waitFor(() => expect(result.current.state).toBe("failed"));
+    expect(result.current.state).not.toBe("ready");
+    expect(result.current.suggestedQuestions).toEqual([]);
+  });
+
+  it("keeps the empty state hidden until a delayed document refresh completes", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "seeded",
+          filename: "alice-cheshire-cat-demo.pdf",
+          suggested_questions: ["How is the Cheshire Cat described?"],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+
+    render(<DemoWorkspace />);
+
+    await waitFor(() => expect(completeDocumentRefresh).toBeTypeOf("function"));
+    expect(screen.getByText("Preparing your private demo document…")).toBeInTheDocument();
+    expect(screen.queryByText("No documents uploaded yet")).not.toBeInTheDocument();
+
+    act(() => completeDocumentRefresh?.());
+
+    await waitFor(() => expect(screen.getByText("Demo document ready")).toBeInTheDocument());
+    expect(screen.queryByText("No documents uploaded yet")).not.toBeInTheDocument();
   });
 
   it("refreshes document state after the final seed failure", async () => {
