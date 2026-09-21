@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 # Constants
 LOG_ROTATION_SIZE = "10 MB"
+PERSISTENT_FILE_LOGGING_ENABLED = "pytest" not in sys.modules
 
 # Remove default logger
 logger.remove()
@@ -29,40 +30,41 @@ logger.add(
     level="INFO",
 )
 
-# File logging - General logs (rotation)
-logger.add(
-    LOGS_DIR / "app.log",
-    rotation=LOG_ROTATION_SIZE,  # Rotate when file reaches 10MB
-    retention="7 days",  # Keep logs for 7 days
-    compression="zip",  # Compress rotated files
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-    level="DEBUG",
-    backtrace=False,
-    diagnose=False,
-)
+if PERSISTENT_FILE_LOGGING_ENABLED:
+    # File logging - General logs (rotation)
+    logger.add(
+        LOGS_DIR / "app.log",
+        rotation=LOG_ROTATION_SIZE,  # Rotate when file reaches 10MB
+        retention="7 days",  # Keep logs for 7 days
+        compression="zip",  # Compress rotated files
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        level="DEBUG",
+        backtrace=False,
+        diagnose=False,
+    )
 
-# File logging - Error logs only
-logger.add(
-    LOGS_DIR / "errors.log",
-    rotation=LOG_ROTATION_SIZE,
-    retention="30 days",  # Keep error logs longer
-    compression="zip",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-    level="ERROR",
-    backtrace=False,
-    diagnose=False,
-)
+    # File logging - Error logs only
+    logger.add(
+        LOGS_DIR / "errors.log",
+        rotation=LOG_ROTATION_SIZE,
+        retention="30 days",  # Keep error logs longer
+        compression="zip",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        level="ERROR",
+        backtrace=False,
+        diagnose=False,
+    )
 
-# File logging - Access logs for API requests
-logger.add(
-    LOGS_DIR / "access.log",
-    rotation=LOG_ROTATION_SIZE,
-    retention="7 days",
-    compression="zip",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {message}",
-    level="INFO",
-    filter=lambda record: "ACCESS" in record["extra"],
-)
+    # File logging - Access logs for API requests
+    logger.add(
+        LOGS_DIR / "access.log",
+        rotation=LOG_ROTATION_SIZE,
+        retention="7 days",
+        compression="zip",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {message}",
+        level="INFO",
+        filter=lambda record: "ACCESS" in record["extra"],
+    )
 
 
 def get_logger(name: str = __name__) -> "Logger":
