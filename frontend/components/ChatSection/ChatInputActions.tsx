@@ -8,6 +8,7 @@ interface ChatInputActionsProps {
   isChatDisabled: boolean;
   onOpenUploadModal: () => void;
   allowUpload?: boolean;
+  guestQuota?: string | null;
 }
 
 export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
@@ -18,11 +19,17 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   isChatDisabled,
   onOpenUploadModal,
   allowUpload = true,
+  guestQuota,
 }) => {
   return (
     <div className="flex items-center justify-between px-4 pb-4 sm:pb-4">
       {/* Left Action Buttons */}
       <div className="flex items-center gap-1">
+        {guestQuota && (
+          <span className="mr-2 whitespace-nowrap text-xs text-muted sm:hidden" aria-live="polite">
+            {guestQuota}
+          </span>
+        )}
         {/* Upload Button */}
         {allowUpload && (
           <button

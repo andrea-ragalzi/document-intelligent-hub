@@ -32,7 +32,25 @@ interface ChatSectionProps {
   suggestedQuestions: string[];
   onSuggestedQuestion: (question: string) => void;
   isGuest?: boolean;
+  guestQuotaRemaining?: number | null;
+  guestQuotaLimited?: boolean;
+  guestQuotaLoading?: boolean;
+  guestQuotaError?: boolean;
 }
+
+function guestQuotaLabel(
+  remaining: number | null | undefined,
+  limited: boolean,
+  isLoading: boolean,
+  hasError: boolean
+): string {
+  if (isLoading) return "Loading daily allowance…";
+  if (hasError) return "Daily allowance unavailable";
+  if (!limited) return "Unlimited in development";
+  const count = remaining ?? 0;
+  return `${count} ${count === 1 ? "question" : "questions"} remaining today`;
+}
+
 export const ChatSection: React.FC<ChatSectionProps> = ({
   chatHistory,
   query,
@@ -49,6 +67,10 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   suggestedQuestions,
   onSuggestedQuestion,
   isGuest = false,
+  guestQuotaRemaining,
+  guestQuotaLimited = true,
+  guestQuotaLoading = false,
+  guestQuotaError = false,
 }) => {
   const [queryError, setQueryError] = useState<string | null>(null);
   const chatEndRef = useChatScroll(chatHistory, isQuerying);
@@ -73,6 +95,13 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
       setQueryError(`Message must be ${MAX_QUERY_LENGTH} characters or fewer.`);
     }
   );
+  const guestQuota = isGuest
+    ? guestQuotaLabel(guestQuotaRemaining, guestQuotaLimited, guestQuotaLoading, guestQuotaError)
+    : null;
+  const shouldFlowGuestEmptyState = isGuest && chatHistory.length === 0;
+  const emptyStateClass = shouldFlowGuestEmptyState
+    ? "px-4 pb-2 pt-4 text-center text-muted sm:p-16"
+    : "p-8 text-center text-muted sm:p-16";
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col bg-canvas pb-0 font-[Inter] transition-colors duration-200 ease-in-out">
@@ -80,7 +109,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
       <div className="min-h-0 w-full flex-1 overflow-y-auto p-4 pb-0 sm:p-6 sm:pb-0">
         <div className="max-w-4xl mx-auto">
           {chatHistory.length === 0 ? (
-            <div className="text-center p-8 sm:p-16 text-muted">
+            <div className={emptyStateClass}>
               <ChatEmptyState
                 isCheckingDocuments={isCheckingDocuments}
                 isServerOnline={isServerOnline}
@@ -153,6 +182,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
               isChatDisabled={isChatDisabled}
               onOpenUploadModal={onOpenUploadModal}
               allowUpload={!isGuest}
+              guestQuota={guestQuota}
             />
           </div>
         </div>

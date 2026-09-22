@@ -1,9 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GuestDemoBanner } from "@/components/GuestDemoBanner";
 
 describe("GuestDemoBanner", () => {
-  it("shows authoritative remaining queries and private-document CTAs", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("shows the mobile intro and document/auth actions", () => {
     const onSignIn = vi.fn();
     const onCreateAccount = vi.fn();
     const onViewDocuments = vi.fn();
@@ -17,17 +21,13 @@ describe("GuestDemoBanner", () => {
       />
     );
 
-    expect(screen.getByText("Demo workspace")).toBeInTheDocument();
-    expect(screen.getByText("5 questions remaining today")).toBeInTheDocument();
-    expect(
-      screen.getByText(/5 preloaded synthetic InGen documents inspired by Jurassic Park/i)
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "View demo documents" }));
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    expect(screen.getByText("You’re exploring the demo")).toBeInTheDocument();
+    expect(screen.getByText(/5 preloaded InGen documents inspired by/i)).toBeInTheDocument();
+    expect(screen.getByText("Jurassic Park")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View documents" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Got it" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "View documents" }));
     expect(onViewDocuments).toHaveBeenCalledOnce();
-    expect(onSignIn).toHaveBeenCalledOnce();
-    expect(onCreateAccount).toHaveBeenCalledOnce();
   });
 
   it("uses singular wording for one remaining query", () => {
@@ -59,7 +59,7 @@ describe("GuestDemoBanner", () => {
     expect(screen.getByText("Unlimited in development")).toBeInTheDocument();
   });
 
-  it("collapses to a compact persistent row with all essential actions", () => {
+  it("dismisses the intro and leaves only the compact demo bar", () => {
     render(
       <GuestDemoBanner
         remaining={4}
@@ -70,15 +70,37 @@ describe("GuestDemoBanner", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Minimize demo information" }));
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
 
+    expect(screen.queryByText("You’re exploring the demo")).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/5 preloaded synthetic InGen documents inspired by Jurassic Park/i)
+      screen.queryByText(/5 preloaded InGen documents inspired by Jurassic Park/i)
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Demo workspace")).toBeInTheDocument();
-    expect(screen.getByText("4 questions remaining today")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "View demo documents" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
+    const mobileBanner = screen.getByTestId("mobile-demo-banner");
+    expect(mobileBanner).not.toHaveTextContent("DEMO");
+    expect(mobileBanner).not.toHaveTextContent("questions");
+    expect(screen.getByRole("button", { name: "Documents" }).parentElement).toHaveClass(
+      "justify-center"
+    );
+    expect(screen.getByRole("button", { name: "Documents" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Sign in" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Create account" })).toHaveLength(2);
+  });
+
+  it("persists mobile intro dismissal for the current session", () => {
+    const props = {
+      remaining: 4,
+      isLoading: false,
+      onViewDocuments: vi.fn(),
+      onSignIn: vi.fn(),
+      onCreateAccount: vi.fn(),
+    };
+    const { unmount } = render(<GuestDemoBanner {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    unmount();
+
+    render(<GuestDemoBanner {...props} />);
+    expect(screen.queryByText("You’re exploring the demo")).not.toBeInTheDocument();
+    expect(screen.getByTestId("mobile-demo-banner")).toBeInTheDocument();
   });
 });

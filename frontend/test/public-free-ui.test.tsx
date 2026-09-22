@@ -58,4 +58,47 @@ describe("public FREE-only UI", () => {
     expect(screen.queryByText(/Upgrade/i)).not.toBeInTheDocument();
     expect(getPlaceholderText(true, true, false)).not.toMatch(/Upgrade/i);
   });
+
+  it("hides the empty-state hero for mobile guest demo", () => {
+    render(
+      <ChatEmptyState
+        isCheckingDocuments={false}
+        isServerOnline
+        isLimitReached={false}
+        noDocuments={false}
+        demoDocumentState="ready"
+        suggestedQuestions={[]}
+        onSelectQuestion={vi.fn()}
+        onOpenUpload={vi.fn()}
+        isGuestDemo
+      />
+    );
+
+    expect(screen.getByText("Start a conversation").parentElement).toHaveClass(
+      "hidden",
+      "sm:block"
+    );
+    expect(screen.getByText("Ask me anything about your documents!").parentElement).toHaveClass(
+      "hidden",
+      "sm:block"
+    );
+  });
+
+  it("keeps the empty-state hero for registered users", () => {
+    render(
+      <ChatEmptyState
+        isCheckingDocuments={false}
+        isServerOnline
+        isLimitReached={false}
+        noDocuments={false}
+        demoDocumentState="ready"
+        suggestedQuestions={[]}
+        onSelectQuestion={vi.fn()}
+        onOpenUpload={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Start a conversation")).toBeInTheDocument();
+    expect(screen.getByText("Ask me anything about your documents!")).toBeInTheDocument();
+  });
 });
