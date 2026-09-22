@@ -11,6 +11,7 @@ interface TopBarProps {
   hasConversation: boolean;
   tier: UserTier;
   isTierLoading: boolean;
+  isGuest?: boolean;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -18,6 +19,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenRightSidebar,
   tier,
   isTierLoading,
+  isGuest = false,
 }) => {
   return (
     <div className="w-full bg-raised border-b border-line/15 transition-colors duration-200 ease-in-out font-[Inter]">
@@ -41,7 +43,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             Document Intelligent Hub
           </h1>
           {/* Tier badge - hidden on small screens */}
-          {!isTierLoading && (
+          {!isTierLoading && !isGuest && (
             <div className="hidden md:block">
               <TierBadge tier={tier} />
             </div>

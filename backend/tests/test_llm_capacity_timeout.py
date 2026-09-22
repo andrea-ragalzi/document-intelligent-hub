@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 from openai import APITimeoutError
 
+from app.core.auth import WorkspaceAccess
 from app.routers import query_router
 from app.schemas.rag_schema import FileFilterResponse, QueryRequest, SummarizeRequest
 from app.services.query_concurrency_limiter import (
@@ -75,7 +76,14 @@ async def test_query_and_summary_share_global_capacity_across_users(
     )
     rag = RAG()
     query_task = asyncio.create_task(
-        query_router.query_document(QueryRequest(query="query"), "query-user", rag, _quota_service())
+        query_router.query_document(
+            QueryRequest(query="query"),
+            Mock(),
+            WorkspaceAccess("query-user", "query-user", False),
+            rag,
+            _quota_service(),
+            Mock(),
+        )
     )
     assert await asyncio.to_thread(query_started.wait, 1)
 

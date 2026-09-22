@@ -15,7 +15,7 @@ from app.config.security_constants import (
     MAX_FEEDBACK_MESSAGE_LENGTH,
     MAX_SUPPORT_USER_AGENT_LENGTH,
 )
-from app.core.auth import verify_firebase_token
+from app.core.auth import require_registered_user
 from app.core.logging import logger
 from app.core.security import sanitize_log_value
 from app.dependencies import get_email_service
@@ -89,7 +89,7 @@ async def report_bug(
     description: str = Form(..., min_length=1, max_length=MAX_BUG_REPORT_DESCRIPTION_LENGTH),
     attachment: UploadFile | None = File(None),
     user_agent: str | None = Header(None, alias="User-Agent"),
-    user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_registered_user),
 ) -> dict[str, Any]:
     """Submit a short authenticated bug report and an optional validated screenshot."""
     description = description.strip()
@@ -136,7 +136,7 @@ async def report_bug(
 async def submit_feedback(
     feedback: FeedbackRequest,
     user_agent: str | None = Header(None, alias="User-Agent"),
-    user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_registered_user),
 ) -> dict[str, Any]:
     """Submit short plain-text feedback from the authenticated user."""
     message = feedback.message.strip()

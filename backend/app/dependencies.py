@@ -21,6 +21,7 @@ from app.infrastructure.firebase_config import load_app_config
 from app.infrastructure.firestore_usage_tracker import (
     get_usage_service as get_usage_service,
 )
+from app.infrastructure.firestore_guest_usage import get_guest_usage_tracker
 from app.infrastructure.local_file_storage import (
     get_document_file_storage as get_document_file_storage,
 )
@@ -31,6 +32,7 @@ from app.infrastructure.resend_email_adapter import (
 from app.services.query_expansion_service import QueryExpansionService
 from app.services.query_parser_service import QueryParserService
 from app.services.query_quota_service import QueryQuotaService
+from app.services.guest_query_budget_service import GuestQueryBudgetService
 from app.services.rag_orchestrator_service import RAGService
 
 
@@ -55,6 +57,16 @@ def get_query_quota_service() -> QueryQuotaService:
         tier_provider=_get_firebase_user_tier,
         limits_provider=load_app_config,
         usage_tracker=get_usage_service(),
+    )
+
+
+def get_guest_query_budget_service() -> GuestQueryBudgetService:
+    """Wire shared atomic storage to anonymous demo budget rules."""
+    return GuestQueryBudgetService(
+        tracker=get_guest_usage_tracker(),
+        uid_daily_limit=settings.GUEST_UID_DAILY_QUERY_LIMIT,
+        ip_daily_limit=settings.GUEST_IP_DAILY_QUERY_LIMIT,
+        global_daily_limit=settings.GUEST_GLOBAL_DAILY_QUERY_BUDGET,
     )
 
 
@@ -85,10 +97,8 @@ translation_service = _build_translation_adapter()
 query_expansion_service = QueryExpansionService(_build_chat_model(temperature=0.8))
 
 
-def get_rag_service(
-    repository: VectorStorePort = Depends(get_vector_store_repository),
-) -> RAGService:
-    """Wire concrete LLM and vector adapters to the RAG application service."""
+def build_rag_service(repository: VectorStorePort) -> RAGService:
+    """Build the application RAG service for HTTP and startup workflows."""
     return RAGService(
         repository=repository,
         llm=_build_chat_model(),
@@ -96,6 +106,13 @@ def get_rag_service(
         translation_service=translation_service,
         query_expansion_service=query_expansion_service,
     )
+
+
+def get_rag_service(
+    repository: VectorStorePort = Depends(get_vector_store_repository),
+) -> RAGService:
+    """Wire concrete LLM and vector adapters to the RAG application service."""
+    return build_rag_service(repository)
 
 
 query_parser_service = QueryParserService(

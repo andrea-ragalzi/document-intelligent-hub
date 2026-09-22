@@ -16,7 +16,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     if (!loading && !user) {
       router.push("/login");
     }
-    if (!loading && user && !emailVerified) {
+    if (!loading && user && !user.isAnonymous && !emailVerified) {
       router.push("/verify-email");
     }
   }, [user, loading, emailVerified, router]);
@@ -32,7 +32,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!user || !emailVerified) {
+  if (!user || (!user.isAnonymous && !emailVerified)) {
     return null;
   }
 

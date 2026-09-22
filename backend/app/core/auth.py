@@ -4,13 +4,48 @@ Authentication Module - Firebase Auth Token Verification
 Provides dependency injection for FastAPI endpoints to verify Firebase Auth tokens.
 """
 
+from dataclasses import dataclass
+from typing import Any
+
 from fastapi import Depends, Header, HTTPException, status
 from firebase_admin import auth
 
 from app.core.logging import logger
 
+DEMO_WORKSPACE_ID = "__shared_ingen_demo_v1__"
 
-def verify_firebase_token(authorization: str = Header(None)) -> str:
+
+@dataclass(frozen=True)
+class FirebasePrincipal:
+    """Identity facts derived only from a verified Firebase ID token."""
+
+    uid: str
+    is_anonymous: bool
+
+
+@dataclass(frozen=True)
+class WorkspaceAccess:
+    """Authorized workspace selected for one authenticated principal."""
+
+    principal_uid: str
+    workspace_id: str
+    is_guest: bool
+
+
+def firebase_principal_from_claims(decoded_token: dict[str, Any]) -> FirebasePrincipal:
+    firebase_claims = decoded_token.get("firebase")
+    provider = (
+        firebase_claims.get("sign_in_provider")
+        if isinstance(firebase_claims, dict)
+        else None
+    )
+    return FirebasePrincipal(
+        uid=str(decoded_token["uid"]),
+        is_anonymous=provider == "anonymous",
+    )
+
+
+def verify_firebase_principal(authorization: str = Header(None)) -> FirebasePrincipal:
     """
     Verify Firebase Auth token from Authorization header.
 
@@ -62,12 +97,9 @@ def verify_firebase_token(authorization: str = Header(None)) -> str:
     # Verify token with Firebase Admin SDK
     try:
         decoded_token = auth.verify_id_token(token)
-        user_id = str(decoded_token["uid"])
-
-        # Optional: Log successful authentication (verbose mode only)
+        principal = firebase_principal_from_claims(decoded_token)
         logger.debug("Firebase token verified")
-
-        return user_id
+        return principal
 
     except auth.ExpiredIdTokenError:
         logger.warning("⚠️ Expired Firebase token")
@@ -100,6 +132,51 @@ def verify_firebase_token(authorization: str = Header(None)) -> str:
             detail="Authentication failed. Please try again.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
+
+def verify_firebase_token(authorization: str = Header(None)) -> str:
+    """Return the UID from the existing verified-token boundary."""
+    return verify_firebase_principal(authorization).uid
+
+
+def get_workspace_access(
+    principal: FirebasePrincipal = Depends(verify_firebase_principal),
+) -> WorkspaceAccess:
+    """Map guests to the shared corpus and registered users to their private UID."""
+    return WorkspaceAccess(
+        principal_uid=principal.uid,
+        workspace_id=DEMO_WORKSPACE_ID if principal.is_anonymous else principal.uid,
+        is_guest=principal.is_anonymous,
+    )
+
+
+def require_registered_user(
+    principal: FirebasePrincipal = Depends(verify_firebase_principal),
+) -> str:
+    """Reject anonymous identities on every mutation/account boundary."""
+    if principal.is_anonymous:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Guest workspaces are read-only.",
+        )
+    return principal.uid
+
+
+def require_verified_registered_user(
+    principal: FirebasePrincipal = Depends(verify_firebase_principal),
+) -> str:
+    """Require a non-anonymous Firebase user with a verified email."""
+    user_id = require_registered_user(principal)
+    return require_verified_email(user_id)
+
+
+def get_query_workspace_access(
+    access: WorkspaceAccess = Depends(get_workspace_access),
+) -> WorkspaceAccess:
+    """Allow guests to query the demo and require verified email otherwise."""
+    if not access.is_guest:
+        require_verified_email(access.principal_uid)
+    return access
 
 
 def get_verified_user_id(authorization: str = Header(None)) -> str:

@@ -11,7 +11,7 @@ from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from main import app
-from app.core.auth import require_verified_email
+from app.core.auth import require_verified_registered_user
 from app.dependencies import get_document_file_storage, get_rag_service
 from app.db.chroma_client import COLLECTION_NAME, get_embedding_function
 from app.infrastructure.local_file_storage import LocalFileStorage
@@ -74,7 +74,7 @@ def test_real_upload_indexes_into_temporary_chroma(monkeypatch) -> None:
             Translation(),
             QueryExpansionService(FakeLLM()),
         )
-        app.dependency_overrides[require_verified_email] = lambda: (
+        app.dependency_overrides[require_verified_registered_user] = lambda: (
             "synthetic-upload-user"
         )
         app.dependency_overrides[get_rag_service] = lambda: service

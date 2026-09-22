@@ -11,6 +11,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 from langchain_core.documents import Document
 
+from app.core.auth import WorkspaceAccess
 from app.routers import query_router
 from app.schemas.rag_schema import FileFilterResponse, QueryRequest
 from app.services.document_classifier_service import DocumentCategory
@@ -87,8 +88,22 @@ async def test_independent_rag_queries_progress_concurrently(
     request = QueryRequest(query="question", conversation_history=[])
     start = time.monotonic()
     responses = await asyncio.gather(
-        query_router.query_document(request, "user-a", RAGService(), quota_service),
-        query_router.query_document(request, "user-b", RAGService(), quota_service),
+        query_router.query_document(
+            request,
+            Mock(),
+            WorkspaceAccess("user-a", "user-a", False),
+            RAGService(),
+            quota_service,
+            Mock(),
+        ),
+        query_router.query_document(
+            request,
+            Mock(),
+            WorkspaceAccess("user-b", "user-b", False),
+            RAGService(),
+            quota_service,
+            Mock(),
+        ),
     )
 
     assert time.monotonic() - start < 0.28
@@ -131,12 +146,26 @@ async def test_second_same_user_query_is_rejected_while_first_is_running(
 
     request = QueryRequest(query="question", conversation_history=[])
     first_query = asyncio.create_task(
-        query_router.query_document(request, "user-a", RAGService(), quota_service)
+        query_router.query_document(
+            request,
+            Mock(),
+            WorkspaceAccess("user-a", "user-a", False),
+            RAGService(),
+            quota_service,
+            Mock(),
+        )
     )
     assert await asyncio.to_thread(started.wait, 1)
 
     with pytest.raises(HTTPException, match="already running") as error:
-        await query_router.query_document(request, "user-a", RAGService(), quota_service)
+        await query_router.query_document(
+            request,
+            Mock(),
+            WorkspaceAccess("user-a", "user-a", False),
+            RAGService(),
+            quota_service,
+            Mock(),
+        )
 
     assert getattr(error.value, "status_code", None) == 429
     release.set()

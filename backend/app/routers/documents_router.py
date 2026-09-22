@@ -23,7 +23,12 @@ from fastapi.responses import FileResponse
 from firebase_admin import firestore
 
 from app.config.security_constants import FILE_READ_CHUNK_SIZE
-from app.core.auth import require_verified_email, verify_firebase_token
+from app.core.auth import (
+    WorkspaceAccess,
+    get_workspace_access,
+    require_registered_user,
+    require_verified_registered_user,
+)
 from app.core.logging import logger
 from app.core.security import (
     get_safe_file_size_mb,
@@ -357,7 +362,7 @@ async def _read_and_validate_file_size(
 
 @router.post("/documents/seed-demo", response_model=DemoDocumentSeedResponse)
 async def seed_demo_document(
-    user_id: str = Depends(require_verified_email),
+    user_id: str = Depends(require_verified_registered_user),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DemoDocumentSeedResponse:
@@ -405,7 +410,7 @@ async def seed_demo_document(
 async def upload_document(
     _request: Request,
     file: UploadFile = File(..., description="The PDF document to be indexed."),
-    user_id: str = Depends(require_verified_email),
+    user_id: str = Depends(require_verified_registered_user),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: FileStoragePort = Depends(get_document_file_storage),
     duplicate_action: Annotated[
@@ -514,7 +519,7 @@ async def upload_document(
 @router.post("/detect-language/", response_model=DetectLanguageResponse)
 async def detect_document_language(
     file: UploadFile = File(..., description="The PDF document to analyze."),
-    user_id: str = Depends(require_verified_email),
+    user_id: str = Depends(require_verified_registered_user),
     rag_service: RAGService = Depends(get_rag_service),
 ) -> DetectLanguageResponse:
     """
@@ -581,7 +586,7 @@ async def detect_document_language(
 
 @router.get("/documents/check")
 async def check_documents(
-    user_id: str = Depends(verify_firebase_token),
+    access: WorkspaceAccess = Depends(get_workspace_access),
     rag_service: RAGService = Depends(get_rag_service),
 ) -> dict[str, Any]:
     """
@@ -590,7 +595,7 @@ async def check_documents(
     **🔒 Security:** Requires valid Firebase Auth token
     """
     try:
-        count = rag_service.get_user_document_count(user_id)
+        count = rag_service.get_user_document_count(access.workspace_id)
         return {"has_documents": count > 0, "document_count": count}
     except Exception as exc:
         _log_document_failure("status check", exc)
@@ -602,7 +607,7 @@ async def check_documents(
 
 @router.get("/documents/list", response_model=DocumentListResponse)
 async def list_documents(
-    user_id: str = Depends(verify_firebase_token),
+    access: WorkspaceAccess = Depends(get_workspace_access),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DocumentListResponse:
@@ -615,14 +620,18 @@ async def list_documents(
         documents = [
             document.model_copy(
                 update={
-                    "original_available": document_storage.get(user_id, document.filename)
+                    "original_available": document_storage.get(
+                        access.workspace_id, document.filename
+                    )
                     is not None
                 }
             )
-            for document in rag_service.get_user_documents(user_id)
+            for document in rag_service.get_user_documents(access.workspace_id)
         ]
         return DocumentListResponse(
-            documents=documents, total_count=len(documents), user_id=user_id
+            documents=documents,
+            total_count=len(documents),
+            user_id=access.workspace_id,
         )
     except Exception as exc:
         _log_document_failure("listing", exc)
@@ -635,7 +644,7 @@ async def list_documents(
 @router.delete("/documents/delete", response_model=DocumentDeleteResponse)
 async def delete_document(
     filename: str,
-    user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_registered_user),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> DocumentDeleteResponse:
@@ -692,7 +701,7 @@ async def delete_document(
 async def get_document_content(
     filename: str,
     download: bool = False,
-    user_id: str = Depends(verify_firebase_token),
+    access: WorkspaceAccess = Depends(get_workspace_access),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> FileResponse:
@@ -700,7 +709,7 @@ async def get_document_content(
     owned_document = next(
         (
             document
-            for document in rag_service.get_user_documents(user_id)
+            for document in rag_service.get_user_documents(access.workspace_id)
             if document.filename == filename
         ),
         None,
@@ -711,7 +720,7 @@ async def get_document_content(
             detail="Document not found.",
         )
 
-    original_file = document_storage.get(user_id, owned_document.filename)
+    original_file = document_storage.get(access.workspace_id, owned_document.filename)
     if original_file is None:
         # Documents indexed before original-file storage was introduced remain
         # usable for RAG but cannot be reconstructed from ChromaDB chunks.
@@ -739,7 +748,7 @@ async def get_document_content(
 
 @router.delete("/documents/delete-all")
 async def delete_all_documents(
-    user_id: str = Depends(verify_firebase_token),
+    user_id: str = Depends(require_registered_user),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> dict[str, Any]:
@@ -788,7 +797,7 @@ async def delete_all_documents(
 
 @router.delete("/account/data")
 async def delete_account_data(
-    user_id: str = Depends(require_verified_email),
+    user_id: str = Depends(require_verified_registered_user),
     rag_service: RAGService = Depends(get_rag_service),
     document_storage: FileStoragePort = Depends(get_document_file_storage),
 ) -> dict[str, int | str]:

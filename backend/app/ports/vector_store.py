@@ -25,7 +25,13 @@ class VectorStorePort(Protocol):
     def delete_all_user_documents(self, user_id: str) -> int:
         """Delete all chunks belonging to one user."""
 
-    def get_retriever(self, **kwargs: Any) -> Any:
+    def get_retriever(
+        self,
+        user_id: str,
+        k: int = 10,
+        include_files: list[str] | None = None,
+        exclude_files: list[str] | None = None,
+    ) -> Any:
         """Build the adapter's tenant-scoped retriever."""
 
     def lexical_candidate_search(

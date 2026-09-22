@@ -27,6 +27,7 @@ interface MenuProfileSectionProps {
   logoutError: string | null;
   onClose: () => void;
   onLogout: () => void;
+  isGuest?: boolean;
 }
 
 export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
@@ -42,6 +43,7 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
   logoutError,
   onClose,
   onLogout,
+  isGuest = false,
 }) => {
   return (
     <div className="px-6 py-4 border-b border-line/15">
@@ -61,7 +63,9 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-ink truncate">{displayName}</p>
-          <p className="text-xs text-muted truncate">{user?.email}</p>
+          <p className="text-xs text-muted truncate">
+            {isGuest ? "Synthetic InGen dataset" : user?.email}
+          </p>
         </div>
         <button
           onClick={onClose}
@@ -70,20 +74,24 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
           <X size={20} className="text-muted" />
         </button>
       </div>
-      <div className="ui-subtle-panel rounded-lg p-3 mb-3">
-        <p className="text-xs text-muted mb-1">User ID</p>
-        <p className="text-xs font-mono text-ink break-all">{userId || "Non disponibile"}</p>
-      </div>
+      {!isGuest && (
+        <div className="ui-subtle-panel rounded-lg p-3 mb-3">
+          <p className="text-xs text-muted mb-1">User ID</p>
+          <p className="text-xs font-mono text-ink break-all">{userId || "Non disponibile"}</p>
+        </div>
+      )}
 
-      <div className="mb-3">
-        <TierLimitsDisplay
-          currentDocuments={getPersonalDocumentCount(documents)}
-          currentQueries={currentQueries}
-          tier={tier}
-          limits={tierLimits}
-          isLoading={isTierLoading}
-        />
-      </div>
+      {!isGuest && (
+        <div className="mb-3">
+          <TierLimitsDisplay
+            currentDocuments={getPersonalDocumentCount(documents)}
+            currentQueries={currentQueries}
+            tier={tier}
+            limits={tierLimits}
+            isLoading={isTierLoading}
+          />
+        </div>
+      )}
 
       <button
         onClick={onLogout}
@@ -105,7 +113,7 @@ export const MenuProfileSection: React.FC<MenuProfileSectionProps> = ({
           <polyline points="16 17 21 12 16 7" />
           <line x1="21" y1="12" x2="9" y2="12" />
         </svg>
-        {isLoggingOut ? "Signing out..." : "Logout"}
+        {isLoggingOut ? "Leaving…" : isGuest ? "Exit Demo" : "Logout"}
       </button>
       {logoutError && (
         <p className="mt-3 text-sm text-danger" role="alert">

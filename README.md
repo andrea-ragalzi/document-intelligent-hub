@@ -12,6 +12,7 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 ## What It Does
 
 - Verified users can batch-upload, manage, and search private PDF collections, choosing how to resolve owned filename collisions.
+- Recruiters can use **Try Demo** without registration. Firebase Anonymous Authentication opens a read-only workspace backed by five shared synthetic InGen enterprise documents.
 - Natural-language questions are answered from retrieved document context, with source filenames and available page citations returned for grounding.
 - File-aware and multilingual queries support conversations over indexed documents.
 - Saved conversations are persisted in Firestore through the client application.
@@ -20,6 +21,7 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 
 - **REST API design:** FastAPI routers and Pydantic schemas define authentication, document, query, usage, and support contracts, with OpenAPI documentation available at runtime.
 - **Authentication boundary:** Firebase Admin verifies bearer tokens; protected routes derive the user ID from the verified token rather than trusting a client-selected owner.
+- **Bounded guest demo:** anonymous identities can only list/read the shared demo corpus and query the production RAG pipeline; server-side UID, IP, concurrency, and global daily controls bound paid work.
 - **Backend integrations:** the service coordinates Firebase, Firestore, OpenAI, ChromaDB, local HuggingFace embeddings, and Resend-backed support workflows.
 - **Pragmatic ports and adapters:** routers handle HTTP, application services coordinate workflows, application-owned ports describe required capabilities, and infrastructure adapters isolate Firestore, OpenAI, filesystem, Resend, and Chroma integrations.
 - **Multi-user isolation:** indexed chunks carry the verified Firebase user ID in metadata, and repository operations apply that metadata filter when listing, retrieving, and deleting documents.
@@ -81,7 +83,7 @@ Authenticated PDF upload
 ### Query and Answer Generation
 
 ```text
-Verified-email Firebase context
+Verified-email Firebase context or restricted anonymous demo context
 → natural-language file-filter extraction
 → conditional query reformulation from conversation context
 → retrieval-language detection and translation when needed; response language is resolved from the current raw user message before answer generation
@@ -93,6 +95,8 @@ Verified-email Firebase context
 → OpenAI answer generation
 → trusted filename/page citation mapping and API response
 ```
+
+Registered requests remain filtered by their verified Firebase UID. Anonymous requests are mapped server-side to one stable read-only demo namespace, so guest accounts do not create documents or embeddings. The bundled InGen files are synthetic fan-made enterprise artifacts created for this demonstration; they are not official franchise documents.
 
 The API returns `source_documents` for compatibility and structured `citations` containing a filename and, when present in chunk metadata, a one-based PDF page number. It does not expose retrieval scores.
 

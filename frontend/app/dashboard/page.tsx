@@ -38,6 +38,7 @@ import { useQueryUsage } from "@/hooks/useQueryUsage";
 import { useDemoDocument } from "@/hooks/useDemoDocument";
 import { getDemoDocumentVisibility } from "@/lib/demoDocumentVisibility";
 import { useVisualViewportHeight } from "@/hooks/useVisualViewportHeight";
+import { GuestOnly, RegisteredOnly } from "@/components/AuthVisibility";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -49,15 +50,42 @@ import {
   useDeleteConversation,
 } from "@/hooks/queries/useConversationsQuery";
 
+const GUEST_SUGGESTED_QUESTIONS = [
+  "What control failures contributed to the 1993 Isla Nublar incident?",
+  "How did the reproductive-risk finding change InGen's operating controls?",
+  "Compare the 2015 governance of Isla Nublar and Isla Sorna.",
+];
+
+function getRegisteredUserId(isGuest: boolean, userId: string | null): string | null {
+  return isGuest ? null : userId;
+}
+
+function getVisibleDemoDocument(
+  isGuest: boolean,
+  documents: Parameters<typeof getDemoDocumentVisibility>[0],
+  state: Parameters<typeof getDemoDocumentVisibility>[1],
+  questions: Parameters<typeof getDemoDocumentVisibility>[2]
+) {
+  if (isGuest) {
+    return { state: "ready" as const, suggestedQuestions: GUEST_SUGGESTED_QUESTIONS };
+  }
+  return getDemoDocumentVisibility(documents, state, questions);
+}
+
 export default function Page() {
   const dashboardViewportRef = useRef<HTMLDivElement>(null);
   useVisualViewportHeight(dashboardViewportRef);
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { userId, isAuthReady } = useUserId();
-  const { user } = useAuth();
+  const { user, isGuest, logout } = useAuth();
+  const registeredUserId = getRegisteredUserId(isGuest, userId);
   const { tier, limits: tierLimits, isLoading: isTierLoading, refreshTier } = useUserTier();
-  const { queriesUsed, isLimitReached, refetch: refetchQueryUsage } = useQueryUsage();
+  const {
+    queriesUsed,
+    isLimitReached,
+    refetch: refetchQueryUsage,
+  } = useQueryUsage(Boolean(registeredUserId));
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -104,10 +132,11 @@ export default function Page() {
     return statusRefreshed;
   }, [refreshDocuments, refreshDocumentStatus]);
   const { state: demoDocumentState, suggestedQuestions } = useDemoDocument({
-    userId,
+    userId: registeredUserId,
     onReady: handleDemoDocumentReady,
   });
-  const visibleDemoDocument = getDemoDocumentVisibility(
+  const visibleDemoDocument = getVisibleDemoDocument(
+    isGuest,
     documents,
     demoDocumentState,
     suggestedQuestions
@@ -172,12 +201,12 @@ export default function Page() {
 
   // TanStack Query - gestisce le conversazioni con Firestore
   const { data: savedConversations = [], isLoading: _isLoadingConversations } =
-    useConversationsQuery(userId);
+    useConversationsQuery(registeredUserId);
 
-  const createConversation = useCreateConversation(userId);
-  const updateConversationName = useUpdateConversationName(userId);
-  const updateConversationHistory = useUpdateConversationHistory(userId);
-  const deleteConversation = useDeleteConversation(userId);
+  const createConversation = useCreateConversation(registeredUserId);
+  const updateConversationName = useUpdateConversationName(registeredUserId);
+  const updateConversationHistory = useUpdateConversationHistory(registeredUserId);
+  const deleteConversation = useDeleteConversation(registeredUserId);
 
   const isSavingRef = useRef(false);
   const previousServerStatusRef = useRef<boolean>(true); // Track previous server status
@@ -214,7 +243,7 @@ export default function Page() {
     // - No userId
     // - Chat is empty
     // - Already saving
-    if (!userId || chatHistory.length === 0 || isSavingRef.current) {
+    if (!registeredUserId || chatHistory.length === 0 || isSavingRef.current) {
       return;
     }
 
@@ -276,6 +305,7 @@ export default function Page() {
 
     return () => clearTimeout(timeoutId);
   }, [
+    registeredUserId,
     chatHistory,
     userId,
     isLoading,
@@ -292,7 +322,7 @@ export default function Page() {
 
   // Provision a tier on first login when Firebase has not issued a claim yet.
   useEffect(() => {
-    if (!isTierLoading && user && tier === "FREE") {
+    if (registeredUserId && !isTierLoading && user && tier === "FREE") {
       // Check if user has custom claims set
       user.getIdTokenResult().then(tokenResult => {
         // If no tier claim exists, show account provisioning.
@@ -301,7 +331,7 @@ export default function Page() {
         }
       });
     }
-  }, [user, tier, isTierLoading]);
+  }, [registeredUserId, user, tier, isTierLoading]);
 
   const handleLoad = (conv: SavedConversation) => {
     // Restore Firestore source metadata as AI SDK annotations for rendering.
@@ -484,6 +514,11 @@ export default function Page() {
     }
   };
 
+  const leaveDemo = async (destination: "/login" | "/signup") => {
+    await logout();
+    router.push(destination);
+  };
+
   if (!isAuthReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-canvas text-muted">
@@ -512,7 +547,33 @@ export default function Page() {
           hasConversation={chatHistory.length > 0}
           tier={tier}
           isTierLoading={isTierLoading}
+          isGuest={isGuest}
         />
+
+        <GuestOnly isGuest={isGuest}>
+          <div className="border-b border-accent/25 bg-accent/10 px-4 py-3 text-sm text-ink">
+            <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+              <p>
+                <strong>Demo workspace.</strong> Five preloaded synthetic InGen documents are
+                read-only. They are fan-made demo artifacts, not official franchise material.
+              </p>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  className="ui-secondary-action rounded-lg px-3 py-2"
+                  onClick={() => void leaveDemo("/login")}
+                >
+                  Sign in
+                </button>
+                <button
+                  className="ui-primary-action rounded-lg px-3 py-2"
+                  onClick={() => void leaveDemo("/signup")}
+                >
+                  Create account
+                </button>
+              </div>
+            </div>
+          </div>
+        </GuestOnly>
 
         {/* Server Offline Banner */}
         {!isServerOnline && !serverOfflineBannerDismissed && (
@@ -529,30 +590,14 @@ export default function Page() {
         {/* Main content area - grows to fill remaining space */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Left Sidebar - Always visible on desktop (lg+), toggle on mobile */}
-          <div className="hidden lg:block">
-            <Sidebar
-              userId={userId}
-              savedConversations={savedConversations}
-              currentConversationId={currentConversationId}
-              isOpen={true}
-              onClose={() => {}}
-              onNewConversation={handleNewConversation}
-              onLoadConversation={handleLoad}
-              onDeleteConversation={handleDelete}
-              onRenameConversation={handleRename}
-              onPinConversation={handlePinConversation}
-            />
-          </div>
-
-          {/* Mobile Left Sidebar - Overlay mode */}
-          {leftSidebarOpen && (
-            <div className="lg:hidden">
+          <RegisteredOnly isGuest={isGuest}>
+            <div className="hidden lg:block">
               <Sidebar
                 userId={userId}
                 savedConversations={savedConversations}
                 currentConversationId={currentConversationId}
-                isOpen={leftSidebarOpen}
-                onClose={() => setLeftSidebarOpen(false)}
+                isOpen={true}
+                onClose={() => {}}
                 onNewConversation={handleNewConversation}
                 onLoadConversation={handleLoad}
                 onDeleteConversation={handleDelete}
@@ -560,7 +605,27 @@ export default function Page() {
                 onPinConversation={handlePinConversation}
               />
             </div>
-          )}
+          </RegisteredOnly>
+
+          {/* Mobile Left Sidebar - Overlay mode */}
+          <RegisteredOnly isGuest={isGuest}>
+            {leftSidebarOpen && (
+              <div className="lg:hidden">
+                <Sidebar
+                  userId={userId}
+                  savedConversations={savedConversations}
+                  currentConversationId={currentConversationId}
+                  isOpen={leftSidebarOpen}
+                  onClose={() => setLeftSidebarOpen(false)}
+                  onNewConversation={handleNewConversation}
+                  onLoadConversation={handleLoad}
+                  onDeleteConversation={handleDelete}
+                  onRenameConversation={handleRename}
+                  onPinConversation={handlePinConversation}
+                />
+              </div>
+            )}
+          </RegisteredOnly>
 
           {/* Chat area - takes remaining space */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0 sm:p-4 lg:p-6">
@@ -579,6 +644,7 @@ export default function Page() {
               demoDocumentState={visibleDemoDocument.state}
               suggestedQuestions={visibleDemoDocument.suggestedQuestions}
               onSuggestedQuestion={handleQueryChange}
+              isGuest={isGuest}
             />
           </div>
 
@@ -604,6 +670,7 @@ export default function Page() {
               tier={tier}
               tierLimits={tierLimits}
               isTierLoading={isTierLoading}
+              isGuest={isGuest}
             />
           </div>
 
@@ -630,59 +697,62 @@ export default function Page() {
                 tier={tier}
                 tierLimits={tierLimits}
                 isTierLoading={isTierLoading}
+                isGuest={isGuest}
               />
             </div>
           )}
         </div>
 
         {/* Upload Modal */}
-        <UploadModal
-          isOpen={uploadModalOpen}
-          onClose={() => {
-            setUploadModalOpen(false);
-            resetAlert();
-          }}
-          files={files}
-          isUploading={isUploading}
-          uploadAlert={uploadAlert}
-          pendingDuplicate={pendingDuplicate}
-          onFileChange={handleFileChange}
-          onUpload={submitUpload}
-          onResolveDuplicate={resolveDuplicate}
-          isUnlimited={tier === "UNLIMITED"}
-        />
+        <RegisteredOnly isGuest={isGuest}>
+          <UploadModal
+            isOpen={uploadModalOpen}
+            onClose={() => {
+              setUploadModalOpen(false);
+              resetAlert();
+            }}
+            files={files}
+            isUploading={isUploading}
+            uploadAlert={uploadAlert}
+            pendingDuplicate={pendingDuplicate}
+            onFileChange={handleFileChange}
+            onUpload={submitUpload}
+            onResolveDuplicate={resolveDuplicate}
+            isUnlimited={tier === "UNLIMITED"}
+          />
 
-        {/* Delete Account Modal */}
-        <DeleteAccountModal
-          isOpen={deleteAccountModalOpen}
-          onClose={() => setDeleteAccountModalOpen(false)}
-          onConfirm={handleDeleteAccount}
-          userEmail={user?.email || ""}
-          requiresPassword={requiresPasswordForDeletion}
-        />
+          {/* Delete Account Modal */}
+          <DeleteAccountModal
+            isOpen={deleteAccountModalOpen}
+            onClose={() => setDeleteAccountModalOpen(false)}
+            onConfirm={handleDeleteAccount}
+            userEmail={user?.email || ""}
+            requiresPassword={requiresPasswordForDeletion}
+          />
 
-        {/* Bug Report Modal */}
-        <BugReportModal
-          isOpen={bugReportModalOpen}
-          onClose={closeBugReportModal}
-          conversationId={currentConversationId}
-        />
+          {/* Bug Report Modal */}
+          <BugReportModal
+            isOpen={bugReportModalOpen}
+            onClose={closeBugReportModal}
+            conversationId={currentConversationId}
+          />
 
-        {/* Feedback Modal */}
-        <FeedbackModal
-          isOpen={feedbackModalOpen}
-          onClose={closeFeedbackModal}
-          conversationId={currentConversationId}
-        />
+          {/* Feedback Modal */}
+          <FeedbackModal
+            isOpen={feedbackModalOpen}
+            onClose={closeFeedbackModal}
+            conversationId={currentConversationId}
+          />
 
-        <AccountProvisioningModal
-          isOpen={accountProvisioningModalOpen}
-          onSuccess={_assignedTier => {
-            // useRegistration already forced token refresh, so update tier immediately
-            refreshTier();
-            setAccountProvisioningModalOpen(false);
-          }}
-        />
+          <AccountProvisioningModal
+            isOpen={accountProvisioningModalOpen}
+            onSuccess={_assignedTier => {
+              // useRegistration already forced token refresh, so update tier immediately
+              refreshTier();
+              setAccountProvisioningModalOpen(false);
+            }}
+          />
+        </RegisteredOnly>
       </div>
     </ProtectedRoute>
   );

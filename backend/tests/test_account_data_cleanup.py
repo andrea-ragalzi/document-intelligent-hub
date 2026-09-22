@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 
-from app.core.auth import require_verified_email
+from app.core.auth import require_verified_registered_user
 from app.dependencies import get_document_file_storage, get_rag_service
 from app.routers.documents_router import _delete_user_firestore_data
 from app.services.rag_orchestrator_service import RAGService
@@ -44,7 +44,9 @@ def test_account_endpoint_deletes_every_owned_resource_before_returning() -> Non
     document_storage = Mock()
     db = Mock()
     db.collection.return_value.where.return_value.stream.return_value = []
-    app.dependency_overrides[require_verified_email] = lambda: "test-user-12345"
+    app.dependency_overrides[require_verified_registered_user] = (
+        lambda: "test-user-12345"
+    )
     app.dependency_overrides[get_rag_service] = lambda: rag_service
     app.dependency_overrides[get_document_file_storage] = lambda: document_storage
 
@@ -72,7 +74,9 @@ def test_account_endpoint_does_not_report_success_when_vector_cleanup_fails() ->
     rag_service = Mock(spec=RAGService)
     rag_service.delete_all_user_documents.side_effect = RuntimeError("vector unavailable")
     document_storage = Mock()
-    app.dependency_overrides[require_verified_email] = lambda: "test-user-12345"
+    app.dependency_overrides[require_verified_registered_user] = (
+        lambda: "test-user-12345"
+    )
     app.dependency_overrides[get_rag_service] = lambda: rag_service
     app.dependency_overrides[get_document_file_storage] = lambda: document_storage
 

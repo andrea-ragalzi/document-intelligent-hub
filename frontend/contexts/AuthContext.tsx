@@ -15,6 +15,7 @@ import {
 import { getFirebaseAuth } from "@/lib/firebase";
 import { getAuthErrorMessage } from "@/lib/authErrors";
 import { clearUserScopedClientState } from "@/lib/authSessionCleanup";
+import { signInAnonymous } from "@/lib/authService";
 
 interface AuthContextType {
   user: User | null;
@@ -22,9 +23,11 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ verificationEmailSent: boolean }>;
   signInWithGoogle: () => Promise<void>;
+  signInAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
   emailVerified: boolean;
+  isGuest: boolean;
   sendVerificationEmail: () => Promise<void>;
   refreshEmailVerification: () => Promise<boolean>;
 }
@@ -97,6 +100,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInAsGuest = async () => {
+    try {
+      const guest = await signInAnonymous();
+      setUser(guest);
+      setEmailVerified(false);
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, "sign-in"));
+    }
+  };
+
   const logout = async () => {
     try {
       await signOut(getFirebaseAuth());
@@ -138,9 +151,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signInWithGoogle,
+    signInAsGuest,
     logout,
     getIdToken,
     emailVerified,
+    isGuest: Boolean(user?.isAnonymous),
     sendVerificationEmail,
     refreshEmailVerification,
   };

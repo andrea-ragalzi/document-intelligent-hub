@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     # gpt-4o-mini; Railway production overrides this with gpt-5.6-luna.
     LLM_MODEL: str = "gpt-4o-mini"
     MAX_GLOBAL_EXPENSIVE_OPERATIONS: int = 2
+    MAX_CONCURRENT_GUEST_QUERIES: int = 1
+    GUEST_UID_DAILY_QUERY_LIMIT: int = 8
+    GUEST_IP_DAILY_QUERY_LIMIT: int = 20
+    GUEST_GLOBAL_DAILY_QUERY_BUDGET: int = 100
+    ENABLE_SHARED_DEMO_CORPUS: bool = True
     OPENAI_TIMEOUT_SECONDS: float = 60.0
     OPENAI_MAX_RETRIES: int = 0
 
