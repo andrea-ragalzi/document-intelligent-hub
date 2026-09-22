@@ -136,7 +136,7 @@ class DocumentManagementService:
             logger.error("Unable to delete all document chunks | Type: {}", type(exc).__name__)
             raise
 
-    def get_user_document_count(self, user_id: str, include_demo: bool = True) -> int:
+    def get_user_document_count(self, user_id: str) -> int:
         """
         Count the number of unique documents for a user.
 
@@ -144,8 +144,6 @@ class DocumentManagementService:
 
         Args:
             user_id: The user ID
-            include_demo: Whether to include the bundled starter document.
-
         Returns:
             Number of unique documents
         """
@@ -161,7 +159,6 @@ class DocumentManagementService:
             unique_filenames = {
                 metadata.get("original_filename", "Unknown")
                 for metadata in metadatas
-                if include_demo or not metadata.get("is_demo_document", False)
             }
 
             count = len(unique_filenames)

@@ -7,9 +7,11 @@ from typing import Literal
 
 from app.ports.file_storage import FileStoragePort
 from app.services.rag_orchestrator_service import RAGService
+from app.services.demo_document_state_service import DemoDocumentStateService
 
 DEMO_DOCUMENT_FILENAME = "alices-adventures-in-wonderland.pdf"
-_LEGACY_DEMO_DOCUMENT_FILENAMES = ("alice-cheshire-cat-demo.pdf",)
+LEGACY_DEMO_DOCUMENT_FILENAMES = ("alice-cheshire-cat-demo.pdf",)
+DEMO_DOCUMENT_FILENAMES = (DEMO_DOCUMENT_FILENAME, *LEGACY_DEMO_DOCUMENT_FILENAMES)
 DEMO_DOCUMENT_PATH = (
     Path(__file__).resolve().parents[2] / "assets" / DEMO_DOCUMENT_FILENAME
 )
@@ -23,14 +25,14 @@ _seed_locks: dict[str, asyncio.Lock] = {}
 _seed_locks_guard = asyncio.Lock()
 
 
-async def _get_seed_lock(user_id: str) -> asyncio.Lock:
+async def get_demo_document_lock(user_id: str) -> asyncio.Lock:
     async with _seed_locks_guard:
         return _seed_locks.setdefault(user_id, asyncio.Lock())
 
 
 @dataclass(frozen=True)
 class DemoSeedResult:
-    status: Literal["seeded", "ready"]
+    status: Literal["seeded", "ready", "absent"]
     chunks_indexed: int
 
 
@@ -53,30 +55,54 @@ class DemoDocumentService:
         rag_service: RAGService,
         document_storage: FileStoragePort,
         document_path: Path = DEMO_DOCUMENT_PATH,
+        state_service: DemoDocumentStateService | None = None,
     ):
         self.rag_service = rag_service
         self.document_storage = document_storage
         self.document_path = document_path
+        self.state_service = state_service or DemoDocumentStateService()
 
     async def seed_for_user(self, user_id: str) -> DemoSeedResult:
         """Create this user's private demo chunks once; never use a shared record."""
-        lock = await _get_seed_lock(user_id)
+        lock = await get_demo_document_lock(user_id)
         async with lock:
+            # A missing document normally means a first seed is required.  An
+            # explicit delete is different and must survive dashboard reloads.
+            if self.state_service.is_deleted(user_id):
+                return DemoSeedResult(status="absent", chunks_indexed=0)
             content = self.document_path.read_bytes()
-            if self.rag_service.user_document_exists(user_id, DEMO_DOCUMENT_FILENAME):
+            documents = self.rag_service.get_user_documents(user_id)
+            demo_documents = (
+                [document for document in documents if document.is_demo_document]
+                if isinstance(documents, list)
+                else []
+            )
+            current_demo = next(
+                (
+                    document
+                    for document in demo_documents
+                    if document.filename == DEMO_DOCUMENT_FILENAME
+                ),
+                None,
+            )
+            if current_demo is not None:
                 # Earlier versions indexed the starter document but did not
                 # retain its original. Backfill it so preview/download works
-                # without reindexing or consuming a personal upload allowance.
+                # without reindexing.
                 if self.document_storage.get(user_id, DEMO_DOCUMENT_FILENAME) is None:
                     self.document_storage.store(
                         user_id, DEMO_DOCUMENT_FILENAME, content
                     )
                 return DemoSeedResult(status="ready", chunks_indexed=0)
 
+            # A user upload with Alice's display filename is not the starter
+            if self.rag_service.user_document_exists(user_id, DEMO_DOCUMENT_FILENAME):
+                return DemoSeedResult(status="absent", chunks_indexed=0)
+
             legacy_documents = [
-                filename
-                for filename in _LEGACY_DEMO_DOCUMENT_FILENAMES
-                if self.rag_service.user_document_exists(user_id, filename)
+                document.filename
+                for document in demo_documents
+                if document.filename in LEGACY_DEMO_DOCUMENT_FILENAMES
             ]
 
             upload = _InMemoryUpload(

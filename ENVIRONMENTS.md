@@ -73,14 +73,26 @@ domain in the PROD project's authorized domains.
 5. Create `app_config/settings` with `unlimited_emails` as an empty array and the
    explicit constrained limits: FREE 20 queries/day, 5 files, 10 MB/file; PRO
    500 queries/day, 50 files, 50 MB/file; UNLIMITED 9999 values.
-6. Do not create `invitation_codes` unless elevated-tier testing is required.
-   A code document uses `tier`, `is_used`, and optional `expires_at` fields.
-7. Create a DEV service-account key and store it only at the ignored local path
+6. Create a DEV service-account key and store it only at the ignored local path
    above. Fill `frontend/.env.local` using the DEV Web app config.
+
+### Firebase-hosted verification email
+
+The client sends Firebase's standard verification email with an action-code URL
+back to `/verify-email`. In Firebase Console, repeat these settings for DEV and
+PROD: Authentication → Templates → Email address verification, set the sender
+display name and template text to `Document Intelligent Hub`, and use a
+professional subject such as `Verify your Document Intelligent Hub email`.
+Authentication → Settings → Authorized domains must include each deployed app
+host (and `localhost` for DEV), or Firebase will reject the continue URL.
+
+Firebase Console owns the sender identity, project branding, subject, body,
+reply-to address, and template localization. The repository owns the action-code
+return URL and verification lifecycle; it does not add a custom email provider.
 
 `conversations` is created by the browser, while `user_usage` is created by the
 backend on the first query. Tier claims are assigned by Firebase Admin during
-registration; a registration without an invitation receives FREE.
+registration; a new registration receives FREE by default.
 
 ## Branch and deployment flow
 

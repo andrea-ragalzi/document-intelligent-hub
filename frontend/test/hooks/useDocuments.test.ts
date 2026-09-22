@@ -129,6 +129,61 @@ describe("useDocuments", () => {
     expect(result.current.documents).toEqual(mockDocuments);
   });
 
+  it("keeps the newest document list when overlapping refreshes finish out of order", async () => {
+    let resolveInitial!: (response: Response) => void;
+    let resolveRefresh!: (response: Response) => void;
+    vi.mocked(fetch).mockReset();
+    vi.mocked(fetch)
+      .mockReturnValueOnce(
+        new Promise<Response>(resolve => {
+          resolveInitial = resolve;
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise<Response>(resolve => {
+          resolveRefresh = resolve;
+        })
+      );
+
+    const { result } = renderHook(() => useDocuments(mockUserId));
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+
+    let refresh!: Promise<void>;
+    act(() => {
+      refresh = result.current.refreshDocuments();
+    });
+
+    await act(async () => {
+      resolveRefresh(
+        new Response(
+          JSON.stringify({
+            documents: [mockDocuments[1]],
+            total_count: 1,
+            user_id: mockUserId,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      );
+      await refresh;
+    });
+
+    await act(async () => {
+      resolveInitial(
+        new Response(
+          JSON.stringify({
+            documents: mockDocuments,
+            total_count: 2,
+            user_id: mockUserId,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      );
+      await Promise.resolve();
+    });
+
+    expect(result.current.documents).toEqual([mockDocuments[1]]);
+  });
+
   it("should delete a document", async () => {
     const { result } = renderHook(() => useDocuments(mockUserId));
 

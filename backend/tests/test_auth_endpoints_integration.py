@@ -2,20 +2,15 @@
 Integration Tests for Auth Endpoints
 
 Tests complete endpoint flows with FastAPI TestClient.
-Covers registration, invitation requests, tier limits, and usage tracking.
+Covers registration, tier limits, and usage tracking.
 """
 
-from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, Mock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.routers.auth_router import clear_cache
 from app.core.config import settings
-from app.dependencies import get_email_service
-from app.core.logging import logger
-from app.services.support_rate_limiter import support_rate_limiter
 from main import app
 
 client = TestClient(app)
@@ -24,75 +19,94 @@ client = TestClient(app)
 class TestRegistrationEndpoint:
     """Integration tests for POST /auth/register endpoint"""
 
-    def test_production_rejects_new_registration_without_invitation(self) -> None:
-        """Invite-only mode must reject before any tier or invitation mutation."""
-        with patch.object(settings, "ENVIRONMENT", "production"), patch(
-            "app.routers.auth_router.auth"
-        ) as mock_auth, patch("app.routers.auth_router.get_db") as mock_get_db, patch(
-            "app.routers.auth_router.load_app_config"
-        ) as mock_config:
+    def test_production_allows_new_registration(self) -> None:
+        """A verified Firebase user can register."""
+        with (
+            patch.object(settings, "ENVIRONMENT", "production"),
+            patch("app.routers.auth_router.auth") as mock_auth,
+            patch("app.routers.auth_router.get_db") as mock_get_db,
+            patch("app.routers.auth_router.load_app_config") as mock_config,
+        ):
             mock_auth.verify_id_token.return_value = {
-                "uid": "new_invite_only_user",
+                "uid": "new_registration_user",
                 "email": "new@example.com",
+                "email_verified": True,
             }
             firebase_user = MagicMock()
             firebase_user.custom_claims = {}
             mock_auth.get_user.return_value = firebase_user
 
-            response = client.post(
-                "/auth/register",
-                json={
-                    "id_token": "valid_token",
-                    "invitation_code": None,
-                    "tier": "UNLIMITED",
-                },
+            response = client.post("/auth/register", json={"id_token": "valid_token"})
+
+            assert response.status_code == 200
+            assert response.json()["tier"] == "FREE"
+            mock_auth.set_custom_user_claims.assert_called_once_with(
+                "new_registration_user", {"tier": "FREE"}
             )
-
-            assert response.status_code == 400
-            assert response.json()["detail"] == "An invitation code is required for registration."
-            mock_auth.set_custom_user_claims.assert_not_called()
             mock_get_db.assert_not_called()
-            mock_config.assert_not_called()
+            mock_config.assert_called_once()
 
-    def test_production_registration_claims_a_valid_invitation_tier(self) -> None:
-        """Production assigns only the tier atomically returned by the invitation claim."""
-        with patch.object(settings, "ENVIRONMENT", "production"), patch(
-            "app.routers.auth_router.auth"
-        ) as mock_auth, patch(
-            "app.routers.auth_router.get_db"
-        ) as mock_get_db, patch(
-            "app.routers.auth_router._claim_invitation_code", return_value="PRO"
-        ) as mock_claim:
+    def test_signup_verification_then_first_provisioning_requires_no_invitation_code(
+        self,
+    ) -> None:
+        """A verified first-login token receives FREE access with only an ID token."""
+        with (
+            patch(
+                "app.routers.auth_router.load_app_config",
+                return_value={"unlimited_emails": []},
+            ),
+            patch("app.routers.auth_router.auth") as mock_auth,
+        ):
             mock_auth.verify_id_token.return_value = {
-                "uid": "invited_user",
-                "email": "invited@example.com",
+                "uid": "verified_first_login_user",
+                "email": "verified@example.com",
+                "email_verified": True,
             }
             firebase_user = MagicMock()
             firebase_user.custom_claims = {}
             mock_auth.get_user.return_value = firebase_user
-            database = MagicMock()
-            mock_get_db.return_value = database
 
             response = client.post(
-                "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": "VALID_PRO_CODE"},
+                "/auth/register", json={"id_token": "verified-first-login-token"}
             )
 
             assert response.status_code == 200
-            assert response.json()["tier"] == "PRO"
-            mock_claim.assert_called_once_with("VALID_PRO_CODE", "invited_user", database)
+            assert response.json()["tier"] == "FREE"
             mock_auth.set_custom_user_claims.assert_called_once_with(
-                "invited_user", {"tier": "PRO"}
+                "verified_first_login_user", {"tier": "FREE"}
             )
 
-    def test_production_preserves_existing_user_tier_without_an_invitation(self) -> None:
-        """Invite-only mode does not disrupt an already provisioned account."""
-        with patch.object(settings, "ENVIRONMENT", "production"), patch(
-            "app.routers.auth_router.auth"
-        ) as mock_auth:
+    def test_unverified_email_cannot_complete_first_provisioning(self) -> None:
+        """Firebase must reject registration until the email-verification link is used."""
+        with patch("app.routers.auth_router.auth") as mock_auth:
+            mock_auth.verify_id_token.return_value = {
+                "uid": "unverified_first_login_user",
+                "email": "unverified@example.com",
+                "email_verified": False,
+            }
+
+            response = client.post(
+                "/auth/register", json={"id_token": "unverified-token"}
+            )
+
+            assert response.status_code == 403
+            assert (
+                response.json()["detail"]
+                == "Please verify your email address before registering."
+            )
+            mock_auth.get_user.assert_not_called()
+            mock_auth.set_custom_user_claims.assert_not_called()
+
+    def test_production_preserves_existing_user_tier(self) -> None:
+        """Repeat registration does not disrupt an already provisioned account."""
+        with (
+            patch.object(settings, "ENVIRONMENT", "production"),
+            patch("app.routers.auth_router.auth") as mock_auth,
+        ):
             mock_auth.verify_id_token.return_value = {
                 "uid": "existing_user",
                 "email": "existing@example.com",
+                "email_verified": True,
             }
             firebase_user = MagicMock()
             firebase_user.custom_claims = {"tier": "FREE"}
@@ -100,22 +114,26 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
 
             assert response.status_code == 200
             assert response.json()["tier"] == "FREE"
             mock_auth.set_custom_user_claims.assert_not_called()
 
-    def test_new_user_registers_as_free_without_invitation(self) -> None:
-        """A verified Firebase user with no claims receives the FREE tier."""
-        with patch(
-            "app.routers.auth_router.load_app_config",
-            return_value={"unlimited_emails": [], "limits": {}},
-        ), patch("app.routers.auth_router.auth") as mock_auth:
+    def test_new_user_registers_as_free(self) -> None:
+        """A verified Firebase user with no claim receives the FREE tier."""
+        with (
+            patch(
+                "app.routers.auth_router.load_app_config",
+                return_value={"unlimited_emails": [], "limits": {}},
+            ),
+            patch("app.routers.auth_router.auth") as mock_auth,
+        ):
             mock_auth.verify_id_token.return_value = {
                 "uid": "new_public_user",
                 "email": "new@example.com",
+                "email_verified": True,
             }
             firebase_user = MagicMock()
             firebase_user.custom_claims = {}
@@ -123,7 +141,7 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
 
             assert response.status_code == 200
@@ -134,13 +152,17 @@ class TestRegistrationEndpoint:
 
     def test_tier_assignment_preserves_existing_admin_claim(self) -> None:
         """A registration tier assignment must never remove administrator access."""
-        with patch(
-            "app.routers.auth_router.load_app_config",
-            return_value={"unlimited_emails": [], "limits": {}},
-        ), patch("app.routers.auth_router.auth") as mock_auth:
+        with (
+            patch(
+                "app.routers.auth_router.load_app_config",
+                return_value={"unlimited_emails": [], "limits": {}},
+            ),
+            patch("app.routers.auth_router.auth") as mock_auth,
+        ):
             mock_auth.verify_id_token.return_value = {
                 "uid": "admin_user",
                 "email": "admin@example.com",
+                "email_verified": True,
             }
             firebase_user = MagicMock()
             firebase_user.custom_claims = {"admin": True}
@@ -148,7 +170,7 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
 
             assert response.status_code == 200
@@ -158,13 +180,17 @@ class TestRegistrationEndpoint:
 
     def test_client_cannot_self_assign_elevated_tier(self) -> None:
         """An extra client-supplied tier field cannot bypass server assignment."""
-        with patch(
-            "app.routers.auth_router.load_app_config",
-            return_value={"unlimited_emails": [], "limits": {}},
-        ), patch("app.routers.auth_router.auth") as mock_auth:
+        with (
+            patch(
+                "app.routers.auth_router.load_app_config",
+                return_value={"unlimited_emails": [], "limits": {}},
+            ),
+            patch("app.routers.auth_router.auth") as mock_auth,
+        ):
             mock_auth.verify_id_token.return_value = {
                 "uid": "forgery_attempt_user",
                 "email": "forgery@example.com",
+                "email_verified": True,
             }
             firebase_user = MagicMock()
             firebase_user.custom_claims = {}
@@ -174,7 +200,6 @@ class TestRegistrationEndpoint:
                 "/auth/register",
                 json={
                     "id_token": "valid_token",
-                    "invitation_code": None,
                     "tier": "UNLIMITED",
                 },
             )
@@ -187,13 +212,17 @@ class TestRegistrationEndpoint:
 
     def test_repeat_registration_preserves_existing_elevated_tier(self) -> None:
         """Calling registration without a code must not downgrade existing users."""
-        with patch(
-            "app.routers.auth_router.load_app_config",
-            return_value={"unlimited_emails": [], "limits": {}},
-        ), patch("app.routers.auth_router.auth") as mock_auth:
+        with (
+            patch(
+                "app.routers.auth_router.load_app_config",
+                return_value={"unlimited_emails": [], "limits": {}},
+            ),
+            patch("app.routers.auth_router.auth") as mock_auth,
+        ):
             mock_auth.verify_id_token.return_value = {
                 "uid": "existing_pro_user",
                 "email": "pro@example.com",
+                "email_verified": True,
             }
             firebase_user = MagicMock()
             firebase_user.custom_claims = {"tier": "PRO"}
@@ -201,7 +230,7 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
 
             assert response.status_code == 200
@@ -210,13 +239,17 @@ class TestRegistrationEndpoint:
 
     def test_repeat_free_registration_preserves_the_existing_free_tier(self) -> None:
         """A retry never creates another Firebase user or rewrites the FREE claim."""
-        with patch(
-            "app.routers.auth_router.load_app_config",
-            return_value={"unlimited_emails": [], "limits": {}},
-        ), patch("app.routers.auth_router.auth") as mock_auth:
+        with (
+            patch(
+                "app.routers.auth_router.load_app_config",
+                return_value={"unlimited_emails": [], "limits": {}},
+            ),
+            patch("app.routers.auth_router.auth") as mock_auth,
+        ):
             mock_auth.verify_id_token.return_value = {
                 "uid": "repeat_free_user",
                 "email": "repeat@example.com",
+                "email_verified": True,
             }
             firebase_user = MagicMock()
             firebase_user.custom_claims = {}
@@ -229,11 +262,11 @@ class TestRegistrationEndpoint:
 
             first_response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
             repeat_response = client.post(
                 "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": None},
+                json={"id_token": "valid_token"},
             )
 
             assert first_response.status_code == 200
@@ -244,252 +277,11 @@ class TestRegistrationEndpoint:
                 "repeat_free_user", {"tier": "FREE"}
             )
 
-    def test_register_with_valid_free_code_full_flow(self) -> None:
-        """Test complete registration flow with valid FREE invitation code"""
-        with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
-            "app.routers.auth_router.auth"
-        ) as mock_auth:
-
-            # Mock Firebase Auth
-            mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
-            mock_auth.set_custom_user_claims = MagicMock()
-
-            # Mock Firestore
-            db_instance = MagicMock()
-
-            # Mock invitation code document (valid FREE code)
-            code_doc = MagicMock()
-            code_doc.exists = True
-            code_doc.to_dict.return_value = {
-                "tier": "FREE",
-                "is_used": False,
-                "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
-            }
-            code_ref = MagicMock()
-            code_ref.get.return_value = code_doc
-
-            # Mock app_config document
-            config_doc = MagicMock()
-            config_doc.exists = True
-            config_doc.to_dict.return_value = {
-                "unlimited_emails": [],
-                "limits": {
-                    "FREE": {"max_queries_per_day": 20},
-                    "PRO": {"max_queries_per_day": 500},
-                },
-            }
-            config_ref = MagicMock()
-            config_ref.get.return_value = config_doc
-
-            def mock_document(doc_id: str) -> MagicMock:
-                if doc_id == "TESTCODE123":
-                    return code_ref
-                if doc_id == "settings":
-                    return config_ref
-                return MagicMock()
-
-            def mock_collection(
-                _collection_name: str,
-            ) -> MagicMock:  # pylint: disable=unused-argument
-                mock_coll = MagicMock()
-                mock_coll.document = mock_document
-                return mock_coll
-
-            db_instance.collection = mock_collection
-            mock_get_db.return_value = db_instance
-
-            # Clear cache
-            clear_cache()
-
-            # Make request
-            response = client.post(
-                "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": "TESTCODE123"},
-            )
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["message"] == (
-                "Access to plan assigned successfully. You may need to refresh your token."
-            )
-            assert data["tier"] == "FREE"
-
-            # Verify Firebase set_custom_user_claims was called
-            mock_auth.set_custom_user_claims.assert_called_once_with(
-                "test_user_123", {"tier": "FREE"}
-            )
-
-            # Verify the transaction consumed the invitation.
-            db_instance.transaction.return_value.update.assert_called_once()
-
-    def test_register_with_invalid_code(self) -> None:
-        """Test registration with invalid invitation code"""
-        with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
-            "app.routers.auth_router.auth"
-        ) as mock_auth:
-
-            mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
-
-            db_instance = MagicMock()
-
-            # Mock code document doesn't exist
-            code_doc = MagicMock()
-            code_doc.exists = False
-            code_ref = MagicMock()
-            code_ref.get.return_value = code_doc
-
-            # Mock app_config
-            config_doc = MagicMock()
-            config_doc.exists = True
-            config_doc.to_dict.return_value = {"unlimited_emails": [], "limits": {}}
-            config_ref = MagicMock()
-            config_ref.get.return_value = config_doc
-
-            def mock_document(doc_id: str) -> MagicMock:
-                if doc_id == "INVALID123":
-                    return code_ref
-                if doc_id == "settings":
-                    return config_ref
-                return MagicMock()
-
-            def mock_collection(
-                _collection_name: str,
-            ) -> MagicMock:  # pylint: disable=unused-argument
-                mock_coll = MagicMock()
-                mock_coll.document = mock_document
-                return mock_coll
-
-            db_instance.collection = mock_collection
-            mock_get_db.return_value = db_instance
-
-            # Clear cache
-            clear_cache()
-
-            response = client.post(
-                "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": "INVALID123"},
-            )
-
-            assert response.status_code == 400
-            assert "Invalid invitation code" in response.json()["detail"]
-
-    def test_register_with_expired_code(self) -> None:
-        """Test registration with expired invitation code"""
-        with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
-            "app.routers.auth_router.auth"
-        ) as mock_auth:
-
-            mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
-
-            db_instance = MagicMock()
-
-            # Mock expired code
-            code_doc = MagicMock()
-            code_doc.exists = True
-            code_doc.to_dict.return_value = {
-                "tier": "FREE",
-                "is_used": False,
-                "expires_at": datetime.now(timezone.utc) - timedelta(days=1),  # Expired
-            }
-            code_ref = MagicMock()
-            code_ref.get.return_value = code_doc
-
-            # Mock app_config
-            config_doc = MagicMock()
-            config_doc.exists = True
-            config_doc.to_dict.return_value = {"unlimited_emails": [], "limits": {}}
-            config_ref = MagicMock()
-            config_ref.get.return_value = config_doc
-
-            def mock_document(doc_id: str) -> MagicMock:
-                if doc_id == "EXPIRED123":
-                    return code_ref
-                if doc_id == "settings":
-                    return config_ref
-                return MagicMock()
-
-            def mock_collection(
-                _collection_name: str,
-            ) -> MagicMock:  # pylint: disable=unused-argument
-                mock_coll = MagicMock()
-                mock_coll.document = mock_document
-                return mock_coll
-
-            db_instance.collection = mock_collection
-            mock_get_db.return_value = db_instance
-
-            # Clear cache
-            clear_cache()
-
-            response = client.post(
-                "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": "EXPIRED123"},
-            )
-
-            assert response.status_code == 400
-            assert "expired" in response.json()["detail"].lower()
-
-    def test_register_with_used_code(self) -> None:
-        """Test registration with already used invitation code"""
-        with patch("app.routers.auth_router.get_db") as mock_get_db, patch(
-            "app.routers.auth_router.auth"
-        ) as mock_auth:
-
-            mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
-
-            db_instance = MagicMock()
-
-            # Mock used code
-            code_doc = MagicMock()
-            code_doc.exists = True
-            code_doc.to_dict.return_value = {
-                "tier": "FREE",
-                "is_used": True,  # Already used
-                "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
-            }
-            code_ref = MagicMock()
-            code_ref.get.return_value = code_doc
-
-            # Mock app_config
-            config_doc = MagicMock()
-            config_doc.exists = True
-            config_doc.to_dict.return_value = {"unlimited_emails": [], "limits": {}}
-            config_ref = MagicMock()
-            config_ref.get.return_value = config_doc
-
-            def mock_document(doc_id: str) -> MagicMock:
-                if doc_id == "USED123":
-                    return code_ref
-                if doc_id == "settings":
-                    return config_ref
-                return MagicMock()
-
-            def mock_collection(
-                _collection_name: str,
-            ) -> MagicMock:  # pylint: disable=unused-argument
-                mock_coll = MagicMock()
-                mock_coll.document = mock_document
-                return mock_coll
-
-            db_instance.collection = mock_collection
-            mock_get_db.return_value = db_instance
-
-            # Clear cache
-            clear_cache()
-
-            response = client.post(
-                "/auth/register",
-                json={"id_token": "valid_token", "invitation_code": "USED123"},
-            )
-
-            assert response.status_code == 400
-            assert "already been used" in response.json()["detail"]
-
     def test_register_without_token(self) -> None:
         """Test registration without authorization token"""
         response = client.post(
             "/auth/register",
-            json={"invitation_code": "TESTCODE123", "email": "test@example.com"},
+            json={"email": "test@example.com"},
         )
 
         assert response.status_code == 422  # FastAPI validation error
@@ -501,148 +293,11 @@ class TestRegistrationEndpoint:
 
             response = client.post(
                 "/auth/register",
-                json={"id_token": "invalid_token", "invitation_code": "TESTCODE123"},
+                json={"id_token": "invalid_token"},
             )
 
             assert response.status_code == 401
             assert "Invalid or expired ID token" in response.json()["detail"]
-
-
-class TestInvitationRequestEndpoint:
-    """Test suite for /auth/request-invitation-code endpoint"""
-
-    @pytest.fixture(autouse=True)
-    def reset_rate_limiter(self) -> None:
-        """Keep process-local invitation limits isolated between test cases."""
-        support_rate_limiter.clear()
-
-    def test_request_invitation_success(self) -> None:
-        """Test successful invitation code request"""
-        mock_email_service = MagicMock()
-        mock_email_service.send_invitation_request.return_value = True
-        app.dependency_overrides[get_email_service] = lambda: mock_email_service
-        try:
-            response = client.post(
-                "/auth/request-invitation-code",
-                json={
-                    "first_name": "Test",
-                    "last_name": "User",
-                    "email": "test@example.com",
-                },
-            )
-        finally:
-            app.dependency_overrides.pop(get_email_service, None)
-
-        assert response.status_code == 200
-        assert response.json()["status"] == "success"
-        mock_email_service.send_invitation_request.assert_called_once_with(
-            first_name="Test", last_name="User", email="test@example.com"
-        )
-
-    def test_request_invitation_rejects_invalid_email_before_delivery(self) -> None:
-        """Test invitation request with invalid email format"""
-        mock_email_service = MagicMock()
-        app.dependency_overrides[get_email_service] = lambda: mock_email_service
-        try:
-            response = client.post(
-                "/auth/request-invitation-code",
-                json={"first_name": "Test", "last_name": "User", "email": "invalid-email"},
-            )
-        finally:
-            app.dependency_overrides.pop(get_email_service, None)
-
-        assert response.status_code == 422
-        mock_email_service.send_invitation_request.assert_not_called()
-
-    @pytest.mark.parametrize("field", ["first_name", "last_name", "email"])
-    def test_request_invitation_rejects_oversized_fields_before_delivery(
-        self, field: str
-    ) -> None:
-        """Public invitation fields are bounded before the email adapter is called."""
-        mock_email_service = MagicMock()
-        payload = {"first_name": "Test", "last_name": "User", "email": "test@example.com"}
-        payload[field] = "a" * (255 if field == "email" else 101)
-        app.dependency_overrides[get_email_service] = lambda: mock_email_service
-        try:
-            response = client.post("/auth/request-invitation-code", json=payload)
-        finally:
-            app.dependency_overrides.pop(get_email_service, None)
-
-        assert response.status_code == 422
-        mock_email_service.send_invitation_request.assert_not_called()
-
-    def test_request_invitation_rate_limit_rejects_before_delivery(self) -> None:
-        """The immediate retry is blocked by the public endpoint limiter."""
-        mock_email_service = MagicMock()
-        mock_email_service.send_invitation_request.return_value = True
-        app.dependency_overrides[get_email_service] = lambda: mock_email_service
-        payload = {"first_name": "Test", "last_name": "User", "email": "test@example.com"}
-        try:
-            first_response = client.post("/auth/request-invitation-code", json=payload)
-            second_response = client.post("/auth/request-invitation-code", json=payload)
-        finally:
-            app.dependency_overrides.pop(get_email_service, None)
-
-        assert first_response.status_code == 200
-        assert second_response.status_code == 429
-        assert second_response.headers["Retry-After"] == "60"
-        mock_email_service.send_invitation_request.assert_called_once()
-
-    def test_request_invitation_provider_failure_is_safe(self) -> None:
-        """Provider details remain private when invitation delivery raises."""
-        mock_email_service = MagicMock()
-        mock_email_service.send_invitation_request.side_effect = RuntimeError(
-            "SECRET_PROVIDER_DETAIL_123"
-        )
-        app.dependency_overrides[get_email_service] = lambda: mock_email_service
-        captured_logs: list[str] = []
-        sink_id = logger.add(captured_logs.append, format="{message}")
-        try:
-            response = client.post(
-                "/auth/request-invitation-code",
-                json={
-                    "first_name": "Test",
-                    "last_name": "User",
-                    "email": "private@example.com",
-                },
-            )
-        finally:
-            logger.remove(sink_id)
-            app.dependency_overrides.pop(get_email_service, None)
-
-        assert response.status_code == 500
-        assert "SECRET_PROVIDER_DETAIL_123" not in response.text
-        assert "private@example.com" not in "\n".join(captured_logs)
-        assert "SECRET_PROVIDER_DETAIL_123" not in "\n".join(captured_logs)
-        assert any("Invitation request processing failed" in entry for entry in captured_logs)
-
-    def test_request_invitation_missing_fields(self) -> None:
-        """Test invitation request without required fields"""
-        response = client.post(
-            "/auth/request-invitation-code",
-            json={"email": "test@example.com"},  # Missing first_name and last_name
-        )
-
-        assert response.status_code == 422  # Pydantic validation error
-
-    def test_request_invitation_email_failure(self) -> None:
-        """Test invitation request when email service fails"""
-        mock_email_service = MagicMock()
-        mock_email_service.send_invitation_request.return_value = False
-        app.dependency_overrides[get_email_service] = lambda: mock_email_service
-        try:
-            response = client.post(
-                "/auth/request-invitation-code",
-                json={
-                    "first_name": "Test",
-                    "last_name": "User",
-                    "email": "test@example.com",
-                },
-            )
-        finally:
-            app.dependency_overrides.pop(get_email_service, None)
-
-        assert response.status_code == 500
 
 
 class TestTierLimitsEndpoint:
@@ -732,10 +387,10 @@ class TestUsageEndpoint:
 
     def test_get_usage_success(self) -> None:
         """Test successful usage retrieval"""
-        with patch("app.routers.auth_router.auth") as mock_auth, patch(
-            "app.routers.auth_router.get_usage_service"
-        ) as mock_get_service:
-
+        with (
+            patch("app.routers.auth_router.auth") as mock_auth,
+            patch("app.routers.auth_router.get_usage_service") as mock_get_service,
+        ):
             # Mock Firebase Auth
             mock_auth.verify_id_token.return_value = {"uid": "test_user_123"}
 
@@ -821,10 +476,10 @@ class TestUsageEndpoint:
 
     def test_get_usage_unlimited_tier(self) -> None:
         """Test usage for UNLIMITED tier user"""
-        with patch("app.routers.auth_router.auth") as mock_auth, patch(
-            "app.routers.auth_router.get_usage_service"
-        ) as mock_get_service:
-
+        with (
+            patch("app.routers.auth_router.auth") as mock_auth,
+            patch("app.routers.auth_router.get_usage_service") as mock_get_service,
+        ):
             mock_auth.verify_id_token.return_value = {"uid": "unlimited_user"}
 
             # Mock auth.get_user() to return user with UNLIMITED tier
@@ -892,10 +547,10 @@ class TestUsageEndpoint:
 
     def test_get_usage_unlimited_tier_high_usage(self) -> None:
         """Test usage for UNLIMITED tier user with usage exceeding normal limits"""
-        with patch("app.routers.auth_router.auth") as mock_auth, patch(
-            "app.routers.auth_router.get_usage_service"
-        ) as mock_get_service:
-
+        with (
+            patch("app.routers.auth_router.auth") as mock_auth,
+            patch("app.routers.auth_router.get_usage_service") as mock_get_service,
+        ):
             mock_auth.verify_id_token.return_value = {"uid": "unlimited_user"}
 
             # Mock auth.get_user() to return user with UNLIMITED tier

@@ -7,14 +7,12 @@ from collections import defaultdict, deque
 from app.config.security_constants import (
     BUG_REPORT_RATE_LIMIT,
     FEEDBACK_RATE_LIMIT,
-    INVITATION_REQUEST_MIN_INTERVAL_SECONDS,
-    INVITATION_REQUEST_RATE_LIMIT,
     MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS,
 )
 
 
 class SupportRateLimiter:
-    """Limit bounded support and anonymous invitation submissions per principal."""
+    """Limit bounded authenticated support submissions per principal."""
 
     def __init__(self) -> None:
         self._events: dict[tuple[str, str], deque[float]] = defaultdict(deque)
@@ -22,12 +20,10 @@ class SupportRateLimiter:
         self._limits = {
             "bug_report": self._limit_from_setting(BUG_REPORT_RATE_LIMIT),
             "feedback": self._limit_from_setting(FEEDBACK_RATE_LIMIT),
-            "invitation_request": self._limit_from_setting(INVITATION_REQUEST_RATE_LIMIT),
         }
         self._minimum_intervals = {
             "bug_report": MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS,
             "feedback": MIN_SUPPORT_SUBMISSION_INTERVAL_SECONDS,
-            "invitation_request": INVITATION_REQUEST_MIN_INTERVAL_SECONDS,
         }
 
     @staticmethod

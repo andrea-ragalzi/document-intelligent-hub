@@ -350,18 +350,14 @@ def mock_email_service() -> Generator[Mock, None, None]:
     mock_service_instance = Mock()
     mock_service_instance.send_bug_report.return_value = True
     mock_service_instance.send_feedback.return_value = True
-    mock_service_instance.send_invitation_request.return_value = True
 
     # FastAPI captures the dependency callable at route declaration time. Mocking
     # its module attribute alone does not protect module-level TestClients.
     app.dependency_overrides[email_dependency] = lambda: mock_service_instance
 
     with patch(
-        "app.routers.auth_router.get_email_service"
-    ) as mock_get_service_auth, patch(
         "app.services.email_service.get_email_service"
     ) as mock_get_service_global:
-        mock_get_service_auth.return_value = mock_service_instance
         mock_get_service_global.return_value = mock_service_instance
         yield mock_service_instance
     app.dependency_overrides.pop(email_dependency, None)

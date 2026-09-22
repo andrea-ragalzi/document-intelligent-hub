@@ -4,33 +4,22 @@ Authentication Router
 Handles user registration and tier assignment via Firebase Custom Claims.
 """
 
-from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException
 from firebase_admin import auth
-from google.cloud.firestore import SERVER_TIMESTAMP, transactional as firestore_transactional
 
-from app.core.config import settings
 from app.core.logging import logger
-from app.dependencies import get_email_service, get_usage_service
+from app.dependencies import get_usage_service
 from app.infrastructure import firebase_config
 from app.schemas.auth_schema import (
-    InvitationCodeRequest,
-    InvitationCodeRequestResponse,
     RegistrationData,
     RegistrationResponse,
 )
-from app.services.support_rate_limiter import support_rate_limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 SUPPORTED_TIERS = frozenset({"FREE", "PRO", "UNLIMITED"})
-
-
-def _registration_requires_invitation() -> bool:
-    """Return whether new registrations must present an invitation code."""
-    return settings.requires_invitation_for_registration()
 
 
 def get_db() -> Any:
@@ -161,12 +150,15 @@ def get_unlimited_emails() -> list[str]:
         return []
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.error("Unable to load unlimited-email configuration | Type: {}", type(exc).__name__)
+        logger.error(
+            "Unable to load unlimited-email configuration | Type: {}",
+            type(exc).__name__,
+        )
         # Fallback to empty list on error
         return []
 
 
-def _verify_token_and_get_user_info(id_token: str) -> tuple[str, str | None]:
+def _verify_token_and_get_user_info(id_token: str) -> tuple[str, str | None, bool]:
     """
     Verify Firebase ID token and extract user info.
 
@@ -174,7 +166,7 @@ def _verify_token_and_get_user_info(id_token: str) -> tuple[str, str | None]:
         id_token: Firebase ID token
 
     Returns:
-        Tuple of (user_id, user_email)
+        Tuple of (user_id, user_email, email_verified)
 
     Raises:
         HTTPException: If token is invalid or expired
@@ -183,10 +175,13 @@ def _verify_token_and_get_user_info(id_token: str) -> tuple[str, str | None]:
         decoded_token = auth.verify_id_token(id_token)
         user_id = decoded_token["uid"]
         user_email = decoded_token.get("email")
+        email_verified = decoded_token.get("email_verified") is True
         logger.info("Registration token verified")
-        return user_id, user_email
+        return user_id, user_email, email_verified
     except Exception as exc:
-        logger.error("Registration token verification failed | Type: {}", type(exc).__name__)
+        logger.error(
+            "Registration token verification failed | Type: {}", type(exc).__name__
+        )
         raise HTTPException(
             status_code=401, detail="Invalid or expired ID token"
         ) from exc
@@ -235,102 +230,17 @@ def _get_existing_user_tier(user_id: str) -> str | None:
             return str(existing_tier)
         return None
     except Exception as exc:
-        logger.error("Failed to read existing Firebase claims | Type: {}", type(exc).__name__)
+        logger.error(
+            "Failed to read existing Firebase claims | Type: {}", type(exc).__name__
+        )
         raise HTTPException(
             status_code=500, detail="Failed to verify existing account tier."
         ) from exc
 
 
-def _claim_invitation_code(invitation_code: str, user_id: str, db: Any) -> str:
-    """Atomically validate and consume an invitation, returning its trusted tier."""
-    code_ref = db.collection("invitation_codes").document(invitation_code)
-    transaction = db.transaction()
-
-    @firestore_transactional  # type: ignore[untyped-decorator]
-    def claim_in_transaction(transaction: Any, ref: Any) -> str:
-        code_doc = ref.get(transaction=transaction)
-
-        if not code_doc.exists:
-            logger.warning("Invitation code was not found")
-            raise HTTPException(status_code=400, detail="Invalid invitation code")
-
-        code_data = code_doc.to_dict()
-        if not code_data:
-            logger.error("Invitation code record was invalid")
-            raise HTTPException(status_code=500, detail="Invalid code data")
-
-        if code_data.get("is_used", True):
-            logger.warning("Invitation code was already used")
-            raise HTTPException(
-                status_code=400, detail="Invitation code has already been used"
-            )
-
-        _check_code_expiration(invitation_code, code_data.get("expires_at"))
-
-        assigned_tier = str(code_data.get("tier", "FREE")).upper()
-        if assigned_tier not in SUPPORTED_TIERS:
-            logger.error("Invitation code had an unsupported tier")
-            raise HTTPException(status_code=400, detail="Invitation code has invalid tier")
-
-        transaction.update(
-            ref,
-            {
-                "is_used": True,
-                "used_by_user_id": user_id,
-                "used_at": SERVER_TIMESTAMP,
-            },
-        )
-        return assigned_tier
-
-    try:
-        assigned_tier = claim_in_transaction(transaction, code_ref)
-        logger.info("Invitation code claimed | Tier: {}", assigned_tier)
-        return str(assigned_tier)
-    except HTTPException:
-        raise
-    except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.error("Invitation-code claim failed | Type: {}", type(exc).__name__)
-        raise HTTPException(
-            status_code=500, detail="Database error. Please try again."
-        ) from exc
-
-
-def _check_code_expiration(invitation_code: str, expires_at: Any) -> None:
-    """
-    Check if invitation code has expired.
-
-    Args:
-        invitation_code: Code being checked
-        expires_at: Expiration timestamp from Firestore
-
-    Raises:
-        HTTPException: If code has expired
-    """
-    if not expires_at:
-        return
-
-    try:
-        if hasattr(expires_at, "to_datetime"):
-            expiration_date = expires_at.to_datetime()
-        else:
-            expiration_date = expires_at
-        now = datetime.now(timezone.utc)
-
-        if expiration_date.tzinfo is None:
-            expiration_date = expiration_date.replace(tzinfo=timezone.utc)
-
-        if now > expiration_date:
-            logger.warning("Invitation code was expired")
-            raise HTTPException(status_code=400, detail="Invitation code has expired")
-    except HTTPException:
-        raise
-    except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.error("Invitation-code expiration check failed | Type: {}", type(exc).__name__)
-
-
 @router.post(
     "/register",
-    responses={400: {"description": "Invalid registration or invitation code."}},
+    responses={400: {"description": "Invalid registration."}},
 )
 async def register_user(registration_data: RegistrationData) -> RegistrationResponse:
     """
@@ -338,62 +248,49 @@ async def register_user(registration_data: RegistrationData) -> RegistrationResp
 
     Flow:
     1. Verify Firebase ID token
-    2. Preserve an existing valid Firebase tier on a no-code retry
-    3. Require an invitation for new production registrations
-    4. Assign FREE without a code only outside invite-only mode
-    5. Atomically validate and consume supplied invitations
-    6. Assign the server-selected tier via Firebase Custom Claims
+    2. Preserve an existing valid Firebase tier on a repeat registration
+    3. Assign the unlimited tier to configured allowlisted email addresses
+    4. Assign the FREE tier to every other new user
 
     Args:
-        registration_data: Registration request with ID token and optional invitation code
+        registration_data: Registration request with ID token
 
     Returns:
         RegistrationResponse with assigned tier
 
     Raises:
         HTTPException 401: Invalid or expired ID token
-        HTTPException 400: Invalid, used, or expired invitation code
     """
     logger.info("🔐 Processing user registration request")
 
     # Step 1: Verify Firebase ID token
-    user_id, user_email = _verify_token_and_get_user_info(registration_data.id_token)
+    user_id, user_email, email_verified = _verify_token_and_get_user_info(
+        registration_data.id_token
+    )
+    if not email_verified:
+        logger.info("Registration rejected because the Firebase email is unverified")
+        raise HTTPException(
+            status_code=403,
+            detail="Please verify your email address before registering.",
+        )
 
-    invitation_code = (registration_data.invitation_code or "").strip()
-    if not invitation_code:
-        existing_tier = _get_existing_user_tier(user_id)
-        if existing_tier:
-            logger.info("Registration preserved an existing tier | Tier: {}", existing_tier)
-            return RegistrationResponse(
-                status="success",
-                tier=existing_tier,
-                message="Existing account tier preserved.",
-            )
+    existing_tier = _get_existing_user_tier(user_id)
+    if existing_tier:
+        logger.info("Registration preserved an existing tier | Tier: {}", existing_tier)
+        return RegistrationResponse(
+            status="success",
+            tier=existing_tier,
+            message="Existing account tier preserved.",
+        )
 
-        if _registration_requires_invitation():
-            logger.info("Registration rejected because an invitation code is required")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="An invitation code is required for registration.",
-            )
+    app_config = load_app_config()
+    unlimited_emails = app_config["unlimited_emails"]
+    if user_email and user_email in unlimited_emails:
+        logger.info("Registration matched an unlimited-tier allowlist entry")
+        return _assign_tier_to_user(user_id, "UNLIMITED")
 
-        app_config = load_app_config()
-        unlimited_emails = app_config["unlimited_emails"]
-        if user_email and user_email in unlimited_emails:
-            logger.info("Registration matched an unlimited-tier allowlist entry")
-            return _assign_tier_to_user(user_id, "UNLIMITED")
-
-        logger.info("Registration assigned the free tier")
-        return _assign_tier_to_user(user_id, "FREE")
-
-    db = get_db()
-
-    # Atomically validate and consume the invitation. Its tier comes
-    # only from server-side Firestore data; request bodies cannot select it.
-    assigned_tier = _claim_invitation_code(invitation_code, user_id, db)
-
-    # Assign the tier that was atomically claimed.
-    return _assign_tier_to_user(user_id, assigned_tier)
+    logger.info("Registration assigned the free tier")
+    return _assign_tier_to_user(user_id, "FREE")
 
 
 @router.post("/refresh-claims")
@@ -429,75 +326,6 @@ def refresh_user_claims(id_token: str) -> dict[str, Any]:
     except Exception as exc:
         logger.error("Failed to refresh claims | Type: {}", type(exc).__name__)
         raise HTTPException(status_code=401, detail="Invalid token") from exc
-
-
-@router.post("/request-invitation-code", response_model=InvitationCodeRequestResponse)
-async def request_invitation_code(
-    invitation_request: InvitationCodeRequest,
-    request: Request,
-    email_service: Any = Depends(get_email_service),
-) -> InvitationCodeRequestResponse:
-    """
-    Send invitation code request to support team.
-
-    User provides their name and email to request an invitation code.
-    Support team will receive an email with the request details.
-
-    Args:
-        request: User information (first_name, last_name, email)
-        email_service: Email service dependency
-
-    Returns:
-        InvitationCodeRequestResponse with confirmation message
-
-    Raises:
-        HTTPException 500: Failed to send email
-    """
-    client_host = request.client.host if request.client else "unknown"
-    if not await support_rate_limiter.allow("invitation_request", client_host):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many invitation requests. Please try again later.",
-            headers={"Retry-After": "60"},
-        )
-
-    logger.info("Invitation request accepted for delivery")
-
-    try:
-        # Send email to support
-        success = email_service.send_invitation_request(
-            first_name=invitation_request.first_name,
-            last_name=invitation_request.last_name,
-            email=str(invitation_request.email),
-        )
-
-        if success:
-            logger.info("Invitation request delivered to the notification adapter")
-            return InvitationCodeRequestResponse(
-                status="success",
-                message=(
-                    "Your request has been sent to our support team. "
-                    "You will receive an invitation code via email soon."
-                ),
-            )
-
-        logger.error("Invitation request email delivery failed")
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Failed to send your request. "
-                "Please try again later or contact support directly."
-            ),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("Invitation request processing failed | Type: {}", type(exc).__name__)
-        raise HTTPException(
-            status_code=500,
-            detail="An error occurred while processing your request. Please try again later.",
-        ) from exc
 
 
 @router.get("/tier-limits")
@@ -564,7 +392,12 @@ async def get_user_usage(
         # Calculate remaining queries using helper function
         remaining = calculate_remaining_queries(query_limit, queries_today)
 
-        logger.info("Usage retrieved | Queries: {}/{} | Tier: {}", queries_today, query_limit, tier)
+        logger.info(
+            "Usage retrieved | Queries: {}/{} | Tier: {}",
+            queries_today,
+            query_limit,
+            tier,
+        )
 
         return {
             "status": "success",

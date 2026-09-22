@@ -9,9 +9,11 @@ from app.services.demo_document_service import (
     DEMO_DOCUMENT_PATH,
     DemoDocumentService,
 )
+from app.services.demo_document_state_service import DemoDocumentStateService
 from app.services.document_file_storage import DocumentFileStorage
 from app.repositories.vector_store_repository import VectorStoreRepository
 from app.services.rag_orchestrator_service import RAGService
+from app.schemas.rag_schema import DocumentInfo
 
 LEGACY_DEMO_DOCUMENT_FILENAME = "alice-cheshire-cat-demo.pdf"
 
@@ -52,9 +54,23 @@ async def test_all_tiers_get_the_same_private_demo_document(
 async def test_repeated_seed_does_not_duplicate_the_demo_document(tmp_path) -> None:
     """A refresh or re-login finds the user's existing private Chroma chunks."""
     rag_service = Mock(spec=RAGService)
-    rag_service.user_document_exists.side_effect = [False, False, True]
+    rag_service.user_document_exists.side_effect = [False, True]
+    rag_service.get_user_documents.side_effect = [
+        [],
+        [
+            DocumentInfo(
+                filename=DEMO_DOCUMENT_FILENAME,
+                chunks_count=4,
+                is_demo_document=True,
+            )
+        ],
+    ]
     rag_service.index_document = AsyncMock(return_value=(4, "EN"))
-    service = DemoDocumentService(rag_service, DocumentFileStorage(tmp_path))
+    state_service = Mock(spec=DemoDocumentStateService)
+    state_service.is_deleted.return_value = False
+    service = DemoDocumentService(
+        rag_service, DocumentFileStorage(tmp_path), state_service=state_service
+    )
 
     first = await service.seed_for_user("user-a")
     second = await service.seed_for_user("user-a")
@@ -65,12 +81,30 @@ async def test_repeated_seed_does_not_duplicate_the_demo_document(tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_explicitly_deleted_demo_is_not_seeded_again(tmp_path) -> None:
+    rag_service = Mock(spec=RAGService)
+    state_service = Mock(spec=DemoDocumentStateService)
+    state_service.is_deleted.return_value = True
+    service = DemoDocumentService(rag_service, DocumentFileStorage(tmp_path), state_service=state_service)
+
+    result = await service.seed_for_user("user-a")
+
+    assert result.status == "absent"
+    rag_service.index_document.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_seed_replaces_the_legacy_alice_demo_document(tmp_path) -> None:
     """Existing excerpt seeds are removed before the complete Alice PDF is added."""
     rag_service = Mock(spec=RAGService)
-    rag_service.user_document_exists.side_effect = lambda _user_id, filename: (
-        filename == LEGACY_DEMO_DOCUMENT_FILENAME
-    )
+    rag_service.user_document_exists.return_value = False
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(
+            filename=LEGACY_DEMO_DOCUMENT_FILENAME,
+            chunks_count=4,
+            is_demo_document=True,
+        )
+    ]
     rag_service.index_document = AsyncMock(return_value=(4, "EN"))
     storage = DocumentFileStorage(tmp_path)
     storage.store("user-a", LEGACY_DEMO_DOCUMENT_FILENAME, b"old excerpt")
@@ -90,6 +124,13 @@ async def test_existing_demo_document_backfills_its_private_original(tmp_path) -
     """Previously indexed demo chunks gain preview/download support on the next seed."""
     rag_service = Mock(spec=RAGService)
     rag_service.user_document_exists.return_value = True
+    rag_service.get_user_documents.return_value = [
+        DocumentInfo(
+            filename=DEMO_DOCUMENT_FILENAME,
+            chunks_count=4,
+            is_demo_document=True,
+        )
+    ]
     rag_service.index_document = AsyncMock()
     storage = DocumentFileStorage(tmp_path)
 

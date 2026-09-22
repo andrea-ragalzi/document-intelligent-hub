@@ -39,7 +39,6 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     try {
       await onConfirm(password || undefined);
     } catch (error) {
-      console.error("Account deletion failed.");
       setError(
         error instanceof Error ? error.message : "Unable to delete account. Please try again."
       );

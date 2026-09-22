@@ -67,9 +67,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
   // Refresh documents when upload completes
   useEffect(() => {
     if (prevUploadingRef.current === true && isUploading === false) {
-      setTimeout(() => {
-        refreshDocuments();
-      }, 500);
+      void refreshDocuments();
     }
     prevUploadingRef.current = isUploading;
   }, [isUploading, refreshDocuments]);

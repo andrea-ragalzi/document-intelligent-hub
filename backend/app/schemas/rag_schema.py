@@ -148,7 +148,7 @@ class UploadResponse(BaseModel):
 class DemoDocumentSeedResponse(BaseModel):
     """Result of creating the private starter document for an authenticated user."""
 
-    status: Literal["seeded", "ready"]
+    status: Literal["seeded", "ready", "absent"]
     message: str
     filename: str
     chunks_indexed: int = Field(ge=0)
@@ -323,7 +323,7 @@ class DocumentInfo(BaseModel):
         False, description="Whether the authenticated user can preview or download the original file."
     )
     is_demo_document: bool = Field(
-        False, description="Whether this is the bundled demo document, excluded from personal quotas."
+        False, description="Legacy metadata retained for documents indexed by earlier versions."
     )
 
 

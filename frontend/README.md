@@ -33,7 +33,7 @@ The backend base URL is defined by `NEXT_PUBLIC_API_BASE_URL` and consumed as `A
 | `hooks/useRegistration.ts`   | Register a Firebase user and refresh custom claims (`/auth/register`)                    |
 | `app/api/chat/route.ts`      | Forward the active chat query to `/rag/query/`                                           |
 
-Protected hooks call `useAuth().getIdToken()` and attach `Authorization: Bearer <token>`. The Next.js chat route receives the same authorization header from `useChatAI`, forwards at most the 14 preceding messages as `conversation_history`, and relays the backend's structured citations as AI SDK annotations. The active client does not choose an upload or answer language: backend services detect document and query language automatically, including recognized language instructions in the query. Registration is a special case: it sends the Firebase ID token in the `/auth/register` request body and then forces a token refresh.
+Protected hooks call `useAuth().getIdToken()` and attach `Authorization: Bearer <token>`. The Next.js chat route receives the same authorization header from `useChatAI`, forwards at most the 14 preceding messages as `conversation_history`, and relays the backend's structured citations as AI SDK annotations. The active client does not choose an upload or answer language: backend services detect document and query language automatically, including recognized language instructions in the query. Registration is a special case: after Firebase confirms the email is verified, it sends only the Firebase ID token to `/auth/register` and then forces a token refresh.
 
 Most document and usage requests run directly from the browser. Therefore, `localhost` refers to the device running the browser; when testing from a tablet or phone, set `NEXT_PUBLIC_API_BASE_URL` to a backend address reachable on the LAN.
 
@@ -41,7 +41,7 @@ Most document and usage requests run directly from the browser. Therefore, `loca
 
 - `lib/firebase.ts` lazily initializes Firebase Auth and Firestore from the `NEXT_PUBLIC_FIREBASE_*` configuration.
 - `contexts/AuthContext.tsx` listens with `onAuthStateChanged`, exposes the current `User`, and provides email/password sign-in, email/password sign-up, Google sign-in, logout, and `getIdToken()`.
-- `components/ProtectedRoute.tsx` guards the dashboard until authentication is ready.
+- `components/ProtectedRoute.tsx` guards the dashboard until Firebase authentication and email verification are ready.
 - `hooks/useUserTier.ts` reads the Firebase `tier` custom claim with `getIdTokenResult()`. `hooks/useRegistration.ts` forces a token refresh after backend registration so a newly assigned claim is available to the client.
 
 ## Conversations
@@ -52,7 +52,7 @@ The active dashboard uses `hooks/queries/useConversationsQuery.ts` with TanStack
 
 Assistant messages persist structured source citations. The chat UI groups them by filename and opens an authenticated PDF blob from `/rag/documents/content`; a page citation opens the corresponding page fragment when its page metadata is available.
 
-`hooks/useConversations.ts` and the `rag_conversations` local-storage key provide the older fallback/migration path. Firestore remains the primary store in the active dashboard flow.
+Firestore is the sole conversation store in the active dashboard flow.
 
 ## State Management
 

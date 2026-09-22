@@ -3,7 +3,7 @@
  *
  * Handles registration flow:
  * 1. Get Firebase ID token
- * 2. Call /auth/register with invitation code
+ * 2. Call /auth/register
  * 3. Force token refresh to get new custom claims
  * 4. Return assigned tier
  */
@@ -21,7 +21,7 @@ export function useRegistration() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const register = async (invitationCode?: string): Promise<UserTier | null> => {
+  const register = async (): Promise<UserTier | null> => {
     if (!user) {
       setError("User not authenticated");
       return null;
@@ -42,7 +42,6 @@ export function useRegistration() {
         },
         body: JSON.stringify({
           id_token: idToken,
-          invitation_code: invitationCode || null,
         }),
       });
 

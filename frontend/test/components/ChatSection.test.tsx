@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ChatSection } from "@/components/ChatSection";
@@ -30,6 +30,20 @@ describe("ChatSection", () => {
     const { container } = renderChatSection();
 
     expect(container.querySelectorAll("svg.lucide-message-square")).toHaveLength(1);
+  });
+
+  it("keeps the initial document check in a stable loading state", () => {
+    renderChatSection({ hasDocuments: false, isCheckingDocuments: true });
+
+    expect(screen.getByRole("status", { name: "Loading document workspace" })).toBeInTheDocument();
+    expect(screen.queryByText("No documents uploaded yet")).not.toBeInTheDocument();
+  });
+
+  it("does not show an empty workspace while the private demo document is provisioning", () => {
+    renderChatSection({ hasDocuments: false, demoDocumentState: "seeding" });
+
+    expect(screen.getByText("Preparing your private demo document…")).toBeInTheDocument();
+    expect(screen.queryByText("No documents uploaded yet")).not.toBeInTheDocument();
   });
 
   it("renders repeated assistant text without duplicate React keys", () => {

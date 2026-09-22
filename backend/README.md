@@ -89,36 +89,36 @@ Relevant files: `app/core/auth.py`, `app/core/firebase.py`, `app/routers/documen
 
 ## External Integrations
 
-| Integration                       | Purpose                                                                           | Main locations                                                                                                                                                     |
-| --------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Firebase Admin                    | Verify ID tokens; access Firebase Auth and custom claims                          | `app/core/firebase.py`, `app/core/auth.py`, `app/routers/auth_router.py`                                                                                           |
-| Firestore                         | Store application configuration, usage counters, and invitation/registration data | `app/infrastructure/firebase_config.py`, `app/infrastructure/firestore_usage_tracker.py`, `app/routers/auth_router.py`                                             |
-| ChromaDB                          | Persist embedded chunks and perform metadata-filtered retrieval/deletion          | `app/db/chroma_client.py`, `app/repositories/vector_store_repository.py`                                                                                           |
-| HuggingFace Sentence Transformers | Generate local `all-MiniLM-L6-v2` document/query embeddings                       | `app/db/chroma_client.py`                                                                                                                                          |
-| OpenAI                            | Query parsing, reformulation/expansion, translation, and answer generation         | `app/dependencies.py`, `app/infrastructure/openai_translation_adapter.py`, `app/services/query_processing_service.py`, `app/services/query_expansion_service.py`, `app/services/answer_generation_service.py` |
-| Resend                            | Send bug-report, feedback, and invitation emails when configured                    | `app/infrastructure/resend_email_adapter.py`, `app/routers/support_router.py`, `app/routers/auth_router.py`                                                       |
+| Integration                       | Purpose                                                                    | Main locations                                                                                                                                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Firebase Admin                    | Verify ID tokens; access Firebase Auth and custom claims                   | `app/core/firebase.py`, `app/core/auth.py`, `app/routers/auth_router.py`                                                                                                                                      |
+| Firestore                         | Store application configuration and usage counters                         | `app/infrastructure/firebase_config.py`, `app/infrastructure/firestore_usage_tracker.py`, `app/routers/auth_router.py`                                                                                        |
+| ChromaDB                          | Persist embedded chunks and perform metadata-filtered retrieval/deletion   | `app/db/chroma_client.py`, `app/repositories/vector_store_repository.py`                                                                                                                                      |
+| HuggingFace Sentence Transformers | Generate local `all-MiniLM-L6-v2` document/query embeddings                | `app/db/chroma_client.py`                                                                                                                                                                                     |
+| OpenAI                            | Query parsing, reformulation/expansion, translation, and answer generation | `app/dependencies.py`, `app/infrastructure/openai_translation_adapter.py`, `app/services/query_processing_service.py`, `app/services/query_expansion_service.py`, `app/services/answer_generation_service.py` |
+| Resend                            | Send bug-report and feedback emails when configured                        | `app/infrastructure/resend_email_adapter.py`, `app/routers/support_router.py`                                                                                                                                 |
 
 ## Configuration
 
 Create the ignored local configuration with `cp backend/.env.example backend/.env.local`. `Settings` loads `backend/.env.local` for every local execution path; existing process variables remain authoritative. Docker Compose passes the same file through `env_file`. Local development expects the dedicated DEV service-account file at `backend/app/config/firebase-service-account.dev.json`. Deployment images exclude local environment files, and Railway supplies the PROD credential through `FIREBASE_CREDENTIALS`; never commit either credential.
 
-| Variable                          | Controls                                                                |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `OPENAI_API_KEY`                  | OpenAI calls used by query processing, expansion, and answer generation |
+| Variable                          | Controls                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `OPENAI_API_KEY`                  | OpenAI calls used by query processing, expansion, and answer generation                                      |
 | `LLM_MODEL`                       | Main OpenAI chat model; known capability limits such as Luna's temperature restriction are applied centrally |
-| `CHROMA_DB_PATH`                  | Persistent ChromaDB storage path                                        |
-| `DOCUMENT_STORAGE_PATH`           | Private original-PDF storage for authenticated preview/download          |
-| `FIREBASE_CREDENTIALS`            | Firebase service-account JSON supplied as an environment value          |
-| `FIREBASE_SERVICE_ACCOUNT_PATH`   | Alternate path to a Firebase service-account JSON file                  |
-| `RAG_SYSTEM_PROMPT_PATH`          | Override path for the RAG system prompt                                 |
-| `CLASSIFICATION_PROMPT_PATH`      | Override path for the classification prompt                             |
-| `QUERY_REFORMULATION_PROMPT_PATH` | Override path for the query-reformulation prompt                        |
-| `ENVIRONMENT`                     | Selects production CORS behavior when set to `production`               |
-| `ALLOWED_ORIGINS`                 | Comma-separated production CORS origins                                 |
-| `TRUSTED_PROXY_IPS`                | Comma-separated trusted reverse-proxy IPs/CIDRs for client-IP headers   |
-| `RESEND_API_KEY`                  | Enables backend-only Resend email delivery                              |
-| `RESEND_FROM_EMAIL`               | Verified Resend sender address                                          |
-| `REPORT_RECIPIENT_EMAIL`          | Fixed recipient for support and invitation notifications                |
+| `CHROMA_DB_PATH`                  | Persistent ChromaDB storage path                                                                             |
+| `DOCUMENT_STORAGE_PATH`           | Private original-PDF storage for authenticated preview/download                                              |
+| `FIREBASE_CREDENTIALS`            | Firebase service-account JSON supplied as an environment value                                               |
+| `FIREBASE_SERVICE_ACCOUNT_PATH`   | Alternate path to a Firebase service-account JSON file                                                       |
+| `RAG_SYSTEM_PROMPT_PATH`          | Override path for the RAG system prompt                                                                      |
+| `CLASSIFICATION_PROMPT_PATH`      | Override path for the classification prompt                                                                  |
+| `QUERY_REFORMULATION_PROMPT_PATH` | Override path for the query-reformulation prompt                                                             |
+| `ENVIRONMENT`                     | Selects production CORS behavior when set to `production`                                                    |
+| `ALLOWED_ORIGINS`                 | Comma-separated production CORS origins                                                                      |
+| `TRUSTED_PROXY_IPS`               | Comma-separated trusted reverse-proxy IPs/CIDRs for client-IP headers                                        |
+| `RESEND_API_KEY`                  | Enables backend-only Resend email delivery                                                                   |
+| `RESEND_FROM_EMAIL`               | Verified Resend sender address                                                                               |
+| `REPORT_RECIPIENT_EMAIL`          | Fixed recipient for support notifications                                                                    |
 
 If prompt files are absent, `app/core/config.py` falls back to built-in prompt text. For local customization, copy the tracked files in `config/*.txt.example` to the corresponding ignored `.txt` filenames.
 
@@ -174,9 +174,9 @@ The latest validation recorded 73 targeted tests passing and 322 backend tests p
 
 - Run Uvicorn from `backend/`: `.env.local`, the default prompt paths, and the relative `CHROMA_DB_PATH` are resolved from the backend working directory.
 - Firebase initialization is attempted at startup. Without valid Firebase credentials the process can start, but protected/authentication routes are unavailable.
-- Registration without an invitation assigns the constrained FREE tier. Optional elevated access uses `app_config/settings.unlimited_emails` or an unused `invitation_codes` document; the assigned tier is stored as a Firebase custom claim.
+- Registration accepts only a Firebase ID token whose `email_verified` claim is true. It assigns the constrained FREE tier by default, with no invitation code. The configured `app_config/settings.unlimited_emails` allowlist can receive the UNLIMITED tier; the assigned tier is stored as a Firebase custom claim.
 - Startup preloads the local HuggingFace embedding model and creates the persistent ChromaDB directory if needed; the first run can be slow and may require model download access.
 - ChromaDB contains the local search index rather than the original PDFs. Deleting `CHROMA_DB_PATH` loses indexed chunks and requires the documents to be uploaded again.
 - Development CORS allows all origins. Setting `ENVIRONMENT=production` switches to the comma-separated `ALLOWED_ORIGINS` list.
-- Invitation-request limits are process-local for the current single-instance demo. Set `TRUSTED_PROXY_IPS` to the real production reverse-proxy address or CIDR so the limiter can use forwarded client IPs safely; never set it to `*`.
+- Support-submission limits are process-local for the current single-instance demo. Set `TRUSTED_PROXY_IPS` to the real production reverse-proxy address or CIDR so the limiter can use forwarded client IPs safely; never set it to `*`.
 - The frontend may simulate progressive text display, but the backend query endpoint returns one complete JSON response rather than an end-to-end stream.

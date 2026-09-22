@@ -61,15 +61,8 @@ export async function fetchSupportedLanguages(): Promise<Language[]> {
     }));
 
     return cachedLanguages;
-  } catch (error) {
-    // Silently handle network errors (server offline)
-    if (error instanceof TypeError && error.message.includes("fetch")) {
-      console.log("⚠️ Server offline - using fallback languages");
-    } else {
-      console.error("Unable to fetch supported languages.");
-    }
-
-    // Fallback to minimal language set if API fails
+  } catch {
+    // Fall back to a minimal language set if the API is unavailable.
     const fallback = [
       { code: "en", name: "English", nativeName: "English", flag: "🇬🇧" },
       { code: "it", name: "Italian", nativeName: "Italiano", flag: "🇮🇹" },

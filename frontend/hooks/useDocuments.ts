@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { API_BASE_URL } from "@/lib/constants";
 import { fetchDocumentContent } from "@/lib/documentApi";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ export interface Document {
   language?: string;
   uploaded_at?: string;
   original_available?: boolean;
+  is_demo_document?: boolean;
 }
 
 interface DocumentsResponse {
@@ -38,17 +39,25 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestSequence = useRef(0);
   const { getIdToken } = useAuth();
 
   const refreshDocuments = useCallback(async () => {
+    const requestId = ++requestSequence.current;
+    const isCurrentRequest = () => requestId === requestSequence.current;
+
     if (!userId) {
-      setDocuments([]);
-      setIsLoading(false);
+      if (isCurrentRequest()) {
+        setDocuments([]);
+        setIsLoading(false);
+      }
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
+    if (isCurrentRequest()) {
+      setIsLoading(true);
+      setError(null);
+    }
 
     try {
       // Get Firebase Auth token
@@ -72,9 +81,12 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
 
       const data: DocumentsResponse = await response.json();
       // Ensure we always set an array, even if data.documents is null/undefined
-      setDocuments(Array.isArray(data.documents) ? data.documents : []);
+      if (isCurrentRequest()) {
+        setDocuments(Array.isArray(data.documents) ? data.documents : []);
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      if (!isCurrentRequest()) return;
       // Only log error if it's not a network/fetch error (server offline)
       if (err instanceof TypeError && errorMsg.includes("fetch")) {
         console.warn("Document service is unavailable.");
@@ -84,7 +96,7 @@ export const useDocuments = (userId: string | null): UseDocumentsResult => {
       setError(errorMsg);
       setDocuments([]);
     } finally {
-      setIsLoading(false);
+      if (isCurrentRequest()) setIsLoading(false);
     }
   }, [userId]);
 

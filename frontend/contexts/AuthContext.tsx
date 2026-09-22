@@ -31,6 +31,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getVerificationActionCodeSettings() {
+  return {
+    url: `${window.location.origin}/verify-email`,
+    handleCodeInApp: false,
+  };
+}
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -72,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(credential.user);
     setEmailVerified(Boolean(credential.user.emailVerified));
     try {
-      await sendEmailVerification(credential.user);
+      await sendEmailVerification(credential.user, getVerificationActionCodeSettings());
       return { verificationEmailSent: true };
     } catch {
       return { verificationEmailSent: false };
@@ -110,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) {
       throw new Error("No authenticated user");
     }
-    await sendEmailVerification(user);
+    await sendEmailVerification(user, getVerificationActionCodeSettings());
   };
 
   const refreshEmailVerification = async (): Promise<boolean> => {

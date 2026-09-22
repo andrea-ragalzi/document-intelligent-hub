@@ -2,7 +2,7 @@
  * Empty state component for ChatSection
  */
 
-import { Loader, AlertTriangle, MessageSquare, Paperclip } from "lucide-react";
+import { AlertTriangle, MessageSquare, Paperclip } from "lucide-react";
 import type { DemoDocumentState } from "@/hooks/useDemoDocument";
 import { DemoDocumentCard } from "./DemoDocumentCard";
 
@@ -29,10 +29,16 @@ export function ChatEmptyState({
 }: EmptyStateProps) {
   if (isCheckingDocuments) {
     return (
-      <>
-        <p className="font-semibold text-lg text-muted">Checking documents...</p>
-        <Loader size={24} className="animate-spin mx-auto mt-4 text-accent" />
-      </>
+      <div
+        role="status"
+        aria-label="Loading document workspace"
+        className="mx-auto max-w-xl animate-pulse py-4"
+      >
+        <div className="mx-auto h-12 w-12 rounded-full bg-raised" />
+        <div className="mx-auto mt-5 h-5 w-48 rounded bg-raised" />
+        <div className="mx-auto mt-3 h-4 w-72 max-w-full rounded bg-raised" />
+        <div className="mt-6 min-h-28 rounded-xl border border-line/15 bg-surface" />
+      </div>
     );
   }
 
@@ -61,6 +67,17 @@ export function ChatEmptyState({
           You&apos;ve reached your daily query limit. Please try again tomorrow.
         </p>
       </div>
+    );
+  }
+
+  if (demoDocumentState === "seeding") {
+    return (
+      <DemoDocumentCard
+        state={demoDocumentState}
+        suggestedQuestions={suggestedQuestions}
+        onSelectQuestion={onSelectQuestion}
+        onOpenUpload={onOpenUpload}
+      />
     );
   }
 

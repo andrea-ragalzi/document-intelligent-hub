@@ -34,8 +34,8 @@ def _load_prompt_from_file(
         if path.exists() and path.is_file():
             try:
                 return path.read_text(encoding="utf-8").strip()
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                print(f"⚠️  [CONFIG] Failed to read {file_path}: {e}")
+            except Exception:  # pylint: disable=broad-exception-caught
+                return fallback_text
 
     # Return fallback if file not found
     return fallback_text
@@ -51,7 +51,6 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Document Intelligent Hub Backend"
     PROJECT_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
-    REQUIRE_INVITATION_FOR_REGISTRATION: bool = False
     ALLOWED_ORIGINS: str = "http://localhost:3000"
     # Trusted reverse-proxy addresses allowed to rewrite request.client from
     # X-Forwarded-For. Production must set the Railway/Vercel proxy range.
@@ -73,13 +72,6 @@ class Settings(BaseSettings):
     MAX_GLOBAL_EXPENSIVE_OPERATIONS: int = 2
     OPENAI_TIMEOUT_SECONDS: float = 60.0
     OPENAI_MAX_RETRIES: int = 0
-
-    def requires_invitation_for_registration(self) -> bool:
-        """Whether a new account must be provisioned from an invitation."""
-        return (
-            self.ENVIRONMENT.strip().lower() == "production"
-            or self.REQUIRE_INVITATION_FOR_REGISTRATION
-        )
 
     # === RAG SYSTEM PROMPTS (SECURITY: LOADED FROM FILES) ===
     # ⚠️ SECURITY CRITICAL: These prompts are loaded from external files to:
@@ -141,9 +133,3 @@ class Settings(BaseSettings):
 
 # Global settings instance accessible from the entire application
 settings = Settings()
-
-# Log loaded model for immediate confirmation at startup
-print(f"🤖 [CONFIG] Loaded LLM Model: {settings.LLM_MODEL}")
-
-# Security check: Warn if using fallback prompts (not production-ready)
-print(f"🔐 [CONFIG] RAG System Prompt: {len(settings.RAG_SYSTEM_PROMPT)} chars")
