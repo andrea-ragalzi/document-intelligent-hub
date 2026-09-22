@@ -6,7 +6,7 @@ The backend is a Python 3.12 FastAPI service for authenticated PDF ingestion, do
 
 - Expose REST endpoints for authentication, document lifecycle operations, RAG queries, usage, language discovery, feedback, and bug reports.
 - Turn uploaded PDFs into owned, searchable chunks and persist them in ChromaDB.
-- Retrieve only the authenticated user's context, generate an answer with OpenAI, and return evidence-backed filename/page citations.
+- Retrieve either a registered user's private context or the shared read-only guest corpus, generate an answer with OpenAI, and return evidence-backed filename/page citations.
 - Coordinate Firebase Admin, Firestore, local HuggingFace embeddings, and optional Resend email delivery.
 
 ## Architecture
@@ -74,12 +74,13 @@ The three runtime prompts have separate responsibilities: classification returns
 
 Compound retrieval is a bounded optimization. It reuses the existing parser LLM, adds no decomposition-only LLM call, and accepts at most two standalone subqueries. Language and presentation instructions remain separate from semantic retrieval queries. Invalid compound output falls back to the simple path. Chroma retrieval is concurrent rather than truly batched because the repository exposes no batch query method. The final context limit and single final answer-generation call are unchanged.
 
-`POST /rag/upload/` accepts a PDF multipart field and optional `duplicate_action`: `reject` (default, returns `409` for a colliding owned filename), `replace`, or `rename` (server assigns `name (n).pdf`). `POST /rag/query/` accepts `query`, bounded `conversation_history`, and optional `output_language`; it returns `answer`, compatibility `source_documents`, and `citations`, whose items contain `filename` and an optional one-based `page_number`. Both endpoints require a verified-email Firebase identity. Stored originals are available only to the owner through authenticated `GET /rag/documents/content`, which serves inline content by default or a download when `download=true`.
+`POST /rag/upload/` accepts a PDF multipart field and optional `duplicate_action`: `reject` (default, returns `409` for a colliding owned filename), `replace`, or `rename` (server assigns `name (n).pdf`). Upload and every document mutation require a verified registered user. `POST /rag/query/` accepts `query`, bounded `conversation_history`, and optional `output_language`; it returns `answer`, compatibility `source_documents`, and `citations`, whose items contain `filename` and an optional one-based `page_number`. A verified registered user queries their UID-scoped collection. A Firebase anonymous identity queries the reserved shared InGen demo namespace under the guest budgets described below. Stored originals are available through authenticated `GET /rag/documents/content`; ownership or the guest namespace is selected only from verified token claims.
 
 ## Authentication & User Isolation
 
 - `app/core/auth.py::verify_firebase_token` reads the `Authorization: Bearer <token>` header and calls Firebase Admin `auth.verify_id_token()`.
-- The verified Firebase `uid` is injected as `user_id` through protected router dependencies, which also require a verified email for document and query access. Client-supplied ownership is not used for document operations.
+- The verified Firebase token is converted into a `FirebasePrincipal`. Registered users retain their UID-scoped workspace and verified-email requirements. Tokens whose signed-in provider is `anonymous` are mapped to the reserved `__shared_ingen_demo_v1__` namespace for list/content/query only. Client-supplied ownership is never used.
+- Guest upload, ingestion, seeding, deletion, account cleanup, support submission, and summarization are rejected by server dependencies. Guest conversations are not written to Firestore.
 - `DocumentIndexingService._prepare_chunks_with_metadata()` writes the verified user ID to each chunk's `source` metadata field and stores `original_filename` alongside language and section metadata.
 - `VectorStoreRepository` applies `source=<user_id>` when listing, retrieving, and deleting chunks. Optional filename filters are combined with the same ownership condition.
 
@@ -119,6 +120,11 @@ Create the ignored local configuration with `cp backend/.env.example backend/.en
 | `RESEND_API_KEY`                  | Enables backend-only Resend email delivery                                                                   |
 | `RESEND_FROM_EMAIL`               | Verified Resend sender address                                                                               |
 | `REPORT_RECIPIENT_EMAIL`          | Fixed recipient for support notifications                                                                    |
+| `ENABLE_SHARED_DEMO_CORPUS`       | Provision the five bundled synthetic InGen PDFs in the stable shared namespace at startup                     |
+| `GUEST_UID_DAILY_QUERY_LIMIT`     | Daily query ceiling for one Firebase anonymous UID                                                            |
+| `GUEST_IP_DAILY_QUERY_LIMIT`      | Secondary daily query ceiling for one hashed client IP                                                        |
+| `GUEST_GLOBAL_DAILY_QUERY_BUDGET` | Hard daily ceiling across the anonymous demo                                                                  |
+| `MAX_CONCURRENT_GUEST_QUERIES`    | In-process concurrent anonymous query ceiling for the current single-process deployment                       |
 
 If prompt files are absent, `app/core/config.py` falls back to built-in prompt text. For local customization, copy the tracked files in `config/*.txt.example` to the corresponding ignored `.txt` filenames.
 
@@ -176,7 +182,9 @@ The latest validation recorded 73 targeted tests passing and 322 backend tests p
 - Firebase initialization is attempted at startup. Without valid Firebase credentials the process can start, but protected/authentication routes are unavailable.
 - Registration accepts only a Firebase ID token whose `email_verified` claim is true. It assigns the constrained FREE tier by default, with no invitation code. The configured `app_config/settings.unlimited_emails` allowlist can receive the UNLIMITED tier; the assigned tier is stored as a Firebase custom claim.
 - Startup preloads the local HuggingFace embedding model and creates the persistent ChromaDB directory if needed; the first run can be slow and may require model download access.
+- Startup also checks the stable shared InGen namespace. It indexes the five bundled, synthetic fan-made enterprise documents only when the namespace is absent or incomplete; anonymous sessions never seed or copy vectors. Enable Anonymous sign-in in the deployed Firebase project before publishing.
 - ChromaDB contains the local search index rather than the original PDFs. Deleting `CHROMA_DB_PATH` loses indexed chunks and requires the documents to be uploaded again.
 - Development CORS allows all origins. Setting `ENVIRONMENT=production` switches to the comma-separated `ALLOWED_ORIGINS` list.
 - Support-submission limits are process-local for the current single-instance demo. Set `TRUSTED_PROXY_IPS` to the real production reverse-proxy address or CIDR so the limiter can use forwarded client IPs safely; never set it to `*`.
+- Guest UID, hashed-IP, and global daily counters are reserved atomically in one Firestore document. Guest concurrency is process-local and assumes the documented single-process deployment. Firebase App Check is not currently enforced and is a follow-up hardening option.
 - The frontend may simulate progressive text display, but the backend query endpoint returns one complete JSON response rather than an end-to-end stream.

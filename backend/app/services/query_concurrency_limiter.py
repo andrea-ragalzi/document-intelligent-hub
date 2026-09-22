@@ -62,3 +62,6 @@ class GlobalExpensiveOperationLimiter:
 
 
 global_expensive_operation_limiter = GlobalExpensiveOperationLimiter()
+guest_query_concurrency_limiter = GlobalExpensiveOperationLimiter(
+    settings.MAX_CONCURRENT_GUEST_QUERIES
+)

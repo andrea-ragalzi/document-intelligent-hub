@@ -13,6 +13,7 @@ interface DocumentItemProps {
   onKebabClick: (e: React.MouseEvent, rect: DOMRect) => void;
   onCloseKebab: () => void;
   kebabRef: (el: HTMLDivElement | null, filename: string) => void;
+  readOnly?: boolean;
 }
 
 export const DocumentItem: React.FC<DocumentItemProps> = ({
@@ -27,6 +28,7 @@ export const DocumentItem: React.FC<DocumentItemProps> = ({
   onKebabClick,
   onCloseKebab,
   kebabRef,
+  readOnly = false,
 }) => {
   return (
     <div
@@ -52,8 +54,8 @@ export const DocumentItem: React.FC<DocumentItemProps> = ({
           }
         }
       }}
-      onTouchStart={e => onTouchStart(e, doc.filename)}
-      onTouchEnd={onTouchEnd}
+      onTouchStart={e => !readOnly && onTouchStart(e, doc.filename)}
+      onTouchEnd={() => !readOnly && onTouchEnd()}
       onContextMenu={e => {
         if (!isSelectionMode) {
           e.preventDefault();

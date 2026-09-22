@@ -25,8 +25,10 @@ const capabilities = [
 
 export default function LandingPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, signInAsGuest } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -49,6 +51,18 @@ export default function LandingPage() {
   if (user) {
     return null;
   }
+
+  const startDemo = async () => {
+    setDemoLoading(true);
+    setDemoError(null);
+    try {
+      await signInAsGuest();
+      router.push("/dashboard");
+    } catch {
+      setDemoError("The demo is temporarily unavailable. Please try again.");
+      setDemoLoading(false);
+    }
+  };
 
   return (
     <div className="app-shell min-h-screen">
@@ -86,10 +100,11 @@ export default function LandingPage() {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:mt-10 sm:flex-row sm:gap-4">
             <button
               type="button"
-              onClick={() => router.push("/signup")}
+              onClick={() => void startDemo()}
+              disabled={demoLoading}
               className="ui-primary-action group inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-6 py-3 text-base font-semibold transition-colors focus:outline-none focus:ring-3 focus:ring-focus sm:px-8 sm:text-lg"
             >
-              Try the demo
+              {demoLoading ? "Opening demo…" : "Try Demo"}
               <ArrowRight
                 className="h-5 w-5 transition-transform group-hover:translate-x-1"
                 aria-hidden="true"
@@ -104,6 +119,11 @@ export default function LandingPage() {
               View GitHub
             </a>
           </div>
+          {demoError && (
+            <p className="mx-auto mt-4 max-w-xl text-sm text-danger" role="alert">
+              {demoError}
+            </p>
+          )}
         </section>
 
         <section className="container relative z-10 mx-auto px-4 pb-16 sm:px-6 sm:pb-24">

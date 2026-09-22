@@ -21,6 +21,11 @@ interface DocumentListProps {
   onPreview: (filename: string) => Promise<void>;
   onDownload: (filename: string) => Promise<void>;
   isServerOnline?: boolean;
+  readOnly?: boolean;
+}
+
+function shouldShowBulkActions(isSelectionMode: boolean, readOnly: boolean) {
+  return isSelectionMode && !readOnly;
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
@@ -30,6 +35,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   onPreview,
   onDownload,
   isServerOnline = true,
+  readOnly = false,
 }) => {
   // Safety check: ensure documents is always an array
   const safeDocuments = documents || [];
@@ -88,7 +94,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   return (
     <>
       {/* Bulk Action Bar - Automatically appears when there are selections */}
-      {isSelectionMode && (
+      {shouldShowBulkActions(isSelectionMode, readOnly) && (
         <div className="sticky top-0 z-10 bg-raised border border-line/20 rounded-lg mb-3 p-3 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <button
@@ -155,6 +161,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                   kebabRef={(el, filename) => {
                     kebabRef.current[filename] = el;
                   }}
+                  readOnly={readOnly}
                 />
               );
             })
@@ -186,6 +193,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
         runActionAndCloseMenu={runActionAndCloseMenu}
+        readOnly={readOnly}
       />
 
       {/* Delete Confirmation Modal */}

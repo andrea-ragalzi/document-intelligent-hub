@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from fastapi import Request
 
 from main import app
-from app.core.auth import require_verified_email
+from app.core.auth import WorkspaceAccess, get_query_workspace_access
 from app.dependencies import get_query_quota_service, get_rag_service
 from app.services.query_concurrency_limiter import global_expensive_operation_limiter
 
@@ -39,9 +39,10 @@ def test_http_global_capacity_and_release() -> None:
     both_started = threading.Event()
     release = threading.Event()
     rag = RAG(both_started, release)
-    def synthetic_user(request: Request) -> str:
-        return request.headers["x-user"]
-    app.dependency_overrides[require_verified_email] = synthetic_user
+    def synthetic_user(request: Request) -> WorkspaceAccess:
+        user_id = request.headers["x-user"]
+        return WorkspaceAccess(user_id, user_id, False)
+    app.dependency_overrides[get_query_workspace_access] = synthetic_user
     app.dependency_overrides[get_rag_service] = lambda: rag
     app.dependency_overrides[get_query_quota_service] = lambda: Quota()
     try:

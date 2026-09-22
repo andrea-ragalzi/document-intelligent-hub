@@ -4,7 +4,7 @@ The frontend is a Next.js 16 client for authentication, document management, cha
 
 ## Responsibilities
 
-- Render login, registration, protected dashboard, document upload/list/delete, and chat interfaces.
+- Render the public Try Demo entry point plus login, registration, protected dashboard, document upload/list/delete, and chat interfaces.
 - Keep Firebase authentication state and pass the current user's ID token to protected API calls.
 - Manage the active chat, saved conversations, usage/tier display, citations, and UI feedback.
 - Coordinate browser-side calls to the FastAPI API and persist conversations through Firestore.
@@ -40,9 +40,11 @@ Most document and usage requests run directly from the browser. Therefore, `loca
 ## Authentication
 
 - `lib/firebase.ts` lazily initializes Firebase Auth and Firestore from the `NEXT_PUBLIC_FIREBASE_*` configuration.
-- `contexts/AuthContext.tsx` listens with `onAuthStateChanged`, exposes the current `User`, and provides email/password sign-in, email/password sign-up, Google sign-in, logout, and `getIdToken()`.
-- `components/ProtectedRoute.tsx` guards the dashboard until Firebase authentication and email verification are ready.
+- `contexts/AuthContext.tsx` listens with `onAuthStateChanged`, exposes the current `User`, and provides anonymous, email/password, and Google sign-in plus logout and `getIdToken()`.
+- `components/ProtectedRoute.tsx` admits Firebase anonymous guests immediately and continues to require email verification for registered users.
 - `hooks/useUserTier.ts` reads the Firebase `tier` custom claim with `getIdTokenResult()`. `hooks/useRegistration.ts` forces a token refresh after backend registration so a newly assigned claim is available to the client.
+
+`Try Demo` signs in with Firebase Anonymous Authentication and opens the existing dashboard. Guest mode labels the synthetic, fan-made InGen dataset, shows the five shared documents and suggested questions, hides upload/delete/account/support controls, and offers sign-in/create-account exits. It does not load or save Firestore conversations. Firebase Anonymous Authentication must be enabled for the deployed Web app.
 
 ## Conversations
 

@@ -6,6 +6,7 @@ interface DemoDocumentCardProps {
   suggestedQuestions: string[];
   onSelectQuestion: (question: string) => void;
   onOpenUpload: () => void;
+  isGuestDemo?: boolean;
 }
 
 export function DemoDocumentCard({
@@ -13,6 +14,7 @@ export function DemoDocumentCard({
   suggestedQuestions,
   onSelectQuestion,
   onOpenUpload,
+  isGuestDemo = false,
 }: DemoDocumentCardProps) {
   if (state === "idle") return null;
 
@@ -53,7 +55,7 @@ export function DemoDocumentCard({
   return (
     <div className="mx-auto mt-6 max-w-xl rounded-xl border border-success/30 bg-success/10 p-4 text-left">
       <p className="flex items-center gap-2 font-semibold text-ink">
-        <FileText size={18} /> Demo document ready
+        <FileText size={18} /> {isGuestDemo ? "InGen demo corpus ready" : "Demo document ready"}
       </p>
       <p className="mt-1 text-sm text-muted">Try one of these questions:</p>
       <div className="mt-3 flex flex-col items-start gap-2">
@@ -68,13 +70,15 @@ export function DemoDocumentCard({
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        onClick={onOpenUpload}
-        className="mt-4 flex items-center gap-1 text-sm text-accent underline underline-offset-2"
-      >
-        <Paperclip size={14} /> You can also upload your own PDF.
-      </button>
+      {!isGuestDemo && (
+        <button
+          type="button"
+          onClick={onOpenUpload}
+          className="mt-4 flex items-center gap-1 text-sm text-accent underline underline-offset-2"
+        >
+          <Paperclip size={14} /> You can also upload your own PDF.
+        </button>
+      )}
     </div>
   );
 }

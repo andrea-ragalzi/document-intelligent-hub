@@ -31,6 +31,7 @@ interface ChatSectionProps {
   demoDocumentState: DemoDocumentState;
   suggestedQuestions: string[];
   onSuggestedQuestion: (question: string) => void;
+  isGuest?: boolean;
 }
 export const ChatSection: React.FC<ChatSectionProps> = ({
   chatHistory,
@@ -47,6 +48,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
   demoDocumentState,
   suggestedQuestions,
   onSuggestedQuestion,
+  isGuest = false,
 }) => {
   const [queryError, setQueryError] = useState<string | null>(null);
   const chatEndRef = useChatScroll(chatHistory, isQuerying);
@@ -88,6 +90,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
                 suggestedQuestions={suggestedQuestions}
                 onSelectQuestion={onSuggestedQuestion}
                 onOpenUpload={onOpenUploadModal}
+                isGuestDemo={isGuest}
               />
             </div>
           ) : (
@@ -149,6 +152,7 @@ export const ChatSection: React.FC<ChatSectionProps> = ({
               query={query}
               isChatDisabled={isChatDisabled}
               onOpenUploadModal={onOpenUploadModal}
+              allowUpload={!isGuest}
             />
           </div>
         </div>

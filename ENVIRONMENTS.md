@@ -52,7 +52,11 @@ Vercel owns the production `NEXT_PUBLIC_*` values. Railway owns backend secrets,
 prompt values, `CHROMA_DB_PATH=/data/chroma_db`, and `HF_HOME=/data/huggingface`.
 Production values must not be copied into local environment files or Git.
 
-Google web authentication uses Firebase's popup flow on both desktop and mobile.
+Enable the Anonymous provider in the production Firebase project before publishing
+the recruiter demo; otherwise `Try Demo` fails before the dashboard opens. Enable
+Firebase/Identity Platform automatic cleanup for anonymous accounts where available,
+and verify that policy in the production console. Google web authentication uses
+Firebase's popup flow on both desktop and mobile.
 This is the supported option for the current Vercel deployment, which does not
 serve Firebase redirect helpers from same-origin `/__/auth/*` routes. Keep both
 `localhost` in the DEV project's authorized domains and the Vercel application
@@ -61,8 +65,9 @@ domain in the PROD project's authorized domains.
 ## Firebase DEV setup
 
 1. Create a separate Firebase project and add a Web app.
-2. Enable Email/Password authentication. Enable Google as well to reproduce all
-   login buttons, and keep `localhost` in Authentication authorized domains.
+2. Enable Email/Password and Anonymous authentication. Enable Google as well to
+   reproduce all login buttons, and keep `localhost` in Authentication authorized
+   domains.
 3. Create the `(default)` Firestore database in Native mode.
 4. Deploy the tracked owner-only conversation rules:
 

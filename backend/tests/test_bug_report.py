@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.core.auth import verify_firebase_token
+from app.core.auth import require_registered_user
 from main import app
 
 
@@ -14,14 +14,14 @@ def client() -> TestClient:
     from app.routers.support_router import support_rate_limiter
 
     support_rate_limiter.clear()
-    app.dependency_overrides[verify_firebase_token] = lambda: "bug-report-user"
+    app.dependency_overrides[require_registered_user] = lambda: "bug-report-user"
     with patch("app.routers.support_router.get_email_service") as factory:
         service = Mock()
         service.send_bug_report.return_value = True
         factory.return_value = service
         with TestClient(app) as test_client:
             yield test_client
-    app.dependency_overrides.pop(verify_firebase_token, None)
+    app.dependency_overrides.pop(require_registered_user, None)
     support_rate_limiter.clear()
 
 

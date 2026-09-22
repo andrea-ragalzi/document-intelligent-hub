@@ -9,7 +9,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 from langchain_core.documents import Document
 
-from app.core.auth import require_verified_email
+from app.core.auth import get_query_workspace_access, require_verified_email
 from app.config.security_constants import UNLIMITED_TIER_MAX_QUERIES
 from app.core.constants import ConversationConstants, LLMConstants, QueryConstants
 from app.routers import documents_router, query_router
@@ -65,11 +65,11 @@ def test_unverified_user_cannot_reach_query_parser(
 
     parser = Mock()
     monkeypatch.setattr(query_router.query_parser_service, "extract_file_filters", parser)
-    app.dependency_overrides[require_verified_email] = reject_unverified
+    app.dependency_overrides[get_query_workspace_access] = reject_unverified
     try:
         response = client.post("/rag/query/", json={"query": "valid question"})  # type: ignore[attr-defined]
     finally:
-        app.dependency_overrides.pop(require_verified_email, None)
+        app.dependency_overrides.pop(get_query_workspace_access, None)
 
     assert response.status_code == 403
     parser.assert_not_called()

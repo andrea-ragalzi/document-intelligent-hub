@@ -163,13 +163,13 @@ function buildUsageResult(
  *
  * @returns Query usage data and loading/error states
  */
-export function useQueryUsage(): UseQueryUsageResult {
+export function useQueryUsage(enabled = true): UseQueryUsageResult {
   const { user } = useAuth();
 
   const { data, isLoading, error, refetch } = useQuery<QueryUsageResponse>({
     queryKey: ["queryUsage", user?.uid],
     queryFn: createQueryFn(user),
-    enabled: !!user,
+    enabled: !!user && enabled,
     staleTime: 60000,
     refetchInterval: 60000,
   });

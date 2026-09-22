@@ -15,6 +15,7 @@ interface EmptyStateProps {
   suggestedQuestions: string[];
   onSelectQuestion: (question: string) => void;
   onOpenUpload: () => void;
+  isGuestDemo?: boolean;
 }
 
 export function ChatEmptyState({
@@ -26,6 +27,7 @@ export function ChatEmptyState({
   suggestedQuestions,
   onSelectQuestion,
   onOpenUpload,
+  isGuestDemo = false,
 }: EmptyStateProps) {
   if (isCheckingDocuments) {
     return (
@@ -77,6 +79,7 @@ export function ChatEmptyState({
         suggestedQuestions={suggestedQuestions}
         onSelectQuestion={onSelectQuestion}
         onOpenUpload={onOpenUpload}
+        isGuestDemo={isGuestDemo}
       />
     );
   }
@@ -95,6 +98,7 @@ export function ChatEmptyState({
           suggestedQuestions={suggestedQuestions}
           onSelectQuestion={onSelectQuestion}
           onOpenUpload={onOpenUpload}
+          isGuestDemo={isGuestDemo}
         />
       </>
     );
@@ -110,6 +114,7 @@ export function ChatEmptyState({
         suggestedQuestions={suggestedQuestions}
         onSelectQuestion={onSelectQuestion}
         onOpenUpload={onOpenUpload}
+        isGuestDemo={isGuestDemo}
       />
     </>
   );

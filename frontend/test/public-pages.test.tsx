@@ -4,7 +4,11 @@ import AboutPage from "@/app/about/page";
 import LandingPage from "@/app/page";
 
 const mocks = vi.hoisted(() => ({
-  auth: { loading: false, user: null as { uid: string } | null },
+  auth: {
+    loading: false,
+    user: null as { uid: string } | null,
+    signInAsGuest: vi.fn(),
+  },
   push: vi.fn(),
 }));
 
@@ -23,7 +27,7 @@ describe("public pages", () => {
     mocks.auth.user = null;
   });
 
-  it("presents the plain-language PDF value proposition and demo CTA", async () => {
+  it("starts an anonymous guest session from the demo CTA", async () => {
     render(<LandingPage />);
 
     expect(await screen.findByText(/ask questions about your PDFs/i)).toBeInTheDocument();
@@ -32,8 +36,9 @@ describe("public pages", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/ask questions in plain language/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /try the demo/i }));
-    expect(mocks.push).toHaveBeenCalledWith("/signup");
+    fireEvent.click(screen.getByRole("button", { name: /try demo/i }));
+    await waitFor(() => expect(mocks.auth.signInAsGuest).toHaveBeenCalledOnce());
+    expect(mocks.push).toHaveBeenCalledWith("/dashboard");
 
     const githubLink = screen.getByRole("link", { name: /view github/i });
     expect(githubLink).toHaveAttribute(

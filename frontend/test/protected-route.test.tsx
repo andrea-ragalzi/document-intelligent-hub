@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   auth: {
     emailVerified: false,
     loading: true,
-    user: null as { uid: string } | null,
+    user: null as { uid: string; isAnonymous?: boolean } | null,
   },
   push: vi.fn(),
 }));
@@ -63,6 +63,21 @@ describe("ProtectedRoute authentication lifecycle", () => {
     );
 
     expect(screen.getByText("Protected account data")).toBeInTheDocument();
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
+
+  it("renders the workspace for an authenticated anonymous guest", () => {
+    mocks.auth.loading = false;
+    mocks.auth.emailVerified = false;
+    mocks.auth.user = { uid: "guest-user", isAnonymous: true };
+
+    render(
+      <ProtectedRoute>
+        <div>Demo workspace</div>
+      </ProtectedRoute>
+    );
+
+    expect(screen.getByText("Demo workspace")).toBeInTheDocument();
     expect(mocks.push).not.toHaveBeenCalled();
   });
 });

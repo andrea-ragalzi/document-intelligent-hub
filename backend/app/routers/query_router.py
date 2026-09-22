@@ -11,13 +11,18 @@ import asyncio
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from openai import APITimeoutError
 
-from app.core.auth import require_verified_email
+from app.core.auth import (
+    WorkspaceAccess,
+    get_query_workspace_access,
+    require_verified_email,
+)
 from app.core.config import settings
 from app.core.logging import logger
 from app.dependencies import (
+    get_guest_query_budget_service,
     get_query_quota_service,
     get_rag_service,
     query_parser_service,
@@ -31,7 +36,12 @@ from app.schemas.rag_schema import (
 )
 from app.services.query_concurrency_limiter import (
     global_expensive_operation_limiter,
+    guest_query_concurrency_limiter,
     query_concurrency_limiter,
+)
+from app.services.guest_query_budget_service import (
+    GuestBudgetExceededError,
+    GuestQueryBudgetService,
 )
 from app.services.query_quota_service import QueryLimitExceededError, QueryQuotaService
 from app.services.rag_orchestrator_service import RAGService
@@ -112,7 +122,7 @@ def _track_background_task(task: asyncio.Task[Any]) -> None:
     task.add_done_callback(_background_tasks.discard)
 
 
-async def _acquire_query_leases(user_id: str) -> None:
+async def _acquire_query_leases(access: WorkspaceAccess) -> None:
     """Admit a query without waiting when either concurrency limit is full."""
     global_slot_acquired = await global_expensive_operation_limiter.acquire()
     if not global_slot_acquired:
@@ -122,9 +132,15 @@ async def _acquire_query_leases(user_id: str) -> None:
             headers={"Retry-After": "120"},
         )
 
-    query_slot_acquired = await query_concurrency_limiter.acquire(user_id)
-    if query_slot_acquired:
+    query_slot_acquired = await query_concurrency_limiter.acquire(access.principal_uid)
+    if query_slot_acquired and not access.is_guest:
         return
+
+    if query_slot_acquired and await guest_query_concurrency_limiter.acquire():
+        return
+
+    if query_slot_acquired:
+        await query_concurrency_limiter.release(access.principal_uid)
 
     logger.warning("Concurrent RAG query rejected")
     await global_expensive_operation_limiter.release()
@@ -137,9 +153,9 @@ async def _acquire_query_leases(user_id: str) -> None:
 
 async def _execute_query_with_worker_lease(
     request: QueryRequest,
-    user_id: str = Depends(require_verified_email),
+    access: WorkspaceAccess,
     rag_service: RAGService = Depends(get_rag_service),
-    quota_service: QueryQuotaService = Depends(get_query_quota_service),
+    quota_service: Any = Depends(get_query_quota_service),
 ) -> QueryResponse:
     """Execute all potentially billable work under already-acquired leases."""
     quota_reserved = False
@@ -153,7 +169,9 @@ async def _execute_query_with_worker_lease(
         if leases_released:
             return
         leases_released = True
-        await query_concurrency_limiter.release(user_id)
+        await query_concurrency_limiter.release(access.principal_uid)
+        if access.is_guest:
+            await guest_query_concurrency_limiter.release()
         await global_expensive_operation_limiter.release()
 
     def schedule_worker_lease_release() -> None:
@@ -166,10 +184,10 @@ async def _execute_query_with_worker_lease(
             """Run every potentially billable step under one worker-owned lease."""
             nonlocal quota_reserved
             request_started = time.perf_counter()
-            _log_request_details(request, user_id)
+            _log_request_details(request, access.principal_uid)
 
             tier_started = time.perf_counter()
-            reservation = quota_service.reserve(user_id)
+            reservation = quota_service.reserve(access.workspace_id)
             quota_reserved = True
             logger.debug(
                 "Query timing | tier and usage: {:.2f}ms",
@@ -177,7 +195,7 @@ async def _execute_query_with_worker_lease(
             )
 
             documents_started = time.perf_counter()
-            available_documents = rag_service.get_user_documents(user_id)
+            available_documents = rag_service.get_user_documents(access.workspace_id)
             available_filenames = [doc.filename for doc in available_documents]
             logger.debug(
                 "Document lookup completed | Available documents: {}",
@@ -192,7 +210,7 @@ async def _execute_query_with_worker_lease(
             deterministic = (
                 deterministic_handler(  # pylint: disable=not-callable
                     request.query,
-                    user_id,
+                    access.workspace_id,
                     available_documents,
                     request.conversation_history,
                 )
@@ -237,7 +255,7 @@ async def _execute_query_with_worker_lease(
             rag_started = time.perf_counter()
             answer, sources = rag_service.answer_query(
                 filter_result.cleaned_query,
-                user_id,
+                access.workspace_id,
                 request.conversation_history,
                 request.output_language,
                 **rag_kwargs,
@@ -297,7 +315,7 @@ async def _execute_query_with_worker_lease(
             answer=answer, source_documents=source_documents, citations=citations
         )
 
-    except QueryLimitExceededError as exc:
+    except (QueryLimitExceededError, GuestBudgetExceededError) as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=str(exc),
@@ -330,14 +348,29 @@ async def _execute_query_with_worker_lease(
 @router.post("/query/", response_model=QueryResponse)
 async def query_document(
     request: QueryRequest,
-    user_id: str = Depends(require_verified_email),
+    http_request: Request,
+    access: WorkspaceAccess = Depends(get_query_workspace_access),
     rag_service: RAGService = Depends(get_rag_service),
     quota_service: QueryQuotaService = Depends(get_query_quota_service),
+    guest_budget_service: GuestQueryBudgetService = Depends(
+        get_guest_query_budget_service
+    ),
 ) -> QueryResponse:
     """Query user documents through the bounded RAG execution path."""
-    await _acquire_query_leases(user_id)
+    selected_quota: Any = quota_service
+    if access.is_guest:
+        client_ip = http_request.client.host if http_request.client else "unknown"
+
+        class RequestGuestQuota:
+            """Bind request identity facts to the shared budget service."""
+
+            def reserve(self, _workspace_id: str) -> Any:
+                return guest_budget_service.reserve(access.principal_uid, client_ip)
+
+        selected_quota = RequestGuestQuota()
+    await _acquire_query_leases(access)
     return await _execute_query_with_worker_lease(
-        request, user_id, rag_service, quota_service
+        request, access, rag_service, selected_quota
     )
 
 

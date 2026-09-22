@@ -9,6 +9,7 @@ interface DocumentsViewProps {
   onDownloadDocument: (filename: string) => Promise<void>;
   isLoadingDocuments?: boolean;
   isServerOnline?: boolean;
+  readOnly?: boolean;
 }
 
 export const DocumentsView: React.FC<DocumentsViewProps> = ({
@@ -18,6 +19,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   onDownloadDocument,
   isLoadingDocuments = false,
   isServerOnline = true,
+  readOnly = false,
 }) => {
   return (
     <div className="p-4 flex-1 flex flex-col overflow-hidden">
@@ -31,6 +33,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           onPreview={onPreviewDocument}
           onDownload={onDownloadDocument}
           isServerOnline={isServerOnline}
+          readOnly={readOnly}
         />
       )}
     </div>

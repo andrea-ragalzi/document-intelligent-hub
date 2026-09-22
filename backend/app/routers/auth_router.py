@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, HTTPException
 from firebase_admin import auth
 
+from app.core.auth import firebase_principal_from_claims
 from app.core.logging import logger
 from app.dependencies import get_usage_service
 from app.infrastructure import firebase_config
@@ -71,8 +72,15 @@ def get_current_user_id(authorization: str = Header(...)) -> str:
 
     try:
         decoded_token = auth.verify_id_token(token)
-        user_id = str(decoded_token["uid"])
-        return user_id
+        principal = firebase_principal_from_claims(decoded_token)
+        if principal.is_anonymous:
+            raise HTTPException(
+                status_code=403,
+                detail="Guest workspaces do not have account usage.",
+            )
+        return principal.uid
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Token verification failed | Type: {}", type(exc).__name__)
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
@@ -311,10 +319,15 @@ def refresh_user_claims(id_token: str) -> dict[str, Any]:
     """
     try:
         decoded_token = auth.verify_id_token(id_token)
-        user_id = decoded_token["uid"]
+        principal = firebase_principal_from_claims(decoded_token)
+        if principal.is_anonymous:
+            raise HTTPException(
+                status_code=403,
+                detail="Guest workspaces do not have account claims.",
+            )
 
         # Get fresh claims from Firebase
-        user = auth.get_user(user_id)
+        user = auth.get_user(principal.uid)
         claims = user.custom_claims or {}
 
         return {
@@ -323,6 +336,8 @@ def refresh_user_claims(id_token: str) -> dict[str, Any]:
             "claims": claims,
         }
 
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Failed to refresh claims | Type: {}", type(exc).__name__)
         raise HTTPException(status_code=401, detail="Invalid token") from exc

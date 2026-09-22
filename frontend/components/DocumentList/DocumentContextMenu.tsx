@@ -18,6 +18,7 @@ interface DocumentContextMenuProps {
   onDragMove: (e: React.TouchEvent) => void;
   onDragEnd: () => void;
   runActionAndCloseMenu: (action: () => void) => void;
+  readOnly?: boolean;
 }
 
 export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
@@ -37,6 +38,7 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
   onDragMove,
   onDragEnd,
   runActionAndCloseMenu,
+  readOnly = false,
 }) => {
   if (!isOpen || !menuPosition || !selectedDoc) return null;
   const documentActionsDisabled = isServerOnline === false || !originalAvailable;
@@ -101,18 +103,20 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
             <Download size={18} />
             <span className="font-medium">Download</span>
           </button>
-          <button
-            onClick={() => runActionAndCloseMenu(() => onDelete(selectedDoc))}
-            disabled={isServerOnline === false}
-            className="w-full text-left px-4 py-3 rounded-lg text-red-300 hover:bg-red-900/30 transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={
-              isServerOnline === false ? "Server offline - delete unavailable" : "Delete document"
-            }
-            aria-label="Delete document"
-          >
-            <Trash2 size={18} />
-            <span className="font-medium">Delete</span>
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => runActionAndCloseMenu(() => onDelete(selectedDoc))}
+              disabled={isServerOnline === false}
+              className="w-full text-left px-4 py-3 rounded-lg text-red-300 hover:bg-red-900/30 transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                isServerOnline === false ? "Server offline - delete unavailable" : "Delete document"
+              }
+              aria-label="Delete document"
+            >
+              <Trash2 size={18} />
+              <span className="font-medium">Delete</span>
+            </button>
+          )}
         </div>
       </div>
     </>,

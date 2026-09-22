@@ -10,6 +10,7 @@ const firebaseMocks = vi.hoisted(() => ({
   onAuthStateChanged: vi.fn(),
   sendEmailVerification: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
+  signInAnonymously: vi.fn(),
   signInWithPopup: vi.fn(),
   signOut: vi.fn(),
 }));
@@ -24,6 +25,7 @@ vi.mock("firebase/auth", () => ({
   onAuthStateChanged: firebaseMocks.onAuthStateChanged,
   sendEmailVerification: firebaseMocks.sendEmailVerification,
   signInWithEmailAndPassword: firebaseMocks.signInWithEmailAndPassword,
+  signInAnonymously: firebaseMocks.signInAnonymously,
   signInWithPopup: firebaseMocks.signInWithPopup,
   signOut: firebaseMocks.signOut,
 }));
@@ -34,6 +36,13 @@ const user = {
   emailVerified: false,
   getIdToken: vi.fn().mockResolvedValue("fresh-token"),
   reload: vi.fn(),
+};
+
+const guestUser = {
+  ...user,
+  uid: "anonymous-recruiter",
+  email: null,
+  isAnonymous: true,
 };
 
 function SignUpTrigger() {
@@ -80,6 +89,16 @@ function GoogleSignInTrigger() {
   return <button onClick={() => void signInWithGoogle()}>Google sign in</button>;
 }
 
+function GuestSignInTrigger() {
+  const { isGuest, signInAsGuest } = useAuth();
+  return (
+    <>
+      <button onClick={() => void signInAsGuest()}>Try Demo</button>
+      <output>{isGuest ? "guest" : "registered"}</output>
+    </>
+  );
+}
+
 function AuthStateObserver() {
   const { loading, logout, user } = useAuth();
   return (
@@ -103,6 +122,7 @@ describe("email verification lifecycle", () => {
     firebaseMocks.createUserWithEmailAndPassword.mockResolvedValue({ user });
     firebaseMocks.sendEmailVerification.mockResolvedValue(undefined);
     firebaseMocks.signInWithPopup.mockResolvedValue({ user });
+    firebaseMocks.signInAnonymously.mockResolvedValue({ user: guestUser });
     firebaseMocks.signOut.mockResolvedValue(undefined);
   });
 
@@ -116,6 +136,17 @@ describe("email verification lifecycle", () => {
     fireEvent.click(screen.getByRole("button", { name: "Google sign in" }));
 
     await waitFor(() => expect(firebaseMocks.signInWithPopup).toHaveBeenCalledOnce());
+  });
+
+  it("signs in anonymously and exposes guest state", async () => {
+    render(createElement(AuthProvider, null, createElement(GuestSignInTrigger)));
+
+    fireEvent.click(screen.getByRole("button", { name: "Try Demo" }));
+
+    await waitFor(() => {
+      expect(firebaseMocks.signInAnonymously).toHaveBeenCalledOnce();
+      expect(screen.getByText("guest")).toBeInTheDocument();
+    });
   });
 
   it("uses the popup flow on mobile when redirect helpers are not same-origin", async () => {

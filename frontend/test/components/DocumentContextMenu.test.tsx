@@ -62,4 +62,31 @@ describe("DocumentContextMenu", () => {
     expect(screen.getByRole("button", { name: "Preview document" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Download document" })).toBeDisabled();
   });
+
+  it("keeps source inspection but hides deletion in a read-only guest workspace", () => {
+    render(
+      <DocumentContextMenu
+        isOpen={true}
+        menuPosition={{ top: 20, right: 20 }}
+        dragY={0}
+        isDragging={false}
+        selectedDoc="demo.pdf"
+        originalAvailable={true}
+        menuRef={{ current: null }}
+        onClose={vi.fn()}
+        onPreview={vi.fn()}
+        onDownload={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+        onDragMove={vi.fn()}
+        onDragEnd={vi.fn()}
+        runActionAndCloseMenu={action => action()}
+        readOnly
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Preview document" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Download document" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Delete document" })).not.toBeInTheDocument();
+  });
 });

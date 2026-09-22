@@ -10,6 +10,16 @@ import { DocumentsView } from "./RightSidebar/DocumentsView";
 import { SidebarHeader } from "./RightSidebar/SidebarHeader";
 import { MenuProfileSection } from "./RightSidebar/MenuProfileSection";
 import type { TierLimits, UserTier } from "@/hooks/useUserTier";
+import { RegisteredOnly } from "./AuthVisibility";
+
+function getDisplayName(isGuest: boolean, displayName?: string | null, email?: string | null) {
+  if (isGuest) return "Demo workspace";
+  return displayName || email || "User";
+}
+
+function getDocumentsLabel(isGuest: boolean) {
+  return isGuest ? "Demo Documents" : "Manage Documents";
+}
 
 interface RightSidebarProps {
   userId: string | null;
@@ -31,6 +41,7 @@ interface RightSidebarProps {
   tier: UserTier;
   tierLimits: TierLimits;
   isTierLoading: boolean;
+  isGuest?: boolean;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -52,6 +63,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   tier,
   tierLimits,
   isTierLoading,
+  isGuest = false,
 }) => {
   const [activeView, setActiveView] = useState<"menu" | "documents" | "settings">("menu");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -94,7 +106,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   };
 
-  const displayName = user?.displayName || user?.email || "User";
+  const displayName = getDisplayName(isGuest, user?.displayName, user?.email);
   const ThemeIcon = theme === "light" ? Moon : Sun;
 
   return (
@@ -138,6 +150,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             logoutError={logoutError}
             onClose={onClose}
             onLogout={handleLogout}
+            isGuest={isGuest}
           />
         )}
         <div className="flex-1 overflow-y-auto">
@@ -159,44 +172,48 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               >
                 <div className="flex items-center gap-3">
                   <FileText size={20} className="text-muted" />
-                  <span className="text-base font-medium text-ink">Manage Documents</span>
+                  <span className="text-base font-medium text-ink">
+                    {getDocumentsLabel(isGuest)}
+                  </span>
                 </div>
                 <ChevronRight size={20} className="text-quiet" />
               </button>
-              <button
-                onClick={() => setActiveView("settings")}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
-              >
-                <div className="flex items-center gap-3">
-                  <Settings size={20} className="text-muted" />
-                  <span className="text-base font-medium text-ink">Settings</span>
-                </div>
-                <ChevronRight size={20} className="text-quiet" />
-              </button>
-              <button
-                onClick={() => {
-                  onOpenBugReport();
-                  onClose();
-                }}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
-              >
-                <div className="flex items-center gap-3">
-                  <Bug size={20} className="text-red-600 dark:text-red-400" />
-                  <span className="text-base font-medium text-ink">Report Bug</span>
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  onOpenFeedback();
-                  onClose();
-                }}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
-              >
-                <div className="flex items-center gap-3">
-                  <Star size={20} className="text-yellow-600 dark:text-yellow-400" />
-                  <span className="text-base font-medium text-ink">Give Feedback</span>
-                </div>
-              </button>
+              <RegisteredOnly isGuest={isGuest}>
+                <button
+                  onClick={() => setActiveView("settings")}
+                  className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                >
+                  <div className="flex items-center gap-3">
+                    <Settings size={20} className="text-muted" />
+                    <span className="text-base font-medium text-ink">Settings</span>
+                  </div>
+                  <ChevronRight size={20} className="text-quiet" />
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenBugReport();
+                    onClose();
+                  }}
+                  className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                >
+                  <div className="flex items-center gap-3">
+                    <Bug size={20} className="text-red-600 dark:text-red-400" />
+                    <span className="text-base font-medium text-ink">Report Bug</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenFeedback();
+                    onClose();
+                  }}
+                  className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-left focus:outline-none focus:ring-3 focus:ring-focus"
+                >
+                  <div className="flex items-center gap-3">
+                    <Star size={20} className="text-yellow-600 dark:text-yellow-400" />
+                    <span className="text-base font-medium text-ink">Give Feedback</span>
+                  </div>
+                </button>
+              </RegisteredOnly>
               <button
                 onClick={() => {
                   router.push("/about");
@@ -220,6 +237,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               onDownloadDocument={onDownloadDocument}
               isLoadingDocuments={isLoadingDocuments}
               isServerOnline={isServerOnline}
+              readOnly={isGuest}
             />
           ) : null}
         </div>

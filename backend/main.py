@@ -23,7 +23,17 @@ from app.config.security_constants import (  # noqa: E402
     MAX_DOCUMENT_REQUEST_SIZE,
     MAX_FEEDBACK_REQUEST_SIZE,
 )
-from app.db.chroma_client import get_chroma_client, get_embedding_function  # noqa: E402
+from app.db.chroma_client import (  # noqa: E402
+    get_chroma_client,
+    get_chroma_collection,
+    get_embedding_function,
+)
+from app.dependencies import build_rag_service  # noqa: E402
+from app.infrastructure.local_file_storage import get_document_file_storage  # noqa: E402
+from app.repositories.vector_store_repository import VectorStoreRepository  # noqa: E402
+from app.services.shared_demo_corpus_service import SharedDemoCorpusService  # noqa: E402
+from langchain_chroma import Chroma  # noqa: E402
+from app.db.chroma_client import COLLECTION_NAME  # noqa: E402
 from app.routers import (  # noqa: E402
     auth_router,
     documents_router,
@@ -64,6 +74,20 @@ async def lifespan(
         embedding_fn = get_embedding_function()
         embedding_fn.embed_query("test")  # Preload model
         logger.info("✅ Embedding model preloaded successfully.")
+
+        if settings.ENABLE_SHARED_DEMO_CORPUS:
+            collection = get_chroma_collection(client)
+            vector_store = Chroma(
+                client=client,
+                collection_name=COLLECTION_NAME,
+                embedding_function=embedding_fn,
+            )
+            repository = VectorStoreRepository(vector_store, collection)
+            rag_service = build_rag_service(repository)
+            await SharedDemoCorpusService(
+                rag_service, get_document_file_storage()
+            ).ensure_ready()
+            logger.info("Shared synthetic InGen demo corpus is ready")
 
     except Exception as exc:
         logger.error("Critical startup failure | Type: {}", type(exc).__name__)
