@@ -4,7 +4,7 @@ on:
   push:
     branches: [develop, main]
   pull_request:
-    branches: [develop, main]
+    branches: [main]
 
 # A newer commit on the same PR supersedes the older validation run.
 concurrency:
