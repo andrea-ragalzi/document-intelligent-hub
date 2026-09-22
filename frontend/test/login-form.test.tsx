@@ -5,12 +5,14 @@ import LoginForm from "@/components/LoginForm";
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   signIn: vi.fn(),
+  signInAsGuest: vi.fn(),
   signInWithGoogle: vi.fn(),
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     signIn: mocks.signIn,
+    signInAsGuest: mocks.signInAsGuest,
     signInWithGoogle: mocks.signInWithGoogle,
   }),
 }));
@@ -87,5 +89,17 @@ describe("LoginForm", () => {
     completeSignIn?.();
 
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/"));
+  });
+
+  it("enters the anonymous demo without an account", async () => {
+    mocks.signInAsGuest.mockResolvedValue(undefined);
+    render(<LoginForm />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Try the demo without an account" }));
+
+    await waitFor(() => {
+      expect(mocks.signInAsGuest).toHaveBeenCalledOnce();
+      expect(mocks.push).toHaveBeenCalledWith("/dashboard");
+    });
   });
 });

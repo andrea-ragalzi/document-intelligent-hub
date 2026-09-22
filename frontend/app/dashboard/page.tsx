@@ -93,6 +93,12 @@ export default function Page() {
   } = useQueryUsage(Boolean(userId));
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [rightSidebarView, setRightSidebarView] = useState<"menu" | "documents">("menu");
+  const [rightSidebarViewRevision, setRightSidebarViewRevision] = useState(0);
+  const rightSidebarNavigation = {
+    requestedView: rightSidebarView,
+    requestedViewRevision: rightSidebarViewRevision,
+  };
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
   const [accountProvisioningModalOpen, setAccountProvisioningModalOpen] = useState(false);
@@ -543,6 +549,8 @@ export default function Page() {
             setRightSidebarOpen(false);
           }}
           onOpenRightSidebar={() => {
+            setRightSidebarView("menu");
+            setRightSidebarViewRevision(revision => revision + 1);
             setRightSidebarOpen(true);
             setLeftSidebarOpen(false);
           }}
@@ -559,6 +567,12 @@ export default function Page() {
             limited={isQueryUsageLimited}
             isLoading={isQueryUsageLoading}
             hasError={Boolean(queryUsageError)}
+            onViewDocuments={() => {
+              setRightSidebarView("documents");
+              setRightSidebarViewRevision(revision => revision + 1);
+              setLeftSidebarOpen(false);
+              setRightSidebarOpen(true);
+            }}
             onSignIn={() => void leaveDemo("/login")}
             onCreateAccount={() => void leaveDemo("/signup")}
           />
@@ -660,6 +674,7 @@ export default function Page() {
               tierLimits={tierLimits}
               isTierLoading={isTierLoading}
               isGuest={isGuest}
+              {...rightSidebarNavigation}
             />
           </div>
 
@@ -687,6 +702,7 @@ export default function Page() {
                 tierLimits={tierLimits}
                 isTierLoading={isTierLoading}
                 isGuest={isGuest}
+                {...rightSidebarNavigation}
               />
             </div>
           )}

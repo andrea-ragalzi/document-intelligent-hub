@@ -8,6 +8,7 @@ import {
   AuthErrorMessage,
   AuthTextField,
   AuthSubmitButton,
+  DemoAuthButton,
   GoogleAuthButton,
 } from "@/components/AuthFormControls";
 import { useAuthRequest } from "@/hooks/useAuthRequest";
@@ -15,9 +16,9 @@ import { useAuthRequest } from "@/hooks/useAuthRequest";
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInAsGuest, signInWithGoogle } = useAuth();
   const router = useRouter();
-  const { error, isLoading, pendingAction, run } = useAuthRequest();
+  const { error, isLoading, pendingAction, run, runDemo } = useAuthRequest();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +44,8 @@ export default function LoginForm() {
       router.push("/");
     }
   };
+
+  const handleDemoSignIn = () => runDemo(signInAsGuest, () => router.push("/dashboard"));
 
   return (
     <div className="ui-panel max-w-md mx-auto mt-8 p-6 rounded-xl">
@@ -81,6 +84,7 @@ export default function LoginForm() {
         <GoogleAuthButton onClick={handleGoogleSignIn} disabled={isLoading}>
           {pendingAction === "google" ? "Signing in with Google..." : "Sign in with Google"}
         </GoogleAuthButton>
+        <DemoAuthButton onClick={handleDemoSignIn} disabled={isLoading} />
       </div>
 
       <p className="mt-4 text-center text-sm text-muted">
