@@ -126,7 +126,10 @@ export function GoogleAuthButton({ children, disabled, onClick }: GoogleAuthButt
   );
 }
 
-export function DemoAuthButton({ disabled, onClick }: Omit<GoogleAuthButtonProps, "children">) {
+export function DemoAuthButton({
+  disabled,
+  onClick,
+}: Readonly<Omit<GoogleAuthButtonProps, "children">>) {
   return (
     <button
       type="button"

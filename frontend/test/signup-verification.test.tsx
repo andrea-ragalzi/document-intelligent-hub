@@ -84,11 +84,10 @@ describe("SignupForm verification handoff", () => {
     mocks.signInAsGuest.mockResolvedValue(undefined);
     render(<SignupForm />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Try the demo without an account" }));
+    const demoEntry = screen.getByRole("button", { name: "Try the demo without an account" });
+    fireEvent.click(demoEntry);
 
-    await waitFor(() => {
-      expect(mocks.signInAsGuest).toHaveBeenCalledOnce();
-      expect(mocks.push).toHaveBeenCalledWith("/dashboard");
-    });
+    await waitFor(() => expect(mocks.signInAsGuest).toHaveBeenCalledTimes(1));
+    expect(mocks.push).toHaveBeenLastCalledWith("/dashboard");
   });
 });

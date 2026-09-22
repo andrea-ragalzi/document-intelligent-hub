@@ -19,7 +19,7 @@ export default function SignupForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const { signUp, signInAsGuest, signInWithGoogle } = useAuth();
   const router = useRouter();
-  const { error, isLoading, pendingAction, run, setError } = useAuthRequest();
+  const { error, isLoading, pendingAction, run, runDemo, setError } = useAuthRequest();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,16 +59,7 @@ export default function SignupForm() {
     }
   };
 
-  const handleDemoSignIn = async () => {
-    const succeeded = await run(
-      "demo",
-      signInAsGuest,
-      "The demo is temporarily unavailable. Please try again."
-    );
-    if (succeeded) {
-      router.push("/dashboard");
-    }
-  };
+  const handleDemoSignIn = () => runDemo(signInAsGuest, () => router.push("/dashboard"));
 
   return (
     <div className="ui-panel max-w-md mx-auto mt-8 p-6 rounded-xl">

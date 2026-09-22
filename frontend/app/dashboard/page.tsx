@@ -95,6 +95,10 @@ export default function Page() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [rightSidebarView, setRightSidebarView] = useState<"menu" | "documents">("menu");
   const [rightSidebarViewRevision, setRightSidebarViewRevision] = useState(0);
+  const rightSidebarNavigation = {
+    requestedView: rightSidebarView,
+    requestedViewRevision: rightSidebarViewRevision,
+  };
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
   const [accountProvisioningModalOpen, setAccountProvisioningModalOpen] = useState(false);
@@ -670,8 +674,7 @@ export default function Page() {
               tierLimits={tierLimits}
               isTierLoading={isTierLoading}
               isGuest={isGuest}
-              requestedView={rightSidebarView}
-              requestedViewRevision={rightSidebarViewRevision}
+              {...rightSidebarNavigation}
             />
           </div>
 
@@ -699,8 +702,7 @@ export default function Page() {
                 tierLimits={tierLimits}
                 isTierLoading={isTierLoading}
                 isGuest={isGuest}
-                requestedView={rightSidebarView}
-                requestedViewRevision={rightSidebarViewRevision}
+                {...rightSidebarNavigation}
               />
             </div>
           )}

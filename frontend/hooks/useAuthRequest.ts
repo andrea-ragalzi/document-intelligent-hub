@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 
 export type AuthAction = "email" | "google" | "demo";
+type AuthRequest = () => Promise<void>;
 
 /** Shares loading, duplicate-submit protection, and safe error state across auth forms. */
 export function useAuthRequest() {
@@ -10,7 +11,7 @@ export function useAuthRequest() {
 
   const run = async (
     action: AuthAction,
-    request: () => Promise<void>,
+    request: AuthRequest,
     fallbackMessage: string
   ): Promise<boolean> => {
     if (requestInFlight.current) return false;
@@ -30,5 +31,14 @@ export function useAuthRequest() {
     }
   };
 
-  return { error, isLoading: pendingAction !== null, pendingAction, run, setError };
+  const runDemo = async (request: AuthRequest, onSuccess: () => void): Promise<void> => {
+    const succeeded = await run(
+      "demo",
+      request,
+      "The demo is temporarily unavailable. Please try again."
+    );
+    if (succeeded) onSuccess();
+  };
+
+  return { error, isLoading: pendingAction !== null, pendingAction, run, runDemo, setError };
 }
