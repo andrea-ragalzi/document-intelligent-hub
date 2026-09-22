@@ -30,8 +30,7 @@ RUN python scripts/export_lock_constraints.py > /app/.docker-constraints.txt
 # wheels here would otherwise pull the CUDA runtime into the deployment image.
 # Keep Firebase/Firestore aligned with the working Poetry lock. Newer Firestore
 # clients encode `(default)` in this project's database resource path.
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --only-binary=:all: \
+RUN pip install --no-cache-dir --only-binary=:all: \
         --constraint /app/.docker-constraints.txt \
         --extra-index-url "${PYTORCH_CPU_INDEX_URL}" \
         "torch==${TORCH_VERSION}" \
