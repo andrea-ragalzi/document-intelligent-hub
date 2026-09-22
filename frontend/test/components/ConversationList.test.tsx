@@ -164,11 +164,14 @@ describe("ConversationList", () => {
     );
 
     const kebabButtons = screen.getAllByTitle("Options");
+    expect(kebabButtons[0].parentElement).toHaveClass("h-11", "w-11", "md:h-7", "md:w-7");
     fireEvent.click(kebabButtons[0]);
 
     expect(screen.getByRole("button", { name: /pin/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /rename/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pin/i })).toHaveClass("min-h-11");
+    expect(screen.getByRole("button", { name: /rename/i })).toHaveClass("rounded-lg");
   });
 
   it("should truncate long conversation names", () => {

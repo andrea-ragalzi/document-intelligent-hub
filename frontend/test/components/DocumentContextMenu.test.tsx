@@ -36,6 +36,7 @@ describe("DocumentContextMenu", () => {
     expect(onPreview).toHaveBeenCalledWith("private.pdf");
     expect(onDownload).toHaveBeenCalledWith("private.pdf");
     expect(onDelete).toHaveBeenCalledWith("private.pdf");
+    expect(screen.getByRole("button", { name: "Preview document" })).toHaveClass("min-h-11");
   });
 
   it("disables preview and download when the original is unavailable", () => {

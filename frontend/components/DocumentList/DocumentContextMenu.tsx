@@ -57,13 +57,12 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
       />
       {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}
       <div
-        className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-surface rounded-t-3xl md:rounded-lg shadow-xl border border-line/15 z-[110] transition-transform overflow-hidden"
+        className="fixed inset-x-0 pb-[max(1rem,env(safe-area-inset-bottom))] md:inset-x-auto md:bottom-auto md:pb-0 bg-surface rounded-t-3xl md:rounded-lg shadow-xl border border-line/15 z-[110] transition-transform overflow-hidden"
         ref={node => {
           menuRef.current = node;
         }}
         style={{
           bottom: window.innerWidth < 768 ? `${-dragY}px` : undefined,
-          height: window.innerWidth < 768 ? "35vh" : undefined,
           top: window.innerWidth >= 768 ? `${menuPosition.top}px` : undefined,
           right: window.innerWidth >= 768 ? `${menuPosition.right}px` : undefined,
           width: window.innerWidth >= 768 ? "200px" : undefined,
@@ -86,7 +85,7 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
           <button
             onClick={() => runActionAndCloseMenu(() => onPreview(selectedDoc))}
             disabled={documentActionsDisabled}
-            className="w-full text-left px-4 py-3 rounded-lg text-ink hover:bg-surface-hover transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-11 md:min-h-0 w-full text-left px-4 py-3 rounded-lg text-ink hover:bg-surface-hover transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Preview document"
             title="Preview document"
           >
@@ -96,7 +95,7 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
           <button
             onClick={() => runActionAndCloseMenu(() => onDownload(selectedDoc))}
             disabled={documentActionsDisabled}
-            className="w-full text-left px-4 py-3 rounded-lg text-ink hover:bg-surface-hover transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-11 md:min-h-0 w-full text-left px-4 py-3 rounded-lg text-ink hover:bg-surface-hover transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Download document"
             title="Download document"
           >
@@ -107,7 +106,7 @@ export const DocumentContextMenu: React.FC<DocumentContextMenuProps> = ({
             <button
               onClick={() => runActionAndCloseMenu(() => onDelete(selectedDoc))}
               disabled={isServerOnline === false}
-              className="w-full text-left px-4 py-3 rounded-lg text-red-300 hover:bg-red-900/30 transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="min-h-11 md:min-h-0 w-full text-left px-4 py-3 rounded-lg text-red-300 hover:bg-red-900/30 transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
               title={
                 isServerOnline === false ? "Server offline - delete unavailable" : "Delete document"
               }
