@@ -325,7 +325,12 @@ jobs:
     needs: ci-summary
     if: >-
       always() &&
-      (github.base_ref == 'main' || github.ref == 'refs/heads/main')
+      (
+        github.ref == 'refs/heads/main' ||
+        (github.event_name == 'pull_request' &&
+         github.base_ref == 'main' &&
+         github.head_ref == 'develop')
+      )
     steps:
       - name: "🔒 Validate release promotion"
         env:
