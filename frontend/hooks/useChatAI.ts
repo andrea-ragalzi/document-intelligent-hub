@@ -1,10 +1,12 @@
 import { useChat } from "ai/react";
 import type { Message } from "ai/react";
+import { useRef } from "react";
 import { ChatMessage, SourceCitation } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface UseChatAIProps {
   userId: string;
+  onRequestSettled?: () => void;
 }
 
 const getSourceCitations = (annotations: Message["annotations"]): SourceCitation[] => {
@@ -54,8 +56,9 @@ const getSourceCitations = (annotations: Message["annotations"]): SourceCitation
   });
 };
 
-export function useChatAI({ userId }: UseChatAIProps) {
+export function useChatAI({ userId, onRequestSettled }: UseChatAIProps) {
   const { getIdToken } = useAuth();
+  const lastResponseStatus = useRef<number | null>(null);
 
   const {
     messages,
@@ -70,18 +73,29 @@ export function useChatAI({ userId }: UseChatAIProps) {
     body: {
       userId,
     },
-    onError: (error: Error) => {
+    onResponse: response => {
+      lastResponseStatus.current = response.status;
+    },
+    onError: () => {
       // The AI SDK keeps the optimistic user message after a failed request.
       // Remove that incomplete turn so autosave cannot persist it as history.
       setMessages(currentMessages =>
         currentMessages.at(-1)?.role === "user" ? currentMessages.slice(0, -1) : currentMessages
       );
-      // Silently handle rate limit errors (429) - they're expected
-      if (error.message.includes("Daily query limit exceeded")) {
+      onRequestSettled?.();
+      const wasAdmissionRejection = lastResponseStatus.current === 429;
+      lastResponseStatus.current = null;
+      // Admission-control rejections are reflected by authoritative usage
+      // state instead of the development error overlay.
+      if (wasAdmissionRejection) {
         return;
       } else {
         console.error("Chat request failed.");
       }
+    },
+    onFinish: () => {
+      lastResponseStatus.current = null;
+      onRequestSettled?.();
     },
   });
 

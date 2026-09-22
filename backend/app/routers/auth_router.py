@@ -6,17 +6,22 @@ Handles user registration and tier assignment via Firebase Custom Claims.
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from firebase_admin import auth
 
-from app.core.auth import firebase_principal_from_claims
+from app.core.auth import (
+    WorkspaceAccess,
+    firebase_principal_from_claims,
+    get_workspace_access,
+)
 from app.core.logging import logger
-from app.dependencies import get_usage_service
+from app.dependencies import get_guest_query_budget_service, get_usage_service
 from app.infrastructure import firebase_config
 from app.schemas.auth_schema import (
     RegistrationData,
     RegistrationResponse,
 )
+from app.services.guest_query_budget_service import GuestQueryBudgetService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -48,42 +53,6 @@ def calculate_remaining_queries(query_limit: int, queries_used: int) -> int:
         480
     """
     return max(0, query_limit - queries_used)
-
-
-def get_current_user_id(authorization: str = Header(...)) -> str:
-    """
-    Extract and validate user ID from Firebase token.
-
-    Args:
-        authorization: Bearer token from Authorization header
-
-    Returns:
-        str: Validated user ID
-
-    Raises:
-        HTTPException: If token is invalid or missing
-    """
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401, detail="Missing or invalid authorization header"
-        )
-
-    token = authorization.replace("Bearer ", "")
-
-    try:
-        decoded_token = auth.verify_id_token(token)
-        principal = firebase_principal_from_claims(decoded_token)
-        if principal.is_anonymous:
-            raise HTTPException(
-                status_code=403,
-                detail="Guest workspaces do not have account usage.",
-            )
-        return principal.uid
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("Token verification failed | Type: {}", type(exc).__name__)
-        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
 
 def get_current_admin_user_id(authorization: str | None = Header(default=None)) -> str:
@@ -369,7 +338,11 @@ def get_tier_limits() -> dict[str, Any]:
 
 @router.get("/usage")
 async def get_user_usage(
-    user_id: str = Depends(get_current_user_id),
+    request: Request,
+    access: WorkspaceAccess = Depends(get_workspace_access),
+    guest_budget_service: GuestQueryBudgetService = Depends(
+        get_guest_query_budget_service
+    ),
 ) -> dict[str, Any]:
     """
     Get current user's query usage for today.
@@ -377,19 +350,32 @@ async def get_user_usage(
     Retrieves the number of queries the user has made today and compares
     it with their tier limit. Returns usage statistics and remaining quota.
 
-    Args:
-        user_id: User ID from Firebase token (injected by dependency)
-
     Returns:
         dict: {
             "status": "success",
             "queries_today": int,
-            "query_limit": int,
-            "remaining": int,
+            "query_limit": int | None,
+            "remaining": int | None,
+            "limited": bool,
             "tier": str
         }
     """
     try:
+        if access.is_guest:
+            client_ip = request.client.host if request.client else "unknown"
+            guest_status = guest_budget_service.get_status(
+                access.principal_uid, client_ip
+            )
+            return {
+                "status": "success",
+                "queries_today": guest_status.queries_today,
+                "query_limit": guest_status.query_limit,
+                "remaining": guest_status.remaining,
+                "limited": guest_status.limited,
+                "tier": "GUEST",
+            }
+
+        user_id = access.principal_uid
         # Get user's tier from Firebase
         user = auth.get_user(user_id)
         custom_claims = user.custom_claims or {}
@@ -419,6 +405,7 @@ async def get_user_usage(
             "queries_today": queries_today,
             "query_limit": query_limit,
             "remaining": remaining,
+            "limited": True,
             "tier": tier,
         }
     except Exception as exc:

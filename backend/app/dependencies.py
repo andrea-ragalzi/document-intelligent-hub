@@ -67,6 +67,7 @@ def get_guest_query_budget_service() -> GuestQueryBudgetService:
         uid_daily_limit=settings.GUEST_UID_DAILY_QUERY_LIMIT,
         ip_daily_limit=settings.GUEST_IP_DAILY_QUERY_LIMIT,
         global_daily_limit=settings.GUEST_GLOBAL_DAILY_QUERY_BUDGET,
+        daily_quotas_enabled=settings.guest_daily_quotas_enabled,
     )
 
 

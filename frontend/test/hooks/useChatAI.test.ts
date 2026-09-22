@@ -84,6 +84,38 @@ describe("useChatAI", () => {
     );
   });
 
+  it("refreshes authoritative usage after successful and rejected attempts", () => {
+    const onRequestSettled = vi.fn();
+    renderHook(() => useChatAI({ userId: "guest-a", onRequestSettled }));
+    const options = vi.mocked(useChat).mock.calls[0][0];
+    if (!options) throw new Error("useChat options were not captured");
+
+    options.onFinish?.(
+      { id: "assistant-1", role: "assistant", content: "answer" },
+      {
+        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        finishReason: "stop",
+      }
+    );
+    void options.onResponse?.(new Response(null, { status: 429 }));
+    options.onError?.(new Error('{"error":"Guest demo uid daily limit reached."}'));
+
+    expect(onRequestSettled).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not log expected quota rejections as console errors", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    renderHook(() => useChatAI({ userId: "guest-a" }));
+    const options = vi.mocked(useChat).mock.calls[0][0];
+    if (!options) throw new Error("useChat options were not captured");
+
+    void options.onResponse?.(new Response(null, { status: 429 }));
+    options.onError?.(new Error('{"error":"Guest demo uid daily limit reached."}'));
+
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   it("preserves source annotations on the matching assistant message", () => {
     vi.mocked(useChat).mockReturnValue({
       messages: [

@@ -71,12 +71,23 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4o-mini"
     MAX_GLOBAL_EXPENSIVE_OPERATIONS: int = 2
     MAX_CONCURRENT_GUEST_QUERIES: int = 1
+    # Daily anonymous-demo quotas are deliberately disabled by default only in
+    # the explicitly named local development environment. Every other value,
+    # including a missing or unfamiliar environment, remains fail-closed.
+    GUEST_DAILY_QUOTAS_ENABLED: bool | None = None
     GUEST_UID_DAILY_QUERY_LIMIT: int = 8
     GUEST_IP_DAILY_QUERY_LIMIT: int = 20
     GUEST_GLOBAL_DAILY_QUERY_BUDGET: int = 100
     ENABLE_SHARED_DEMO_CORPUS: bool = True
     OPENAI_TIMEOUT_SECONDS: float = 60.0
     OPENAI_MAX_RETRIES: int = 0
+
+    @property
+    def guest_daily_quotas_enabled(self) -> bool:
+        """Allow disabling daily guest quotas only for explicit development."""
+        if self.ENVIRONMENT.strip().lower() != "development":
+            return True
+        return self.GUEST_DAILY_QUOTAS_ENABLED is True
 
     # === RAG SYSTEM PROMPTS (SECURITY: LOADED FROM FILES) ===
     # ⚠️ SECURITY CRITICAL: These prompts are loaded from external files to:

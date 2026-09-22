@@ -17,7 +17,7 @@ from openai import APITimeoutError
 from app.core.auth import (
     WorkspaceAccess,
     get_query_workspace_access,
-    require_verified_email,
+    require_verified_registered_user,
 )
 from app.core.config import settings
 from app.core.logging import logger
@@ -377,7 +377,7 @@ async def query_document(
 @router.post("/summarize/", response_model=SummarizeResponse)
 async def summarize_conversation(
     request: SummarizeRequest,
-    user_id: str = Depends(require_verified_email),
+    user_id: str = Depends(require_verified_registered_user),
     rag_service: RAGService = Depends(get_rag_service),
     quota_service: QueryQuotaService = Depends(get_query_quota_service),
 ) -> SummarizeResponse:

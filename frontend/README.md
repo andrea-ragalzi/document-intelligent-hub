@@ -44,7 +44,7 @@ Most document and usage requests run directly from the browser. Therefore, `loca
 - `components/ProtectedRoute.tsx` admits Firebase anonymous guests immediately and continues to require email verification for registered users.
 - `hooks/useUserTier.ts` reads the Firebase `tier` custom claim with `getIdTokenResult()`. `hooks/useRegistration.ts` forces a token refresh after backend registration so a newly assigned claim is available to the client.
 
-`Try Demo` signs in with Firebase Anonymous Authentication and opens the existing dashboard. Guest mode labels the synthetic, fan-made InGen dataset, shows the five shared documents and suggested questions, hides upload/delete/account/support controls, and offers sign-in/create-account exits. It does not load or save Firestore conversations. Firebase Anonymous Authentication must be enabled for the deployed Web app.
+`Try Demo` signs in with Firebase Anonymous Authentication and opens the existing dashboard. Guest mode labels the synthetic, fan-made InGen dataset, shows the five shared documents and suggested questions, hides conversation/upload/delete/account/support controls, and offers sign-in/create-account exits for private uploads. It does not load or save Firestore conversations. The remaining-question label is read from `GET /auth/usage` on load and refreshed after successful or rejected query attempts, so reloads and server-side reservations remain authoritative. When the backend explicitly disables daily guest quotas for local development, that endpoint returns `limited: false` and the workspace shows `Unlimited in development`; production continues to show the remaining daily allowance. Firebase Anonymous Authentication must be enabled for the deployed Web app.
 
 ## Conversations
 

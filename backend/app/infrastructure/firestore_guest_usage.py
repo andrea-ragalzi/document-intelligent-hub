@@ -82,6 +82,24 @@ class FirestoreGuestUsageTracker:
             )
             return False, uid_limit, "global"
 
+    def get_usage(self, *, uid: str, ip_address: str) -> tuple[int, int, int]:
+        """Read today's UID, hashed-IP, and global counts without mutation."""
+        try:
+            snapshot = self.db.collection("guest_demo_usage").document("current").get()
+            data = snapshot.to_dict() if snapshot.exists else {}
+            if (data or {}).get("day") != self._today():
+                return 0, 0, 0
+
+            uid_counts = (data or {}).get("uid_counts", {})
+            ip_counts = (data or {}).get("ip_counts", {})
+            uid_count = int(uid_counts.get(uid, 0) or 0)
+            ip_count = int(ip_counts.get(self._ip_key(ip_address), 0) or 0)
+            global_count = int((data or {}).get("global_count", 0) or 0)
+            return uid_count, ip_count, global_count
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Guest demo budget read failed | Type: {}", type(exc).__name__)
+            raise RuntimeError("Failed to read guest demo usage") from exc
+
 
 def get_guest_usage_tracker() -> FirestoreGuestUsageTracker:
     """Return one process-local adapter around the shared Firestore state."""
