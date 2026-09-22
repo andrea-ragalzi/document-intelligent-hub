@@ -121,6 +121,7 @@ Create the ignored local configuration with `cp backend/.env.example backend/.en
 | `RESEND_FROM_EMAIL`               | Verified Resend sender address                                                                               |
 | `REPORT_RECIPIENT_EMAIL`          | Fixed recipient for support notifications                                                                    |
 | `ENABLE_SHARED_DEMO_CORPUS`       | Provision the five bundled synthetic InGen PDFs in the stable shared namespace at startup                     |
+| `GUEST_DAILY_QUOTAS_ENABLED`      | Enables UID/IP/global anonymous daily quotas; defaults off only for `ENVIRONMENT=development`, fail-closed elsewhere |
 | `GUEST_UID_DAILY_QUERY_LIMIT`     | Daily query ceiling for one Firebase anonymous UID                                                            |
 | `GUEST_IP_DAILY_QUERY_LIMIT`      | Secondary daily query ceiling for one hashed client IP                                                        |
 | `GUEST_GLOBAL_DAILY_QUERY_BUDGET` | Hard daily ceiling across the anonymous demo                                                                  |
@@ -186,5 +187,6 @@ The latest validation recorded 73 targeted tests passing and 322 backend tests p
 - ChromaDB contains the local search index rather than the original PDFs. Deleting `CHROMA_DB_PATH` loses indexed chunks and requires the documents to be uploaded again.
 - Development CORS allows all origins. Setting `ENVIRONMENT=production` switches to the comma-separated `ALLOWED_ORIGINS` list.
 - Support-submission limits are process-local for the current single-instance demo. Set `TRUSTED_PROXY_IPS` to the real production reverse-proxy address or CIDR so the limiter can use forwarded client IPs safely; never set it to `*`.
-- Guest UID, hashed-IP, and global daily counters are reserved atomically in one Firestore document. Guest concurrency is process-local and assumes the documented single-process deployment. Firebase App Check is not currently enforced and is a follow-up hardening option.
+- Guest UID, hashed-IP, and global daily counters are reserved atomically in one Firestore document. They are disabled only when `ENVIRONMENT=development` and `GUEST_DAILY_QUOTAS_ENABLED` is not `true`, so local RAG evaluation is unrestricted. All other environments enforce them even if the flag is false or missing. Guest concurrency is process-local and assumes the documented single-process deployment. Firebase App Check is not currently enforced and is a follow-up hardening option.
+- `GET /auth/usage` returns registered tier usage or, for an anonymous token, the effective guest allowance remaining after UID, client-IP, and global reservations. In unrestricted development it returns `limited: false` with `query_limit` and `remaining` set to `null`. Reading usage does not reserve capacity; each admitted production query reserves before retrieval or provider work, and the reservation remains consumed if later RAG work fails.
 - The frontend may simulate progressive text display, but the backend query endpoint returns one complete JSON response rather than an end-to-end stream.

@@ -25,14 +25,18 @@ export const TopBar: React.FC<TopBarProps> = ({
     <div className="w-full bg-raised border-b border-line/15 transition-colors duration-200 ease-in-out font-[Inter]">
       <div className="flex items-center justify-between px-4 py-3">
         {/* Left: Hamburger Menu - Solo mobile (nascosto su lg+) */}
-        <button
-          onClick={onOpenLeftSidebar}
-          className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-ink lg:hidden focus:outline-none focus:ring-3 focus:ring-focus"
-          aria-label="Toggle navigation"
-          title="Conversazioni"
-        >
-          <Menu size={20} />
-        </button>
+        {isGuest ? (
+          <div className="h-11 w-11 lg:hidden" aria-hidden="true" />
+        ) : (
+          <button
+            onClick={onOpenLeftSidebar}
+            className="h-11 w-11 flex items-center justify-center rounded-lg hover:bg-surface-hover transition-all duration-200 ease-in-out text-ink lg:hidden focus:outline-none focus:ring-3 focus:ring-focus"
+            aria-label="Toggle navigation"
+            title="Conversations"
+          >
+            <Menu size={20} />
+          </button>
+        )}
 
         {/* Spacer per desktop quando menu è nascosto */}
         <div className="hidden lg:block w-10"></div>

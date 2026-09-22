@@ -39,6 +39,7 @@ import { useDemoDocument } from "@/hooks/useDemoDocument";
 import { getDemoDocumentVisibility } from "@/lib/demoDocumentVisibility";
 import { useVisualViewportHeight } from "@/hooks/useVisualViewportHeight";
 import { GuestOnly, RegisteredOnly } from "@/components/AuthVisibility";
+import { GuestDemoBanner } from "@/components/GuestDemoBanner";
 
 // Zustand store e TanStack Query
 import { useUIStore } from "@/stores/uiStore";
@@ -83,9 +84,13 @@ export default function Page() {
   const { tier, limits: tierLimits, isLoading: isTierLoading, refreshTier } = useUserTier();
   const {
     queriesUsed,
+    remaining: remainingQueries,
+    limited: isQueryUsageLimited,
     isLimitReached,
+    isLoading: isQueryUsageLoading,
+    error: queryUsageError,
     refetch: refetchQueryUsage,
-  } = useQueryUsage(Boolean(registeredUserId));
+  } = useQueryUsage(Boolean(userId));
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -196,6 +201,9 @@ export default function Page() {
   const { chatHistory, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChatAI(
     {
       userId: userId || "",
+      onRequestSettled: () => {
+        void refetchQueryUsage();
+      },
     }
   );
 
@@ -445,11 +453,6 @@ export default function Page() {
     e.preventDefault();
     if (userId) {
       handleSubmit(e);
-      // Refresh query usage counter after submission
-      // The counter will update when the response comes back
-      setTimeout(() => {
-        refetchQueryUsage();
-      }, 1000);
     } else {
       setStatusAlert({
         message: "Cannot send: User ID not available.",
@@ -551,28 +554,14 @@ export default function Page() {
         />
 
         <GuestOnly isGuest={isGuest}>
-          <div className="border-b border-accent/25 bg-accent/10 px-4 py-3 text-sm text-ink">
-            <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-              <p>
-                <strong>Demo workspace.</strong> Five preloaded synthetic InGen documents are
-                read-only. They are fan-made demo artifacts, not official franchise material.
-              </p>
-              <div className="flex shrink-0 gap-2">
-                <button
-                  className="ui-secondary-action rounded-lg px-3 py-2"
-                  onClick={() => void leaveDemo("/login")}
-                >
-                  Sign in
-                </button>
-                <button
-                  className="ui-primary-action rounded-lg px-3 py-2"
-                  onClick={() => void leaveDemo("/signup")}
-                >
-                  Create account
-                </button>
-              </div>
-            </div>
-          </div>
+          <GuestDemoBanner
+            remaining={remainingQueries}
+            limited={isQueryUsageLimited}
+            isLoading={isQueryUsageLoading}
+            hasError={Boolean(queryUsageError)}
+            onSignIn={() => void leaveDemo("/login")}
+            onCreateAccount={() => void leaveDemo("/signup")}
+          />
         </GuestOnly>
 
         {/* Server Offline Banner */}

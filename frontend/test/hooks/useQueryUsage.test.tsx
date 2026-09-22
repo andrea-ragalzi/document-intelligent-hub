@@ -89,6 +89,73 @@ describe("useQueryUsage", () => {
     expect(result.current.isLimitReached).toBe(false);
   });
 
+  it("uses backend guest quota state after reload", async () => {
+    const mockUser = {
+      uid: "anonymous-recruiter",
+      getIdToken: vi.fn().mockResolvedValue("guest-token"),
+    };
+    vi.mocked(AuthContext.useAuth).mockReturnValue({
+      user: mockUser,
+      loading: false,
+      isGuest: true,
+    } as any);
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        queries_today: 3,
+        query_limit: 8,
+        remaining: 5,
+        tier: "GUEST",
+      }),
+    });
+
+    const { result } = renderHook(() => useQueryUsage(), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current).toMatchObject({
+      queriesUsed: 3,
+      queryLimit: 8,
+      remaining: 5,
+      tier: "GUEST",
+      isLimitReached: false,
+    });
+    expect(mockUser.getIdToken).toHaveBeenCalledOnce();
+  });
+
+  it("represents an unlimited development guest allowance explicitly", async () => {
+    const mockUser = {
+      uid: "anonymous-recruiter",
+      getIdToken: vi.fn().mockResolvedValue("guest-token"),
+    };
+    vi.mocked(AuthContext.useAuth).mockReturnValue({
+      user: mockUser,
+      loading: false,
+      isGuest: true,
+    } as any);
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        queries_today: 0,
+        query_limit: null,
+        remaining: null,
+        limited: false,
+        tier: "GUEST",
+      }),
+    });
+
+    const { result } = renderHook(() => useQueryUsage(), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current).toMatchObject({
+      queryLimit: null,
+      remaining: null,
+      limited: false,
+      isLimitReached: false,
+    });
+  });
+
   it("should handle FREE tier at limit (remaining = 0)", async () => {
     const mockUser = {
       uid: "test_user",

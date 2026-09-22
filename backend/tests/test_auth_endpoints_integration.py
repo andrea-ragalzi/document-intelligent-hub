@@ -460,19 +460,19 @@ class TestUsageEndpoint:
         """Test usage endpoint without authorization token"""
         response = client.get("/auth/usage")
 
-        assert response.status_code == 422  # FastAPI validation error
+        assert response.status_code == 401
 
     def test_get_usage_with_invalid_token(self) -> None:
         """Test usage endpoint with invalid token"""
-        with patch("app.routers.auth_router.auth") as mock_auth:
-            mock_auth.verify_id_token.side_effect = Exception("Invalid token")
-
+        with patch(
+            "app.core.auth.auth.verify_id_token", side_effect=Exception("Invalid token")
+        ):
             response = client.get(
                 "/auth/usage", headers={"Authorization": "Bearer invalid_token"}
             )
 
             assert response.status_code == 401
-            assert "Invalid or expired token" in response.json()["detail"]
+            assert "Authentication failed" in response.json()["detail"]
 
     def test_get_usage_unlimited_tier(self) -> None:
         """Test usage for UNLIMITED tier user"""

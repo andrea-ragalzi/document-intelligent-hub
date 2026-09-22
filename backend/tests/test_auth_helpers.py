@@ -3,8 +3,6 @@ Comprehensive Tests for Auth Router Helper Functions
 
 Tests cover:
 - load_app_config function
-- get_current_user_id dependency
-- Token validation
 - Error handling
 """
 
@@ -14,10 +12,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from app.routers.auth_router import (
     clear_cache,
-    get_current_user_id,
     load_app_config,
 )
-from fastapi import HTTPException
 
 
 class TestLoadAppConfig:
@@ -159,130 +155,3 @@ class TestLoadAppConfig:
             assert "limits" in result
             assert result["unlimited_emails"] == []
             assert result["limits"]["UNLIMITED"]["max_queries_per_day"] == 500
-
-
-class TestGetCurrentUserId:
-    """Test get_current_user_id dependency"""
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_success(self) -> Any:
-        """Test successful user ID extraction from valid token"""
-        with patch("app.routers.auth_router.auth") as mock_auth:
-            mock_auth.verify_id_token.return_value = {
-                "uid": "user123",
-                "email": "test@example.com",
-            }
-
-            user_id = get_current_user_id("Bearer valid_token")
-
-            assert user_id == "user123"
-            mock_auth.verify_id_token.assert_called_once_with("valid_token")
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_missing_header(self) -> Any:
-        """Test with missing authorization header"""
-        with pytest.raises(HTTPException) as exc_info:
-            get_current_user_id("")  # Empty string instead of None
-
-        assert exc_info.value.status_code == 401
-        assert "Missing or invalid" in exc_info.value.detail
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_invalid_format(self) -> Any:
-        """Test with invalid authorization header format (no Bearer)"""
-        with pytest.raises(HTTPException) as exc_info:
-            get_current_user_id("InvalidToken")
-
-        assert exc_info.value.status_code == 401
-        assert "Missing or invalid" in exc_info.value.detail
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_empty_bearer(self) -> Any:
-        """Test with empty Bearer token"""
-        with patch("app.routers.auth_router.auth") as mock_auth:
-            # Mock the call to verify_id_token to raise an exception for an empty string
-            def verify_token_side_effect(t: str) -> dict[str, str]:
-                if t:
-                    return {"uid": "user123"}
-                raise ValueError("Empty token")
-
-            mock_auth.verify_id_token.side_effect = verify_token_side_effect
-
-            with pytest.raises(HTTPException) as exc_info:
-                get_current_user_id("Bearer ")
-
-            assert exc_info.value.status_code == 401
-            assert "Invalid or expired token" in exc_info.value.detail
-            # Ensure it was called with an empty string
-            mock_auth.verify_id_token.assert_called_once_with("")
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_invalid_token(self) -> Any:
-        """Test with invalid token that fails verification"""
-        with patch("app.routers.auth_router.auth") as mock_auth:
-            mock_auth.verify_id_token.side_effect = Exception("Invalid token")
-
-            with pytest.raises(HTTPException) as exc_info:
-                get_current_user_id("Bearer invalid_token")
-
-            assert exc_info.value.status_code == 401
-            assert "Invalid or expired token" in exc_info.value.detail
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_expired_token(self) -> Any:
-        """Test with expired token"""
-        with patch("app.routers.auth_router.auth") as mock_auth:
-            mock_auth.verify_id_token.side_effect = Exception("Token expired")
-
-            with pytest.raises(HTTPException) as exc_info:
-                get_current_user_id("Bearer expired_token")
-
-            assert exc_info.value.status_code == 401
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_malformed_token(self) -> Any:
-        """Test with malformed token"""
-        with patch("app.routers.auth_router.auth") as mock_auth:
-            mock_auth.verify_id_token.side_effect = Exception("Malformed token")
-
-            with pytest.raises(HTTPException) as exc_info:
-                get_current_user_id("Bearer malformed")
-
-            assert exc_info.value.status_code == 401
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_bearer_case_sensitive(self) -> Any:
-        """Test that Bearer prefix is case-sensitive"""
-        # Should only accept "Bearer" not "bearer" or "BEARER"
-        with pytest.raises(HTTPException) as exc_info:
-            get_current_user_id("bearer token")
-
-        assert exc_info.value.status_code == 401
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_multiple_spaces(self) -> Any:
-        """Test token with multiple spaces after Bearer"""
-        with patch("app.routers.auth_router.auth") as mock_auth:
-            mock_auth.verify_id_token.return_value = {"uid": "user123"}
-
-            # Should handle multiple spaces
-            user_id = get_current_user_id("Bearer  token_with_spaces")
-
-            # Should extract "token_with_spaces" after removing "Bearer "
-            assert user_id == "user123"
-
-    @pytest.mark.asyncio
-    async def test_get_current_user_id_token_without_uid(self) -> Any:
-        """Test valid token but missing uid field"""
-        with patch("app.routers.auth_router.auth") as mock_auth:
-            mock_auth.verify_id_token.return_value = {
-                "email": "test@example.com"
-                # Missing uid
-            }
-
-            with pytest.raises(HTTPException) as exc_info:
-                get_current_user_id("Bearer valid_token")
-
-            # Should catch KeyError and raise HTTPException
-            assert exc_info.value.status_code == 401
-            assert "Invalid or expired token" in exc_info.value.detail

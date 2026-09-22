@@ -14,15 +14,17 @@ import type { User } from "firebase/auth";
 interface QueryUsageResponse {
   status: string;
   queries_today: number;
-  query_limit: number;
-  remaining: number;
+  query_limit: number | null;
+  remaining: number | null;
+  limited?: boolean;
   tier: string;
 }
 
 interface UseQueryUsageResult {
   queriesUsed: number;
-  queryLimit: number;
-  remaining: number;
+  queryLimit: number | null;
+  remaining: number | null;
+  limited: boolean;
   tier: string;
   isLimitReached: boolean;
   isLoading: boolean;
@@ -44,11 +46,11 @@ interface UseQueryUsageResult {
  * checkLimitReached(-1)   // false - UNLIMITED tier
  * checkLimitReached(undefined) // false - no data yet (safe default)
  */
-function checkLimitReached(remaining: number | undefined): boolean {
+function checkLimitReached(remaining: number | null | undefined, limited = true): boolean {
   const UNLIMITED_INDICATOR = -1;
 
   // No data yet - default to not reached (safe default)
-  if (remaining === undefined) {
+  if (!limited || remaining === undefined || remaining === null) {
     return false;
   }
 
@@ -142,16 +144,18 @@ function buildUsageResult(
   refetch: () => void
 ): UseQueryUsageResult {
   const queriesUsed = data?.queries_today ?? 0;
-  const queryLimit = data?.query_limit ?? 0;
-  const remaining = data?.remaining ?? 0;
+  const queryLimit = data ? data.query_limit : 0;
+  const remaining = data ? data.remaining : 0;
+  const limited = data?.limited ?? true;
   const tier = data?.tier ?? "FREE";
 
   return {
     queriesUsed,
     queryLimit,
     remaining,
+    limited,
     tier,
-    isLimitReached: checkLimitReached(data?.remaining),
+    isLimitReached: checkLimitReached(data?.remaining, limited),
     isLoading,
     error: error ?? null,
     refetch,

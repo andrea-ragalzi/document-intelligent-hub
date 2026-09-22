@@ -16,3 +16,6 @@ class GuestUsagePort(Protocol):
         global_limit: int,
     ) -> tuple[bool, int, str | None]:
         """Return whether capacity was reserved, UID count, and limiting scope."""
+
+    def get_usage(self, *, uid: str, ip_address: str) -> tuple[int, int, int]:
+        """Return today's UID, IP, and global reserved counts."""
