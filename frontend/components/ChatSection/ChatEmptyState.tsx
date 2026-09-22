@@ -106,9 +106,11 @@ export function ChatEmptyState({
 
   return (
     <>
-      <MessageSquare size={48} className="mx-auto text-quiet" />
-      <p className="font-semibold text-lg text-muted">Start a conversation</p>
-      <p className="text-sm text-quiet">Ask me anything about your documents!</p>
+      <div className={isGuestDemo ? "hidden sm:block" : undefined}>
+        <MessageSquare size={48} className="mx-auto text-quiet" />
+        <p className="font-semibold text-lg text-muted">Start a conversation</p>
+        <p className="text-sm text-quiet">Ask me anything about your documents!</p>
+      </div>
       <DemoDocumentCard
         state={demoDocumentState}
         suggestedQuestions={suggestedQuestions}

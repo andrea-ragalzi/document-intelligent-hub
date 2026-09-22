@@ -46,6 +46,37 @@ describe("ChatSection", () => {
     expect(screen.queryByText("No documents uploaded yet")).not.toBeInTheDocument();
   });
 
+  it("shows the authoritative guest allowance beside the mobile composer", () => {
+    renderChatSection({
+      isGuest: true,
+      guestQuotaRemaining: 5,
+      guestQuotaLimited: true,
+    });
+
+    expect(screen.getByText("5 questions remaining today")).toBeInTheDocument();
+    expect(screen.getByText("5 questions remaining today")).toHaveClass("sm:hidden");
+  });
+
+  it("shows zero remaining guest questions and hides allowance for registered users", () => {
+    const { rerender } = renderChatSection({
+      isGuest: true,
+      guestQuotaRemaining: 0,
+      guestQuotaLimited: true,
+    });
+
+    expect(screen.getByText("0 questions remaining today")).toBeInTheDocument();
+
+    rerender(<ChatSection {...defaultProps} guestQuotaRemaining={5} guestQuotaLimited />);
+    expect(screen.queryByText("5 questions remaining today")).not.toBeInTheDocument();
+  });
+
+  it("lets the empty guest demo flow into the composer on mobile", () => {
+    const { container } = renderChatSection({ isGuest: true });
+    const scrollArea = container.firstElementChild?.firstElementChild;
+
+    expect(scrollArea).toHaveClass("flex-1");
+  });
+
   it("renders repeated assistant text without duplicate React keys", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 

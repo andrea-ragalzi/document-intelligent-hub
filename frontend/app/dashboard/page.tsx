@@ -648,6 +648,10 @@ export default function Page() {
               suggestedQuestions={visibleDemoDocument.suggestedQuestions}
               onSuggestedQuestion={handleQueryChange}
               isGuest={isGuest}
+              guestQuotaRemaining={remainingQueries}
+              guestQuotaLimited={isQueryUsageLimited}
+              guestQuotaLoading={isQueryUsageLoading}
+              guestQuotaError={Boolean(queryUsageError)}
             />
           </div>
 
