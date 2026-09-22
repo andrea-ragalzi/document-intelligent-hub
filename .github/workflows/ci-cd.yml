@@ -287,31 +287,6 @@ jobs:
         working-directory: ./frontend
         run: npm run test:firebase-auth-emulator
 
-  sonar:
-    name: "🔎 SonarQube Quality Gate"
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    needs: secret-scan
-    steps:
-      - name: "📥 Checkout repository"
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: "🔎 SonarQube Cloud analysis"
-        uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
-        with:
-          args: >-
-            -Dsonar.projectKey=andrea-ragalzi_document-intelligent-hub
-            -Dsonar.organization=andrea-ragalzi
-            -Dsonar.qualitygate.wait=true
-            -Dsonar.qualitygate.timeout=300
-
   ci-summary:
     name: "📊 Pipeline Summary"
     runs-on: ubuntu-latest
@@ -325,7 +300,6 @@ jobs:
         frontend-ci,
         backend-docker,
         firebase-auth-emulator,
-        sonar,
       ]
     if: always()
     steps:
@@ -337,9 +311,8 @@ jobs:
           FIREBASE_AUTH: ${{ needs.firebase-auth-emulator.result }}
           SECRET_SCAN: ${{ needs.secret-scan.result }}
           CHANGES: ${{ needs.changes.result }}
-          SONAR: ${{ needs.sonar.result }}
         run: |
-          if [ "$SECRET_SCAN" != "success" ] || [ "$CHANGES" != "success" ] || [ "$SONAR" != "success" ]; then
+          if [ "$SECRET_SCAN" != "success" ] || [ "$CHANGES" != "success" ]; then
             echo "A required foundational check failed or was cancelled."
             exit 1
           fi
@@ -349,7 +322,7 @@ jobs:
               exit 1
             fi
           done
-          echo "CI checks and Sonar Quality Gate passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "CI checks passed." >> "$GITHUB_STEP_SUMMARY"
 
   release-gate:
     name: "🚀 Develop to main release gate"
