@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 
-export type AuthAction = "email" | "google";
+export type AuthAction = "email" | "google" | "demo";
 
 /** Shares loading, duplicate-submit protection, and safe error state across auth forms. */
 export function useAuthRequest() {

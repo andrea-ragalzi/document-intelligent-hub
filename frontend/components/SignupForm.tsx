@@ -8,6 +8,7 @@ import {
   AuthErrorMessage,
   AuthTextField,
   AuthSubmitButton,
+  DemoAuthButton,
   GoogleAuthButton,
 } from "@/components/AuthFormControls";
 import { useAuthRequest } from "@/hooks/useAuthRequest";
@@ -16,7 +17,7 @@ export default function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInAsGuest, signInWithGoogle } = useAuth();
   const router = useRouter();
   const { error, isLoading, pendingAction, run, setError } = useAuthRequest();
 
@@ -55,6 +56,17 @@ export default function SignupForm() {
     );
     if (succeeded) {
       router.push("/");
+    }
+  };
+
+  const handleDemoSignIn = async () => {
+    const succeeded = await run(
+      "demo",
+      signInAsGuest,
+      "The demo is temporarily unavailable. Please try again."
+    );
+    if (succeeded) {
+      router.push("/dashboard");
     }
   };
 
@@ -105,6 +117,7 @@ export default function SignupForm() {
         <GoogleAuthButton onClick={handleGoogleSignIn} disabled={isLoading}>
           {pendingAction === "google" ? "Signing up with Google..." : "Sign up with Google"}
         </GoogleAuthButton>
+        <DemoAuthButton onClick={handleDemoSignIn} disabled={isLoading} />
       </div>
 
       <p className="mt-4 text-center text-sm text-muted">

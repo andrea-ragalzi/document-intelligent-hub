@@ -42,6 +42,8 @@ interface RightSidebarProps {
   tierLimits: TierLimits;
   isTierLoading: boolean;
   isGuest?: boolean;
+  requestedView: "menu" | "documents";
+  requestedViewRevision: number;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -64,12 +66,18 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   tierLimits,
   isTierLoading,
   isGuest = false,
+  requestedView,
+  requestedViewRevision,
 }) => {
-  const [activeView, setActiveView] = useState<"menu" | "documents" | "settings">("menu");
+  const [activeView, setActiveView] = useState<"menu" | "documents" | "settings">(requestedView);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    setActiveView(requestedView);
+  }, [requestedView, requestedViewRevision]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -123,7 +131,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 
       {/* Sidebar - Permanente su desktop (xl+), overlay su mobile */}
       <div
-        className={`h-full w-96 bg-raised transform transition-all duration-200 ease-in-out flex flex-col border-l border-line/15 font-[Inter]
+        className={`h-full w-full max-w-96 bg-raised transform transition-all duration-200 ease-in-out flex flex-col border-l border-line/15 font-[Inter]
 
           xl:relative xl:translate-x-0 xl:z-0
 

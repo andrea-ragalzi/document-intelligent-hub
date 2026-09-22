@@ -125,3 +125,16 @@ export function GoogleAuthButton({ children, disabled, onClick }: GoogleAuthButt
     </button>
   );
 }
+
+export function DemoAuthButton({ disabled, onClick }: Omit<GoogleAuthButtonProps, "children">) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="mt-3 w-full rounded-md px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Try the demo without an account
+    </button>
+  );
+}

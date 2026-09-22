@@ -5,6 +5,7 @@ import SignupForm from "@/components/SignupForm";
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
+  signInAsGuest: vi.fn(),
   signInWithGoogle: vi.fn(),
   signUp: vi.fn(),
 }));
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     signInWithGoogle: mocks.signInWithGoogle,
+    signInAsGuest: mocks.signInAsGuest,
     signUp: mocks.signUp,
   }),
 }));
@@ -76,5 +78,17 @@ describe("SignupForm verification handoff", () => {
     completeSignIn?.();
 
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/"));
+  });
+
+  it("enters the anonymous demo without creating an account", async () => {
+    mocks.signInAsGuest.mockResolvedValue(undefined);
+    render(<SignupForm />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Try the demo without an account" }));
+
+    await waitFor(() => {
+      expect(mocks.signInAsGuest).toHaveBeenCalledOnce();
+      expect(mocks.push).toHaveBeenCalledWith("/dashboard");
+    });
   });
 });
