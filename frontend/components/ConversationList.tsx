@@ -226,14 +226,14 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   {/* Contenitore unificato: Pin (default) o Menu Kebab (hover) - Solo desktop */}
                   {!isSelectionMode && (
                     <div
-                      className="relative flex-shrink-0 h-7 w-7"
+                      className="relative flex-shrink-0 h-11 w-11 md:h-7 md:w-7"
                       ref={el => {
                         kebabRef.current[conv.id] = el;
                       }}
                     >
                       {/* Indicatore Pin - Visibile di default, nascosto all'hover */}
                       {!isSelected && conv.isPinned && (
-                        <div className="absolute inset-0 flex items-center justify-center md:group-hover:hidden">
+                        <div className="absolute inset-0 hidden items-center justify-center md:flex md:group-hover:hidden">
                           <Pin size={14} className="text-accent" fill="currentColor" />
                         </div>
                       )}
@@ -241,7 +241,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                       {/* Menu Kebab - Desktop only: visible on hover */}
                       <button
                         onClick={e => handleKebabClick(e, conv.id)}
-                        className="absolute inset-0 items-center justify-center text-muted hover:text-ink hover:bg-surface-hover rounded transition-all duration-200 ease-in-out opacity-0 group-hover:opacity-100 hidden md:flex focus:outline-none focus:ring-3 focus:ring-focus"
+                        className="absolute inset-0 flex items-center justify-center text-muted hover:text-ink hover:bg-surface-hover rounded transition-all duration-200 ease-in-out opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:outline-none focus:ring-3 focus:ring-focus"
                         title="Options"
                       >
                         <MoreVertical size={16} />
@@ -277,13 +277,12 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             />
             {/* Menu - Mobile: draggable bottom sheet, Desktop: positioned dropdown */}
             <div
-              className="fixed inset-x-0 md:inset-x-auto md:bottom-auto bg-raised rounded-t-3xl md:rounded-lg border border-line/15 z-[110] transition-transform overflow-hidden"
+              className="fixed inset-x-0 pb-[max(1rem,env(safe-area-inset-bottom))] md:inset-x-auto md:bottom-auto md:pb-0 bg-raised rounded-t-3xl md:rounded-lg border border-line/15 z-[110] transition-transform overflow-hidden"
               ref={node => {
                 menuRef.current = node;
               }}
               style={{
                 bottom: window.innerWidth < 768 ? `${-dragY}px` : undefined,
-                height: window.innerWidth < 768 ? "35vh" : undefined,
                 top: window.innerWidth >= 768 ? `${menuPosition.top}px` : undefined,
                 right: window.innerWidth >= 768 ? `${menuPosition.right}px` : undefined,
                 width: window.innerWidth >= 768 ? "12rem" : undefined,
@@ -304,20 +303,20 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 if (!conv) return null;
 
                 return (
-                  <div className="flex flex-col gap-1 pt-3 pb-4">
+                  <div className="flex flex-col gap-1 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-4">
                     <button
                       onClick={e => {
                         e.stopPropagation();
                         runActionAndCloseMenu(() => onPin(conv.id, !conv.isPinned));
                       }}
-                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-ink hover:bg-surface-hover transition-colors duration-200"
+                      className="min-h-11 md:min-h-0 w-full text-left rounded-lg flex items-center gap-3 px-4 py-3 text-base text-ink hover:bg-surface-hover transition-colors duration-200 md:px-5 md:py-4 md:text-lg"
                     >
                       <Pin
                         size={18}
                         className={conv.isPinned ? "text-accent" : "text-muted"}
                         fill={conv.isPinned ? "currentColor" : "none"}
                       />
-                      <span className="font-semibold tracking-wide">
+                      <span className="font-medium md:font-semibold md:tracking-wide">
                         {conv.isPinned ? "Unpin" : "Pin"}
                       </span>
                     </button>
@@ -326,24 +325,23 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                         e.stopPropagation();
                         runActionAndCloseMenu(() => onRename(conv.id, conv.name));
                       }}
-                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-ink hover:bg-surface-hover transition-colors duration-200"
+                      className="min-h-11 md:min-h-0 w-full text-left rounded-lg flex items-center gap-3 px-4 py-3 text-base text-ink hover:bg-surface-hover transition-colors duration-200 md:px-5 md:py-4 md:text-lg"
                     >
                       <Edit size={18} className="text-muted" />
-                      <span className="font-semibold tracking-wide">Rename</span>
+                      <span className="font-medium md:font-semibold md:tracking-wide">Rename</span>
                     </button>
                     <button
                       onClick={e => {
                         e.stopPropagation();
                         runActionAndCloseMenu(() => openDeleteModal(conv));
                       }}
-                      className="w-full flex items-center gap-3 px-5 py-4 text-lg text-ink hover:bg-surface-hover transition-colors duration-200"
+                      className="min-h-11 md:min-h-0 w-full text-left rounded-lg flex items-center gap-3 px-4 py-3 text-base text-ink hover:bg-red-50 transition-colors duration-200 dark:hover:bg-red-900/20 md:px-5 md:py-4 md:text-lg md:hover:bg-surface-hover"
                     >
-                      <Trash2 size={18} className="text-muted" />
-                      <span className="font-semibold tracking-wide">Delete</span>
+                      <Trash2 size={18} className="text-red-600 dark:text-red-400 md:text-muted" />
+                      <span className="font-medium text-red-600 dark:text-red-400 md:font-semibold md:text-ink md:tracking-wide">
+                        Delete
+                      </span>
                     </button>
-
-                    {/* Safe area padding for iOS */}
-                    <div className="md:hidden h-4" />
                   </div>
                 );
               })()}

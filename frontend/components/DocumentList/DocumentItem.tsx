@@ -101,7 +101,10 @@ export const DocumentItem: React.FC<DocumentItemProps> = ({
 
         {/* Unified container: Kebab menu (hover on desktop) */}
         {!isSelectionMode && (
-          <div className="relative flex-shrink-0 h-7 w-7" ref={el => kebabRef(el, doc.filename)}>
+          <div
+            className="relative flex-shrink-0 h-11 w-11 md:h-7 md:w-7"
+            ref={el => kebabRef(el, doc.filename)}
+          >
             {/* Kebab menu - Visible on mobile tap, visible on hover on desktop */}
             <button
               onClick={e => {
