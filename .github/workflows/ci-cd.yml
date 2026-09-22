@@ -111,7 +111,7 @@ jobs:
       - name: "📦 Install Poetry"
         run: |
           for attempt in 1 2 3; do
-            if python -m pip install --disable-pip-version-check --no-input --retries 5 --timeout 30 "poetry==2.4.1"; then
+            if python -m pip install --disable-pip-version-check --no-input --retries 5 --timeout 30 --only-binary :all: "poetry==2.4.1"; then
               poetry config virtualenvs.create true
               poetry config virtualenvs.in-project true
               poetry config installer.parallel true
@@ -259,7 +259,7 @@ jobs:
       - name: "📦 Install Poetry"
         run: |
           for attempt in 1 2 3; do
-            if python -m pip install --disable-pip-version-check --no-input --retries 5 --timeout 30 "poetry==2.4.1"; then
+            if python -m pip install --disable-pip-version-check --no-input --retries 5 --timeout 30 --only-binary :all: "poetry==2.4.1"; then
               poetry config virtualenvs.create true
               poetry config virtualenvs.in-project true
               poetry config installer.parallel true
@@ -292,7 +292,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [secret-scan, changes, backend-ci, frontend-ci, backend-docker, firebase-auth-emulator]
+    needs:
+      [
+        secret-scan,
+        changes,
+        backend-ci,
+        frontend-ci,
+        backend-docker,
+        firebase-auth-emulator,
+      ]
     if: always()
     steps:
       - name: "📊 Validate CI results"
