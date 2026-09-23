@@ -41,40 +41,42 @@ For example, `POST /rag/upload/` is handled by `app/routers/documents_router.py`
 
 ## RAG Flow
 
-The implementation is split between the following services:
+### Document upload and indexing
 
 ```text
-PDF upload
-→ documents_router.py verified-email, size/count, duplicate-action, and temporary-file handling
-→ DocumentIndexingService.index_document()
-→ UnstructuredPDFLoader (element parsing)
-→ DocumentClassifierService classification and structural-density check
+Authenticated PDF upload
+→ verified registered Firebase identity and workspace validation
+→ filename, PDF, size/count, duplicate-action, and resource-limit validation
+→ temporary-file handling and bounded PDF parsing
+→ document-language detection and document classification
 → structural or fixed-size chunking
-→ Lingua detection from the complete extracted text
-→ metadata enrichment (user, filename, lowercase ISO language, section, timestamp)
-→ HuggingFace embeddings in db/chroma_client.py
-→ VectorStoreRepository.add_documents() / ChromaDB indexing and private-original retention
+→ chunk metadata: verified workspace UID, filename, language, section, and timestamp
+→ local HuggingFace embeddings through `db/chroma_client.py`
+→ `VectorStoreRepository.add_documents()` indexes the UID-scoped chunks in ChromaDB
+→ document becomes available to that workspace's retrieval path
 ```
+
+Guest identities cannot upload, replace, or delete documents. Registered uploads use the verified Firebase UID selected by the server; client-supplied ownership is never accepted. The original PDF is retained separately for authenticated document access, while its searchable chunks are stored in the shared ChromaDB collection with the UID metadata filter.
+
+### Question and answer
 
 ```text
-RAG query
-→ query_router.py reserves the authenticated user's quota and loads the accessible document catalog
-→ deterministic routing checks narrow, safe lookup, extraction, and count shapes against validated evidence
-→ unsupported or ambiguously validated requests fall through to normal RAG; file filters are then extracted
-→ QueryProcessingService conditionally reformulates contextual queries for retrieval; self-contained queries continue unchanged
-→ QueryExpansionService produces English retrieval alternatives while retaining identifiers; the existing parser LLM can also return up to two semantic retrieval queries for genuine compound requests
-→ VectorStoreRepository combines user/file-filtered semantic retrieval with lexical candidates
-→ Compound candidates are retrieved concurrently, deduplicated, and merged with reciprocal-rank fusion; RerankingService runs once against the original question
-→ AnswerGenerationService receives the raw current message separately from the reformulated retrieval query, then prompts with compact Q/H/C sections and citation-safe context IDs
-→ OpenAI returns an answer and the minimum sufficient supporting context IDs
-→ trusted filename/page metadata becomes `citations` in QueryResponse
+Question
+→ verified registered UID workspace or the restricted shared guest workspace
+→ quota reservation and accessible document catalog
+→ narrow deterministic lookup, extraction, or count route when validated evidence supports it
+→ otherwise normal RAG: query parsing and optional owned-file filters
+→ optional contextual reformulation for follow-up questions
+→ user/file-filtered semantic retrieval plus lexical candidates
+→ candidate deduplication, reranking, and final evidence selection
+→ grounded answer generation from the selected context
+→ trusted chunk filename/page metadata mapped to citations
+→ complete `QueryResponse` JSON response
 ```
 
-The answer path may translate a retrieval query to English, but `LanguageService` resolves the answer language before answer generation: explicit `output_language` override, current-message request, current-message detection, then recent user history only for ambiguous follow-ups. That value reaches the answer model as authoritative `LANG:<code>`. Document language never selects the answer language. `Q` is the raw current user message, `H` is bounded historical context in `U|`/`A|` lines, and `C` contains compact `[C1|filename|p7]` evidence blocks. Retrieved documents and history are untrusted data: they provide evidence or context, never executable instructions. `QueryRequest.conversation_history` is bounded by message count and total content length before any model work. The API returns a complete JSON response; it does not stream tokens from the model.
+The deterministic route is deliberately limited to supported requests with validated evidence. Unsupported, ambiguous, conversational, or failed-validation requests continue through normal RAG. The normal path does not call semantic query classification: `QueryProcessingService` reformulates only when conversation context is needed, then answer generation retrieves and grounds the response. Query expansion and retrieval-language translation may supply additional retrieval candidates, but the final answer language is resolved from the request and bounded history. The API returns complete JSON rather than streaming model tokens.
 
-The production request path uses the reformulation prompt only when conversation history is needed; answer generation owns grounding, response language, presentation, and insufficient-information wording. The classification service and prompt remain available for isolated use cases and tests, but normal RAG requests do not make a semantic classification call. The legacy `PromptTemplateService` TOON query-rewriter helper is retained only for its isolated use-case utility and is not part of the production RAG request path.
-
-Deterministic routing is intentionally narrow: a validated direct lookup, labeled extraction, or document-count request can return grounded evidence without invoking the normal LLM RAG path. Unsupported requests, ambiguous shapes, failed evidence validation, and conversational requests fall through to the normal path. Compound retrieval is a bounded optimization. It reuses the existing parser LLM, adds no decomposition-only LLM call, and accepts at most two standalone subqueries. Language and presentation instructions remain separate from semantic retrieval queries. Invalid compound output falls back to the simple path. Chroma retrieval is concurrent rather than truly batched because the repository exposes no batch query method. The final context limit and single final answer-generation call are unchanged.
+Filename/page citations are derived from selected backend chunk metadata, rather than model-invented references. Registered retrieval always filters by the verified UID; guests can query only the server-selected shared InGen corpus. The classification service and prompt remain available for isolated use cases and tests, but are outside the normal production RAG path.
 
 `POST /rag/upload/` accepts a PDF multipart field and optional `duplicate_action`: `reject` (default, returns `409` for a colliding owned filename), `replace`, or `rename` (server assigns `name (n).pdf`). Upload and every document mutation require a verified registered user. `POST /rag/query/` accepts `query`, bounded `conversation_history`, and optional `output_language`; it returns `answer`, compatibility `source_documents`, and `citations`, whose items contain `filename` and an optional one-based `page_number`. A verified registered user queries their UID-scoped collection. A Firebase anonymous identity queries the reserved shared InGen demo namespace under the guest budgets described below. Stored originals are available through authenticated `GET /rag/documents/content`; ownership or the guest namespace is selected only from verified token claims.
 
