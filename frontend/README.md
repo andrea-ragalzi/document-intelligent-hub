@@ -1,6 +1,6 @@
 # Frontend
 
-The frontend is a Next.js 16 client for authentication, document management, chat, conversation management, and client-side UI state. It uses Firebase Web SDK for identity and Firestore conversations, and calls the FastAPI backend for document and RAG operations.
+This is the frontend for Document Intelligent Hub, a personal, independently built backend-heavy full-stack project. The Next.js 16 client handles authentication, document management, chat, conversations, and client-side UI state while calling the FastAPI backend for document and RAG operations.
 
 ## Responsibilities
 
@@ -33,7 +33,7 @@ The backend base URL is defined by `NEXT_PUBLIC_API_BASE_URL` and consumed as `A
 | `hooks/useRegistration.ts`   | Register a Firebase user and refresh custom claims (`/auth/register`)                    |
 | `app/api/chat/route.ts`      | Forward the active chat query to `/rag/query/`                                           |
 
-Protected hooks call `useAuth().getIdToken()` and attach `Authorization: Bearer <token>`. The Next.js chat route receives the same authorization header from `useChatAI`, forwards at most the 14 preceding messages as `conversation_history`, and relays the backend's structured citations as AI SDK annotations. The active client does not choose an upload or answer language: backend services detect document and query language automatically, including recognized language instructions in the query. Registration is a special case: after Firebase confirms the email is verified, it sends only the Firebase ID token to `/auth/register` and then forces a token refresh.
+Protected hooks call `useAuth().getIdToken()` and attach `Authorization: Bearer <token>`. The Next.js chat route receives the same authorization header from `useChatAI`, forwards at most the 14 preceding messages as `conversation_history`, and relays the backend's structured citations as AI SDK annotations. The active client does not choose an upload or answer language: backend services detect document and query language automatically, including recognized language instructions in the query.
 
 Most document and usage requests run directly from the browser. Therefore, `localhost` refers to the device running the browser; when testing from a tablet or phone, set `NEXT_PUBLIC_API_BASE_URL` to a backend address reachable on the LAN.
 
@@ -43,6 +43,8 @@ Most document and usage requests run directly from the browser. Therefore, `loca
 - `contexts/AuthContext.tsx` listens with `onAuthStateChanged`, exposes the current `User`, and provides anonymous, email/password, and Google sign-in plus logout and `getIdToken()`.
 - `components/ProtectedRoute.tsx` admits Firebase anonymous guests immediately and continues to require email verification for registered users.
 - `hooks/useUserTier.ts` reads the Firebase `tier` custom claim with `getIdTokenResult()`. `hooks/useRegistration.ts` forces a token refresh after backend registration so a newly assigned claim is available to the client.
+
+Email/password signup creates the Firebase account, sends a Firebase verification email, and redirects to `/verify-email`. Unverified registered users cannot access protected application routes. After verification, the page refreshes Firebase state, sends the Firebase ID token to `/auth/register`, and refreshes custom claims after backend provisioning. No invitation code is required. Google authentication uses Firebase's Google popup flow; its verified provider identity follows the same backend provisioning path when a new account needs a tier.
 
 `Try Demo` signs in with Firebase Anonymous Authentication and opens the existing dashboard. Login and sign-up also offer the same account-free entry. Guest mode labels the synthetic, fan-made InGen dataset, shows the five shared documents and suggested questions, provides a direct demo-document drawer action, hides conversation/upload/delete/account/support controls, and offers sign-in/create-account exits for private uploads. Its mobile notice can collapse to a compact persistent action row. It does not load or save Firestore conversations. The remaining-question label is read from `GET /auth/usage` on load and refreshed after successful or rejected query attempts, so reloads and server-side reservations remain authoritative. When the backend explicitly disables daily guest quotas for local development, that endpoint returns `limited: false` and the workspace shows `Unlimited in development`; production continues to show the remaining daily allowance. Firebase Anonymous Authentication must be enabled for the deployed Web app.
 
@@ -110,7 +112,7 @@ npm run test:firebase-auth-emulator
 The command uses the isolated `demo-dih-auth` project and refuses to run when the Auth Emulator
 is not configured.
 
-Tests are under `test/`, including coverage for upload conflicts, bounded chat forwarding, citation persistence/display, and authenticated original-PDF opening. The commands above document the available workflows; they do not claim that the current suite passes in every environment.
+Tests are under `test/`, including coverage for upload conflicts, bounded chat forwarding, citation persistence/display, and authenticated original-PDF opening. GitHub Actions also runs frontend lint, type-check, format, test, and production-build checks.
 
 ## Important Code Paths
 
