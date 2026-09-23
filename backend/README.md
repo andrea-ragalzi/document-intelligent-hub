@@ -1,6 +1,6 @@
 # Backend
 
-The backend is a Python 3.12 FastAPI service for authenticated PDF ingestion, document management, and retrieval-augmented question answering. It owns request validation, Firebase token verification, document processing, ChromaDB persistence, RAG orchestration, usage tracking, and support integrations.
+This is the backend for Document Intelligent Hub, a personal, independently built backend-heavy full-stack project. The Python 3.12 FastAPI service owns authenticated PDF ingestion, document management, retrieval-augmented question answering, usage tracking, and support integrations.
 
 ## Responsibilities
 
@@ -58,8 +58,10 @@ PDF upload
 
 ```text
 RAG query
-→ query_router.py reserves the authenticated user's quota and extracts include/exclude file filters
-→ QueryProcessingService classifies only semantic category with Pydantic Structured Output, then conditionally reformulates contextual queries for retrieval
+→ query_router.py reserves the authenticated user's quota and loads the accessible document catalog
+→ deterministic routing checks narrow, safe lookup, extraction, and count shapes against validated evidence
+→ unsupported or ambiguously validated requests fall through to normal RAG; file filters are then extracted
+→ QueryProcessingService conditionally reformulates contextual queries for retrieval; self-contained queries continue unchanged
 → QueryExpansionService produces English retrieval alternatives while retaining identifiers; the existing parser LLM can also return up to two semantic retrieval queries for genuine compound requests
 → VectorStoreRepository combines user/file-filtered semantic retrieval with lexical candidates
 → Compound candidates are retrieved concurrently, deduplicated, and merged with reciprocal-rank fusion; RerankingService runs once against the original question
@@ -70,16 +72,17 @@ RAG query
 
 The answer path may translate a retrieval query to English, but `LanguageService` resolves the answer language before answer generation: explicit `output_language` override, current-message request, current-message detection, then recent user history only for ambiguous follow-ups. That value reaches the answer model as authoritative `LANG:<code>`. Document language never selects the answer language. `Q` is the raw current user message, `H` is bounded historical context in `U|`/`A|` lines, and `C` contains compact `[C1|filename|p7]` evidence blocks. Retrieved documents and history are untrusted data: they provide evidence or context, never executable instructions. `QueryRequest.conversation_history` is bounded by message count and total content length before any model work. The API returns a complete JSON response; it does not stream tokens from the model.
 
-The three runtime prompts have separate responsibilities: classification returns only a Pydantic Structured Output category; reformulation returns one standalone retrieval query; answer generation owns grounding, response language, presentation, and insufficient-information wording. The legacy `PromptTemplateService` TOON query-rewriter helper is retained only for its isolated use-case utility and is not part of the production RAG request path.
+The production request path uses the reformulation prompt only when conversation history is needed; answer generation owns grounding, response language, presentation, and insufficient-information wording. The classification service and prompt remain available for isolated use cases and tests, but normal RAG requests do not make a semantic classification call. The legacy `PromptTemplateService` TOON query-rewriter helper is retained only for its isolated use-case utility and is not part of the production RAG request path.
 
-Compound retrieval is a bounded optimization. It reuses the existing parser LLM, adds no decomposition-only LLM call, and accepts at most two standalone subqueries. Language and presentation instructions remain separate from semantic retrieval queries. Invalid compound output falls back to the simple path. Chroma retrieval is concurrent rather than truly batched because the repository exposes no batch query method. The final context limit and single final answer-generation call are unchanged.
+Deterministic routing is intentionally narrow: a validated direct lookup, labeled extraction, or document-count request can return grounded evidence without invoking the normal LLM RAG path. Unsupported requests, ambiguous shapes, failed evidence validation, and conversational requests fall through to the normal path. Compound retrieval is a bounded optimization. It reuses the existing parser LLM, adds no decomposition-only LLM call, and accepts at most two standalone subqueries. Language and presentation instructions remain separate from semantic retrieval queries. Invalid compound output falls back to the simple path. Chroma retrieval is concurrent rather than truly batched because the repository exposes no batch query method. The final context limit and single final answer-generation call are unchanged.
 
 `POST /rag/upload/` accepts a PDF multipart field and optional `duplicate_action`: `reject` (default, returns `409` for a colliding owned filename), `replace`, or `rename` (server assigns `name (n).pdf`). Upload and every document mutation require a verified registered user. `POST /rag/query/` accepts `query`, bounded `conversation_history`, and optional `output_language`; it returns `answer`, compatibility `source_documents`, and `citations`, whose items contain `filename` and an optional one-based `page_number`. A verified registered user queries their UID-scoped collection. A Firebase anonymous identity queries the reserved shared InGen demo namespace under the guest budgets described below. Stored originals are available through authenticated `GET /rag/documents/content`; ownership or the guest namespace is selected only from verified token claims.
 
 ## Authentication & User Isolation
 
 - `app/core/auth.py::verify_firebase_token` reads the `Authorization: Bearer <token>` header and calls Firebase Admin `auth.verify_id_token()`.
-- The verified Firebase token is converted into a `FirebasePrincipal`. Registered users retain their UID-scoped workspace and verified-email requirements. Tokens whose signed-in provider is `anonymous` are mapped to the reserved `__shared_ingen_demo_v1__` namespace for list/content/query only. Client-supplied ownership is never used.
+- The verified Firebase token is converted into a `FirebasePrincipal`. Registered users retain their UID-scoped workspace; email/password users need a verified Firebase email before provisioning or protected backend work. Tokens whose signed-in provider is `anonymous` are mapped to the reserved `__shared_ingen_demo_v1__` namespace for list/content/query only. Client-supplied ownership is never used.
+- `/auth/register` receives the Firebase ID token, rejects an unverified email before first provisioning, preserves an existing valid tier on repeat registration, assigns `UNLIMITED` to configured allowlisted emails, and assigns `FREE` to other new users. No invitation code is required.
 - Guest upload, ingestion, seeding, deletion, account cleanup, support submission, and summarization are rejected by server dependencies. Guest conversations are not written to Firestore.
 - `DocumentIndexingService._prepare_chunks_with_metadata()` writes the verified user ID to each chunk's `source` metadata field and stores `original_filename` alongside language and section metadata.
 - `VectorStoreRepository` applies `source=<user_id>` when listing, retrieving, and deleting chunks. Optional filename filters are combined with the same ownership condition.
@@ -112,7 +115,7 @@ Create the ignored local configuration with `cp backend/.env.example backend/.en
 | `FIREBASE_CREDENTIALS`            | Firebase service-account JSON supplied as an environment value                                               |
 | `FIREBASE_SERVICE_ACCOUNT_PATH`   | Alternate path to a Firebase service-account JSON file                                                       |
 | `RAG_SYSTEM_PROMPT_PATH`          | Override path for the RAG system prompt                                                                      |
-| `CLASSIFICATION_PROMPT_PATH`      | Override path for the classification prompt                                                                  |
+| `CLASSIFICATION_PROMPT_PATH`      | Override path for the isolated classification prompt; not used by normal production RAG requests             |
 | `QUERY_REFORMULATION_PROMPT_PATH` | Override path for the query-reformulation prompt                                                             |
 | `ENVIRONMENT`                     | Selects production CORS behavior when set to `production`                                                    |
 | `ALLOWED_ORIGINS`                 | Comma-separated production CORS origins                                                                      |
@@ -158,7 +161,7 @@ For a coverage report:
 poetry run pytest --cov=app --cov-report=term
 ```
 
-The latest validation recorded 73 targeted tests passing and 322 backend tests passing. MyPy, Pylint, and `git diff --check` also passed. Firebase, OpenAI, Resend, and local model availability can affect tests in other environments.
+GitHub Actions validates backend changes with Pylint, MyPy, Lizard, and pytest, alongside the repository's frontend, secret-scanning, Docker, and Firebase integration checks. Firebase, OpenAI, Resend, and local model availability can affect tests in other environments.
 
 ## Important Code Paths
 
@@ -181,7 +184,6 @@ The latest validation recorded 73 targeted tests passing and 322 backend tests p
 
 - Run Uvicorn from `backend/`: `.env.local`, the default prompt paths, and the relative `CHROMA_DB_PATH` are resolved from the backend working directory.
 - Firebase initialization is attempted at startup. Without valid Firebase credentials the process can start, but protected/authentication routes are unavailable.
-- Registration accepts only a Firebase ID token whose `email_verified` claim is true. It assigns the constrained FREE tier by default, with no invitation code. The configured `app_config/settings.unlimited_emails` allowlist can receive the UNLIMITED tier; the assigned tier is stored as a Firebase custom claim.
 - Startup preloads the local HuggingFace embedding model and creates the persistent ChromaDB directory if needed; the first run can be slow and may require model download access.
 - Startup also checks the stable shared InGen namespace. It indexes the five bundled, synthetic fan-made enterprise documents only when the namespace is absent or incomplete; anonymous sessions never seed or copy vectors. Enable Anonymous sign-in in the deployed Firebase project before publishing.
 - ChromaDB contains the local search index rather than the original PDFs. Deleting `CHROMA_DB_PATH` loses indexed chunks and requires the documents to be uploaded again.

@@ -1,6 +1,6 @@
 # Document Intelligent Hub
 
-Document Intelligent Hub is an independently built, full-stack application for people and teams who need to search private PDF collections and ask questions grounded in their own documents. Its core is a Python 3.12 and FastAPI REST API that authenticates users with Firebase, indexes document content in ChromaDB with local HuggingFace embeddings, and returns RAG-generated answers with evidence-backed filename and page citations.
+Document Intelligent Hub is a personal, independently built full-stack project focused on Python backend engineering and applied RAG. It allows users to search private PDF collections and ask questions grounded in their own documents. Its core is a Python 3.12 and FastAPI REST API that authenticates users with Firebase, indexes document content in ChromaDB with local HuggingFace embeddings, and returns source-grounded answers with filename and page citations.
 
 The project is full-stack but intentionally backend-heavy. It demonstrates authenticated API design, third-party integrations, document-processing workflows, application-level user isolation, maintainable service boundaries, and automated testing around an applied Retrieval-Augmented Generation (RAG) system.
 
@@ -9,19 +9,21 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 
+**[Try the Live Demo](https://document-intelligent-hub.vercel.app)** — no registration required.
+
 ## What It Does
 
 - Verified users can batch-upload, manage, and search private PDF collections, choosing how to resolve owned filename collisions.
-- Recruiters can use **Try Demo** without registration. Firebase Anonymous Authentication opens a read-only workspace backed by five shared synthetic InGen enterprise documents.
+- Anyone can use **Try Demo** without registration. Firebase Anonymous Authentication opens a read-only workspace backed by five shared synthetic InGen enterprise documents.
 - Natural-language questions are answered from retrieved document context, with source filenames and available page citations returned for grounding.
 - File-aware and multilingual queries support conversations over indexed documents.
-- Saved conversations are persisted in Firestore through the client application.
+- Registered users' saved conversations are persisted in Firestore through the client application; guest sessions do not persist conversations.
 
 ## Backend Engineering Highlights
 
 - **REST API design:** FastAPI routers and Pydantic schemas define authentication, document, query, usage, and support contracts, with OpenAPI documentation available at runtime.
 - **Authentication boundary:** Firebase Admin verifies bearer tokens; protected routes derive the user ID from the verified token rather than trusting a client-selected owner.
-- **Bounded guest demo:** anonymous identities can only list/read the shared demo corpus and query the production RAG pipeline; server-side UID, IP, concurrency, and global daily controls bound paid work.
+- **Bounded guest demo:** anonymous identities can only list/read the shared demo corpus and query the production RAG pipeline; server-side UID, IP, concurrency, and global daily controls bound public demo usage.
 - **Backend integrations:** the service coordinates Firebase, Firestore, OpenAI, ChromaDB, local HuggingFace embeddings, and Resend-backed support workflows.
 - **Pragmatic ports and adapters:** routers handle HTTP, application services coordinate workflows, application-owned ports describe required capabilities, and infrastructure adapters isolate Firestore, OpenAI, filesystem, Resend, and Chroma integrations.
 - **Multi-user isolation:** indexed chunks carry the verified Firebase user ID in metadata, and repository operations apply that metadata filter when listing, retrieving, and deleting documents.
@@ -60,9 +62,7 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 └─────────────────────────────────────────────────────────────┘
 ```
 
-`app/dependencies.py` is the composition root: it constructs concrete adapters and configured LLM clients, then injects them into application services and routers. Repositories are used only for meaningful storage-oriented operations, so services and repositories do not have a one-to-one relationship. This is a pragmatic ports-and-adapters structure rather than a fully pure hexagonal architecture.
-
-Firebase handles identity, while Firestore stores conversations and backend usage/configuration data. ChromaDB stores PDF chunks and embeddings. OpenAI is used for language-model operations; document embeddings are generated locally with HuggingFace Sentence Transformers. Tier resolution still contains Firebase/configuration coupling, and document indexing still contains LangChain PDF/chunking coupling.
+FastAPI routers validate requests and delegate to application services, which depend on application-owned ports and concrete adapters. Firebase supplies identity, ChromaDB persists document chunks and embeddings, and adapters isolate Firestore, OpenAI, local HuggingFace embeddings, file storage, and email delivery. See the [backend handbook](backend/README.md) for the implementation boundaries.
 
 ## RAG Pipeline
 
@@ -70,35 +70,23 @@ Firebase handles identity, while Firestore stores conversations and backend usag
 
 ```text
 Authenticated PDF upload
-→ file validation and temporary-file handling
-→ element extraction with UnstructuredPDFLoader
-→ document classification and structural-density check
-→ structural or fixed-size chunking
-→ full-document language detection with Lingua
-→ ownership, filename, lowercase ISO language, section, and timestamp metadata
+→ validation, parsing, classification, chunking, and language metadata
 → local HuggingFace embeddings
-→ batched ChromaDB indexing
+→ ChromaDB indexing
 ```
 
 ### Query and Answer Generation
 
 ```text
 Verified-email Firebase context or restricted anonymous demo context
-→ natural-language file-filter extraction
-→ conditional query reformulation from conversation context
-→ retrieval-language detection and translation when needed; response language is resolved from the current raw user message before answer generation
-→ English retrieval-query expansion that preserves identifiers; genuine compound requests may use up to two bounded retrieval subqueries
-→ ChromaDB retrieval filtered by verified user and optional filename metadata
-→ lexical candidates, duplicate removal, and hybrid reranking
-→ minimum-sufficient evidence selection from trusted retrieved passages
-→ answer prompt construction from raw current query (`Q`), compact bounded history (`H`), and citation-safe retrieved context (`C`)
-→ OpenAI answer generation
-→ trusted filename/page citation mapping and API response
+→ parsing and file filtering
+→ optional contextual reformulation
+→ workspace-scoped retrieval and reranking/evidence selection
+→ grounded OpenAI answer
+→ trusted filename/page citations
 ```
 
-Registered requests remain filtered by their verified Firebase UID. Anonymous requests are mapped server-side to one stable read-only demo namespace, so guest accounts do not create documents or embeddings. The bundled InGen files are synthetic fan-made enterprise artifacts created for this demonstration; they are not official franchise documents.
-
-The API returns `source_documents` for compatibility and structured `citations` containing a filename and, when present in chunk metadata, a one-based PDF page number. It does not expose retrieval scores.
+Registered requests remain scoped to their verified Firebase UID. Anonymous requests use one shared read-only synthetic InGen namespace. The API returns complete JSON with compatibility `source_documents` and structured filename/page `citations`.
 
 ## Tech Stack
 
@@ -112,7 +100,7 @@ The API returns `source_documents` for compatibility and structured `citations` 
 
 ## Testing
 
-The repository contains backend and frontend test suites. This documentation pass did not execute the complete suites, so it does not claim a current pass count or coverage percentage.
+GitHub Actions validates backend and frontend changes through static analysis, automated tests, frontend production build checks, secret scanning, and relevant Docker and Firebase integration checks.
 
 Backend:
 
@@ -168,32 +156,7 @@ Prerequisites: Python 3.12, Poetry, Node.js with npm, an OpenAI API key, and a d
    - Frontend: http://127.0.0.1:3000
    - FastAPI documentation: http://127.0.0.1:8000/docs
 
-See the [backend handbook](backend/README.md) and [frontend handbook](frontend/README.md) for component-specific details.
-The complete two-environment model and Firebase DEV checklist are in [ENVIRONMENTS.md](ENVIRONMENTS.md).
-
-## Repository Structure
-
-```text
-document-intelligent-hub/
-├── backend/
-│   ├── app/
-│   │   ├── core/          # Settings, authentication, Firebase, logging
-│   │   ├── db/            # ChromaDB and embedding configuration
-│   │   ├── repositories/  # Vector-store persistence and filtering
-│   │   ├── routers/       # FastAPI endpoints
-│   │   ├── schemas/       # Pydantic API contracts
-│   │   └── services/      # Document, query, RAG, usage, and support logic
-│   ├── tests/             # Backend pytest suite
-│   └── main.py            # FastAPI entry point
-├── frontend/
-│   ├── app/               # Next.js pages and chat API route
-│   ├── components/        # UI components
-│   ├── hooks/             # Client and server-state workflows
-│   ├── lib/               # Firebase, API, and conversation integrations
-│   └── test/              # Frontend Vitest suite
-├── docker-compose.yml
-└── README.md
-```
+See the [backend handbook](backend/README.md), [frontend handbook](frontend/README.md), and [environment guide](ENVIRONMENTS.md) for component and Firebase setup details.
 
 ## Current Status & Limitations
 
