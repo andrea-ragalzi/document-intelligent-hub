@@ -1,7 +1,7 @@
 # Environment Separation
 
-Document Intelligent Hub uses two environments only. There is no online staging
-environment.
+Document Intelligent Hub uses two application configuration tiers: local DEV
+and production. There is no persistent online staging environment.
 
 ## Local / DEV
 
@@ -53,7 +53,7 @@ prompt values, `CHROMA_DB_PATH=/data/chroma_db`, and `HF_HOME=/data/huggingface`
 Production values must not be copied into local environment files or Git.
 
 Enable the Anonymous provider in the production Firebase project before publishing
-the recruiter demo; otherwise `Try Demo` fails before the dashboard opens. Enable
+the public demo; otherwise `Try Demo` fails before the dashboard opens. Enable
 Firebase/Identity Platform automatic cleanup for anonymous accounts where available,
 and verify that policy in the production console. Google web authentication uses
 Firebase's popup flow on both desktop and mobile.
@@ -105,9 +105,14 @@ registration; a new registration receives FREE by default.
 feature/* -> develop -> local testing with DEV -> main -> production
 ```
 
-`develop` is never an online environment. Vercel and Railway production should
-ultimately deploy from `main`; preview/staging infrastructure is outside this
-model.
+`develop` is never a persistent online environment. Vercel and Railway
+production deploy from `main`; Vercel preview deployments are ephemeral
+integration artifacts rather than a separate application configuration tier.
+
+GitHub's deployment list is integration-owned: Vercel records `Preview` and
+`Production`, while Railway records `document-intelligent-hub / production`.
+These labels are deployment records, not additional application configuration
+tiers or GitHub Actions `env:` variables.
 
 The older ignored `backend/chroma_db` directory is legacy local data. Preserve
 it if it exists, but do not use it for DEV; new local runs use

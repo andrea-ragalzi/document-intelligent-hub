@@ -9,7 +9,13 @@ The project is full-stack but intentionally backend-heavy. It demonstrates authe
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 
-**[Try the Live Demo](https://document-intelligent-hub.vercel.app)** — no registration required.
+**[Try the Live Demo](https://document-intelligent-hub.vercel.app)**
+
+**Try without registration.** Click **Try Demo** to enter a shared read-only workspace with five synthetic InGen documents. Ask questions and inspect filename/page citations; guest conversations are not saved and guests cannot upload or delete documents.
+
+**Create an account.** Upload and manage your own PDFs, then ask questions over documents scoped to your verified Firebase identity. Registered conversations can be persisted in Firestore.
+
+![Document Intelligent Hub guest demo with grounded answer and source citations](docs/images/document-intelligent-hub-demo.png)
 
 ## What It Does
 
