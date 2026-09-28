@@ -11,4 +11,44 @@ Read-only phase. Follow `AGENTS.md` and, for the relevant area, `backend/AGENTS.
 3. List risks and regressions, a plan of at most 5 steps, and targeted tests. Do not introduce abstractions when a local change is enough.
 4. Do not modify files (including `TASK.md`), implement, or refactor. Stop if the request goes out of scope.
 
-Respond with these sections, in order: `Goal`, `Current flow`, `Evidence`, `Risks`, `Plan`, `Verification`, `Unknowns`, `## TASK.md draft`. In the final section, provide a concise ready-to-copy draft with `Goal`, `Requirements`, `Constraints`, `Acceptance Criteria`, `Non-goals`, `Approved Plan`, and `Verification`. The developer manually copies it into `TASK.md` only after approving the plan. Stop and wait for approval before `/implement`.
+Respond with these sections, in order: `Goal`, `Current flow`, `Evidence`, `Risks`, `Plan`, `Verification`, `Unknowns`, `## TASK.md draft`.
+
+In the final section, provide the complete contents of `TASK.md` inside a single fenced Markdown code block, ready to copy without editing.
+
+Use exactly this structure:
+
+# Current Task
+
+## Goal
+...
+
+## Requirements
+- ...
+
+## Constraints
+- ...
+
+## Acceptance Criteria
+- ...
+
+## Non-goals
+- ...
+
+## Approved Plan
+1. ...
+2. ...
+
+## Verification
+- ...
+
+Rules for the final `TASK.md` draft:
+- Do not use inline labels such as `**Goal:**`.
+- Do not add commentary inside the code block.
+- Keep it concise and implementation-oriented.
+- Preserve all user constraints.
+- Do not include speculative details as requirements.
+- Keep the approved plan to at most 5 steps.
+- Do not modify `TASK.md`; `/plan` only proposes its contents.
+- The developer manually copies the block into `TASK.md` only after approving the plan.
+
+Stop and wait for approval before `/implement`.
