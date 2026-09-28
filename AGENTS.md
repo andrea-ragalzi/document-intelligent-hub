@@ -2,6 +2,8 @@
 
 Work directly on the requested task.
 
+`TASK.md` is the source of truth for the current approved development task. Before implementing, diagnosing, reviewing, or finishing, read it first and work only within its scope. Do not silently reinterpret or expand its requirements, and do not modify `TASK.md` unless the developer explicitly requests it. If it is missing, empty, or materially ambiguous, stop instead of guessing. If a newer explicit developer instruction conflicts with `TASK.md`, stop and report the conflict. `/plan` designs the next task and does not require an approved `TASK.md`.
+
 Before editing:
 
 - inspect the relevant code, tests, and documentation;

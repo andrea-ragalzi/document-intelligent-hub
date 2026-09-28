@@ -1,0 +1,46 @@
+[
+  {
+    "label": "Environment: verify Poetry, Python, Node, npm",
+    "command": "sh",
+    "args": ["-c", "set -eu; for tool in poetry python3 node npm; do if ! command -v \"$tool\" >/dev/null 2>&1; then printf 'Missing prerequisite: %s\\n' \"$tool\" >&2; exit 1; fi; \"$tool\" --version; done"]
+  },
+  { "label": "Backend: install (Poetry lock)", "command": "poetry install --no-interaction", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Frontend: install (npm lock)", "command": "npm ci", "cwd": "$ZED_WORKTREE_ROOT/frontend" },
+
+  { "label": "Dev: backend", "command": "make dev-backend" },
+  { "label": "Dev: frontend", "command": "make dev-frontend" },
+
+  { "label": "Backend: current test", "command": "poetry", "args": ["run", "pytest", "$ZED_FILE"], "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Backend: full tests", "command": "poetry run pytest", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Backend: Ruff", "command": "poetry run ruff check app tests", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Backend: basedpyright", "command": "poetry run basedpyright app", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Backend: security tests", "command": "poetry run pytest tests/test_security.py tests/test_support_security.py tests/test_auth_isolation_boundaries.py tests/test_admin_tier_authorization.py tests/test_auth_helpers.py", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Backend: MyPy", "command": "poetry run mypy app/ --strict --pretty", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Backend: Pylint", "command": "poetry run pylint app/ --rcfile=.pylintrc --fail-under=9.0", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Backend: complexity", "command": "poetry run lizard app/ -l python -C 25 -w", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+
+  { "label": "RAG: core tests", "command": "poetry run pytest tests/test_rag_service_unit.py tests/test_rag_happy_path.py tests/test_rag_endpoints.py", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "RAG: retrieval tests", "command": "poetry run pytest tests/test_retrieval_selection.py tests/test_lexical_candidate_selection.py tests/test_lexical_candidate_filter_precedence.py tests/test_final_context_selector.py", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "RAG: citations tests", "command": "poetry run pytest tests/test_evidence_citations.py tests/test_citation_validity_rescue.py", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "RAG: evaluation tests", "command": "poetry run pytest tests/evaluation -q", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "RAG: public eval (LLM/API cost)", "command": "poetry run python -m evaluation.run_eval --suite public", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+
+  { "label": "Frontend: tests", "command": "npm run test:run", "cwd": "$ZED_WORKTREE_ROOT/frontend" },
+  { "label": "Frontend: lint", "command": "npm run lint", "cwd": "$ZED_WORKTREE_ROOT/frontend" },
+  { "label": "Frontend: typecheck", "command": "npm run type-check", "cwd": "$ZED_WORKTREE_ROOT/frontend" },
+  { "label": "Frontend: quality", "command": "npm run lint && npm run format:check && npm run type-check", "cwd": "$ZED_WORKTREE_ROOT/frontend" },
+  { "label": "Frontend: build", "command": "npm run build", "cwd": "$ZED_WORKTREE_ROOT/frontend" },
+
+  { "label": "Quality: backend", "command": "poetry run ruff check app tests && poetry run mypy app/ --strict --pretty && poetry run pylint app/ --rcfile=.pylintrc --fail-under=9.0 && poetry run lizard app/ -l python -C 25 -w", "cwd": "$ZED_WORKTREE_ROOT/backend" },
+  { "label": "Quality: frontend", "command": "npm run quality:check", "cwd": "$ZED_WORKTREE_ROOT/frontend" },
+  {
+    "label": "Quality: fast",
+    "command": "sh",
+    "args": ["-c", "set -eu; cd \"$ZED_WORKTREE_ROOT/backend\"; poetry run ruff check app tests; poetry run mypy app/ --strict --pretty; poetry run pylint app/ --rcfile=.pylintrc --fail-under=9.0; poetry run lizard app/ -l python -C 25 -w; cd \"$ZED_WORKTREE_ROOT/frontend\"; npm run lint; npm run format:check; npm run type-check"]
+  },
+  {
+    "label": "Quality: full",
+    "command": "sh",
+    "args": ["-c", "set -eu; cd \"$ZED_WORKTREE_ROOT/backend\"; poetry run ruff check app tests; poetry run mypy app/ --strict --pretty; poetry run pylint app/ --rcfile=.pylintrc --fail-under=9.0; poetry run lizard app/ -l python -C 25 -w; poetry run basedpyright app; poetry run pytest; poetry run pytest tests/test_security.py tests/test_support_security.py tests/test_auth_isolation_boundaries.py tests/test_admin_tier_authorization.py tests/test_auth_helpers.py; cd \"$ZED_WORKTREE_ROOT/frontend\"; npm run quality:check; npm run build"]
+  }
+]
