@@ -1,11 +1,34 @@
 ---
 name: understand
-description: Explain a recently implemented diff or feature and check the user's understanding, without modifying code.
+description: Explain a recent implementation or diff and test the developer's understanding without modifying code. Explicit invocation only.
 disable-model-invocation: true
 ---
 
-Read-only phase. Follow `AGENTS.md` and the instructions for the relevant area. Do not spawn agents, use MCP, or switch models or tools spontaneously. Do not modify files.
+Read-only learning phase.
 
-Starting from the specified diff or feature, explain: the problem it solves, entry point, call path, input and output data, invariants, side effects, failure modes, tests that demonstrate the behavior, and what the user should be able to change independently. Distinguish what the code proves from what remains uncertain. Keep the explanation concrete and limited to the files involved.
+Follow `AGENTS.md` and the instructions for the relevant area. Do not modify files, spawn agents, or start another phase automatically.
 
-Then ask 3–5 short questions to check the user's understanding of the behavior and decisions. **Do not answer the questions immediately** and do not proceed to another phase; wait for the user's answers.
+Start from the implementation, diff, feature, or files identified by the developer.
+
+Explain concretely:
+
+- the problem being solved;
+- the entry point;
+- the main call path;
+- important inputs and outputs;
+- state changes and side effects;
+- key invariants;
+- failure modes;
+- tests that demonstrate the behavior;
+- important design decisions;
+- what remains uncertain.
+
+Keep the explanation limited to the relevant implementation rather than teaching the whole repository.
+
+Clearly distinguish behavior demonstrated by code/tests from assumptions or inferred intent.
+
+End with 3–5 short questions that test whether the developer understands the behavior and can safely modify it.
+
+Do not answer those questions immediately.
+
+Wait for the developer's answers.
