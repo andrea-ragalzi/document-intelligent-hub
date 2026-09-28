@@ -1,98 +1,60 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "agents": {
+  "agent": {
     "review": {
       "description": "Adversarially review and independently test the current task without modifying production code",
       "mode": "primary",
-      "permissions": [
-        { "action": "*", "resource": "*", "effect": "deny" },
+      "permission": {
+        "*": "deny",
 
-        { "action": "read", "resource": "*", "effect": "allow" },
-        { "action": "glob", "resource": "*", "effect": "allow" },
-        { "action": "grep", "resource": "*", "effect": "allow" },
-        { "action": "list", "resource": "*", "effect": "allow" },
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "lsp": "allow",
 
-        { "action": "edit", "resource": "backend/tests/*", "effect": "allow" },
-        { "action": "edit", "resource": "frontend/tests/*", "effect": "allow" },
-        {
-          "action": "edit",
-          "resource": "frontend/src/*.test.*",
-          "effect": "allow"
-        },
-        {
-          "action": "edit",
-          "resource": "frontend/src/*.spec.*",
-          "effect": "allow"
+        "edit": {
+          "*": "deny",
+          "backend/tests/reviewer_*.py": "allow",
+          "frontend/test/reviewer_*": "allow"
         },
 
-        { "action": "shell", "resource": "git status *", "effect": "allow" },
-        { "action": "shell", "resource": "git diff *", "effect": "allow" },
+        "bash": {
+          "*": "deny",
 
-        { "action": "shell", "resource": "cd backend *", "effect": "allow" },
-        { "action": "shell", "resource": "cd frontend *", "effect": "allow" },
+          "git status *": "allow",
+          "git diff *": "allow",
 
-        {
-          "action": "shell",
-          "resource": "poetry run pytest *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "poetry run ruff check *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "poetry run mypy *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "poetry run basedpyright *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "poetry run pylint *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "poetry run lizard *",
-          "effect": "allow"
+          "poetry run pytest *": "allow",
+          "poetry run ruff check *": "allow",
+          "poetry run mypy *": "allow",
+          "poetry run basedpyright *": "allow",
+          "poetry run pylint *": "allow",
+          "poetry run lizard *": "allow",
+
+          "npm run test:run *": "allow",
+          "npm run lint": "allow",
+          "npm run format:check": "allow",
+          "npm run type-check": "allow",
+          "npm run quality:check": "allow",
+          "npm run build": "allow",
+
+          "*--fix*": "deny",
+          "*--write*": "deny",
+          "*--output*": "deny",
+          "*--ext-diff*": "deny",
+          "*--textconv*": "deny",
+          "*--install-types*": "deny",
+          "*--update*": "deny",
+          "* -u*": "deny",
+          "*>*": "deny"
         },
 
-        {
-          "action": "shell",
-          "resource": "npm run test:run *",
-          "effect": "allow"
-        },
-        { "action": "shell", "resource": "npm run lint *", "effect": "allow" },
-        {
-          "action": "shell",
-          "resource": "npm run format:check *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "npm run type-check *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "npm run quality:check *",
-          "effect": "allow"
-        },
-        { "action": "shell", "resource": "npm run build *", "effect": "allow" },
-
-        { "action": "shell", "resource": "*--fix*", "effect": "deny" },
-
-        { "action": "subagent", "resource": "*", "effect": "deny" },
-        { "action": "webfetch", "resource": "*", "effect": "deny" },
-        { "action": "websearch", "resource": "*", "effect": "deny" },
-        { "action": "skill", "resource": "*", "effect": "deny" },
-        { "action": "external_directory", "resource": "*", "effect": "deny" }
-      ]
+        "task": "deny",
+        "skill": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "external_directory": "deny"
+      }
     }
   }
 }

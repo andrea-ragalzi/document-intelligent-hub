@@ -10,34 +10,9 @@ Follow `AGENTS.md` and, for the relevant area, `backend/AGENTS.md` or `frontend/
 
 Do not modify repository files, including `TASK.md`. Do not spawn agents, use MCP, switch models or tools spontaneously, or proceed to another phase automatically.
 
-1. Accept the developer's natural-language request. `/plan` does not require a populated `TASK.md`.
-2. Read only the relevant requirements, code, tests, configuration, and documentation needed to understand the request.
-3. Reconstruct the current flow and identify the files and symbols likely involved.
-4. Separate verified facts from hypotheses. Look for evidence that could disprove the first proposed solution.
-5. Choose the simplest solution supported by evidence.
-6. Identify meaningful risks and regressions.
-7. Produce a plan of at most 5 implementation steps and targeted verification.
-8. Do not implement, refactor, or expand the request beyond its scope.
+Start from the developer's request; an existing `TASK.md` is not required. Inspect only enough relevant code, tests, and documentation to identify the affected flow, files, and realistic risks. Choose the smallest solution supported by evidence; investigate alternatives only when a material uncertainty could change it.
 
-Respond with these sections, in order:
-
-## Goal
-
-## Current flow
-
-## Evidence
-
-## Risks
-
-## Plan
-
-## Verification
-
-## Unknowns
-
-## TASK.md draft
-
-In the final section, provide the complete contents of `TASK.md` inside a single fenced Markdown code block, ready to copy without editing.
+Briefly explain the evidence, risks, and any unresolved assumptions. Ask only about ambiguities that prevent a usable plan. Put the plan and verification once, in the copy-ready `TASK.md` draft below, inside a single fenced Markdown code block.
 
 Use exactly this structure:
 
@@ -78,9 +53,7 @@ Rules for the final `TASK.md` draft:
 - Preserve all explicit developer constraints.
 - Do not turn assumptions or unknowns into requirements.
 - Keep the approved plan to at most 5 steps.
-- Do not use inline labels such as `**Goal:**`.
 - Do not add commentary inside the code block.
-- Do not modify `TASK.md`; `/plan` only proposes its contents.
-- The developer manually copies the block into `TASK.md` only after approving the plan.
+- Choose targeted checks for the changed behavior and identify conditions requiring broader verification; do not default to whole-project quality gates.
 
-Stop and wait for approval before `/implement`.
+Stop after the draft. The developer approves and manually copies it into `TASK.md` before invoking `/implement`.

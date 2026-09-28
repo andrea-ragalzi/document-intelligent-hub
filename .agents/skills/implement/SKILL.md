@@ -12,32 +12,16 @@ Read `TASK.md` first.
 
 If `TASK.md` is missing, empty, materially ambiguous, lacks an approved plan or verification, or conflicts with a newer explicit developer instruction, stop.
 
-Before editing, briefly state:
-
-- the task goal;
-- the current approved plan step;
-- the files expected to change;
-- the verification required for that step.
-
-Implement only the current approved step.
-
-Prefer the smallest correct patch. Use TDD when appropriate. Do not expand scope, redesign the architecture, introduce dependencies, or refactor unrelated code unless the approved task explicitly requires it.
+Before editing, briefly state the intended changes and targeted verification. Execute the approved plan in order without requesting approval between steps, unless `TASK.md` explicitly requires a checkpoint.
 
 Do not modify `TASK.md`.
 
-After every non-trivial implementation step, run the verification agreed for that step before continuing.
+Use focused tests during implementation and run all required task checks before finishing. Honor explicit per-step checks; otherwise group checks covering related changes and repeat them only after relevant edits, failures, or new evidence. Do not automatically run broad quality gates.
 
 If required verification cannot be run, stop and report the missing prerequisite. Do not silently substitute another check.
 
-If implementation evidence shows the approved plan is wrong or incomplete, stop and request a new `/plan`.
+Resolve routine implementation details within the approved scope. If evidence requires changing the goal, scope, or acceptance criteria, stop and request a new `/plan`.
 
 If two attempts at the same problem fail, stop and recommend `/diagnose` or `/diagnose-rag` rather than continuing to guess.
 
-When the current approved work is complete, report:
-
-- what changed;
-- tests/checks run;
-- documentation updated when relevant;
-- remaining uncertainty.
-
-Then stop. The developer decides whether to continue implementation or move to OpenCode review.
+When the approved work is complete, use the repository's final report format and stop. The developer opens OpenCode review manually.

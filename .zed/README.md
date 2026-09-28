@@ -1,19 +1,27 @@
-# Zed: human-in-the-loop AI development
+# AI development workflow
 
-Open the repository root as a trusted worktree and use the **Zed Agent**. Skills in `.agents/skills/` provide `/plan`, `/implement`, `/diagnose`, `/finish`, and specialized `/diagnose-rag`, `/debug`, and `/understand`. They are manually invoked only (`disable-model-invocation: true`); none starts the next phase. OpenCode owns the only `/review` action; open a fresh OpenCode thread manually, select `opencode/nemotron-3-ultra-free`, then run `/review` in that thread. Zed does not launch OpenCode. `TASK.md` is the source of truth for approved work; the developer manually copies an approved `/plan` draft into it. The root `AGENTS.md` and instructions for the relevant areas remain authoritative.
+`/plan → /implement → OpenCode /review`
 
-Select **Ask** for planning and finishing. Select **Diagnose** for read-only investigation; it can read/search, use diagnostics, terminal, and skills, but cannot edit files or spawn subagents. For an approved step, select **Write** and invoke `/implement`. Zed asks for confirmation before running agent terminal commands; the terminal can still write to the project, so inspect proposed commands. Tasks run manually in Zed's terminal, do not use LLMs, and do not inherit agent permissions. Profiles and skills apply to Zed Agent. OpenCode's `review` primary agent has structurally enforced read-only permissions and runs `/review` in the current OpenCode thread without a child session.
+Open the trusted repository in Zed. Use **Ask** with `/plan`, review the draft, and manually copy it into `TASK.md`. Use **Write** with `/implement` to complete the approved plan. Then manually open a fresh OpenCode thread, select **Nemotron** (`opencode/nemotron-3-ultra-free`), and run `/review` for `PASS` or `CHANGES_REQUIRED`.
 
-Natural-language request
-→ Zed Ask + `/plan`
-→ developer manually copies the approved `TASK.md` draft
-→ Zed Write + `/implement`
-→ Zed Diagnose + `/diagnose` if needed
-→ Manually open OpenCode + select Nemotron + `/review` in the same thread
-→ Zed Ask + `/finish`
+Optional support: `/diagnose`, `/diagnose-rag` (**Diagnose**) and `/understand` (**Ask**). There is no automatic handoff or nested reviewer.
 
-Run the agreed verification after each non-trivial implementation step before proceeding; stop if a prerequisite is unavailable. The OpenCode reviewer only reports findings and does not fix them. Review `git diff` yourself. After two failed attempts at the same problem, stop implementation and return to diagnosis.
+## Where instructions live
 
-Open the Command Palette and choose `task: spawn` to run a task. Run `Environment: verify Poetry, Python, Node, npm` first; it stops at the first missing executable rather than selecting another package manager. Use `Backend: install (Poetry lock)` (`poetry install`) and `Frontend: install (npm lock)` (`npm ci`) to install from the existing lockfiles. `Quality: fast` runs backend Ruff/MyPy/Pylint/complexity checks and frontend lint/format/type checks. `Quality: full` additionally runs backend basedpyright, all backend tests and focused security regression tests, frontend tests, and the frontend build. `basedpyright` is not declared in the backend Poetry dependencies; its task and the full gate will stop until that prerequisite is available in the Poetry environment. Do not substitute a different checker without approval. For `Backend: current test`, first open a Python test under `backend/tests/`. Regular backend tests follow `pytest.ini`, which excludes `firebase_emulator`; the targeted RAG tasks and `RAG: evaluation tests` use deterministic suites.
+- [AGENTS.md](../AGENTS.md) and area instructions: repository rules.
+- [Zed skills](../.agents/skills/): phase behavior.
+- [tasks.json](tasks.json): reusable manual commands via `task: spawn`.
+- [review.md](../.opencode/commands/review.md): independent, risk-based review and new-test rules.
+- [opencode.json](../.opencode/opencode.json): tool permissions; ordinary test and production edits denied.
 
-`RAG: public eval (LLM/API cost)` runs the real public suite. It may incur API charges and adds reports/history as described in `backend/evaluation/README.md`; run it only by explicit decision. `Frontend: quality` runs lint, format check, and type check; `Quality: frontend` uses the existing script, which also runs tests. `Quality: backend` groups Ruff, MyPy, Pylint, and complexity checks; tests remain separate for targeted feedback. `Backend: security tests` runs existing security/auth tests, not a dependency vulnerability or secrets scan. No task starts another task automatically.
+Small test-only reviews run one targeted test, then return a verdict when evidence is sufficient. A failing pre-review test stays unchanged and yields `CHANGES_REQUIRED`; broader checks require concrete evidence.
+
+New independent tests use fresh unique filenames under `backend/tests/reviewer_*.py` or `frontend/test/reviewer_*`; writes require no approval. Existing tests, including earlier reviewer files, must never be overwritten or reused. V1 path permissions cannot enforce create-only access within this namespace, so fresh-name discipline remains a reviewer rule. Backend reviewer files run by explicit pytest path. Only temporary probes created during the current review may be removed. Tool permissions are not an OS sandbox: allowed tests/scripts execute code and create normal cache/build artifacts. Manual Zed tasks do not inherit agent permissions.
+
+## Runtime and checks
+
+Zed ACP uses OpenCode **1.18.33** with V1 `agent`, `permission`, `bash`, and `subtask: false`. Shell `opencode` resolves to **2.0.16**. Diagnose ACP using its actual executable's `--version`, `debug config`, and `debug agent review`; the shell binary is not equivalent. After configuration changes, restart ACP and open a fresh thread.
+
+Backend checks run through Poetry in `backend/`; frontend checks use npm scripts in `frontend/`. OpenCode supplies the directory through `bash.workdir`. Start with `Backend: current test` (an open backend test), a relevant RAG task, or a frontend test filter.
+
+`Quality: static (both apps)` runs broad static checks; `Quality: full` adds tests and build checks. These are manual broad gates, not the fast review path. basedpyright availability in Poetry remains a known prerequisite to confirm before using its task/full gate. Regular backend tests exclude `firebase_emulator`. The public RAG evaluation can incur API costs; details are in [the evaluation README](../backend/evaluation/README.md).

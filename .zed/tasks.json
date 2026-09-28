@@ -34,7 +34,7 @@
   { "label": "Quality: backend", "command": "poetry run ruff check app tests && poetry run mypy app/ --strict --pretty && poetry run pylint app/ --rcfile=.pylintrc --fail-under=9.0 && poetry run lizard app/ -l python -C 25 -w", "cwd": "$ZED_WORKTREE_ROOT/backend" },
   { "label": "Quality: frontend", "command": "npm run quality:check", "cwd": "$ZED_WORKTREE_ROOT/frontend" },
   {
-    "label": "Quality: fast",
+    "label": "Quality: static (both apps)",
     "command": "sh",
     "args": ["-c", "set -eu; cd \"$ZED_WORKTREE_ROOT/backend\"; poetry run ruff check app tests; poetry run mypy app/ --strict --pretty; poetry run pylint app/ --rcfile=.pylintrc --fail-under=9.0; poetry run lizard app/ -l python -C 25 -w; cd \"$ZED_WORKTREE_ROOT/frontend\"; npm run lint; npm run format:check; npm run type-check"]
   },
