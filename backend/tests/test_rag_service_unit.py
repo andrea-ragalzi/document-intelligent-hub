@@ -185,6 +185,13 @@ class TestQueryProcessing:
         prompt = answer_service.llm.with_structured_output.return_value.invoke.call_args.args[0]
         assert "LANGUAGE" in prompt
         assert "insufficient" in prompt.lower()
+        # Verify context section is empty: C:\n followed by only whitespace before next section
+        c_section_start = prompt.find("C:\n")
+        assert c_section_start != -1, "C: section not found in prompt"
+        final_instruction_pos = prompt.find("--- FINAL INSTRUCTION ---", c_section_start)
+        assert final_instruction_pos != -1, "FINAL INSTRUCTION not found in prompt"
+        context_content = prompt[c_section_start + 2 : final_instruction_pos]
+        assert context_content.strip() == "", f"Context section should be empty but got: {repr(context_content)}"
 
     def test_retrieval_runs_distinct_multi_queries_concurrently(
         self, rag_service: Any, mock_repository: Any

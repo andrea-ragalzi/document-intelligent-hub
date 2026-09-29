@@ -1,0 +1,60 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "review": {
+      "description": "Adversarially review and independently test the current task without modifying production code",
+      "mode": "primary",
+      "permission": {
+        "*": "deny",
+
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "lsp": "allow",
+
+        "edit": {
+          "*": "deny",
+          "backend/tests/reviewer_*.py": "allow",
+          "frontend/test/reviewer_*": "allow"
+        },
+
+        "bash": {
+          "*": "deny",
+
+          "git status *": "allow",
+          "git diff *": "allow",
+
+          "poetry run pytest *": "allow",
+          "poetry run ruff check *": "allow",
+          "poetry run mypy *": "allow",
+          "poetry run basedpyright *": "allow",
+          "poetry run pylint *": "allow",
+          "poetry run lizard *": "allow",
+
+          "npm run test:run *": "allow",
+          "npm run lint": "allow",
+          "npm run format:check": "allow",
+          "npm run type-check": "allow",
+          "npm run quality:check": "allow",
+          "npm run build": "allow",
+
+          "*--fix*": "deny",
+          "*--write*": "deny",
+          "*--output*": "deny",
+          "*--ext-diff*": "deny",
+          "*--textconv*": "deny",
+          "*--install-types*": "deny",
+          "*--update*": "deny",
+          "* -u*": "deny",
+          "*>*": "deny"
+        },
+
+        "task": "deny",
+        "skill": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "external_directory": "deny"
+      }
+    }
+  }
+}

@@ -1,63 +1,95 @@
 # Repository instructions
 
-Work directly on the requested task.
+Keep changes focused, minimal, and consistent with the existing architecture.
 
-Before editing:
+## Workflow
 
-- inspect the relevant code, tests, and documentation;
-- understand the current architecture and existing patterns;
-- keep the change focused and preserve unrelated work.
+### Zed
 
-For backend changes, read `backend/AGENTS.md` before editing backend code.
+The normal Zed development workflow is:
 
-For frontend changes, read `frontend/AGENTS.md` before editing frontend code.
+1. `/plan` analyzes a natural-language request and proposes `TASK.md`.
+2. The developer reviews and manually copies the approved draft into `TASK.md`.
+3. `/implement` executes the approved task.
+
+`/diagnose`, `/diagnose-rag`, and `/understand` are optional support phases and are invoked explicitly when needed.
+
+For Zed phases operating on an approved task, `TASK.md` is the source of truth. Work only within its scope. If it is missing, empty, ambiguous, or conflicts with a newer explicit developer instruction, stop rather than guessing.
+
+`/plan` does not require an existing `TASK.md`.
+
+### OpenCode
+
+Review is performed independently in OpenCode after implementation.
+
+The OpenCode review workflow and permissions are defined by its own project configuration. Review the approved `TASK.md` and the current repository changes; do not silently expand the task scope.
+
+### Codex
+
+Codex works directly from the developer's current prompt unless explicitly told to use the Zed/TASK.md workflow.
+
+When using Codex directly:
+
+- `TASK.md` is not required;
+- the current developer request is the source of truth;
+- still follow the repository architecture, testing, quality, and safety rules below.
+
+## Before editing
+
+Inspect only the relevant code, tests, and documentation needed for the task.
+
+Preserve unrelated work and existing architectural patterns.
+
+For backend changes, follow `backend/AGENTS.md`.
+
+For frontend changes, follow `frontend/AGENTS.md`.
 
 ## Development
 
+Prefer the smallest correct change.
+
 Use TDD for behavior changes when practical:
 
-1. add or update a test that demonstrates the expected behavior;
-2. confirm the failure when fixing a bug;
-3. implement the smallest correct change;
-4. run the relevant regression tests.
+1. demonstrate the expected behavior with a test;
+2. implement the change;
+3. run relevant regression tests.
 
-Prefer simple, cohesive code over new abstractions.
+Avoid:
 
-Do not:
-
-- introduce unrelated refactors;
-- duplicate existing business rules;
-- add dependencies without a concrete need;
-- create god modules, classes, hooks, or components;
-- add substantial new behavior to an already oversized file without first separating a coherent responsibility.
-
-Treat files approaching 600–700 lines as a signal to check responsibilities. Avoid production files growing toward 1,000+ lines. Do not split cohesive code only to satisfy a line-count target.
+- unrelated refactors;
+- duplicated business rules;
+- unnecessary abstractions;
+- unnecessary dependencies;
+- oversized god modules, classes, hooks, or components.
 
 Preserve the repository's typing, linting, formatting, and testing standards.
 
 ## Documentation
 
-Documentation is part of Definition of Done.
-
-Update relevant documentation when behavior, architecture, APIs, configuration, setup, deployment, or workflows change.
+Update documentation when the task changes behavior, architecture, APIs, configuration, setup, deployment, or developer workflows.
 
 ## Verification
 
-Before finishing:
+Run checks appropriate to the change, including relevant tests and quality checks.
 
-- run relevant tests;
-- run relevant lint/type/format checks;
+Before considering work complete:
+
 - inspect `git status`;
-- inspect `git diff`;
-- confirm only intended files changed.
+- inspect the relevant diff;
+- confirm only intended files changed;
+- report any verification that could not be performed.
 
-Do not disable valid tests or quality checks to make the change pass.
+Do not disable valid checks merely to make the task pass.
 
-Do not commit, push, merge, rebase, reset, or delete branches unless explicitly requested.
+## Git safety
 
-At the end report:
+Do not commit, push, merge, rebase, reset, delete branches, or discard unrelated work unless explicitly requested.
+
+## Final report
+
+Briefly report:
 
 - what changed;
 - tests/checks run;
-- documentation updated;
+- documentation updated when relevant;
 - remaining risks or uncertainty.

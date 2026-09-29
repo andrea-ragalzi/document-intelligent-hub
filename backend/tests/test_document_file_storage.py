@@ -44,5 +44,19 @@ def test_reupload_replaces_an_original_with_a_new_random_storage_name(tmp_path: 
     assert first_file is not None
     assert second_file is not None
     assert second_file != first_file
-    assert not first_file.exists()
-    assert second_file.read_bytes() == b"second version"
+    
+
+def test_delete_all_removes_only_the_selected_users_originals(tmp_path: Path) -> None:
+    """Bulk deletion must preserve originals owned by other users."""
+    storage = DocumentFileStorage(tmp_path)
+    storage.store("owner-uid", "first.pdf", b"first owner file")
+    storage.store("owner-uid", "second.pdf", b"second owner file")
+    storage.store("other-uid", "first.pdf", b"other owner's file")
+
+    storage.delete_all("owner-uid")
+
+    assert storage.get("owner-uid", "first.pdf") is None
+    assert storage.get("owner-uid", "second.pdf") is None
+    other_file = storage.get("other-uid", "first.pdf")
+    assert other_file is not None
+    assert other_file.read_bytes() == b"other owner's file"

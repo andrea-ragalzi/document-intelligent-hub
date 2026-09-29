@@ -32,7 +32,9 @@ For bugs, first create the smallest deterministic regression test that reproduce
 
 Mock/fake true external boundaries, not the application logic under test.
 
-Run focused tests first, then the relevant regression suite, Ruff, and MyPy.
+Run focused tests first. For production-code changes, also run relevant regression tests, Ruff on changed Python files, and MyPy on affected application modules. Broaden checks for shared boundaries, high-risk behavior, or failures; test-only changes do not automatically require application-wide checks.
+
+Run backend verification through `poetry run` with `backend/` as the working directory.
 
 ## RAG
 
