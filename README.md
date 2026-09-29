@@ -175,6 +175,7 @@ See the [backend handbook](backend/README.md), [frontend handbook](frontend/READ
 
 - [Backend handbook](backend/README.md)
 - [Frontend handbook](frontend/README.md)
+- [End-to-end query lifecycle](docs/query-lifecycle.md)
 
 ## Author
 
