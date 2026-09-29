@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>A question in motion · Query lifecycle architecture</title>
+  <style>
+    :root { --ink:#193d39; --muted:#536a66; --paper:#f4f5ee; --line:#cbd8cf; --green:#176c55; --soft:#e6efe6; --amber:#8b5319; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--paper); font:15px/1.65 system-ui,sans-serif; }
+    button { font:inherit; cursor:pointer; }
+    button:focus-visible, select:focus-visible, a:focus-visible, summary:focus-visible { outline:3px solid #ba641d; outline-offset:3px; }
+    button:disabled { opacity:.4; cursor:default; }
+    a { color:var(--green); text-underline-offset:3px; }
+    .app { display:grid; grid-template-columns:270px minmax(0,1fr); min-height:100vh; max-width:1500px; margin:0 auto; }
+    .rail { position:sticky; top:0; height:100vh; height:100dvh; overflow:auto; background:#e8ede4; border-right:1px solid var(--line); padding:24px 14px; }
+    .eyebrow, .label { font:700 12px/1.6 ui-monospace,monospace; letter-spacing:.09em; text-transform:uppercase; }
+    .rail .eyebrow { margin:0 10px 2px; }
+    .rail h2 { font-size:18px; margin:0 10px 16px; }
+    .pipeline { list-style:none; margin:0; padding:0; }
+    .pipeline button { display:flex; align-items:center; gap:9px; width:100%; border:1px solid transparent; border-radius:6px; background:transparent; padding:8px; color:var(--muted); text-align:left; font-size:12px; line-height:1.5; min-height:42px; }
+    .pipeline button:hover { background:#dce6dc; }
+    .pipeline button[aria-current="step"] { color:white; background:var(--green); border-color:var(--green); }
+    .step-number { flex-shrink:0; font:12px ui-monospace,monospace; opacity:.8; }
+    .rail-note { font-size:12px; color:var(--muted); margin:16px 10px 0; }
+    main { min-width:0; max-width:1230px; width:100%; padding:30px 32px; margin:0 auto; }
+    header .eyebrow { color:var(--green); margin:0 0 5px; }
+    h1 { font-size:clamp(28px,3.5vw,43px); line-height:1.15; letter-spacing:-.045em; margin:0 0 9px; }
+    .subtitle { color:var(--muted); margin:0 0 18px; }
+    .question { padding:14px 18px; border-left:3px solid var(--green); background:var(--soft); border-radius:0 9px 9px 0; }
+    .question > p { margin:5px 0 0; font-size:19px; font-weight:600; }
+    .example { display:inline-block; font-size:12px; font-weight:700; color:var(--amber); background:#fbefdc; border:1px solid #e9d5b7; border-radius:4px; padding:2px 6px; letter-spacing:0; text-transform:none; }
+    .simulation { margin:11px 0 18px; color:var(--muted); font-size:13px; }
+    .toolbar { position:sticky; top:0; z-index:4; background:#f4f5eef5; backdrop-filter:blur(12px); border-block:1px solid var(--line); padding:12px 0; }
+    .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .control { padding:8px 13px; border:1px solid #b9cabc; border-radius:6px; background:#fffef9; font-size:13px; font-weight:650; color:var(--ink); }
+    .control:hover:not(:disabled) { background:var(--soft); }
+    .modes { display:flex; gap:2px; margin-left:auto; border:1px solid var(--line); border-radius:6px; padding:2px; }
+    .modes button { border:0; padding:6px 11px; background:transparent; color:var(--muted); font:700 12px ui-monospace,monospace; border-radius:4px; }
+    .modes button[aria-pressed="true"] { background:var(--ink); color:white; }
+    #stage { padding-top:22px; }
+    .stage-heading { display:grid; gap:7px; margin-bottom:20px; }
+    .stage-heading .label { color:var(--green); white-space:nowrap; }
+    h2 { font-size:28px; line-height:1.3; letter-spacing:-.03em; margin:0; }
+    .transformation { border:1px solid #b6cdbd; background:#e9f0e6; border-radius:10px; padding:18px 20px; margin-bottom:22px; }
+    .transformation p { margin:10px 0 0; font-size:16px; max-width:78ch; }
+    .transformation .note { font-size:14px; color:var(--muted); margin-top:8px; }
+    .io { display:grid; grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr); align-items:start; gap:10px; }
+    .bridge { align-self:start; padding-top:44px; text-align:center; font-size:22px; color:var(--green); }
+    .pane { min-width:0; border:1px solid var(--line); border-radius:10px; background:#fffef9; overflow:hidden; }
+    .pane.output { border-color:#a1bea6; }
+    .pane-head { padding:11px 15px; border-bottom:1px solid var(--line); background:#f0f2eb; }
+    .output .pane-head { background:#e5eee2; }
+    .pane-head span { display:block; font-size:12px; color:var(--muted); margin-top:2px; }
+    .payload { padding:15px; overflow-wrap:anywhere; }
+    .payload > .example { margin-bottom:12px; }
+    .payload-title { font-size:14px; margin:0 0 10px; }
+    blockquote { font-size:20px; line-height:1.5; margin:8px 0; letter-spacing:-.02em; }
+    pre { font:13px/1.7 ui-monospace,monospace; white-space:pre-wrap; overflow-wrap:anywhere; margin:8px 0 0; padding:12px; border-radius:6px; background:#f0f3ed; color:#244a43; }
+    .facts { margin:0; display:grid; gap:8px; }
+    .fact { padding:9px 11px; background:#f1f4ec; border-left:2px solid #adbfaf; border-radius:0 5px 5px 0; }
+    .fact dt { font-size:12px; color:var(--muted); font-weight:700; margin-bottom:2px; }
+    .fact dd { margin:0; font-size:14px; }
+    .quiet { font-size:12px; color:var(--muted); margin:10px 0; }
+    .query-list { display:grid; gap:8px; }
+    .query-row { display:flex; gap:10px; padding:10px; border:1px solid var(--line); border-radius:6px; font-size:14px; }
+    .query-row strong { color:var(--green); font:700 13px ui-monospace,monospace; }
+    .candidate { border:1px solid #c8d5ca; border-radius:7px; padding:14px; margin-top:12px; background:#fcfdf7; }
+    .candidate-id { font:700 15px ui-monospace,monospace; }
+    .candidate-file { font-size:12px; color:var(--muted); margin-top:5px; }
+    .candidate p { font-size:14px; line-height:1.7; margin:10px 0; }
+    .candidate .rank { font:12px/1.7 ui-monospace,monospace; color:var(--muted); }
+    .candidate.selected { border:2px solid var(--green); background:#edf6e9; }
+    .candidate.rejected { background:#edeeeb; border-color:#c7cbc3; color:#465044; }
+    .candidate.rejected .candidate-file, .candidate.rejected .rank { color:#656b64; }
+    .status { font-size:12px; font-weight:700; }
+    .selected .status { color:var(--green); }
+    .removals { margin:10px 0; padding-left:18px; font-size:13px; color:var(--muted); }
+    .formula { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:12px; margin:10px 0; }
+    .formula span { background:#ecf1e7; border:1px solid var(--line); border-radius:5px; padding:5px 7px; }
+    .formula b { font-size:16px; color:var(--green); }
+    .prompt-part { padding:10px 12px; border:1px solid var(--line); border-radius:7px; margin-top:7px; }
+    .prompt-part strong { font:700 12px ui-monospace,monospace; color:var(--green); }
+    .prompt-part p { margin:5px 0 0; font-size:13px; }
+    .plus { text-align:center; color:var(--green); font-weight:700; }
+    .model { text-align:center; padding:12px; margin-top:9px; border-radius:7px; background:var(--ink); color:white; font-weight:700; }
+    .validation { border-left:3px solid var(--green); padding:9px 12px; margin-top:9px; background:#edf4e8; font-size:13px; }
+    .chat { padding:15px; background:#edf3e8; border:1px solid #bacdbb; border-radius:10px; margin-top:10px; }
+    .chat p { margin:5px 0 12px; font-size:15px; }
+    .source { display:inline-block; padding:5px 9px; border:1px solid #b7c9b9; background:#fffef9; border-radius:5px; font-size:12px; max-width:100%; overflow-wrap:anywhere; }
+    .details { margin-top:24px; padding:22px; border:1px dashed #b1c5b5; border-radius:9px; font-size:14px; }
+    .details p { margin:8px 0 20px; max-width:78ch; }
+    .details p:last-child { margin-bottom:0; }
+    .details .label { color:var(--green); }
+    .scenario-controls { display:flex; flex-wrap:wrap; gap:12px; margin:18px 0; }
+    .scenario-controls label { display:grid; gap:5px; font-size:13px; font-weight:650; min-width:0; max-width:100%; }
+    select { font:inherit; color:var(--ink); padding:9px 10px; border:1px solid #b9cabc; border-radius:6px; background:#fffef9; max-width:100%; }
+    .macro-group { margin-bottom:9px; border:1px solid transparent; border-radius:8px; padding:3px; }
+    .macro-group.current { border-color:#83a68c; background:#f6f8f0; }
+    .pipeline .macro-toggle { display:block; width:100%; font-size:13px; font-weight:700; padding:8px 6px; }
+    .macro-toggle .macro-status { display:block; font-size:12px; font-weight:500; margin-top:4px; }
+    .macro-description { font-size:12px; color:var(--muted); margin:5px 7px 9px; }
+    .macro-children { list-style:none; margin:0; padding:0; }
+    .step-copy { min-width:0; }
+    .step-state { display:block; font-size:11px; font-weight:700; margin-top:3px; }
+    .phase-bar { display:flex; align-items:stretch; gap:5px; overflow-x:auto; padding:16px 0 5px; }
+    .phase-pill { flex:1 0 120px; padding:10px; border:1px solid var(--line); border-radius:6px; background:#edf0e8; font-size:12px; }
+    .phase-pill.current { border:2px solid var(--green); background:#e0eddb; }
+    .phase-pill span { display:block; margin-top:4px; font-size:11px; }
+    .phase-arrow { align-self:center; color:var(--muted); }
+    .state-badge { display:inline-block; padding:3px 7px; border:1px solid #b3c7b8; border-radius:4px; background:#edf4e8; font:700 12px/1.5 ui-monospace,monospace; }
+    [data-state="BRANCH"] { color:#725120; background:#faf0dc; }
+    [data-state="FAILED"] { color:#873828; background:#faeae5; }
+    [data-state="SKIPPED"], [data-state="NOT REACHED"] { color:#626860; background:#eaece7; }
+    .transformation.failed { background:#faeee9; border-color:#d4aa9c; }
+    .not-reached { padding:22px; border:1px dashed #afbbae; border-radius:9px; color:var(--muted); }
+    .branch-box { border:1px solid #dac79e; border-radius:8px; padding:12px; margin-top:12px; background:#fbf7e9; }
+    .branch-box h4 { margin:0 0 8px; font-size:14px; }
+    .why-path { margin-top:18px; padding:15px 18px; border:1px solid var(--line); border-radius:8px; background:#edf2e8; }
+    .why-path h3 { font-size:14px; margin:0 0 8px; }
+    .why-path ul { padding-left:18px; margin:0; font-size:14px; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .overview { margin-top:22px; border-top:1px solid var(--line); padding-top:18px; }
+    .overview h3 { margin:0 0 10px; font-size:16px; }
+    .overview .formula { font-size:13px; }
+    .scope { margin-top:25px; font-size:13px; color:var(--muted); border-top:1px solid var(--line); padding-top:15px; }
+    summary { cursor:pointer; color:var(--ink); font-weight:600; }
+    footer { font-size:12px; color:var(--muted); margin-top:18px; }
+    [hidden] { display:none !important; }
+    header .subtitle, .simulation, .scope p { max-width:80ch; }
+    @media (max-width:1100px) {
+      .app { grid-template-columns:230px minmax(0,1fr); }
+      main { padding:24px; }
+      .rail { padding:20px 10px; }
+    }
+    @media (max-width:980px) {
+      .io { grid-template-columns:1fr; }
+      .bridge { padding:0; transform:rotate(90deg); }
+    }
+    @media (max-width:700px) {
+      .app { display:block; }
+      .rail { position:relative; height:auto; max-height:360px; max-height:45dvh; padding:14px; border-right:0; border-bottom:1px solid var(--line); }
+      .rail h2 { margin-bottom:10px; }
+      .pipeline { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+      .macro-group { margin:0; }
+      .macro-group:has(.macro-toggle[aria-expanded="true"]) { grid-column:1 / -1; }
+      main { padding:22px 16px; }
+      .stage-heading .label { white-space:normal; }
+      .modes { margin-left:0; }
+      .rail-note { margin-top:12px; }
+    }
+    @media (max-width:400px) {
+      main { padding-inline:12px; }
+      .question { padding:12px; }
+      .question > p { font-size:17px; }
+      .payload, .transformation, .details { padding:14px; }
+      h2 { font-size:24px; }
+      .controls { gap:8px; }
+      .control { padding:8px 11px; }
+    }
+    @media (prefers-reduced-motion:reduce) { *, *::before, *::after { scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="rail">
+      <p class="eyebrow">6 phases / 22 stages</p>
+      <h2>Follow the data</h2>
+      <nav aria-label="Query lifecycle pipeline"><ol class="pipeline" id="pipeline"></ol></nav>
+      <p class="rail-note">Expand a phase to inspect its stages. Statuses summarize the chosen fixture’s path, not live execution.</p>
+    </aside>
+    <main>
+      <header>
+        <p class="eyebrow">Interactive architecture documentation</p>
+        <h1>A question in motion.</h1>
+        <p class="subtitle">Watch one question become search queries, evidence, and an answer.</p>
+        <div class="scenario-controls">
+          <label for="scenario">Choose a scenario<select id="scenario"></select></label>
+          <label for="failure" id="failure-control" hidden>Failure<select id="failure"></select></label>
+        </div>
+        <div class="question"><span class="example">Fictional documentation · synthetic fixtures</span><p id="question-text"></p><div id="request-context"></div></div>
+        <p class="simulation">Offline illustrative trace, not production telemetry. This fictional Jurassic Park incident workspace uses newly written synthetic passages—not quotations from novels, films, or other sources. Questions, documents, pages, ranks, scores, model outputs, tokens, and runtime states are illustrative fixtures. HTTP status codes and identified architectural limits come from the source.</p>
+      </header>
+      <div class="toolbar" id="toolbar">
+        <div class="controls">
+          <button class="control" id="previous" type="button">← Previous</button>
+          <button class="control" id="next" type="button">Next →</button>
+          <div class="modes" role="group" aria-label="Display mode">
+            <button id="simple" type="button" aria-pressed="true">OVERVIEW</button>
+            <button id="detailed" type="button" aria-pressed="false">DETAILS</button>
+          </div>
+        </div>
+      </div>
+      <div class="phase-bar" id="phase-bar" aria-label="Six architecture phases"></div>
+      <div class="sr-only" id="announcement" role="status" aria-live="polite" aria-atomic="true"></div>
+      <section id="stage" aria-labelledby="stage-title"></section>
+      <noscript>Enable JavaScript to step through this local simulation, or read <a href="query-lifecycle.md">the lifecycle source</a>.</noscript>
+      <details class="scope">
+        <summary>What this walkthrough simplifies</summary>
+        <p>Every scenario uses the same six phases and 22-stage model. Stage 5 includes the pre-parser deterministic decision. A validated exact-evidence result bypasses normal RAG; unsupported, ambiguous, or failed exact cases continue through it. Stage 19 includes the conditional citation-rescue branch.</p>
+        <p>Language stages are a teaching grouping: response language is resolved before the history/reformulation decision; retrieval language is detected on the resulting retrieval question. Stage 7 displays both decisions together. Likewise, context IDs are assigned during prompt construction, and evidence validation/citation construction are two views of the same mapping operation.</p>
+        <p>DETAILS explains translation/parser/reformulation fallbacks, failed rescue, empty retrieval, filename-only citations, and other documented edge cases without additional scenario variants. Deployment settings, precise limiter accounting, and exhaustive ranking signals remain in the source. No sample text or page number is a verified quotation or runtime observation.</p>
+      </details>
+      <footer>Architecture source: <a href="query-lifecycle.md">docs/query-lifecycle.md</a> · Self-contained HTML · No requests are sent</footer>
+    </main>
+  </div>
+  <script>
+    'use strict';
+    // Architecture: query-lifecycle.md. All content and runtime state are offline fixtures.
+    const baseQuestion = 'What control failures contributed to the Isla Nublar incident?';
+    const baseAnswer = 'Security monitoring and gate commands shared one controller. A maintenance override disabled both, and local crews had no independent gate controls.';
+    const filename = 'park-incident-report.pdf';
+    const catalog = [filename,'security-operations.pdf','control-systems-audit.pdf','containment-procedures.pdf'];
+    // Original synthetic prose for this walkthrough, not quotations or incident records.
+    const chunks = {
+      D2: { file:'security-operations.pdf', page:41, text:'Scheduled radio checks and shift handovers were recorded before the Isla Nublar outage.', source:'dense', rank:'dense rank 1' },
+      D1: { file:filename, page:42, text:'Isla Nublar security monitoring and gate commands depended on one controller; a maintenance override disabled both.', source:'dense', rank:'dense rank 2' },
+      D3: { file:'control-systems-audit.pdf', page:8, text:'The Isla Nublar audit found no independent containment fallback while the central controller was unavailable.', source:'dense', rank:'dense rank 3' },
+      D4: { file:filename, page:42, text:'ISLA NUBLAR — INTERNAL INCIDENT REVIEW', source:'dense', rank:'dense rank 4' },
+      D5: { file:filename, page:43, text:'ISLA NUBLAR — INTERNAL INCIDENT REVIEW', source:'dense', rank:'dense rank 5' },
+      L1: { file:filename, page:42, text:'Isla Nublar security monitoring and gate commands depended on one controller; a maintenance override disabled both.', source:'lexical', rank:'lexical rank 1' },
+      L2: { file:filename, page:43, text:'Isla Nublar security monitoring and gate commands depended on one controller; a maintenance override disabled both.', source:'lexical', rank:'lexical rank 2' },
+      L3: { file:'containment-procedures.pdf', page:64, text:'After the security outage at Isla Nublar, remote gate commands were unavailable and dinosaur containment relied on delayed local checks.', source:'lexical', rank:'lexical rank 3' },
+      T1: { file:filename, page:42, text:'Isla Nublar security monitoring and gate commands depended on one controller; a maintenance override disabled both. After the outage, local crews had no independent gate controls. The emergency containment protocol depended on the same console.', source:'dense + lexical → temporary page aggregate', rank:'not yet ranked; derived around D1' }
+    };
+    const alternativeQueries = ['Which security control dependencies contributed to the Isla Nublar incident?', 'How did centralized controls and maintenance overrides affect security at Isla Nublar?', 'Which fallback control gaps contributed to the Isla Nublar incident?'];
+    const scenarios = {
+      standard: { label:'Standard RAG', question:baseQuestion, why:['A standalone question requires retrieval.', 'Normal evidence validation produces citations.'] },
+      contextual: { label:'Contextual follow-up', question:'What happened after that?', history:[{role:'user',content:'What caused the park security system to fail?'},{role:'assistant',content:'In the synthetic incident report, a maintenance override disabled the shared security controller at Jurassic Park.'}], retrievalQuestion:'What happened after the Jurassic Park security systems failed at Isla Nublar?', answer:'After the security outage, local crews had no independent gate controls. The emergency containment protocol still depended on the unavailable console.', alternatives:['What followed the security system failure at Jurassic Park on Isla Nublar?', 'Which control options remained after the Jurassic Park security outage at Isla Nublar?', 'How did local crews respond to the Jurassic Park security failure at Isla Nublar?'], dense:['D2','D1','D3','D4','D5','L3'], lexical:[], sourceOverrides:{L3:'dense',T1:'dense → temporary page aggregate'}, why:['The current question depends on previous conversation.', 'Relevant history is retained and the retrieval question is reformulated.', 'Generation still uses the raw current question and relevant history.'] },
+      nonEnglish: { label:'Non-English query', question:"Quali problemi nei sistemi di sicurezza hanno contribuito all'incidente di Isla Nublar?", language:'Italian', translatedQuestion:'Which security system failures contributed to the Isla Nublar incident?', answer:'Il monitoraggio di sicurezza e i comandi dei cancelli dipendevano da un unico controller. Una procedura di manutenzione li ha disabilitati entrambi, senza lasciare alle squadre locali controlli indipendenti dei cancelli.', why:['The response language remains Italian.', 'The Italian retrieval question is translated to English for search.', 'Retrieval translation does not change the answer language.'] },
+      compound: { label:'Compound query', question:'What caused the security systems to fail at Isla Nublar, and how did that affect dinosaur containment?', parts:['What caused the security systems to fail at Isla Nublar?', 'How did the security system failure affect dinosaur containment at Isla Nublar?'], answer:'A maintenance override disabled the shared security controller. Remote gate commands became unavailable, leaving dinosaur containment dependent on delayed local checks.', selected:['T1','L3'], scores:{T1:0.94,L3:0.90,D3:0.60,D2:0.44}, why:['The parser produces two standalone retrieval questions.', 'Normal LLM expansion is skipped.', 'Compound candidate streams use reciprocal-rank fusion before reranking.'] },
+      deterministic: { label:'Deterministic shortcut', question:'On which page does the exact phrase “emergency containment protocol” appear in park-incident-report.pdf?', answer:'The exact phrase appears on page 42 of park-incident-report.pdf.', why:['The fixture assumes a recognized page-location request with validated exact evidence.', 'Normal RAG parsing, retrieval, reranking, and generation are unnecessary.', 'The result uses the common QueryResponse mapping.'] },
+      citationRescue: { label:'Citation rescue', question:'Why was the containment fallback unavailable at Isla Nublar?', normalAnswer:'Containment fallback was unavailable during the central controller outage.', answer:'The audit found no independent containment fallback while the central controller was unavailable.', alternatives:['Why was there no independent containment fallback at Isla Nublar?', 'How did the controller outage affect fallback containment at Isla Nublar?', 'What prevented independent containment controls during the Isla Nublar outage?'], why:['Normal evidence validation yields zero valid citations.', 'Eligible reranked atomic evidence is available and the proposed span verifies.', 'This fixture succeeds after one rescue attempt; success is not guaranteed.'] },
+      requestFailure: { label:'Request failure', question:baseQuestion }
+    };
+    const failures = {
+      auth: { label:'Missing/invalid authentication', code:401, detail:'Illustrative invalid Firebase token.', stop:'Firebase identity verification rejects the supplied invalid token.', reason:'Authentication failed before RAG began.', runtime:'A bearer token is present but invalid; no workspace is authorized.', details:'This fixture uses an invalid token so the request reaches FastAPI. With no token, the normal hook stops submission; a missing bearer header is also rejected by Next.js. Backend missing/invalid authorization returns 401; an unverified registered email is denied.' },
+      quota: { label:'Quota/budget exhausted', code:429, detail:'Illustrative daily query quota exhausted.', stop:'The worker cannot reserve the registered daily query slot; document lookup has not begun.', reason:'Quota reservation failed before document lookup.', runtime:'Identity verified and admission slots acquired; registered quota is exhausted.', details:'The worker reserves a registered user’s tier-based daily query slot or a guest UID/IP/global budget before document lookup or model calls. Exhausted budgets return 429.' },
+      admission: { label:'Concurrency/admission rejected', code:429, detail:'Illustrative query concurrency limit reached.', stop:'A required concurrency slot is full; reject immediately without waiting.', reason:'Admission failed before worker execution.', runtime:'Identity verified; a required process-local slot is unavailable. No quota reservation occurs.', details:'The boundary acquires global expensive-operation and per-principal query slots, plus a guest concurrency slot for guests. A full limiter returns 429 without waiting.' },
+      timeout: { label:'Backend wait timeout', code:504, detail:'Illustrative backend worker wait timed out.', stop:'The HTTP worker wait expires. In this fixture, quota reservation is still pending before document lookup.', reason:'Not reached before this illustrative HTTP timeout; later worker progress is not simulated.', runtime:'Identity verified and leases acquired. HTTP waiting ends while the worker remains in quota reservation (illustrative position).', details:'A 504 ends the HTTP wait, not necessarily the worker. The worker may continue and retains its leases until it actually finishes. Later RAG work is unknown in this fixture; Not reached describes only the illustrated timeline, not worker cancellation.' }
+    };
+    const macros = [
+      {name:'REQUEST',start:0,end:3,purpose:'Move the user question safely from the browser into an authorized backend request.'},
+      {name:'PREPARATION',start:4,end:8,purpose:'Turn the raw question into the search-ready query or queries.'},
+      {name:'RETRIEVAL',start:9,end:12,purpose:'Collect and clean potentially relevant document chunks.'},
+      {name:'RANKING',start:13,end:14,purpose:'Order candidates and choose the small context that reaches the model.'},
+      {name:'GENERATION',start:15,end:18,purpose:'Generate a grounded answer and convert model evidence IDs into trusted citations.'},
+      {name:'RESPONSE',start:19,end:21,purpose:'Return the complete backend result and render it in the frontend.'}
+    ];
+    const stages = [
+      { title:'User question', action:'Put the question into the composer.', note:'The same question will remain available as the raw current message throughout the walkthrough.', component:'ChatSection / dashboard', why:'Capture the user’s information need before any preparation.', source:'§1' },
+      { title:'Raw frontend submission', action:'Wrap the question in chat messages and attach a Firebase token.', note:'The example assumes an eligible submission and a current signed-in user.', component:'ChatSection → useChatAI / useChat → AuthContext', why:'Check submission eligibility, obtain getIdToken(), and send the optimistic user turn. No token stops submission.', source:'§1–2' },
+      { title:'Next.js request transformation', action:'Extract the latest user message as query; move preceding turns to conversation_history.', note:'This example has no preceding turns. The adapter forwards the bearer header.', component:'Next.js POST /api/chat', why:'Adapt the chat payload to backend JSON. At most 14 preceding messages are forwarded. user_id is compatibility data, not authorization.', source:'§2' },
+      { title:'FastAPI validated QueryRequest', action:'Validate the request and verify Firebase identity; resolve the workspace before expensive work.', note:'user_id is not a QueryRequest field. The verified token determines workspace access.', component:'query_document / QueryRequest / get_query_workspace_access', why:'Enforce the 3–1,000 character query and history constraints, identity, admission, and quota. Registered users need verified email; anonymous principals use the shared demo workspace.', source:'§3' },
+      { title:'Query parsing', action:'Keep the raw question; extract a cleaned question and validated filename filters.', note:'Here, the question stays unchanged and no file is named. The normal RAG branch is assumed.', component:'QueryParserService, called by QueryRouter', why:'Ground file mentions in the accessible catalog. Document lookup and a narrow deterministic-route attempt happen first. A validated deterministic answer bypasses RAG. Parser failure keeps the original question with no filters.', source:'§4' },
+      { title:'History/reformulation decision', action:'Check whether the question needs previous turns. Here: no history, so no reformulation.', note:'The standalone question identifies the Isla Nublar incident.', component:'RAGService / QueryProcessingService', why:'Use history only for questions that need conversation context. Reformulation may use an LLM, falling back to the cleaned question on invalid results or handled errors. Response language has already been resolved; the next stage displays both language decisions.', source:'§5' },
+      { title:'Response and retrieval language resolution', action:'Keep response language and retrieval language as separate decisions. Here: both English.', note:'Ordering note: response language is resolved before step 6; retrieval language is detected after reformulation. This stage displays the two results together.', component:'RAGService / LanguageService / query processing', why:'Choose response language from override, current-message language request, reliable current-message detection, recent user messages, then English. Retrieval language describes the resulting search question. Semantic query classification is not called on the normal path.', source:'§5' },
+      { title:'Query translation if required', action:'Translate non-English retrieval questions to English. Here: pass the English question through.', note:'An unchanged value is still a meaningful handoff: translation is conditional.', component:'AnswerGenerationService / translation adapter', why:'Prepare a retrieval question independently of the response-language choice. Failed translation falls back to the original retrieval question.', source:'§6' },
+      { title:'Query expansion / compound queries', action:'Add alternative phrasings while preserving the Isla Nublar identifier; remove equivalent queries.', note:'Illustrative example: Q0 plus three invented alternatives. No compound branch is used here.', component:'QueryExpansionService / AnswerGenerationService', why:'Improve recall with up to five alternatives. The pool includes translated and raw questions, deduplicated. Validated two-part compound requests skip expansion and use the two parts; their candidates use reciprocal-rank fusion before reranking.', source:'§6.1' },
+      { title:'Dense retrieval candidates', action:'Search the distinct query pool for semantically relevant chunks.', note:'Every search uses source = workspace_id plus validated filename filters. Retrieval is tenant scoped.', component:'VectorStoreRepository / Chroma retriever', why:'Collect bounded semantic candidates concurrently. These ranks and passages are illustrative, and retrieved candidates are not yet evidence.', source:'§6.2' },
+      { title:'Lexical retrieval candidates', action:'Keep dense candidates; supplement them with exact-name matches.', note:'Illustrative lexical term: Isla Nublar. The raw question is retained for this lookup.', component:'_extract_lexical_terms / VectorStoreRepository.lexical_candidate_search', why:'Recover distinctive names or identifiers using bounded, tenant-scoped content/title lookups and limited surrounding-document expansion, with the same filename filters.', source:'§6.3' },
+      { title:'Candidate merge + deduplication + noise suppression', action:'8 hits → 7 merged candidates → 6 after text deduplication → 4 after noise suppression.', note:'Illustrative example: L1 merges into D1; L2 repeats D1’s text; D4/D5 are repeated page headers.', component:'AnswerGenerationService / _suppress_retrieval_noise', why:'Merge by content-and-metadata identity, remove same-document duplicate text and repeated headers/footers. Identical text from different documents is retained.', source:'§6.4' },
+      { title:'Temporary page/parent context', action:'Add surrounding page context as T1, while retaining the atomic candidates for reranking.', note:'Illustrative example: T1 contains D1 plus its surrounding sentence on page 42.', component:'VectorStoreRepository.get_temporary_page_contexts', why:'Recover context around fragmented passages using same-workspace page or parser-parent aggregates. These are temporary candidates; overlapping aggregates are reconciled before reranking.', source:'§6.5' },
+      { title:'Reranking', action:'Score the eligible pool and change its order. Compare before and after side by side.', note:'Illustrative example scores: T1 0.94 → D3 0.82 → D2 0.44 → L3 0.31. D1 is covered by T1.', component:'RerankingService.rerank_candidates', why:'Score with raw question and, when different, translated retrieval question, using relevance, metadata, identifier, and context-quality signals. Suppress atomic chunks fully covered by aggregates; ranking is not final selection.', source:'§7 / Reranking' },
+      { title:'Final context selection', action:'Apply the relative gate and diversity rules. Keep T1 and D3; grey out the rest.', note:'Illustrative example: best score 0.94 × 70% = 0.658. Two passages qualify; neither duplicates the other.', component:'FinalContextSelector.select', why:'Target at least two chunks when available, cap at five, favor different documents/pages at similar scores, and avoid near duplicates. The selector may fill below the gate to meet the minimum; it does not change scores. C1/C2 are assigned at prompt construction next.', source:'§7 / Final context selection' },
+      { title:'Grounded prompt construction', action:'Assign T1 → C1 and D3 → C2; combine the raw question, relevant history, selected context, and grounding instructions.', note:'Only the highlighted passages enter the prompt. Response language: English. The instructions below are a teaching paraphrase, not the literal configured prompt.', component:'AnswerGenerationService._generate_llm_response / _build_final_prompt', why:'Provide backend-known filenames/pages with passage IDs and ask for an answer grounded in context using minimum sufficient IDs. Empty retrieval would still reach generation with empty context.', source:'§8' },
+      { title:'LLM structured output', action:'Generate answer text and propose the minimum sufficient evidence IDs.', note:'Illustrative example: only C1 is cited, even though C1 and C2 were provided.', component:'Answer model / AnswerWithEvidence', why:'Separate generated prose from evidence references. The model supplies IDs, not trusted citation metadata. Answer-model failure returns a fixed error answer without citations.', source:'§8, §12' },
+      { title:'Evidence-ID validation', action:'Look up proposed C1 in the selected-context map. Accept it because that ID exists.', note:'The answer travels forward unchanged. This stage validates references, not a model-supplied filename or page.', component:'AnswerGenerationService._citations_from_evidence_ids', why:'Reject unknown IDs before deriving citations from trusted chunks. With zero valid citations and reranked atomic candidates, one conditional rescue may extract and verify exact spans, then regenerate. Failed rescue preserves the normal answer.', source:'§9' },
+      { title:'Citation construction', action:'C1 → selected-context map → trusted backend metadata → filename/page citation.', note:'The model did not supply these citation fields. The simulated metadata represents backend-owned chunk metadata.', component:'AnswerGenerationService._citations_from_evidence_ids', why:'Derive filename and valid one-based page; deduplicate filename/page pairs in context order. Missing filenames produce no citation; missing valid pages can produce filename-only citations. This and step 18 depict one mapping operation.', source:'§9' },
+      { title:'QueryResponse JSON', action:'Normalize citations and derive source_documents from those citations; return one complete JSON object.', note:'FastAPI finishes this complete response before the UI’s progressive text begins.', component:'QueryRouter / _normalize_citations / QueryResponse', why:'Provide the common response shape for deterministic and RAG results. Normalize and deduplicate citations, cap at five, and accept legacy filename strings. source_documents is not an independent model claim.', source:'§10' },
+      { title:'Next.js simulated stream', action:'Parse the complete FastAPI JSON, then emit the finished answer progressively and append sources.', note:'This is simulated progressive display after generation — FastAPI is not streaming model tokens to this UI.', component:'Next.js POST /api/chat return adapter', why:'Validate citations, strip internal [DOCUMENT n] markers, and adapt completed text to the AI SDK stream. Filename-only fallback uses source_documents only when citations is absent. The static text snapshots illustrate emission order, not production timing.', source:'§11' },
+      { title:'Final UI rendering', action:'Turn streamed text into the assistant message and source annotations into grouped citations.', note:'This is a local mock rendering. Its source badge does not open a real document.', component:'useChatAI / useChat → ChatSection → ChatMessageDisplay', why:'Display answer and grouped, deduplicated sources. Production citation links fetch authenticated document content and navigate to the page. Completion refreshes usage; registered users’ completed turns and sources autosave to Firestore.', source:'§11' }
+    ];
+    const factSnapshot = (title, facts, note) => ({kind:'facts',title,facts,note});
+    const jsonSnapshot = (title, value, note) => ({kind:'json',title,value,note});
+    function buildScenario(key, failureKey) {
+      const config = {history:[],language:'English',answer:baseAnswer,selected:['T1','D3'],scores:{T1:0.94,D3:0.82,D2:0.44,L3:0.31},...scenarios[key]};
+      const state = Array.from({length:22},()=>({status:'NORMAL',reason:''}));
+      const overrides = {};
+      const snapshots = Array(22).fill(null);
+      const phaseStates = macros.map(()=>({status:'Completed',label:'✓ Completed',reason:''}));
+      const branch = (index,reason,override={}) => { state[index]={status:'BRANCH',reason}; overrides[index]=override; };
+      const question = config.question;
+      const contextual = key==='contextual';
+      const compound = key==='compound';
+      const rescue = key==='citationRescue';
+      const nonEnglish = key==='nonEnglish';
+      const retrievalQuestion = contextual ? config.retrievalQuestion : question;
+      const searchQuestion = nonEnglish ? config.translatedQuestion : retrievalQuestion;
+      const historyText = config.history.length ? config.history.map(turn=>`${turn.role}: ${turn.content}`).join('\n') : 'None; no relevant history is included.';
+      const dense = config.dense || ['D2','D1','D3','D4','D5'];
+      const lexical = config.lexical || ['L1','L2','L3'];
+      const clean = compound?['D1','L3','D2','D3']:['D2','D1','D3','L3'];
+      const ranked = Object.keys(config.scores).sort((a,b)=>config.scores[b]-config.scores[a]);
+      const contextMap = Object.fromEntries(config.selected.map((id,index)=>[`C${index+1}`,{candidate:id,filename:chunks[id].file,page_number:chunks[id].page}]));
+      const normalOutput = {answer:rescue ? config.normalAnswer : config.answer,evidence_ids:rescue?['C99']:compound?['C1','C2']:['C1']};
+      const finalMap = rescue ? {C1:{candidate:'D3',filename:chunks.D3.file,page_number:chunks.D3.page}} : contextMap;
+      const finalOutput = rescue ? {answer:config.answer,evidence_ids:['C1']} : normalOutput;
+      const citations = finalOutput.evidence_ids.filter(id=>finalMap[id]).map(id=>({filename:finalMap[id].filename,page_number:finalMap[id].page_number}));
+      let response = {answer:config.answer,source_documents:[...new Set(citations.map(c=>c.filename))],citations};
+      snapshots[0]={kind:'question',title:'Raw current question',question,history:config.history};
+      const bearer = key==='requestFailure' && failureKey==='auth' ? 'Bearer <illustrative-invalid-token>' : 'Bearer <illustrative-token-placeholder>';
+      snapshots[1]=jsonSnapshot('POST /api/chat',{messages:[...config.history,{role:'user',content:question}],userId:'demo-park-reader'},`Authorization: ${bearer}. A token is present in this fixture.`);
+      snapshots[2]=jsonSnapshot('POST /rag/query/',{query:question,user_id:'demo-park-reader',conversation_history:config.history},`Authorization: ${bearer} forwarded. No output_language override.`);
+      snapshots[3]=jsonSnapshot('Validated QueryRequest',{query:question,conversation_history:config.history,output_language:null},'Separate authorization context: verified UID = demo-park-reader; workspace = demo-park-reader. Admission and quota available in this fixture.');
+      overrides[2]={note:config.history.length?'The two prior turns become conversation_history; the current turn becomes query.':'No prior turns in this fixture. The bearer header is forwarded.'};
+      if(key==='requestFailure') {
+        const failure=failures[failureKey];
+        state[3]={status:'FAILED',reason:failure.stop};
+        overrides[3]={action:failure.stop,note:failure.runtime,why:failure.details,source:'§2–3, §11–12'};
+        snapshots[3]=jsonSnapshot(`HTTP ${failure.code} · backend error`,{detail:failure.detail},'Documented HTTP status; illustrative error wording and runtime position. This is not a QueryResponse.');
+        for(let i=4;i<=19;i++) state[i]={status:'NOT REACHED',reason:i===19?'No successful QueryResponse is returned on this HTTP path.':failure.reason};
+        branch(20,'HTTP error propagation; no simulated answer stream.',{action:`Propagate HTTP ${failure.code} and backend error detail. Do not emit answer text or sources.`,note:'The complete-success-JSON → simulated-stream path is not entered.',component:'Next.js POST /api/chat error handling',why:'Backend non-2xx status and detail, including 429, propagate to the client. The adapter catch path returns 500; it is not used by this fixture.',source:'§2, §11–12'});
+        snapshots[20]=jsonSnapshot(`Next.js propagates HTTP ${failure.code}`,{detail:failure.detail},'Same HTTP status and backend error detail; no source annotation.');
+        branch(21,'UI request settles as an error, without an assistant answer.',{action:'Remove the optimistic trailing user turn, refresh query usage, and settle loading through the SDK.',note:'The local error state below is illustrative UI wording, not a production screenshot.',why:'useChatAI clears the incomplete optimistic turn, refreshes usage, and suppresses console noise for 429 responses. No answer or citations are fabricated.',source:'§11–12'});
+        snapshots[21]=factSnapshot('Frontend error state', [['HTTP result',String(failure.code)],['Display wording (illustrative)',failure.detail],['Messages','Optimistic trailing user turn removed; no new assistant answer.'],['Request state','Usage refreshed; loading settled through the SDK.']]);
+        phaseStates[0]={status:'Failed',label:'✕ Failed',reason:failure.stop};
+        for(let i=1;i<=4;i++) phaseStates[i]={status:'Not reached',label:'— Not reached',reason:failure.reason};
+        phaseStates[5]={status:'Branch',label:'↳ Branch · HTTP error',reason:'Only error propagation and UI cleanup execute; QueryResponse is not reached.'};
+        return {key,config,state,overrides,snapshots,phaseStates,failure,route:[0,1,2,3,20,21],why:[failure.stop,failureKey==='timeout'?'Downstream RAG is not shown before this timeout. The worker may continue and retain its leases.':'Downstream RAG stages are never reached.',`HTTP ${failure.code} propagates through Next.js; the UI clears its incomplete turn.`]};
+      }
+      if(key==='deterministic') {
+        response={answer:config.answer,source_documents:[filename],citations:[{filename,page_number:42}]};
+        branch(4,'Validated page-location evidence found before normal RAG parsing.',{action:'Accessible documents → deterministic page-location route → validated exact result.',note:'The fixture assumes this exact-phrase request is recognized and validated. QueryParserService is not called.',component:'QueryRouter / RAGService.try_deterministic_query / DeterministicQueryRouter',why:'Before parsing, the router looks up workspace documents and attempts only documented exact-occurrence, page-location, labeled-value, or document-count shapes. History, ambiguity, unsupported shapes, or failed validation lead to RAG instead.',source:'§4, §10'});
+        snapshots[4]={kind:'deterministic',title:'Validated exact result · normal parser bypassed',answer:config.answer,citations:response.citations};
+        for(let i=5;i<=18;i++) { state[i]={status:'SKIPPED',reason:'Deterministic validated evidence was available before normal RAG execution.'}; snapshots[i]=snapshots[4]; }
+        phaseStates[1]={status:'Branch',label:'↳ Branch · deterministic',reason:'Pre-parser exact-evidence routing succeeds; normal preparation is skipped.'};
+        for(let i=2;i<=4;i++) phaseStates[i]={status:'Skipped',label:'— Skipped',reason:'Deterministic validated evidence was already available.'};
+      } else {
+        snapshots[4]=factSnapshot('Parsed question · illustrative snapshot', [['Raw question retained',question],['Cleaned question',question],['Validated filename filters','Include: none · Exclude: none'],['Compound parts',compound?config.parts.map((q,i)=>`Q${i+1}: ${q}`).join('\n'):'None — one standalone retrieval question'],['Accessible catalog',catalog.join(', ')]],'After workspace document lookup and an unsupported/unvalidated deterministic attempt, this fixture follows normal RAG.');
+        snapshots[5]=factSnapshot('History decision and prepared question', [['RAW CURRENT QUESTION',question],['RELEVANT HISTORY',historyText],['REFORMULATION',contextual?'Use retained history to resolve “after that”.':'Not required in this fixture.'],['RETRIEVAL QUESTION',retrievalQuestion],['Filename filters','None']]);
+        snapshots[6]=factSnapshot('Separate language decisions', [['Raw question retained',question],['Response language',config.language],['Retrieval question',retrievalQuestion],['Retrieval language',nonEnglish?'Italian':'English'],['Relevant history',historyText]],'Response language is resolved before the history decision; retrieval language is detected afterward. This stage presents both results.');
+        snapshots[7]=factSnapshot('Search-ready question and retained state', [['Raw question retained',question],['Retrieval question before translation',retrievalQuestion],['Search-ready retrieval question',searchQuestion],['Translation',nonEnglish?'Italian → English':'Not required: already English'],['Response language (unchanged)',config.language],['Relevant history',historyText],['Compound parts',compound?config.parts.map((q,i)=>`Q${i+1}: ${q}`).join('\n'):'None'],['Workspace / filters','demo-park-reader · no filename filters']]);
+        const queryPool=[...new Set([searchQuestion,question,...(compound?config.parts:(config.alternatives||alternativeQueries))])];
+        snapshots[8]={kind:'queries',title:'Distinct search query pool',queries:queryPool,note:'The pool retains search-ready and raw questions, then alternatives; equivalent strings are removed. Expansion strings are illustrative fixtures.'};
+        snapshots[9]=compound?{kind:'compound-pools',title:'Two part-query candidate streams',parts:config.parts}:{kind:'candidates',title:'Dense candidates',ids:dense,note:'Illustrative dense ranks; every search uses source = workspace_id and the same filename filters.'};
+        snapshots[10]={kind:'candidate-pools',title:'Dense + lexical candidates',dense:compound?[...dense,'L3']:dense,lexical,compound};
+        snapshots[11]={kind:'cleaned',title:compound?'Compound fusion + merged/cleaned pool':'Merged and cleaned pool',ids:clean,compound,hasLexical:lexical.length>0};
+        snapshots[12]={kind:'candidates',title:'Candidate pool + temporary context',ids:[...clean,'T1'],merged:true,note:'T1 supplies page context around D1. It is temporary, not a new persisted chunk.'};
+        snapshots[13]={kind:'ranked',title:'After · reranked pool',ids:ranked};
+        snapshots[14]={kind:'selection',title:'Only selected passages enter the prompt',ids:config.selected};
+        snapshots[15]={kind:'prompt',title:'Grounded prompt · schematic',question,historyText,contextMap,language:config.language};
+        snapshots[16]=jsonSnapshot('AnswerWithEvidence',normalOutput,'The model proposes answer and evidence_ids, not trusted filename/page citation fields.');
+        snapshots[17]={kind:'validated',title:rescue?'Normal evidence validation · 0 valid citations':'Evidence IDs checked against selected context',modelOutput:normalOutput,contextMap,accepted:rescue?[]:normalOutput.evidence_ids};
+        snapshots[18]=rescue?{kind:'rescue',title:'Citation rescue · one conditional fallback',modelOutput:finalOutput,contextMap:finalMap,citations}:{kind:'citations',title:'Backend-derived citations',modelOutput:finalOutput,contextMap:finalMap,citations};
+        overrides[8]={note:'The base/raw query pool is retained. Any additional phrasings below are illustrative fixtures.'};
+        overrides[13]={note:`Illustrative order: ${ranked.map(id=>`${id} ${config.scores[id].toFixed(2)}`).join(' → ')}. D1 is fully covered by T1.`};
+        overrides[14]={action:`Apply the relative gate and diversity rules. Keep ${config.selected.join(' and ')}; mute the rejected candidates.`,note:'Illustrative best score 0.94 × documented 70% gate = 0.658. The selected pair meets the minimum; the cap remains five.'};
+        overrides[15]={action:`Assign ${config.selected.map((id,i)=>`${id} → C${i+1}`).join(' and ')}; combine raw question, retained history, context, and grounding instructions.`,note:`Response language: ${config.language}. Instructions are a paraphrase, not the literal configured prompt.`};
+        overrides[16]={note:`Illustrative proposed evidence IDs: ${normalOutput.evidence_ids.join(', ')}.`};
+        overrides[17]={action:rescue?'Check C99 against the normal selected-context map: unknown ID → 0 valid citations.':`Validate ${normalOutput.evidence_ids.join(' and ')} against the selected-context map.`,note:rescue?'NORMAL EVIDENCE VALIDATION ends with no citations. The next stage shows the separate conditional rescue branch.':'Only known IDs can map to backend-owned citation metadata.'};
+        overrides[18]={action:rescue?'Normal validation: 0 citations → conditional rescue → verified spans → second generation → validated citations.':'Evidence IDs → selected-context map → trusted backend chunk metadata → filename/page citations.',note:'The model never supplies trusted citation metadata; the backend derives it from the applicable context map.'};
+        if(contextual) {
+          overrides[10]={action:'Keep the dense candidates. The raw follow-up has no distinctive name or identifier for supplemental lexical lookup.',note:'No lexical candidates are added in this fixture; the standalone reformulation was used for dense retrieval.'};
+          overrides[11]={action:'6 dense candidates → 6 merged → 6 after deduplication → 4 after header suppression.',note:'No lexical pool is added here. D4/D5 are repeated page headers; the other four candidates are retained.'};
+          branch(5,'History is relevant; reformulation produces a standalone retrieval question.',{action:'Raw current question + relevant history → reformulation → standalone retrieval question.',note:'The raw follow-up remains unchanged for the final prompt. Retrieval uses the reformulated question.'});
+          phaseStates[1]={status:'Branch',label:'↳ Branch · contextual',reason:'Relevant history is retained and the search question is reformulated.'};
+        }
+        if(nonEnglish) {
+          branch(6,'Response language and retrieval language are both Italian at this point.',{action:'Resolve response language as Italian; detect Italian on the retrieval question.',note:'Response language was resolved before stage 6. These are separate decisions; the next step changes only the search question.'});
+          branch(7,'Translate the retrieval question from Italian to English.',{action:'Italian retrieval question → English search-ready question. Response language remains Italian.',note:'The raw Italian question and Italian response-language choice are retained for generation.'});
+          overrides[10]={note:'Illustrative lexical term from the Italian raw question: Isla Nublar. Dense search uses the English query pool; lexical results below are also fixtures.'};
+          phaseStates[1]={status:'Branch',label:'↳ Branch · translation',reason:'Search is translated; the response stays Italian.'};
+        }
+        if(compound) {
+          branch(4,'The parser validates two standalone retrieval questions.',{action:'Split the compound request into two valid standalone retrieval questions.',note:'Both parser-provided parts travel forward. The raw compound question remains available for generation.'});
+          state[8]={status:'SKIPPED',reason:'Validated compound request already produced two standalone retrieval questions; no LLM expansion.'}; snapshots[8]=snapshots[7];
+          overrides[8]={action:'SKIPPED: normal LLM query expansion.',note:'Retain the prepared question and two parts unchanged; proceed to the compound candidate streams. The documented base/raw pool is also retained.'};
+          branch(9,'Two compound-part search streams supply candidate pools.',{action:'Q1 → pool A; Q2 → pool B. Keep both pools for compound fusion.',note:'The documented base/raw searches remain in the pool; their overlapping hits add no distinct candidates in this fixture. All lookups are tenant scoped.'});
+          branch(11,'Use documented reciprocal-rank fusion for compound candidate lists before reranking.',{action:'Pool A + pool B → reciprocal-rank fusion → merge lexical matches → deduplicate and suppress noise.',note:'Illustrative order only; no undocumented fusion weights or formula are asserted.'});
+          phaseStates[1]={status:'Branch',label:'↳ Branch · compound',reason:'Two valid parts replace normal LLM expansion.'};
+          phaseStates[2]={status:'Completed',label:'✓ Completed · two streams',reason:'Compound-part candidate lists use reciprocal-rank fusion before reranking.'};
+        }
+        if(rescue) {
+          branch(18,'Zero normal citations and eligible reranked atomic candidates trigger one rescue attempt.',{...overrides[18],component:'AnswerGenerationService._run_citation_rescue / evidence mapping',why:'Rescue runs at most once, only when normal citations are zero and reranked atomic candidates exist. It allowlists workspace-owned, filter-compliant atomic chunks with valid pages, then checks proposed span ID, page, uniqueness, and verbatim presence. Only verified spans reach second generation; its IDs must validate again. Extraction/generation failure or no verified span preserves the normal answer with empty citations; a rescue answer can also have no citations.',source:'§9'});
+          phaseStates[4]={status:'Branch',label:'↳ Branch · citation rescue',reason:'This eligible fixture succeeds on its one rescue attempt; success is not guaranteed.'};
+        }
+      }
+      snapshots[19]=jsonSnapshot('Complete FastAPI QueryResponse',response,'FastAPI returns this complete JSON before Next.js emits any progressive answer text.');
+      snapshots[20]={kind:'stream',title:'Next.js text stream + sources annotation',response};
+      snapshots[21]={kind:'ui',title:'Rendered answer and sources',response};
+      const route=state.flatMap((s,i)=>s.status==='SKIPPED'||s.status==='NOT REACHED'?[]:[i]);
+      return {key,config,state,overrides,snapshots,phaseStates,route,why:config.why,ranked};
+    }
+
+    const $ = id => document.getElementById(id);
+    const make = (tag,className='',text) => { const node=document.createElement(tag); if(className) node.className=className; if(text!==undefined) node.textContent=text; return node; };
+    const example = () => make('span','example','Synthetic fixture');
+    const json = value => make('pre','',JSON.stringify(value,null,2));
+    function facts(rows) {
+      const list=make('dl','facts');
+      rows.forEach(([key,value])=>{ const row=make('div','fact'); row.append(make('dt','',key),make('dd','',value)); list.append(row); });
+      return list;
+    }
+    function formula(labels,operator='→') {
+      const row=make('div','formula');
+      labels.forEach((label,index)=>{ if(index) row.append(make('b','',operator)); row.append(make('span','',label)); });
+      return row;
+    }
+    function badge(status) { const node=make('span','state-badge',status); node.dataset.state=status; return node; }
+    function candidate(id,{ranked=false,merged=false,state='',status='',source,rank}={}) {
+      const chunk=chunks[id];
+      const card=make('article',`candidate ${state}`); card.dataset.candidate=id;
+      const origin=source||active.config.sourceOverrides?.[id]||(merged&&id==='D1'&&active.config.lexical?.length!==0?'dense + lexical (L1 merged)':active.key==='compound'&&id==='L3'&&merged?'dense + lexical':chunk.source);
+      card.append(make('strong','candidate-id',id),make('div','candidate-file',`${chunk.file} · page ${chunk.page}`),make('p','',chunk.text),make('div','rank',`Retrieval source: ${origin}`));
+      card.append(make('div','rank',ranked&&active.config.scores[id]!==undefined?`Illustrative score: ${active.config.scores[id].toFixed(2)} · rank ${active.ranked.indexOf(id)+1}`:`Illustrative rank: ${rank||(active.config.dense?.includes(id)&&id==='L3'?'dense rank 6':chunk.rank)}`));
+      if(status) card.append(make('div','status',status));
+      return card;
+    }
+    function addCandidates(root,ids,options) { ids.forEach(id=>root.append(candidate(id,options))); }
+    function queryList(queries) {
+      const root=make('div','query-list');
+      queries.forEach((query,index)=>{ const row=make('div','query-row'); row.append(make('strong','',`Q${index}`),make('span','',query)); root.append(row); }); return root;
+    }
+    function appendCitationMapping(root,modelOutput,contextMap,citations) {
+      root.append(make('p','',modelOutput.answer));
+      modelOutput.evidence_ids.forEach(id=>{
+        const metadata=contextMap[id];
+        if(metadata) root.append(formula([id,'Selected-context map',`Trusted ${metadata.candidate} metadata`,`${metadata.filename} · page ${metadata.page_number}`]));
+      });
+      root.append(json(citations),make('div','validation','The model proposes evidence IDs. Trusted filename/page citation metadata comes from the backend-owned context map.'));
+    }
+    function renderSnapshot(snapshot) {
+      const root=make('div','payload');
+      root.append(example(),make('h3','payload-title',snapshot.title));
+      switch(snapshot.kind) {
+        case 'question':
+          root.append(make('blockquote','',snapshot.question));
+          if(snapshot.history.length) root.append(facts(snapshot.history.map(turn=>[`Previous ${turn.role}`,turn.content])));
+          break;
+        case 'json': root.append(json(snapshot.value)); break;
+        case 'facts': root.append(facts(snapshot.facts)); break;
+        case 'queries': root.append(queryList(snapshot.queries),make('p','quiet',`Carried forward: raw question, ${active.config.language} response, retained history when relevant, verified workspace and file filters.`)); break;
+        case 'candidates': addCandidates(root,snapshot.ids,{merged:snapshot.merged}); break;
+        case 'compound-pools': {
+          const pools=[['Pool A · Q1',snapshot.parts[0],['D1','D3','D2','D4','D5']],['Pool B · Q2',snapshot.parts[1],['L3','D2']]];
+          pools.forEach(([title,query,ids])=>{ const pool=make('section','branch-box'); pool.append(make('h4','',title),make('p','quiet',query)); ids.forEach((id,index)=>pool.append(candidate(id,{source:'dense',rank:`${title}: ${index+1}`}))); root.append(pool); });
+          root.append(make('p','quiet','The raw/base query is retained under the documented pool rules; its illustrative hits overlap these candidates. Compound searches use a smaller per-search bound. Fusion follows before reranking.'));
+          break;
+        }
+        case 'candidate-pools':
+          root.append(make('h4','','Dense · retained'));
+          snapshot.dense.forEach(id=>root.append(candidate(id,id==='L3'&&snapshot.compound?{source:'dense',rank:'pool B rank 1'}:{})));
+          root.append(make('h4','',snapshot.lexical.length?'Lexical · added':'Lexical · no additional candidates')); addCandidates(root,snapshot.lexical);
+          break;
+        case 'cleaned': {
+          if(snapshot.compound) {
+            root.append(formula(['Q1 → pool A','Q2 → pool B'],'+'),formula(['Candidate lists','Reciprocal-rank fusion','Combined dense pool','Merge lexical candidates']));
+            root.append(make('p','quiet','Illustrative fused dense order: D1 → L3 → D2 → D3 → D4 → D5. Fusion weights are not specified here; this is not a runtime score calculation.'));
+          }
+          root.append(formula([snapshot.compound?'10 hits across streams':snapshot.hasLexical?'8 hits':'6 dense hits',snapshot.hasLexical?'7 merged':'6 merged','6 deduplicated','4 clean']));
+          const list=make('ul','removals');
+          const reasons=snapshot.hasLexical?['L1 merges into D1: same content and metadata.','L2 is removed: D1 text repeated within the same document.']:[];
+          reasons.push('D4/D5 are removed: repeated headers on different pages.');
+          if(snapshot.compound) reasons.unshift('Repeated D2 dense hit and dense/lexical L3 hits merge by identity.');
+          reasons.forEach(text=>list.append(make('li','',text))); root.append(list);
+          addCandidates(root,snapshot.ids,{merged:true}); break;
+        }
+        case 'ranked':
+          addCandidates(root,snapshot.ids,{ranked:true,merged:true});
+          root.append(candidate('D1',{merged:true,state:'rejected',status:'Suppressed: fully represented by T1; no rerank score shown.'})); break;
+        case 'selection':
+          root.append(make('p','quiet',`Selected: ${snapshot.ids.join(' + ')}. Only these passages enter the prompt; C1/C2 are assigned next.`));
+          addCandidates(root,snapshot.ids,{ranked:true,merged:true,state:'selected',status:'SELECTED → enters the prompt'});
+          active.ranked.filter(id=>!snapshot.ids.includes(id)).forEach(id=>root.append(candidate(id,{ranked:true,merged:true,state:'rejected',status:'REJECTED → below gate; the minimum is already met'})));
+          root.append(candidate('D1',{merged:true,state:'rejected',status:'EXCLUDED → covered by T1 during reranking'})); break;
+        case 'prompt': {
+          const parts=[['RAW QUESTION',snapshot.question],['RELEVANT HISTORY',snapshot.historyText],...Object.entries(snapshot.contextMap).map(([id,metadata])=>[`SELECTED CONTEXT ${id}`,`${chunks[metadata.candidate].text}\nBackend metadata: ${metadata.filename}, page ${metadata.page_number}. (${metadata.candidate} → ${id})`]),['GROUNDING INSTRUCTIONS',`Illustrative paraphrase: answer in ${snapshot.language} from the supplied context; return answer and evidence_ids using the minimum sufficient passage IDs.`]];
+          parts.forEach(([title,text],index)=>{ if(index) root.append(make('div','plus','+')); const part=make('div','prompt-part'); part.append(make('strong','',title),make('p','',text)); root.append(part); });
+          root.append(make('div','model','→ LLM')); break;
+        }
+        case 'validated':
+          root.append(json(snapshot.modelOutput),formula([snapshot.modelOutput.evidence_ids.join(', '),'Selected-context map',snapshot.accepted.length?'Known IDs ✓':'Unknown C99 → 0 valid citations']),json(snapshot.contextMap));
+          root.append(make('div','validation',snapshot.accepted.length?`Accepted: ${snapshot.accepted.join(', ')}. Metadata comes from this backend map.`:'NORMAL EVIDENCE VALIDATION: 0 valid citations. C99 is absent; neither filename nor page is invented to replace it.'));
+          break;
+        case 'citations': appendCitationMapping(root,snapshot.modelOutput,snapshot.contextMap,snapshot.citations); break;
+        case 'rescue': {
+          root.append(make('div','validation','NORMAL EVIDENCE VALIDATION → 0 valid citations. Only now is the conditional rescue considered.'));
+          const rescue=make('section','branch-box'); rescue.append(make('h4','','CITATION RESCUE · one conditional attempt'),formula(['Eligible reranked atomic chunk','Exact span checks','Second generation','Evidence validation']));
+          rescue.append(candidate('D3',{ranked:true,status:'Eligible atomic chunk: workspace-owned, filter-compliant, valid page.'}));
+          rescue.append(facts([['Extraction proposal · illustrative',`Source D3 · page 8 · exact span: ${chunks.D3.text}`],['Backend checks','ID allowlisted ✓ · page matches ✓ · unique span ✓ · verbatim presence in D3 ✓'],['Rescue-only context','The verified span becomes C1 in a NEW rescue context map; the normal map is not reused.']]));
+          rescue.append(json(snapshot.contextMap),make('h4','','Second generation · only verified spans'),json(snapshot.modelOutput),make('p','quiet','Second evidence validation: proposed C1 exists in the rescue-only context map.'));
+          appendCitationMapping(rescue,snapshot.modelOutput,snapshot.contextMap,snapshot.citations); root.append(rescue);
+          root.append(make('p','quiet','Successful illustrative fixture, not a guarantee. See DETAILS for eligibility, one-attempt limit, and failed-rescue behavior.')); break;
+        }
+        case 'deterministic':
+          root.append(formula(['Authorized workspace','Accessible documents','Exact page-location route','Validated evidence']));
+          root.append(facts([['Accessible catalog',catalog.join(', ')],['Exact phrase','emergency containment protocol'],['Validated source excerpt',chunks.T1.text],['Backend metadata',`${filename} · page 42`],['Normal RAG','Not executed; proceed directly to stage 20.']]));
+          root.append(make('p','',snapshot.answer),json(snapshot.citations)); break;
+        case 'stream': {
+          const response=snapshot.response;
+          root.append(formula(['Complete FastAPI JSON','Next.js adapter','Progressive text']));
+          root.append(make('p','quiet','Static snapshots of text emitted so far. Generation has already finished; these are not live model tokens.'));
+          root.append(facts([
+            ['First text fragment',response.answer.slice(0,28)+'…'],
+            ['More completed text emitted',response.answer.slice(0,70)+'…'],
+            ['Entire answer emitted',response.answer]
+          ]));
+          root.append(make('p','quiet','Only afterward: sources annotation (schematic, not wire-format syntax)'),json({sources:response.citations}));
+          break;
+        }
+        case 'ui': {
+          root.append(make('p','quiet','Assistant')); const chat=make('div','chat'); chat.append(make('p','',snapshot.response.answer));
+          snapshot.response.citations.forEach(c=>chat.append(make('span','source',`${c.filename}${c.page_number?` · page ${c.page_number}`:''}`),document.createTextNode(' ')));
+          root.append(chat,make('p','quiet','Illustrative source badges. Production fetches authenticated document content and opens the cited page.')); break;
+        }
+      }
+      if(snapshot.note) root.append(make('p','quiet',snapshot.note));
+      return root;
+    }
+
+    let scenarioKey='standard';
+    let failureKey='auth';
+    let active=buildScenario(scenarioKey,failureKey);
+    let current=0;
+    let detailed=false;
+    let expanded=new Set([0]);
+    const phaseIndex = index => macros.findIndex(m=>index>=m.start&&index<=m.end);
+    const buttons=[];
+    const groups=macros.map((macro,index)=>{
+      const item=make('li','macro-group');
+      const toggle=make('button','macro-toggle'); toggle.type='button'; toggle.setAttribute('aria-controls',`macro-children-${index}`);
+      const title=make('span'); const status=make('span','macro-status'); toggle.append(title,status);
+      const content=make('div'); content.id=`macro-children-${index}`;
+      const description=make('p','macro-description',macro.purpose); const list=make('ol','macro-children');
+      for(let stageIndex=macro.start;stageIndex<=macro.end;stageIndex++) {
+        const row=make('li'); const button=make('button'); button.type='button'; button.setAttribute('aria-controls','stage');
+        const copy=make('span','step-copy'); const name=make('span','step-name',stages[stageIndex].title); const state=make('span','step-state'); copy.append(name,state);
+        button.append(make('span','step-number',String(stageIndex+1).padStart(2,'0')),copy);
+        button.addEventListener('click',()=>{ select(stageIndex); }); row.append(button); list.append(row); buttons[stageIndex]={button,state};
+      }
+      content.append(description,list); item.append(toggle,content); $('pipeline').append(item);
+      toggle.addEventListener('click',()=>{ expanded.has(index)?expanded.delete(index):expanded.add(index); updateNavigation(); });
+      return {item,toggle,title,status,content};
+    });
+    const phasePills=macros.map((macro,index)=>{
+      if(index) $('phase-bar').append(make('span','phase-arrow','→'));
+      const pill=make('div','phase-pill'); pill.append(make('strong','',macro.name),make('span'));
+      $('phase-bar').append(pill); return pill;
+    });
+    function updateNavigation() {
+      const currentMacro=phaseIndex(current);
+      groups.forEach((group,index)=>{
+        const phase=active.phaseStates[index]; const isExpanded=expanded.has(index);
+        group.item.classList.toggle('current',index===currentMacro);
+        group.toggle.setAttribute('aria-expanded',String(isExpanded));
+        group.title.textContent=`${isExpanded?'▾':'▸'} ${macros[index].name}`;
+        group.status.textContent=phase.label;
+        group.toggle.setAttribute('aria-label',`${macros[index].name}: ${phase.label}. ${isExpanded?'Collapse':'Expand'} detailed stages.`);
+        group.content.hidden=!isExpanded;
+        phasePills[index].classList.toggle('current',index===currentMacro);
+        phasePills[index].dataset.state=phase.status.toUpperCase();
+        phasePills[index].querySelector('span').textContent=phase.label;
+        phasePills[index].title=`${macros[index].purpose} ${phase.reason}`;
+        if(index===currentMacro) phasePills[index].setAttribute('aria-current','step'); else phasePills[index].removeAttribute('aria-current');
+      });
+      buttons.forEach(({button,state},index)=>{
+        const info=active.state[index];
+        state.textContent=info.status;
+        button.setAttribute('aria-label',`Stage ${index+1}: ${stages[index].title}. ${info.status}. ${info.reason}`);
+        if(index===current) button.setAttribute('aria-current','step'); else button.removeAttribute('aria-current');
+      });
+    }
+    function previousExecuted(index) { return active.route.filter(i=>i<index).at(-1); }
+    function nextExecuted(index) { return active.route.find(i=>i>index); }
+    function pane(label,caption,snapshot,isOutput) {
+      const node=make('section',`pane ${isOutput?'output':'input'}`);
+      const head=make('div','pane-head'); head.append(make('strong','label',label),make('span','',caption));
+      node.append(head,renderSnapshot(snapshot)); return node;
+    }
+    function appendEnding(root) {
+      const why=make('section','why-path'); why.append(make('h3','','WHY THIS PATH?'));
+      const list=make('ul'); active.why.forEach(reason=>list.append(make('li','',reason))); why.append(list); root.append(why);
+      const overview=make('section','overview'); overview.append(make('h3','','Architecture overview'));
+      if(active.failure) overview.append(formula(['REQUEST','FAILED',`HTTP ${active.failure.code}`]),make('p','quiet','RESPONSE handles HTTP error propagation and frontend cleanup. No successful QueryResponse or answer stream is produced.'));
+      else {
+        overview.append(formula(macros.map((macro,index)=>`${macro.name} · ${active.phaseStates[index].status}`)));
+        let path=['Raw question','Prepared retrieval query','Expanded queries','Candidate chunks','Reranked candidates','Selected context','Grounded prompt','Answer + evidence IDs','Validated citations','QueryResponse','Rendered UI'];
+        if(active.key==='deterministic') path=['REQUEST','Accessible documents','Validated deterministic branch','RESPONSE'];
+        if(active.key==='contextual') path.splice(1,1,'History + reformulated retrieval question');
+        if(active.key==='nonEnglish') path.splice(1,1,'Italian response language retained','English retrieval query');
+        if(active.key==='compound') path.splice(1,3,'Two parser-provided retrieval questions','Expansion skipped','Candidate streams + reciprocal-rank fusion');
+        if(active.key==='citationRescue') path.splice(path.indexOf('Validated citations'),1,'0 normal citations','Verified rescue spans','Second generation + ID validation','Validated citations');
+        overview.append(formula(path));
+      }
+      root.append(overview);
+    }
+    function render() {
+      const stage={...stages[current],...active.overrides[current]}; const info=active.state[current];
+      const heading=make('div','stage-heading'); const title=make('h2','',stage.title); title.id='stage-title';
+      heading.append(make('span','label',`${macros[phaseIndex(current)].name} / STAGE ${String(current+1).padStart(2,'0')}`),title);
+      const transformation=make('section',`transformation ${info.status==='FAILED'?'failed':''}`);
+      transformation.append(make('strong','label',info.status==='FAILED'?'FAILURE':info.status==='SKIPPED'?'SKIPPED':'TRANSFORMATION'),document.createTextNode(' '),badge(info.status));
+      const body=make('div');
+      if(info.status==='NOT REACHED') {
+        transformation.append(make('p','',info.reason));
+        body.className='not-reached'; body.append(make('strong','','NOT REACHED'),make('p','','No input or output is shown: this stage did not execute in the illustrated path.'));
+        if(active.failure?.code===504) body.append(make('p','','The worker may continue after the HTTP timeout; later worker activity is not simulated.'));
+      } else {
+        transformation.append(make('p','',info.status==='SKIPPED'?info.reason:stage.action),make('p','note',info.status==='SKIPPED'?'Value unchanged; navigation follows the branch destination.':stage.note));
+        if(info.status==='BRANCH'&&info.reason!==stage.action) transformation.append(make('p','note',info.reason));
+        const prior=previousExecuted(current); const following=nextExecuted(current);
+        const input=current===0?active.snapshots[0]:active.snapshots[prior];
+        const output=info.status==='SKIPPED'?input:active.snapshots[current];
+        body.className='io';
+        body.append(pane(current===13?'INPUT · BEFORE ORDER':'INPUT',prior===undefined?'Starting value':`Carried forward from executed stage ${prior+1}: ${stages[prior].title}`,input,false),make('div','bridge','→'),pane(current===13?'OUTPUT · AFTER ORDER':'OUTPUT',following===undefined?'Final result':info.status==='SKIPPED'?`Unchanged → branch destination: stage ${following+1}`:`Continues to stage ${following+1}`,output,true));
+      }
+      const details=make('section','details'); details.id='implementation-details'; details.hidden=!detailed;
+      details.append(make('span','label','Responsible component'),make('p','',stage.component),make('span','label','Purpose and documented edge cases'),make('p','',stage.why),make('p','quiet',`Source: query-lifecycle.md · ${stage.source}`));
+      if(info.status==='SKIPPED'||info.status==='NOT REACHED') details.prepend(make('p','',`This component’s normal role is described below; it was ${info.status.toLowerCase()} in this fixture.`));
+      $('stage').replaceChildren(heading,transformation,body,details);
+      if(current===21||info.status==='FAILED') appendEnding($('stage'));
+      updateNavigation();
+      $('previous').disabled=previousExecuted(current)===undefined;
+      $('next').disabled=nextExecuted(current)===undefined;
+      $('simple').setAttribute('aria-pressed',String(!detailed)); $('detailed').setAttribute('aria-pressed',String(detailed));
+      $('announcement').textContent=`${active.config.label}. ${macros[phaseIndex(current)].name}. Stage ${current+1}: ${stage.title}. ${info.status}.`;
+    }
+    function keepSelectionVisible() {
+      const rail=document.querySelector('.rail'); const rect=buttons[current].button.getBoundingClientRect(); const bounds=rail.getBoundingClientRect();
+      if(rect.top<bounds.top+12) rail.scrollTop-=bounds.top+12-rect.top;
+      if(rect.bottom>bounds.bottom-12) rail.scrollTop+=rect.bottom-bounds.bottom+12;
+      const pill=phasePills[phaseIndex(current)]; const bar=$('phase-bar');
+      const pillRect=pill.getBoundingClientRect(); const barRect=bar.getBoundingClientRect();
+      if(pillRect.left<barRect.left) bar.scrollLeft-=barRect.left-pillRect.left;
+      if(pillRect.right>barRect.right) bar.scrollLeft+=pillRect.right-barRect.right;
+    }
+    function select(index) {
+      const oldPhase=phaseIndex(current); current=Math.max(0,Math.min(21,index)); const newPhase=phaseIndex(current);
+      if(newPhase!==oldPhase) expanded=new Set([newPhase]); else expanded.add(newPhase);
+      render(); keepSelectionVisible();
+      const top=$('stage').getBoundingClientRect().top; const toolbarHeight=$('toolbar').offsetHeight;
+      if(top<toolbarHeight) window.scrollBy({top:top-toolbarHeight,behavior:'instant'});
+    }
+    function changeScenario() {
+      scenarioKey=$('scenario').value; failureKey=$('failure').value;
+      active=buildScenario(scenarioKey,failureKey); current=0; expanded=new Set([0]);
+      $('failure-control').hidden=scenarioKey!=='requestFailure'; $('question-text').textContent=`“${active.config.question}”`;
+      $('request-context').replaceChildren();
+      if(active.config.history.length) $('request-context').append(facts(active.config.history.map(turn=>[`Previous ${turn.role} · illustrative`,turn.content])));
+      if(active.failure) $('request-context').append(make('p','quiet',`Illustrative request state: ${active.failure.runtime}`));
+      render(); document.querySelector('.rail').scrollTop=0; $('phase-bar').scrollLeft=0;
+    }
+    Object.entries(scenarios).forEach(([key,scenario])=>{ const option=make('option','',scenario.label); option.value=key; $('scenario').append(option); });
+    Object.entries(failures).forEach(([key,failure])=>{ const option=make('option','',failure.label); option.value=key; $('failure').append(option); });
+    $('scenario').addEventListener('change',changeScenario); $('failure').addEventListener('change',changeScenario);
+    $('previous').addEventListener('click',()=>{ const target=previousExecuted(current); if(target!==undefined) select(target); });
+    $('next').addEventListener('click',()=>{ const target=nextExecuted(current); if(target!==undefined) select(target); });
+    function setMode(value) { detailed=value; $('implementation-details').hidden=!detailed; $('simple').setAttribute('aria-pressed',String(!detailed)); $('detailed').setAttribute('aria-pressed',String(detailed)); }
+    $('simple').addEventListener('click',()=>setMode(false)); $('detailed').addEventListener('click',()=>setMode(true));
+    changeScenario();
+  </script>
+</body>
+</html>
