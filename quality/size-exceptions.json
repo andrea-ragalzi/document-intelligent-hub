@@ -1,0 +1,22 @@
+{
+  "backend/app/repositories/vector_store_repository.py": {
+    "max_lines": 750,
+    "reason": "Existing tenant-scoped Chroma retrieval/persistence adapter; separating retrieval strategies requires a behavior-tested task. No growth."
+  },
+  "backend/app/routers/documents_router.py": {
+    "max_lines": 831,
+    "reason": "Existing upload/demo/cleanup HTTP workflows include legacy provider operations. Extract application operations only in a dedicated task preserving auth and cleanup contracts. No growth."
+  },
+  "backend/app/services/answer_generation_service.py": {
+    "max_lines": 1324,
+    "reason": "Existing retrieval, context and grounding pipeline has coupled stage contracts. Any split needs RAG regression evidence in a separate task. No growth."
+  },
+  "backend/app/services/document_indexing_service.py": {
+    "max_lines": 769,
+    "reason": "Existing bounded PDF parsing and indexing pipeline includes process/resource safeguards. Separate only with parsing and lifecycle regressions. No growth."
+  },
+  "frontend/app/dashboard/page.tsx": {
+    "max_lines": 768,
+    "reason": "Existing dashboard coordinates chat, documents, conversations and save state. Extract workflows with async/state regressions in a dedicated task. No growth."
+  }
+}
