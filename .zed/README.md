@@ -11,12 +11,18 @@ Optional support: `/diagnose`, `/diagnose-rag` (**Diagnose**) and `/understand` 
 - [AGENTS.md](../AGENTS.md) and area instructions: repository rules.
 - [Zed skills](../.agents/skills/): phase behavior.
 - [tasks.json](tasks.json): reusable manual commands via `task: spawn`.
-- [review.md](../.opencode/commands/review.md): independent, risk-based review and new-test rules.
-- [opencode.json](../.opencode/opencode.json): tool permissions; ordinary test and production edits denied.
+- [review.md](../.opencode/commands/review.md): independent read-only architecture and quality review.
+- [opencode.json](../.opencode/opencode.json): tool permissions; all source/test/config edits denied.
 
-Small test-only reviews run one targeted test, then return a verdict when evidence is sufficient. A failing pre-review test stays unchanged and yields `CHANGES_REQUIRED`; broader checks require concrete evidence.
+Every implementation and independent review runs root `make quality`, including small
+test-only changes. Reviewers inspect architecture and maintainability as well as tests;
+BLOCKER/IMPORTANT findings or failed/blocked gates yield `CHANGES_REQUIRED`.
 
-New independent tests use fresh unique filenames under `backend/tests/reviewer_*.py` or `frontend/test/reviewer_*`; writes require no approval. Existing tests, including earlier reviewer files, must never be overwritten or reused. V1 path permissions cannot enforce create-only access within this namespace, so fresh-name discipline remains a reviewer rule. Backend reviewer files run by explicit pytest path. Only temporary probes created during the current review may be removed. Tool permissions are not an OS sandbox: allowed tests/scripts execute code and create normal cache/build artifacts. Manual Zed tasks do not inherit agent permissions.
+Reviewers cannot add or modify tests. Request fixes or missing regressions in the findings;
+implementation happens in a separate write session. Permissions are not an OS sandbox:
+allowed tests/scripts execute repository code and create normal cache/coverage/build
+artifacts. Inspect changed check scripts before running them. Manual Zed tasks do not
+inherit agent permissions.
 
 ## Runtime and checks
 
@@ -24,4 +30,9 @@ Zed ACP uses OpenCode **1.18.33** with V1 `agent`, `permission`, `bash`, and `su
 
 Backend checks run through Poetry in `backend/`; frontend checks use npm scripts in `frontend/`. OpenCode supplies the directory through `bash.workdir`. Start with `Backend: current test` (an open backend test), a relevant RAG task, or a frontend test filter.
 
-`Quality: static (both apps)` runs broad static checks; `Quality: full` adds tests and build checks. These are manual broad gates, not the fast review path. basedpyright availability in Poetry remains a known prerequisite to confirm before using its task/full gate. Regular backend tests exclude `firebase_emulator`. The public RAG evaluation can incur API costs; details are in [the evaluation README](../backend/evaluation/README.md).
+`Quality: full` runs `make quality`; area quality tasks use its backend/frontend targets.
+Focused tasks are iteration aids, not substitutes for the completion gate. The uninstalled
+basedpyright task and duplicate full-suite/security runs have been removed. See
+[the quality contract](../docs/development-quality.md) for prerequisites, limits and
+additional integration checks. Public RAG evaluation can incur API costs and still requires
+explicit authorization.

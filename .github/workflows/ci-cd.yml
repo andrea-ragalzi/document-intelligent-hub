@@ -4,7 +4,7 @@ on:
   push:
     branches: [develop, main]
   pull_request:
-    branches: [main]
+    branches: [develop, main]
 
 # A newer commit on the same PR supersedes the older validation run.
 concurrency:
@@ -14,9 +14,6 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
-  PYLINT_THRESHOLD: 9.0
-  # Retrieval orchestration intentionally coordinates several bounded stages.
-  COMPLEXITY_THRESHOLD: 25
 
 jobs:
   secret-scan:
@@ -58,9 +55,23 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'Makefile'
+              - 'quality/**'
+              - '**/AGENTS.md'
+              - '.agents/**'
+              - '.opencode/**'
+              - '.zed/**'
+              - 'docs/development-quality.md'
               - '.github/workflows/ci-cd.yml'
             frontend:
               - 'frontend/**'
+              - 'Makefile'
+              - 'quality/**'
+              - '**/AGENTS.md'
+              - '.agents/**'
+              - '.opencode/**'
+              - '.zed/**'
+              - 'docs/development-quality.md'
               - '.github/workflows/ci-cd.yml'
             backend_docker:
               - 'backend/Dockerfile'
@@ -134,18 +145,9 @@ jobs:
           poetry config --local installer.no-binary antlr4-python3-runtime,langdetect,pypika
           poetry sync --no-interaction --no-ansi
 
-      # One environment avoids installing the Python/RAG dependency set twice.
-      - name: "✨ Pylint"
-        run: poetry run pylint app/ --rcfile=.pylintrc --fail-under="$PYLINT_THRESHOLD"
-
-      - name: "🔍 MyPy"
-        run: poetry run mypy app/ --strict --pretty
-
-      - name: "🧬 Lizard"
-        run: poetry run lizard app/ -l python -C "$COMPLEXITY_THRESHOLD" -w
-
-      - name: "🧪 Tests with coverage"
-        run: poetry run pytest --cov=app --cov-report=xml --cov-report=term
+      - name: "Quality (backend and guardrail tests)"
+        working-directory: .
+        run: make quality-tooling quality-backend
 
       - name: "📊 Upload coverage to Codecov"
         if: ${{ always() && env.CODECOV_TOKEN != '' }}
@@ -181,22 +183,11 @@ jobs:
       - name: "📚 Install dependencies"
         run: npm ci --ignore-scripts
 
-      - name: "✨ ESLint"
-        run: npm run lint -- --max-warnings=0
-
-      - name: "🔍 TypeScript"
-        run: npm run type-check
-
-      - name: "💅 Prettier"
-        run: npm run format:check
-
-      - name: "🧪 Tests"
-        run: npm run test:run
-
-      - name: "🏗️ Production build"
+      - name: "Quality (frontend, coverage and build)"
+        working-directory: .
         env:
           NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/rag
-        run: npm run build
+        run: make quality-frontend
 
   backend-docker:
     name: "🐳 Backend Docker build"

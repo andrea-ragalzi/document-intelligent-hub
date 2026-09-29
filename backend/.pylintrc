@@ -5,7 +5,8 @@
 [MASTER]
 # Modules that Pylint should skip (typically generated or third-party)
 # Add your virtual environment folders (.venv) and configuration files here
-ignore = .venv, node_modules, setup.py, __init__.py, manage.py, chroma_db, htmlcov, __pycache__, logs
+# Do not ignore __init__.py: Pylint can then skip traversal of the whole app package.
+ignore = .venv, node_modules, setup.py, manage.py, chroma_db, htmlcov, __pycache__, logs
 
 # Maximum number of threads to use (speeds up analysis on large projects)
 jobs = 0

@@ -38,6 +38,9 @@ When using Codex directly:
 
 Inspect only the relevant code, tests, and documentation needed for the task.
 
+Search for existing callers, schemas, helpers, services, hooks and components before
+adding an abstraction. State which existing responsibility owns the change.
+
 Preserve unrelated work and existing architectural patterns.
 
 For backend changes, follow `backend/AGENTS.md`.
@@ -64,22 +67,61 @@ Avoid:
 
 Preserve the repository's typing, linting, formatting, and testing standards.
 
+Remove code, imports and branches made obsolete by your change; check callers before
+deleting shared APIs or compatibility exports. Bug fixes require a deterministic
+regression test that fails before the fix. Do not weaken assertions, skip tests,
+reduce coverage, add blanket suppressions or relax lint/type/quality gates to pass.
+Agents must not modify quality configuration merely to make an implementation pass
+unless the requested task specifically concerns that configuration.
+
+Handwritten production files over 400 lines require explicit architecture review;
+over 600 fail unless a concrete exception is recorded in `quality/size-exceptions.json`.
+Existing exceptions are no-growth ceilings, not targets. Never split files mechanically
+or compress code to evade limits. Review functions over 100 lines; backend functions
+over 200 non-comment lines fail Lizard. See `docs/development-quality.md` for scope.
+
 ## Documentation
 
 Update documentation when the task changes behavior, architecture, APIs, configuration, setup, deployment, or developer workflows.
 
 ## Verification
 
-Run checks appropriate to the change, including relevant tests and quality checks.
+Run focused checks while editing, then **`make quality` from the repository root**
+before declaring completion, including documentation-only and test-only tasks.
+Run additional task-specific integration checks described in `docs/development-quality.md`.
 
 Before considering work complete:
 
 - inspect `git status`;
-- inspect the relevant diff;
+- inspect the complete staged and unstaged diff and all task-created untracked files;
 - confirm only intended files changed;
 - report any verification that could not be performed.
 
 Do not disable valid checks merely to make the task pass.
+
+A task is not complete merely because tests pass. The resulting code must also
+remain maintainable and consistent with the repository architecture. If required
+checks fail or cannot run, report the failure/prerequisite and leave completion unclaimed.
+
+## Independent review
+
+Reviewers remain read-only unless explicitly asked to fix findings. Inspect the full
+implementation independently, search related code and callers, and independently run
+`make quality`; an implementer's test report is not verification. Normal ignored test,
+coverage and build artifacts are permitted; source/config/test edits are not.
+
+Check layer placement, dependency wiring, duplicate logic, unnecessary abstractions,
+obsolete code, file/function size, missing regressions, weakened tests/gates, unrelated
+changes, error handling, authentication/tenant isolation and backend/frontend conventions.
+For each finding give file/line, impact and a concrete correction:
+
+- **BLOCKER**: security/correctness failure, failing required gate, or bypassed verification.
+- **IMPORTANT**: architectural violation, avoidable maintainability regression, missing
+  regression coverage, or unjustified size/abstraction/duplication.
+- **OPTIONAL**: non-blocking improvement within the task's scope.
+
+Return `CHANGES_REQUIRED` for BLOCKER/IMPORTANT findings or blocked required verification,
+even when tests pass. `PASS` requires all acceptance criteria and checks, with no such findings.
 
 ## Git safety
 

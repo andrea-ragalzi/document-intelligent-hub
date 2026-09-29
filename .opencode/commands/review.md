@@ -1,94 +1,60 @@
 ---
-description: Adversarially review and verify the current TASK.md implementation
+description: Independently review architecture, maintainability and canonical quality checks
 agent: review
 subtask: false
 ---
 
-Review independently as the primary `review` agent in this thread using the selected model. Do not delegate, spawn child/subagent sessions, or invoke skills.
+Review as the primary `review` agent in this thread. Do not delegate, spawn agents or
+invoke skills. Remain read-only unless the developer explicitly asks for fixes; the
+configured review role denies edits, so fixes belong in an implementation session.
 
-## Scope and classification
+## Scope and evidence
 
-Read `TASK.md` first and applicable repository instructions. Stop if the task is missing, empty, materially ambiguous, or conflicts with newer developer instructions.
+Read the current developer request and applicable `AGENTS.md` files. For a Zed handoff,
+read approved `TASK.md` first and stop if it is missing, empty, ambiguous or conflicts
+with newer instructions. For direct Codex work, use the current prompt as scope.
 
-Establish the pre-review baseline: `git status --short`, relevant staged/unstaged diffs, and task-relevant untracked files. All tests present at this point belong to the baseline, including implementation-created and untracked tests. Preserve them.
+Establish a baseline with `git status --short`, complete staged/unstaged diffs and all
+task-relevant untracked files. Read surrounding code and callers, not just changed lines.
+Verify every acceptance criterion and challenge whether tests could pass despite a defect.
 
-Classify before choosing checks: SMALL TEST-ONLY (localized test assertions/cases, no changed shared fixtures/helpers/configuration or production code) or broader/risk-bearing change. Identify the changed behavior and 1–3 realistic risks against the acceptance criteria. Batch independent reads and reuse evidence.
+Apply the independent-review checklist and BLOCKER / IMPORTANT / OPTIONAL definitions
+in root `AGENTS.md`. In particular inspect layer placement, dependency injection,
+duplicate implementations, unnecessary abstractions, obsolete code, large files/functions,
+weakened tests/gates, missing regression tests, unrelated changes, error handling,
+authentication/tenant isolation and established backend/frontend conventions.
+For changed files over 400 lines or functions over 100 lines, explicitly assess ownership
+and cohesion. A size exception permits existing debt, not growth or additional responsibilities.
 
-## Small test-only fast path
+## Independent verification
 
-1. Inspect the changed test and its setup.
-2. Inspect only production behavior needed to understand what the assertion proves.
-3. Independently run exactly ONE targeted test first, using its precise node ID/name filter, not the whole file.
-4. If it passes, directly demonstrates the acceptance criteria, and inspection finds no plausible material issue, return the verdict. Do not run a final confirmation test.
+Inspect changed Makefile/scripts/configuration/tests before executing them. Report any
+unexpected source-writing, dependency-installing or external side effects as a BLOCKER.
+Run focused tests where useful, then independently run **`make quality` at the repository
+root**, even for test-only or documentation-only changes. The implementer's log is not
+independent evidence. No fast path skips this gate. Also run task-specific integration
+checks required by `docs/development-quality.md`.
 
-Do not automatically run the full modified test file, backend suite, unrelated RAG/regression or security suites, Ruff, MyPy, basedpyright, Pylint, complexity checks, or frontend checks. A RAG test location alone is not a risky pipeline change.
+Use `bash.workdir` for the repository root with `make quality`; backend focused checks
+use absolute `backend/` with `poetry run`, frontend focused checks use absolute `frontend/`
+with npm scripts. Do not use `cd`, command overrides, fix/write/update flags, shell
+redirection, Git mutations, environment substitution or dependency installation.
+Normal ignored coverage/cache/build artifacts from approved checks are expected.
 
-Actively challenge whether the assertion proves the intended behavior or could pass despite a defect. The implementer's reported results are not independent verification. Escalate only for concrete evidence or an explicit required task check; briefly identify the trigger and choose checks addressing it.
+Never edit existing tests, add reviewer tests, fix production code, change configuration
+or adjust expected values during read-only review. Preserve failing evidence, describe
+missing regressions for the implementer, and return `CHANGES_REQUIRED` when a required
+check fails or is blocked. Expensive LLM/API evaluations require explicit authorization.
 
-## Escalation
+Inspect final status against the baseline. `PASS` requires all acceptance criteria,
+independent passing checks, no BLOCKER/IMPORTANT finding and no prohibited edits.
+Architectural violations and avoidable maintainability regressions fail review even if
+tests pass. Do not repeat passing checks without relevant changes or new evidence.
 
-Triggers: targeted failure, production/shared/core behavior changes, security/auth/isolation/data-integrity impact, cross-cutting RAG impact, insufficient test evidence, suspicious code, or a plausible regression.
+## Report
 
-For production changes, inspect affected behavior/callers and code quality, run focused regression tests and relevant area checks; broaden for the specific risk. Full suites and broad quality gates are conditional. Stop when acceptance criteria and material risks have sufficient evidence.
-
-A failing pre-review test normally ends the fast path after enough inspection to explain the failure. Do not run unrelated suites to offset that failure.
-
-## Test ownership
-
-If ANY test/assertion/case present before review fails: preserve it unchanged and return `CHANGES_REQUIRED`. Do not modify, repair, weaken, skip, delete, rewrite, or make it match current production behavior. This includes apparently incorrect tests, implementation-created tests, and their fixtures/helpers. Explain the failure; resolution belongs to `/implement`.
-
-Add NEW independent tests only when they materially improve coverage of boundaries, regressions, failure modes, or behavior the implementer did not demonstrate. Do not mirror implementation details.
-
-Always create a new uniquely named independent test file in `backend/tests/reviewer_<unique_name>.py` or `frontend/test/reviewer_<unique_name>.test.ts[x]`. Check that the path is unused before creating it. Never overwrite or reuse an existing reviewer test file, or modify any test that existed before review. Keep new fixtures/helpers in the new file only when required.
-
-Writes in this namespace and allowed test runs proceed automatically without approval. Run backend reviewer files by explicit path because `reviewer_*.py` may not match default pytest discovery. V1 path rules cannot distinguish creation from overwrite, so enforce fresh names before every new file. Do not broaden permissions or write via shell commands to bypass them.
-
-Leave reviewer-created tests with lasting regression value. If one fails, return `CHANGES_REQUIRED` without fixing production code. Remove temporary probes only if they have no lasting value and were created during the current review.
-
-## Execution and verdict
-
-Use `bash.workdir` set to absolute `backend/` with `poetry run`, or absolute `frontend/` with npm scripts. Put only the check command in `command`, without `cd`. Example: `poetry run pytest tests/test_rag_service_unit.py::TestQueryProcessing::test_answer_query_no_relevant_documents`.
-
-Never modify production code, `TASK.md`, configuration, dependencies, or documentation, including through commands or test/helper code. Do not mutate Git state, bypass permissions, install dependencies, use fix/write/update flags or redirection, or substitute environments. Costly LLM/API evaluations require explicit task/developer authorization.
-
-Check final status and inspect any reviewer-created changes against the baseline; do not rerun passing checks without new evidence.
-
-`PASS` requires evidence for every acceptance criterion, passing material independent verification, no material finding, and no prohibited reviewer edits. Otherwise return `CHANGES_REQUIRED`, including when material verification is blocked.
-
-Use exactly the following compact report. Give findings file/line references and impact. Use None where appropriate; under Not run list only material blocked checks, not every unused tool. Do not narrate internal phases.
-
-## Verdict
-
-PASS or CHANGES_REQUIRED
-
-## Findings
-
-...
-
-## Independent tests
-
-Added:
-
-- ...
-
-Result:
-
-- ...
-
-## Validation
-
-Executed:
-
-- ...
-
-Inspected:
-
-- ...
-
-Not run:
-
-- ...
-
-## Reviewer changes
-
-- ...
+- **Verdict:** PASS or CHANGES_REQUIRED.
+- **Findings:** severity, file/line, impact and concrete correction; or None.
+- **Architecture/maintainability:** ownership, reuse, obsolete code and size assessment.
+- **Validation:** commands actually executed, results, and material blocked checks.
+- **Reviewer changes:** None (apart from normal ignored check artifacts).

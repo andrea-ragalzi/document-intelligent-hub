@@ -16,7 +16,7 @@ Before editing, briefly state the intended changes and targeted verification. Ex
 
 Do not modify `TASK.md`.
 
-Use focused tests during implementation and run all required task checks before finishing. Honor explicit per-step checks; otherwise group checks covering related changes and repeat them only after relevant edits, failures, or new evidence. Do not automatically run broad quality gates.
+Use focused tests during implementation and run all required task checks plus root `make quality` before finishing. Honor explicit per-step checks; otherwise group checks covering related changes and repeat them only after relevant edits, failures, or new evidence. Inspect the complete final diff and apply the architecture/maintainability completion rules in `AGENTS.md`; passing tests alone is insufficient.
 
 If required verification cannot be run, stop and report the missing prerequisite. Do not silently substitute another check.
 

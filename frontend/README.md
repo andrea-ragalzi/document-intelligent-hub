@@ -112,7 +112,7 @@ npm run test:firebase-auth-emulator
 The command uses the isolated `demo-dih-auth` project and refuses to run when the Auth Emulator
 is not configured.
 
-Tests are under `test/`, including coverage for upload conflicts, bounded chat forwarding, citation persistence/display, and authenticated original-PDF opening. GitHub Actions also runs frontend lint, type-check, format, test, and production-build checks.
+Tests are under `test/`, including coverage for upload conflicts, bounded chat forwarding, citation persistence/display, and authenticated original-PDF opening. Root `make quality` is the completion gate; its `make quality-frontend` target checks size, import boundaries, lint, formatting, types, test coverage and the production build. GitHub Actions reuses that target. See [the quality contract](../docs/development-quality.md).
 
 ## Important Code Paths
 

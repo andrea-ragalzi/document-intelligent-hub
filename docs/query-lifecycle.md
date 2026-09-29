@@ -69,7 +69,7 @@ On the RAG branch, `QueryParserService.extract_file_filters` uses the configured
 
 ## 8. Grounded generation
 
-`AnswerGenerationService._generate_llm_response` assigns selected context passages IDs `C1`, `C2`, and so on, and formats each with backend-known filename and optional page metadata. `_build_final_prompt` combines the configured RAG system prompt, response language, the **raw current user message**, relevant formatted conversation history, and selected context. It instructs the answer model to answer from that context and return structured `AnswerWithEvidence { answer, evidence_ids }`, using the minimum sufficient passage IDs. A request with no selected documents still reaches generation with empty context; it does not use `_handle_no_documents` in this normal path.
+`AnswerGenerationService._generate_llm_response` assigns selected context passages IDs `C1`, `C2`, and so on, and formats each with backend-known filename and optional page metadata. `_build_final_prompt` combines the configured RAG system prompt, response language, the **raw current user message**, relevant formatted conversation history, and selected context. It instructs the answer model to answer from that context and return structured `AnswerWithEvidence { answer, evidence_ids }`, using the minimum sufficient passage IDs. A request with no selected documents still reaches generation with empty context.
 
 ## 9. Evidence and citations
 

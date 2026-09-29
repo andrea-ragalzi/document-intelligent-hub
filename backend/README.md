@@ -163,7 +163,7 @@ For a coverage report:
 poetry run pytest --cov=app --cov-report=term
 ```
 
-GitHub Actions validates backend changes with Pylint, MyPy, Lizard, and pytest, alongside the repository's frontend, secret-scanning, Docker, and Firebase integration checks. Firebase, OpenAI, Resend, and local model availability can affect tests in other environments.
+Root `make quality` (backend subset: `make quality-backend`) validates source size, Ruff, Pylint, MyPy, Lizard, architecture boundaries and pytest. GitHub Actions reuses that target, alongside the repository's frontend, secret-scanning, Docker, and Firebase integration checks. Firebase, OpenAI, Resend, and local model availability can affect tests in other environments.
 
 ## Important Code Paths
 
