@@ -108,6 +108,8 @@ Registered requests remain scoped to their verified Firebase UID. Anonymous requ
 
 GitHub Actions validates backend and frontend changes through static analysis, automated tests, frontend production build checks, secret scanning, and relevant Docker and Firebase integration checks.
 
+Run `make quality` before declaring implementation or independent review complete. It shares its backend/frontend targets with CI. See [the development quality contract](docs/development-quality.md) for setup, architecture boundaries, maintainability exceptions, reviewer duties and additional integration checks.
+
 Backend:
 
 ```bash

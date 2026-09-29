@@ -22,6 +22,7 @@ help:
 	@echo "  make test-coverage - Run tests with coverage"
 	@echo ""
 	@echo "Code Quality:"
+	@echo "  make quality      - Required local, agent and CI quality gates"
 	@echo "  make lint-frontend - Run ESLint on frontend"
 	@echo ""
 	@echo "Maintenance:"
@@ -156,3 +157,24 @@ format-backend:
 lint-frontend:
 	@echo "🔍 Linting frontend code..."
 	cd frontend && npm run lint
+
+# Canonical quality gates. CI uses these same area targets without repeating tests.
+.PHONY: quality quality-backend quality-frontend quality-tooling
+quality: quality-tooling quality-backend quality-frontend
+
+quality-tooling:
+	python3 -m unittest discover -s quality -p 'test_*.py'
+
+quality-backend:
+	python3 quality/check_size.py backend
+	cd backend && poetry run ruff check app main.py tests ../quality
+	cd backend && poetry run mypy --config-file=mypy.ini app/ --strict --pretty
+	cd backend && find app -name '*.py' -print0 | xargs -0 poetry run pylint --rcfile=.pylintrc --fail-under=9.0 --fail-on=E,F
+	cd backend && poetry run lizard app/ -l python -C 25 -T nloc=200 -w
+	cd backend && poetry run pytest --cov=app --cov-report=xml --cov-report=term
+
+quality-frontend:
+	python3 quality/check_size.py frontend
+	cd frontend && node --test ../quality/test_frontend_boundaries.mjs
+	cd frontend && npm run quality:check
+	cd frontend && npm run build

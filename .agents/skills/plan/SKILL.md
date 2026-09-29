@@ -54,6 +54,6 @@ Rules for the final `TASK.md` draft:
 - Do not turn assumptions or unknowns into requirements.
 - Keep the approved plan to at most 5 steps.
 - Do not add commentary inside the code block.
-- Choose targeted checks for the changed behavior and identify conditions requiring broader verification; do not default to whole-project quality gates.
+- Choose targeted checks for the changed behavior and additional integrations required by risk; always include root `make quality` as the completion gate required by `AGENTS.md`.
 
 Stop after the draft. The developer approves and manually copies it into `TASK.md` before invoking `/implement`.

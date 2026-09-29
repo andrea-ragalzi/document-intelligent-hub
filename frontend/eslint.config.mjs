@@ -21,6 +21,54 @@ const eslintConfig = defineConfig([
       complexity: ["error", { max: 15 }],
     },
   },
+  {
+    files: ["hooks/**/*.{ts,tsx}", "stores/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?:@/|(?:\\.\\./)+)(?:app|components)(?:/|$)",
+              message: "Hooks and stores must not depend on routes or presentation components.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["app/api/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?:@/|(?:\\.\\./)+)(?:components|hooks|contexts|stores|providers)(?:/|$)",
+              message: "Server route adapters must not import client UI or state workflows.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["{components,contexts,providers}/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?:@/|(?:\\.\\./)+)app(?:/|$)",
+              message: "Client workflows must call API adapters, never import route modules.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
