@@ -1248,27 +1248,6 @@ class AnswerGenerationService:
 
         return citations
 
-    def _append_sources_to_answer(
-        self, answer: str, source_documents: list[str], target_language: str
-    ) -> str:
-        """
-        Append source citations to answer.
-
-        Args:
-            answer: Generated answer
-            source_documents: List of source filenames
-            target_language: Target language for sources label
-
-        Returns:
-            Answer with appended sources
-        """
-        if not source_documents:
-            return answer
-
-        sources_label = self._get_sources_label(target_language)
-        sources_list = "\n".join([f"- {doc}" for doc in source_documents])
-        return f"{answer}\n\n📚 {sources_label}:\n{sources_list}"
-
     def _get_fallback_response(self) -> str:
         """
         Generate fallback response on error.
@@ -1280,45 +1259,3 @@ class AnswerGenerationService:
             Translated error message
         """
         return "An unexpected error occurred during answer generation."
-
-    def _handle_no_documents(
-        self, query_language: str
-    ) -> tuple[str, list[SourceCitationData]]:
-        """
-        Handle case when no documents are retrieved.
-
-        Args:
-            query_language: Original query language code
-
-        Returns:
-            Tuple of (fallback_message, empty_source_list)
-        """
-        logger.warning("⚠️ No relevant documents found")
-        fallback_answer = (
-            "I cannot answer this question based on the documents provided."
-        )
-        translated_fallback = self.language_service.translate_answer_back(
-            fallback_answer, query_language
-        )
-        logger.debug("Fallback answer translated to {}", query_language)
-        return translated_fallback, []
-
-    def _get_sources_label(self, language_code: str) -> str:
-        """
-        Get translated 'Sources' label.
-
-        Args:
-            language_code: ISO language code (IT, EN, FR, etc.)
-
-        Returns:
-            Translated label for 'Sources'
-        """
-        sources_translations = {
-            "IT": "Fonti",
-            "EN": "Sources",
-            "FR": "Sources",
-            "DE": "Quellen",
-            "ES": "Fuentes",
-            "PT": "Fontes",
-        }
-        return sources_translations.get(language_code, "Sources")
