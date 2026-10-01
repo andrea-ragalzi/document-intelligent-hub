@@ -29,7 +29,7 @@ unstructured = { extras = ["pdf"], version = "^0.18.18" }
 langchain-chroma = "^1.0.0"
 lingua-language-detector = "^2.1.1"
 translate = "^3.8.0"
-python-dotenv = "^1.2.1"
+python-dotenv = "^1.2.3"
 firebase-admin = "^7.1.0"
 aiofiles = "^25.1.0"
 loguru = "^0.7.0"
